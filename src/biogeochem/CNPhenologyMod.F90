@@ -1720,7 +1720,7 @@ contains
          croplive          =>    crop_inst%croplive_patch                      , & ! Output: [logical  (:) ]  Flag, true if planted, not harvested               
          cropplant         =>    crop_inst%cropplant_patch                     , & ! Output: [logical  (:) ]  Flag, true if crop may be planted                  
          vf                =>    crop_inst%vf_patch                            , & ! Output: [real(r8) (:) ]  vernalization factor                              
-         cropevent         =>    crop_inst%cropevent_patch                     , & ! Inout:  [integer  (:) ]  crop event occurrence today                              
+         cropevent         =>    crop_inst%cropevent_patch                     , & ! Inout:  [real(r8) (:) ]  crop event occurrence today                              
          peaklai           =>  cnveg_state_inst%peaklai_patch                  , & ! Output: [integer  (:) ] 1: max allowed lai; 0: not at max                  
          tlai              =>    canopystate_inst%tlai_patch                   , & ! Input:  [real(r8) (:) ]  one-sided leaf area index, no burying by snow     
          
@@ -1807,7 +1807,7 @@ contains
          end if
 
          ! Unless sowing or harvest is triggered today, cropevent should be 0.
-         cropevent(p) = 0
+         cropevent(p) = 0._r8
 
          if ( (.not. croplive(p)) .and. (.not. cropplant(p)) ) then
 
@@ -2080,9 +2080,9 @@ contains
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = 4._r8
                if (hui(p) >= gddmaturity(p)) then 
-                  cropevent(p) = 2
+                  cropevent(p) = 2._r8
                else
-                  cropevent(p) = 3
+                  cropevent(p) = 3._r8
                end if
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
@@ -2265,7 +2265,7 @@ contains
       cropplant(p) = .true.
       idop(p)      = jday
       harvdate(p)  = NOT_Harvested
-      crop_inst%cropevent_patch(p) = 1
+      crop_inst%cropevent_patch(p) = 1._r8
 
       leafc_xfer(p)  = initial_seed_at_planting
       leafn_xfer(p) = leafc_xfer(p) / leafcn_in ! with onset

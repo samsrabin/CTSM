@@ -38,7 +38,7 @@ module CropType
      real(r8), pointer :: vf_patch                (:)   ! patch vernalization factor for cereal
      real(r8), pointer :: cphase_patch            (:)   ! phenology phase
      real(r8), pointer :: latbaset_patch          (:)   ! Latitude vary baset for gddplant (degree C)
-     integer , pointer :: cropevent_patch         (:)   ! 1 if sown today, 2 if harvested today at maturity, 3 if harvested today due to reaching max growing season length, 0 otherwise
+     real(r8), pointer :: cropevent_patch         (:)   ! 1 if sown today, 2 if harvested today at maturity, 3 if harvested today due to reaching max growing season length, 0 otherwise
      character(len=20) :: baset_mapping
      real(r8) :: baset_latvary_intercept
      real(r8) :: baset_latvary_slope
@@ -200,7 +200,7 @@ contains
     allocate(this%vf_patch       (begp:endp)) ; this%vf_patch       (:) = 0.0_r8
     allocate(this%cphase_patch   (begp:endp)) ; this%cphase_patch   (:) = 0.0_r8
     allocate(this%latbaset_patch (begp:endp)) ; this%latbaset_patch (:) = spval
-    allocate(this%cropevent_patch (begp:endp)) ; this%cropevent_patch (:) = 0
+    allocate(this%cropevent_patch (begp:endp)) ; this%cropevent_patch (:) = 0.0_r8
 
   end subroutine InitAllocate
 
@@ -252,7 +252,7 @@ contains
     this%cropevent_patch(begp:endp) = spval
     call hist_addfld1d (fname='CROPEVENT', units='0-no event today, 1-sown today, 2-harvested today at maturity, 3-harvested today due to reaching max growing season length', &
          avgflag='A', long_name='crop sowing or harvest event', &
-         ptr_patch=this%cropevent_patch, default='active')
+         ptr_patch=this%cropevent_patch, default='inactive')
 
   end subroutine InitHistory
 
