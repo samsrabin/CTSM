@@ -1807,7 +1807,9 @@ contains
          end if
 
          ! Unless sowing or harvest is triggered today, cropevent should be 0.
-         cropevent(p) = 0._r8
+         if (mcsec == 0) then
+            cropevent(p) = 0._r8
+         end if
 
          if ( (.not. croplive(p)) .and. (.not. cropplant(p)) ) then
 

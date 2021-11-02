@@ -251,7 +251,7 @@ contains
 
     this%cropevent_patch(begp:endp) = spval
     call hist_addfld1d (fname='CROPEVENT', units='0-no event today, 1-sown today, 2-harvested today at maturity, 3-harvested today due to reaching max growing season length', &
-         avgflag='A', long_name='crop sowing or harvest event', &
+         avgflag='I', long_name='crop sowing or harvest event', &
          ptr_patch=this%cropevent_patch, default='inactive')
 
   end subroutine InitHistory
