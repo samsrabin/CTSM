@@ -1300,4 +1300,5 @@ CTSM History Fields
 1285 soil_co2_prod                       soil_co2_prod                                                                                  ug C / g soil / day                                                    F
 1286 watfc                               water field capacity                                                                           m^3/m^3                                                                F
 1287 watsat                              water saturated                                                                                m^3/m^3                                                                F
+1287 cropevent                           crop sowing or harvest event                                                                   0-no event, 1-sown, 2-harvest (mature), 3-harvest (max gs length)      F
 ==== =================================== ============================================================================================== ================================================================= ======= 
