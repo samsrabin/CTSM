@@ -1672,6 +1672,8 @@ contains
     use clm_varctl       , only : use_fertilizer 
     use clm_varctl       , only : use_c13, use_c14
     use clm_varcon       , only : c13ratio, c14ratio
+    ! SSR troubleshooting
+    use clm_time_manager , only : get_prev_date
     !
     ! !ARGUMENTS:
     integer                        , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
@@ -1701,6 +1703,12 @@ contains
     real(r8) ndays_on ! number of days to fertilize
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
+    ! SSR troubleshooting
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
+
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1765,6 +1773,9 @@ contains
       dayspyr = get_curr_days_per_year()
       jday    = get_prev_calday()
 
+      ! SSR troubleshooting
+      call get_prev_date(kyr, kmo, kda, mcsec)
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1820,7 +1831,6 @@ contains
          end if
 
 
-         ! Once outputs can handle >1 planting per year, remove 2nd condition.
          if ( (.not. croplive(p)) .and. sowing_count(p) == 0 ) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
