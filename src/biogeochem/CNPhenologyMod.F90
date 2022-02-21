@@ -1806,6 +1806,10 @@ contains
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
 !            write(iulog,*) 'CropPhenology(): Setting sowing_count to 0 for patch ',p
+            ! SSR troubleshooting
+            if ( (ivt(p) == nrice .or. ivt(p) == nirrig_rice) ) then
+                write (iulog,'(a,i2,a,i5)') 'Resetting rice hemi ',h,' in year ',kyr
+            end if
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -1907,6 +1911,15 @@ contains
                                      gdd820(p) /= spval
 
                if (do_plant_normal .or. do_plant_lastchance) then
+
+                   ! SSR troubleshooting
+                   if ( (ivt(p) == nrice .or. ivt(p) == nirrig_rice) ) then
+                       if (do_plant_normal) then
+                           write (iulog,'(a,i2,a,i4,a,i4,i4)') 'Planting rice hemi ',h,' on jday ',jday,' (normal), swindow ',minplantjday(ivt(p),h),maxplantjday(ivt(p),h)
+                       else
+                           write (iulog,'(a,i2,a,i4,a,i4,i4)') 'Planting rice hemi ',h,' on jday ',jday,' (last-chance), swindow ',minplantjday(ivt(p),h),maxplantjday(ivt(p),h)
+                       end if
+                   end if
 
                   call PlantCrop(p, leafcn(ivt(p)), jday, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
