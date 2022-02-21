@@ -1794,6 +1794,10 @@ contains
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
+
+            ! SSR troubleshooting
+            write(iulog,*) 'CropPhenology(): Setting sowing_count to 0 for patch ',p
+
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -2247,6 +2251,9 @@ contains
          crop_seedc_to_leaf =>   cnveg_carbonflux_inst%crop_seedc_to_leaf_patch  , & ! Output: [real(r8) (:) ]  (gC/m2/s) seed source to leaf
          crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
          )
+
+     ! SSR troubleshooting
+     write (iulog,*)  'PlantCrop(): Planting patch ',p
 
       ! impose limit on growing season length needed
       ! for crop maturity - for cold weather constraints
