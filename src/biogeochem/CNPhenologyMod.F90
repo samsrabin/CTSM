@@ -2107,6 +2107,7 @@ contains
                crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = 4._r8
+               cnveg_state_inst%idop_patch_real(p) = -1._r8
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
@@ -2292,6 +2293,9 @@ contains
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
       crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
+
+      ! SSR troubleshooting
+      cnveg_state_inst%idop_patch_real(p) = real(jday, r8)
 
       leafc_xfer(p)  = initial_seed_at_planting
       leafn_xfer(p) = leafc_xfer(p) / leafcn_in ! with onset

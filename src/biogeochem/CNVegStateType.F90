@@ -44,6 +44,7 @@ module CNVegStateType
      integer  , pointer :: peaklai_patch               (:)     ! patch 1: max allowed lai; 0: not at max
 
      integer  , pointer :: idop_patch                  (:)     ! patch date of planting
+     real(r8) , pointer :: idop_patch_real             (:)     ! patch date of planting
 
      real(r8) , pointer :: lgdp_col                    (:)     ! col gdp limitation factor for fire occurrence (0-1)
      real(r8) , pointer :: lgdp1_col                   (:)     ! col gdp limitation factor for fire spreading (0-1)
@@ -205,6 +206,7 @@ contains
     allocate(this%peaklai_patch       (begp:endp))                   ; this%peaklai_patch       (:)   = 0
 
     allocate(this%idop_patch          (begp:endp))                   ; this%idop_patch          (:)   = huge(1)
+    allocate(this%idop_patch_real     (begp:endp))                   ; this%idop_patch_real     (:)   = -1.0_r8
 
     allocate(this%lgdp_col            (begc:endc))                   ;
     allocate(this%lgdp1_col           (begc:endc))                   ;
@@ -290,6 +292,12 @@ contains
        call hist_addfld1d (fname='GDDHARV', units='ddays', &
             avgflag='A', long_name='Growing degree days (gdd) needed to harvest', &
             ptr_patch=this%gddmaturity_patch, default='inactive')
+       
+       ! SSR troubleshooting
+       this%idop_patch_real(begp:endp) = -1._r8
+       call hist_addfld1d (fname='IDOP', units='days', &
+            avgflag='I', long_name='Day of latest planting for this patch', &
+            ptr_patch=this%idop_patch_real, default='inactive')
     end if
 
     this%lfc2_col(begc:endc) = spval
