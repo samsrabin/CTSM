@@ -1796,7 +1796,7 @@ contains
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
 
             ! SSR troubleshooting
-            write(iulog,*) 'CropPhenology(): Setting sowing_count to 0 for patch ',p
+!            write(iulog,*) 'CropPhenology(): Setting sowing_count to 0 for patch ',p
 
             sowing_count(p) = 0
             harvest_count(p) = 0
@@ -2253,7 +2253,7 @@ contains
          )
 
      ! SSR troubleshooting
-     write (iulog,*)  'PlantCrop(): Planting patch ',p
+!     write (iulog,*)  'PlantCrop(): Planting patch ',p
 
       ! impose limit on growing season length needed
       ! for crop maturity - for cold weather constraints
