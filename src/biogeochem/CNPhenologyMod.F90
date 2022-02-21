@@ -2107,7 +2107,14 @@ contains
                crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = 4._r8
+
+               ! SSR troubleshooting
                cnveg_state_inst%idop_patch_real(p) = -1._r8
+               ! SSR troubleshooting
+               if ( (ivt(p) == nrice .or. ivt(p) == nirrig_rice) ) then
+                   write (iulog,'(a,i2,a,i4,a,i4)') 'Harvesting rice hemi ',h,' on jday ',jday,' idop ',idop(p)
+               end if
+
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
