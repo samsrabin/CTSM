@@ -1672,6 +1672,8 @@ contains
     use clm_varctl       , only : use_fertilizer 
     use clm_varctl       , only : use_c13, use_c14
     use clm_varcon       , only : c13ratio, c14ratio
+    ! SSR troubleshooting
+    use clm_time_manager , only : get_prev_date
     !
     ! !ARGUMENTS:
     integer                        , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
@@ -1701,6 +1703,16 @@ contains
     real(r8) ndays_on ! number of days to fertilize
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
+    ! SSR troubleshooting
+    logical skip_this_year
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
+    integer,dimension(6) :: patches_2000
+    integer,dimension(3) :: patches_2001
+    integer pp
+
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1765,6 +1777,11 @@ contains
       dayspyr = get_curr_days_per_year()
       jday    = get_prev_calday()
 
+      ! SSR troubleshooting
+      call get_prev_date(kyr, kmo, kda, mcsec)
+      patches_2000 = (/ 596, 3879, 2883, 3923, 4009, 4393 /)
+      patches_2001 = (/ 2884, 3880, 3954 /)
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1789,6 +1806,24 @@ contains
 
          ! initialize other variables that are calculated for crops
          ! on an annual basis in cropresidue subroutine
+
+         ! SSR troubleshooting
+         skip_this_year = .false.
+         if (kyr == 2000) then
+             do pp = 1, size(patches_2000)
+                 if (p == patches_2000(pp)) then
+                     skip_this_year = .true.
+                     exit
+                 end if
+             end do
+         else if (kyr == 2001) then
+             do pp = 1, size(patches_2001)
+                 if (p == patches_2001(pp)) then
+                     skip_this_year = .true.
+                     exit
+                 end if
+             end do
+         end if
 
          ! Second condition ensures everything is correctly set when resuming from a run with old code
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
@@ -1820,8 +1855,7 @@ contains
          end if
 
 
-         ! Once outputs can handle >1 planting per year, remove 2nd condition.
-         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 ) then
+         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. (.not. skip_this_year) ) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
             ! to reach full physiological maturity
