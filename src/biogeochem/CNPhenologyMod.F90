@@ -1805,10 +1805,7 @@ contains
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
-
-            ! SSR troubleshooting
 !            write(iulog,*) 'CropPhenology(): Setting sowing_count to 0 for patch ',p
-
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -1817,6 +1814,15 @@ contains
             do s = 1, mxharvests
                crop_inst%hdates_thisyr(p,s) = -1._r8
             end do
+         end if
+
+         ! SSR troubleshooting
+         if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
+             if (croplive(p)) then
+                 crop_inst%croplive_beghemyr_patch(p) = .true.
+             else
+                 crop_inst%croplive_beghemyr_patch(p) = .false.
+             end if
          end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
@@ -1831,7 +1837,8 @@ contains
          end if
 
 
-         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 ) then
+         ! Once outputs can handle >1 planting per year, remove 2nd condition.
+         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. (.not. crop_inst%croplive_beghemyr_patch(p))) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
             ! to reach full physiological maturity

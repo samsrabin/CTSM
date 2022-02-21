@@ -43,6 +43,8 @@ module CropType
      real(r8), pointer :: hdates_thisyr           (:,:) ! all actual harvest dates for this patch this year
      integer , pointer :: sowing_count            (:)   ! number of sowing events this year for this patch
      integer , pointer :: harvest_count           (:)   ! number of sowing events this year for this patch
+     ! SSR troubleshooting
+     logical , pointer :: croplive_beghemyr_patch    (:)   ! patch Flag, true if planted, not harvested in first timestep of year
 
    contains
      ! Public routines
@@ -195,6 +197,7 @@ contains
 
     allocate(this%nyrs_crop_active_patch(begp:endp)) ; this%nyrs_crop_active_patch(:) = 0
     allocate(this%croplive_patch (begp:endp)) ; this%croplive_patch (:) = .false.
+    allocate(this%croplive_beghemyr_patch (begp:endp)) ; this%croplive_beghemyr_patch (:) = .false.
     allocate(this%harvdate_patch (begp:endp)) ; this%harvdate_patch (:) = huge(1) 
     allocate(this%fertnitro_patch (begp:endp)) ; this%fertnitro_patch (:) = spval
     allocate(this%gddplant_patch (begp:endp)) ; this%gddplant_patch (:) = spval
