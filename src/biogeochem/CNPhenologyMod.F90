@@ -1809,7 +1809,8 @@ contains
          ! on an annual basis in cropresidue subroutine
 
          ! SSR troubleshooting
-         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg .and. ivt(p) == verbose_ivt
+!         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg .and. ivt(p) == verbose_ivt
+         verbose = .false.
          if (verbose) then
             write (iulog,'(a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') 'cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
          end if
