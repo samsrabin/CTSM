@@ -1852,14 +1852,17 @@ contains
          ! with CropPhenology() getting the day of the year from the START of the timestep
          ! (i.e., jday = get_prev_calday()) instead of the END of the timestep (i.e.,
          ! jday = get_calday()). See CTSM issue #1623.
-!        if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
-         if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0 &
+!         if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
+!         if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0 &
+!             .and. (.not. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h)))) then
+!             .and. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h))) then
+         if (croplive(p) .and. idop(p) == jday .and. sowing_count(p) == 0 &
              .and. (.not. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h)))) then
              if (verbose) then
                 write (iulog,*) 'cpv   manually setting sowing_count and sdates_thisyr'
              end if
              sowing_count(p) = 1
-             crop_inst%sdates_thisyr(p,1) = 1._r8
+             crop_inst%sdates_thisyr(p,1) = real(jday, r8)
          end if
 
          if (verbose) then
