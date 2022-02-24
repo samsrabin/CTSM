@@ -1856,7 +1856,8 @@ contains
 !         if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0 &
 !             .and. (.not. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h)))) then
 !             .and. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h))) then
-         if (croplive(p) .and. idop(p) == jday .and. sowing_count(p) == 0 &
+!         if (croplive(p) .and. idop(p) == jday .and. sowing_count(p) == 0 &
+         if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0 &
              .and. (.not. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h)))) then
              if (verbose) then
                 write (iulog,*) 'cpv   manually setting sowing_count and sdates_thisyr'
