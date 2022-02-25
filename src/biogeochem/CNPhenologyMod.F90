@@ -1857,7 +1857,7 @@ contains
                  crop_inst%croplive_beghemyr_patch(p) = .false.
                  idop(p) = -1
              end if
-         else if (croplive(p)) then
+         else if (idop(p) > 0) then
              if (jday >= idop(p)) then
                 idpp = jday - idop(p)
              else
@@ -1866,7 +1866,10 @@ contains
              end if
              crop_inst%croplive_beghemyr_patch(p) = idpp >= jday
          else
-             crop_inst%croplive_beghemyr_patch(p) = idop(p) == -1
+             crop_inst%croplive_beghemyr_patch(p) = .false.
+         end if
+         if (verbose) then
+            write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p)
          end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
