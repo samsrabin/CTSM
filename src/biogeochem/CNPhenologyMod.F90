@@ -1842,13 +1842,31 @@ contains
             end do
          end if
 
-         ! SSR troubleshooting
+         ! SSR troubleshooting: Trying to reproduce previous results exactly
+!         if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
+!             if (croplive(p)) then
+!                 crop_inst%croplive_beghemyr_patch(p) = .true.
+!             else
+!                 crop_inst%croplive_beghemyr_patch(p) = .false.
+!             end if
+!         end if
          if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
              if (croplive(p)) then
                  crop_inst%croplive_beghemyr_patch(p) = .true.
              else
                  crop_inst%croplive_beghemyr_patch(p) = .false.
+                 idop(p) = -1
              end if
+         else if (croplive(p)) then
+             if (jday >= idop(p)) then
+                idpp = jday - idop(p)
+             else
+                ! Should this actually be dayspyr of PREVIOUS year?
+                idpp = int(dayspyr) + jday - idop(p)
+             end if
+             crop_inst%croplive_beghemyr_patch(p) = idpp >= jday
+         else
+             crop_inst%croplive_beghemyr_patch(p) = idop(p) == -1
          end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
@@ -2119,6 +2137,7 @@ contains
             if (jday >= idop(p)) then
                idpp = jday - idop(p)
             else
+               ! Should this actually be dayspyr of PREVIOUS year?
                idpp = int(dayspyr) + jday - idop(p)
             end if
 
