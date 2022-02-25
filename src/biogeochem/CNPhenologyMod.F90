@@ -1712,6 +1712,7 @@ contains
     real(r8) verbose_latdeg
     integer verbose_ivt
     logical verbose
+    character(len=4) p_str
 
     !------------------------------------------------------------------------
 
@@ -1779,9 +1780,9 @@ contains
 
       ! SSR troubleshooting
       call get_prev_date(kyr, kmo, kda, mcsec)
-      verbose_londeg = 300._r8
-      verbose_latdeg = 0._r8
-      verbose_ivt = nirrig_rice
+      verbose_londeg = 285._r8
+      verbose_latdeg = -50._r8
+      verbose_ivt = nrice
 
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
@@ -1810,9 +1811,13 @@ contains
 
          ! SSR troubleshooting
 !         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg .and. ivt(p) == verbose_ivt
-         verbose = .false.
+!         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg
+!         verbose = grc%londeg(g) >= verbose_londeg - 1._r8 .and. grc%londeg(g) <= verbose_londeg + 1._r8 .and. grc%latdeg(g) >= verbose_latdeg - 1._r8 .and. grc%latdeg(g) <= verbose_latdeg +1._r8
+!         verbose = .false.
+         verbose = ivt(p) == verbose_ivt
+         write(p_str, '(i4)') p
          if (verbose) then
-            write (iulog,'(a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') 'cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
+            write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
          end if
 
          ! Second condition ensures everything is correctly set when resuming from a run with old code
@@ -1824,7 +1829,7 @@ contains
 !            write(iulog,*) 'CropPhenology(): Setting sowing_count to 0 for patch ',p
             !if ( (ivt(p) == nrice .or. ivt(p) == nirrig_rice) ) then
             if ( verbose ) then
-                write (iulog,*) 'cpv   Resetting [sh]counts and [sh]dates]'
+                write (iulog,*) p_str,' cpv   Resetting [sh]counts and [sh]dates]'
             end if
 
             sowing_count(p) = 0
@@ -1860,16 +1865,16 @@ contains
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0 &
              .and. (.not. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h)))) then
              if (verbose) then
-                write (iulog,*) 'cpv   manually setting sowing_count and sdates_thisyr'
+                write (iulog,*) p_str,' cpv   manually setting sowing_count and sdates_thisyr'
              end if
              sowing_count(p) = 1
              crop_inst%sdates_thisyr(p,1) = real(jday, r8)
          end if
 
          if (verbose) then
-            write (iulog,*) 'cpv   sowing_count ',sowing_count(p)
-            write (iulog,*) 'cpv   harvest_count ',harvest_count(p)
-            write (iulog,*) 'cpv   croplive ',croplive(p)
+            write (iulog,*) p_str,' cpv   sowing_count ',sowing_count(p)
+            write (iulog,*) p_str,' cpv   harvest_count ',harvest_count(p)
+            write (iulog,*) p_str,' cpv   croplive ',croplive(p)
          end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
@@ -1947,16 +1952,16 @@ contains
 
                ! SSR troubleshooting
                if (verbose) then
-                  write (iulog,*) 'cpv   t10 ',t10(p)
-                  write (iulog,*) 'cpv   a10tmin ',a10tmin(p)
-                  write (iulog,*) 'cpv   gdd820 ',gdd820(p)
-                  write (iulog,*) 'cpv   minplantjday ',minplantjday(ivt(p),h)
-                  write (iulog,*) 'cpv   maxplantjday ',maxplantjday(ivt(p),h)
-                  write (iulog,*) 'cpv   gddmin',gddmin(ivt(p))
+                  write (iulog,*) p_str,' cpv   t10 ',t10(p)
+                  write (iulog,*) p_str,' cpv   a10tmin ',a10tmin(p)
+                  write (iulog,*) p_str,' cpv   gdd820 ',gdd820(p)
+                  write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   gddmin',gddmin(ivt(p))
                   if (do_plant_normal) then
-                      write (iulog,*) 'cpv   do_plant_normal'
+                      write (iulog,*) p_str,' cpv   do_plant_normal'
                   else if (do_plant_lastchance) then
-                      write (iulog,*) 'cpv   do_plant_lastchance'
+                      write (iulog,*) p_str,' cpv   do_plant_lastchance'
                   end if
                end if
 
@@ -2046,6 +2051,10 @@ contains
                huigrain(p) = grnfill(ivt(p)) * gddmaturity(p) ! al. 1999
             end if
 
+         ! SSR troubleshooting
+         else if ( (.not. croplive(p)) .and. sowing_count(p) == 0) then
+               write (iulog,*) p_str,' cpv   skipping sowing test because was alive at beginning of year'
+
          end if ! crop not live nor planted
 
          ! ----------------------------------
@@ -2125,6 +2134,13 @@ contains
                hui(p) = max(hui(p),huigrain(p))
             endif
 
+            ! SSR troubleshooting
+            if (verbose) then
+               write (iulog,*) p_str,' cpv   live;   idop',idop(p)
+               write (iulog,*) p_str,' cpv   live;   idpp',idpp
+               write (iulog,*) p_str,' cpv   live; cphase',cphase(p)
+            end if
+
             if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat(ivt(p))) then
                cphase(p) = 2._r8
                if (abs(onset_counter(p)) > 1.e-6_r8) then
@@ -2165,7 +2181,7 @@ contains
 !                   write (iulog,'(a,i2,a,i4,a,i4)') 'Harvesting rice hemi ',h,' on jday ',jday,' idop ',idop(p)
 !               end if
                if (verbose) then
-                  write (iulog,*) 'cpv   HARVESTING'
+                  write (iulog,*) p_str,' cpv   HARVESTING'
                end if
 
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
@@ -2199,13 +2215,6 @@ contains
             else if (hui(p) >= huigrain(p)) then
                cphase(p) = 3._r8
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*dayspyr*secspday)
-            end if
-
-            ! SSR troubleshooting
-            if (verbose) then
-               write (iulog,*) 'cpv   live;   idop',idop(p)
-               write (iulog,*) 'cpv   live;   idpp',idpp
-               write (iulog,*) 'cpv   live; cphase',cphase(p)
             end if
 
             ! continue fertilizer application while in phase 2;
