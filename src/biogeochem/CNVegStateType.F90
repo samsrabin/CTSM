@@ -46,6 +46,9 @@ module CNVegStateType
      integer  , pointer :: idop_patch                  (:)     ! patch date of planting
      real(r8) , pointer :: idop_patch_real             (:)     ! patch date of planting
 
+     ! SSR troubleshooting
+     integer  , pointer :: idpp_patch                  (:)     ! patch date of planting
+
      real(r8) , pointer :: lgdp_col                    (:)     ! col gdp limitation factor for fire occurrence (0-1)
      real(r8) , pointer :: lgdp1_col                   (:)     ! col gdp limitation factor for fire spreading (0-1)
      real(r8) , pointer :: lpop_col                    (:)     ! col pop limitation factor for fire spreading (0-1)
@@ -206,7 +209,10 @@ contains
     allocate(this%peaklai_patch       (begp:endp))                   ; this%peaklai_patch       (:)   = 0
 
     allocate(this%idop_patch          (begp:endp))                   ; this%idop_patch          (:)   = huge(1)
+
+    ! SSR troubleshooting
     allocate(this%idop_patch_real     (begp:endp))                   ; this%idop_patch_real     (:)   = -1.0_r8
+    allocate(this%idpp_patch          (begp:endp))                   ; this%idpp_patch          (:)   = huge(1)
 
     allocate(this%lgdp_col            (begc:endc))                   ;
     allocate(this%lgdp1_col           (begc:endc))                   ;
@@ -787,6 +793,12 @@ contains
        call restartvar(ncid=ncid, flag=flag,  varname='idop', xtype=ncd_int,  &
             dim1name='pft', long_name='Date of planting', units='jday', nvalid_range=(/1,366/), &
             interpinic_flag='interp', readvar=readvar, data=this%idop_patch)
+
+       ! SSR troubleshooting
+       ! BACKWARDS_COMPATIBILITY(ssr, 2022-02-25)
+       call restartvar(ncid=ncid, flag=flag,  varname='idpp', xtype=ncd_int,  &
+            dim1name='pft', long_name='Days past planting', units='days', &
+            interpinic_flag='interp', readvar=readvar, data=this%idpp_patch)
 
        call restartvar(ncid=ncid, flag=flag,  varname='aleaf', xtype=ncd_double,  &
             dim1name='pft', long_name='leaf allocation coefficient', units='', &

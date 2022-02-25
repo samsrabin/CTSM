@@ -1697,7 +1697,6 @@ contains
     integer g         ! gridcell indices
     integer h         ! hemisphere indices
     integer s         ! growing season indices
-    integer idpp      ! number of days past planting
     real(r8) dayspyr  ! days per year
     real(r8) crmcorn  ! comparitive relative maturity for corn
     real(r8) ndays_on ! number of days to fertilize
@@ -1750,6 +1749,7 @@ contains
          tlai              =>    canopystate_inst%tlai_patch                   , & ! Input:  [real(r8) (:) ]  one-sided leaf area index, no burying by snow     
          
          idop              =>    cnveg_state_inst%idop_patch                   , & ! Output: [integer  (:) ]  date of planting                                   
+         idpp              =>    cnveg_state_inst%idpp_patch                   , & ! Output: [integer  (:) ]  days since planting                                
          gddmaturity       =>    cnveg_state_inst%gddmaturity_patch            , & ! Output: [real(r8) (:) ]  gdd needed to harvest                             
          huileaf           =>    cnveg_state_inst%huileaf_patch                , & ! Output: [real(r8) (:) ]  heat unit index needed from planting to leaf emergence
          huigrain          =>    cnveg_state_inst%huigrain_patch               , & ! Output: [real(r8) (:) ]  same to reach vegetative maturity                 
@@ -1850,6 +1850,26 @@ contains
 !                 crop_inst%croplive_beghemyr_patch(p) = .false.
 !             end if
 !         end if
+         if (idpp(p) >= 0 .and. idpp(p) < huge(1)) then
+             if (mcsec == 0) then
+                 idpp(p) = idpp(p) + 1
+             end if
+         else if (croplive(p)) then
+             if (idpp(p) == huge(1)) then
+                 if (jday >= idop(p)) then
+                    idpp(p) = jday - idop(p)
+                 else
+                    ! Should this actually be dayspyr of PREVIOUS year?
+                    idpp(p) = int(dayspyr) + jday - idop(p)
+                 end if
+                 if (verbose) then
+                    write (iulog,*) p_str,' cpv   Setting idpp to ',idpp(p)
+                 end if
+             else
+                 write (iulog,*) p_str,'Crop is alive but idpp ',idpp(p)
+                 call endrun(msg="Crop is alive but idpp is bad"//errmsg(sourcefile, __LINE__))
+             end if
+         end if
          if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
              if (croplive(p)) then
                  crop_inst%croplive_beghemyr_patch(p) = .true.
@@ -1862,14 +1882,8 @@ contains
              end if
              write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (year start)'
          else if (idop(p) > 0) then
-             if (jday >= idop(p)) then
-                idpp = jday - idop(p)
-             else
-                ! Should this actually be dayspyr of PREVIOUS year?
-                idpp = int(dayspyr) + jday - idop(p)
-             end if
-             crop_inst%croplive_beghemyr_patch(p) = idpp >= jday
-             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp,')'
+             crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
+             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
          else
              crop_inst%croplive_beghemyr_patch(p) = .false.
              write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
@@ -2140,12 +2154,12 @@ contains
 
             ! days past planting may determine harvest
 
-            if (jday >= idop(p)) then
-               idpp = jday - idop(p)
-            else
-               ! Should this actually be dayspyr of PREVIOUS year?
-               idpp = int(dayspyr) + jday - idop(p)
-            end if
+!            if (jday >= idop(p)) then
+!               idpp = jday - idop(p)
+!            else
+!               ! Should this actually be dayspyr of PREVIOUS year?
+!               idpp = int(dayspyr) + jday - idop(p)
+!            end if
 
             ! onset_counter initialized to zero when .not. croplive
             ! offset_counter relevant only at time step of harvest
@@ -2162,11 +2176,11 @@ contains
             ! SSR troubleshooting
             if (verbose) then
                write (iulog,*) p_str,' cpv   live;   idop',idop(p)
-               write (iulog,*) p_str,' cpv   live;   idpp',idpp
+               write (iulog,*) p_str,' cpv   live;   idpp',idpp(p)
                write (iulog,*) p_str,' cpv   live; cphase',cphase(p)
             end if
 
-            if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat(ivt(p))) then
+            if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp(p) < mxmat(ivt(p))) then
                cphase(p) = 2._r8
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
@@ -2192,7 +2206,7 @@ contains
                ! the onset_counter would change from dt and you'd need to make
                ! changes to the offset subroutine below
 
-            else if (hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
+            else if (hui(p) >= gddmaturity(p) .or. idpp(p) >= mxmat(ivt(p))) then
                if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
                harvest_count(p) = harvest_count(p) + 1
                crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
@@ -2397,6 +2411,7 @@ contains
 
       ! SSR troubleshooting
       cnveg_state_inst%idop_patch_real(p) = real(jday, r8)
+      cnveg_state_inst%idpp_patch(p) = 0
 
       leafc_xfer(p)  = initial_seed_at_planting
       leafn_xfer(p) = leafc_xfer(p) / leafcn_in ! with onset
