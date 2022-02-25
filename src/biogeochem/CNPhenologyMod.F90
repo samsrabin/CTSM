@@ -1855,8 +1855,12 @@ contains
                  crop_inst%croplive_beghemyr_patch(p) = .true.
              else
                  crop_inst%croplive_beghemyr_patch(p) = .false.
+                 if (verbose) then
+                    write (iulog,*) p_str,' cpv   Setting idop to -1'
+                 end if
                  idop(p) = -1
              end if
+             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (year start)'
          else if (idop(p) > 0) then
              if (jday >= idop(p)) then
                 idpp = jday - idop(p)
@@ -1865,11 +1869,10 @@ contains
                 idpp = int(dayspyr) + jday - idop(p)
              end if
              crop_inst%croplive_beghemyr_patch(p) = idpp >= jday
+             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp,')'
          else
              crop_inst%croplive_beghemyr_patch(p) = .false.
-         end if
-         if (verbose) then
-            write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p)
+             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
          end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
