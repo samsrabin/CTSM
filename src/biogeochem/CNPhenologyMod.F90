@@ -1913,6 +1913,10 @@ contains
             write (iulog,*) p_str,' cpv   sowing_count ',sowing_count(p)
             write (iulog,*) p_str,' cpv   harvest_count ',harvest_count(p)
             write (iulog,*) p_str,' cpv   croplive ',croplive(p)
+            write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+            write (iulog,*) p_str,' cpv   minplantjday ok? ',idop(p) >= minplantjday(ivt(p),h)
+            write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+            write (iulog,*) p_str,' cpv   maxplantjday ok? ',idop(p) >= maxplantjday(ivt(p),h)
          end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
