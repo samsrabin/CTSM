@@ -1714,6 +1714,7 @@ contains
     character(len=4) p_str
     logical today_in_swindow
     logical idop_in_swindow
+    integer huge_idpp
 
     !------------------------------------------------------------------------
 
@@ -1784,7 +1785,7 @@ contains
       call get_prev_date(kyr, kmo, kda, mcsec)
       verbose_londeg = 285._r8
       verbose_latdeg = -50._r8
-      verbose_ivt = nrice
+      verbose_ivt = ntrp_soybean
 
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
@@ -1852,12 +1853,17 @@ contains
 !                 crop_inst%croplive_beghemyr_patch(p) = .false.
 !             end if
 !         end if
-         if (idpp(p) >= 0 .and. idpp(p) < huge(1)) then
+         !huge_idpp = huge(1)
+         huge_idpp = 1000000
+         if (idpp(p) >= 0 .and. idpp(p) < huge_idpp) then
              if (mcsec == 0) then
+                 if (verbose) then
+                    write (iulog,*) p_str,' cpv   Incrementing idpp from ',idpp(p)
+                 end if
                  idpp(p) = idpp(p) + 1
              end if
          else if (croplive(p)) then
-             if (idpp(p) == huge(1)) then
+             if (idpp(p) >= huge_idpp) then
                  if (jday >= idop(p)) then
                     idpp(p) = jday - idop(p)
                  else
@@ -1917,6 +1923,7 @@ contains
             write (iulog,*) p_str,' cpv   sowing_count ',sowing_count(p)
             write (iulog,*) p_str,' cpv   harvest_count ',harvest_count(p)
             write (iulog,*) p_str,' cpv   croplive ',croplive(p)
+            write (iulog,*) p_str,' cpv   idop ',idop(p)
             write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
             write (iulog,*) p_str,' cpv   minplantjday ok? ',idop(p) >= minplantjday(ivt(p),h)
             write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
