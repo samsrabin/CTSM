@@ -1889,6 +1889,8 @@ contains
                  idop(p) = -1
              end if
              write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (year start)'
+         else if (idop(p) == 999) then
+             crop_inst%croplive_beghemyr_patch(p) = .false.
          else if (idop(p) > 0) then
              crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
              write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
