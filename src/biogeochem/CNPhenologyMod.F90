@@ -1712,6 +1712,8 @@ contains
     integer verbose_ivt
     logical verbose
     character(len=4) p_str
+    logical today_in_swindow
+    logical idop_in_swindow
 
     !------------------------------------------------------------------------
 
@@ -1900,8 +1902,10 @@ contains
 !             .and. (.not. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h)))) then
 !             .and. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h))) then
 !         if (croplive(p) .and. idop(p) == jday .and. sowing_count(p) == 0 &
+         today_in_swindow = jday >= minplantjday(ivt(p),h) .and. jday <= maxplantjday(ivt(p),h)
+         idop_in_swindow = idop(p) >= minplantjday(ivt(p),h) .and. idop(p) <= maxplantjday(ivt(p),h)
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0 &
-             .and. (.not. (idop(p) < minplantjday(ivt(p),h) .or. idop(p) > maxplantjday(ivt(p),h)))) then
+             .and. (today_in_swindow .or. (.not. idop_in_swindow))) then
              if (verbose) then
                 write (iulog,*) p_str,' cpv   manually setting sowing_count and sdates_thisyr'
              end if
