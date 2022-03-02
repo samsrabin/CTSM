@@ -1816,8 +1816,8 @@ contains
 !         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg .and. ivt(p) == verbose_ivt
 !         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg
 !         verbose = grc%londeg(g) >= verbose_londeg - 1._r8 .and. grc%londeg(g) <= verbose_londeg + 1._r8 .and. grc%latdeg(g) >= verbose_latdeg - 1._r8 .and. grc%latdeg(g) <= verbose_latdeg +1._r8
-!         verbose = .false.
-         verbose = ivt(p) == verbose_ivt
+         verbose = .false.
+!         verbose = ivt(p) == verbose_ivt
          write(p_str, '(i4)') p
          if (verbose) then
             write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
@@ -1913,7 +1913,8 @@ contains
          today_in_swindow = jday >= minplantjday(ivt(p),h) .and. jday <= maxplantjday(ivt(p),h)
          idop_in_swindow = idop(p) >= minplantjday(ivt(p),h) .and. idop(p) <= maxplantjday(ivt(p),h)
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0 &
-             .and. (today_in_swindow .or. (.not. idop_in_swindow))) then
+!             .and. (today_in_swindow .or. (.not. idop_in_swindow))) then
+             .and. idop_in_swindow) then
              if (verbose) then
                 write (iulog,*) p_str,' cpv   manually setting sowing_count and sdates_thisyr'
              end if
