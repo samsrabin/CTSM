@@ -1714,6 +1714,7 @@ contains
     character(len=4) p_str
     logical today_in_swindow
     logical idop_in_swindow
+    logical idop_dayafter_swindow
     integer huge_idpp
 
     !------------------------------------------------------------------------
@@ -1915,9 +1916,10 @@ contains
 !         if (croplive(p) .and. idop(p) == jday .and. sowing_count(p) == 0 &
          today_in_swindow = jday >= minplantjday(ivt(p),h) .and. jday <= maxplantjday(ivt(p),h)
          idop_in_swindow = idop(p) >= minplantjday(ivt(p),h) .and. idop(p) <= maxplantjday(ivt(p),h)
+         idop_dayafter_swindow = (idop(p) == maxplantjday(ivt(p),h) + 1) .or. ((maxplantjday(ivt(p),h)==365) .and. (idop(p)==1))
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0 &
-!             .and. (today_in_swindow .or. (.not. idop_in_swindow))) then
-             .and. idop_in_swindow) then
+             ! REPRODUCTION_TEST(ssr, 2022-02-25) 
+             .and. (idop_in_swindow .or. (.not. idop_dayafter_swindow))) then
              if (verbose) then
                 write (iulog,*) p_str,' cpv   manually setting sowing_count and sdates_thisyr'
              end if
