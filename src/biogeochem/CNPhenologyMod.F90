@@ -1783,9 +1783,9 @@ contains
 
       ! SSR troubleshooting
       call get_prev_date(kyr, kmo, kda, mcsec)
-      verbose_londeg = 285._r8
-      verbose_latdeg = -50._r8
-      verbose_ivt = ntrp_soybean
+      verbose_londeg = 0._r8
+      verbose_latdeg = 0._r8
+      verbose_ivt = nsugarcane
 
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
@@ -1813,11 +1813,8 @@ contains
          ! on an annual basis in cropresidue subroutine
 
          ! SSR troubleshooting
-!         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg .and. ivt(p) == verbose_ivt
-!         verbose = grc%londeg(g) == verbose_londeg .and. grc%latdeg(g) == verbose_latdeg
-!         verbose = grc%londeg(g) >= verbose_londeg - 1._r8 .and. grc%londeg(g) <= verbose_londeg + 1._r8 .and. grc%latdeg(g) >= verbose_latdeg - 1._r8 .and. grc%latdeg(g) <= verbose_latdeg +1._r8
+!         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
          verbose = .false.
-!         verbose = ivt(p) == verbose_ivt
          write(p_str, '(i4)') p
          if (verbose) then
             write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
@@ -1888,15 +1885,21 @@ contains
                  end if
                  idop(p) = -1
              end if
-             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (year start)'
+             if (verbose) then
+                 write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (year start)'
+             end if
          else if (idop(p) == 999) then
              crop_inst%croplive_beghemyr_patch(p) = .false.
          else if (idop(p) > 0) then
              crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
-             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
+             if (verbose) then
+                 write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
+             end if
          else
              crop_inst%croplive_beghemyr_patch(p) = .false.
-             write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
+             if (verbose) then
+                 write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
+             end if
          end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
@@ -2023,15 +2026,6 @@ contains
 
                if (do_plant_normal .or. do_plant_lastchance) then
 
-!                   ! SSR troubleshooting
-!                   if ( (ivt(p) == nrice .or. ivt(p) == nirrig_rice) ) then
-!                       if (do_plant_normal) then
-!                           write (iulog,'(a,i2,a,i4,a,i4,i4)') 'Planting rice hemi ',h,' on jday ',jday,' (normal), swindow ',minplantjday(ivt(p),h),maxplantjday(ivt(p),h)
-!                       else
-!                           write (iulog,'(a,i2,a,i4,a,i4,i4)') 'Planting rice hemi ',h,' on jday ',jday,' (last-chance), swindow ',minplantjday(ivt(p),h),maxplantjday(ivt(p),h)
-!                       end if
-!                   end if
-
                   call PlantCrop(p, leafcn(ivt(p)), jday, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
@@ -2108,7 +2102,7 @@ contains
             end if
 
          ! SSR troubleshooting
-         else if ( (.not. croplive(p)) .and. sowing_count(p) == 0) then
+         else if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. verbose) then
                write (iulog,*) p_str,' cpv   skipping sowing test because was alive at beginning of year'
 
          end if ! crop not live nor planted
