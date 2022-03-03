@@ -2191,9 +2191,17 @@ contains
 
             ! SSR troubleshooting
             if (verbose) then
-               write (iulog,*) p_str,' cpv   live;   idop',idop(p)
-               write (iulog,*) p_str,' cpv   live;   idpp',idpp(p)
-               write (iulog,*) p_str,' cpv   live; cphase',cphase(p)
+               write (iulog,*) p_str,' cpv   live; GETTING PHASE'
+               write (iulog,*) p_str,' cpv   live;     leafout',leafout(p)
+               write (iulog,*) p_str,' cpv   live;     huileaf',huileaf(p)
+               write (iulog,*) p_str,' cpv   live;         hui',hui(p)
+               write (iulog,*) p_str,' cpv   live;    huigrain',huigrain(p)
+               write (iulog,*) p_str,' cpv   live;        idop',idop(p)
+               write (iulog,*) p_str,' cpv   live;        idop',idop(p)
+               write (iulog,*) p_str,' cpv   live;        idpp',idpp(p)
+               write (iulog,*) p_str,' cpv   live;       mxmat',mxmat(ivt(p))
+               write (iulog,*) p_str,' cpv   live;      cphase',cphase(p)
+               write (iulog,*) p_str,' cpv   live; gddmaturity',gddmaturity(p)
             end if
 
             if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp(p) < mxmat(ivt(p))) then
