@@ -1892,10 +1892,25 @@ contains
          else if (crop_inst%croplive_beghemyr_patch(p) < 0) then
             if (idop(p) == 999) then
                crop_inst%croplive_beghemyr_patch(p) = 0
-            else if (idop(p) > 0) then
-               crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
                if (verbose) then
                   write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
+               end if
+            else if (idop(p) > 0) then
+               if (h == inNH) then
+                   crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
+                   if (verbose) then
+                      write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (NH: idpp ',idpp(p),')'
+                   end if
+               else 
+                   if (idop(p) < jdayyrstart(h)) then
+                       !crop_inst%croplive_beghemyr_patch(p) = jday >= jdayyrstart(h)
+                       crop_inst%croplive_beghemyr_patch(p) = 1
+                   else
+                       crop_inst%croplive_beghemyr_patch(p) = 0
+                   end if
+                   if (verbose) then
+                      write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (SH: idop ',idpp(p),')'
+                   end if
                end if
             else
                crop_inst%croplive_beghemyr_patch(p) = 0
