@@ -1846,9 +1846,9 @@ contains
          ! SSR troubleshooting: Trying to reproduce previous results exactly
 !         if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
 !             if (croplive(p)) then
-!                 crop_inst%croplive_beghemyr_patch(p) = .true.
+!                 crop_inst%croplive_beghemyr_patch(p) = 1
 !             else
-!                 crop_inst%croplive_beghemyr_patch(p) = .false.
+!                 crop_inst%croplive_beghemyr_patch(p) = 0
 !             end if
 !         end if
          !huge_idpp = huge(1)
@@ -1878,9 +1878,9 @@ contains
          end if
          if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
              if (croplive(p)) then
-                 crop_inst%croplive_beghemyr_patch(p) = .true.
+                 crop_inst%croplive_beghemyr_patch(p) = 1
              else
-                 crop_inst%croplive_beghemyr_patch(p) = .false.
+                 crop_inst%croplive_beghemyr_patch(p) = 0
                  if (verbose) then
                     write (iulog,*) p_str,' cpv   Setting idop to -1'
                  end if
@@ -1889,18 +1889,20 @@ contains
              if (verbose) then
                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (year start)'
              end if
-         else if (idop(p) == 999) then
-             crop_inst%croplive_beghemyr_patch(p) = .false.
-         else if (idop(p) > 0) then
-             crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
-             if (verbose) then
-                 write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
-             end if
-         else
-             crop_inst%croplive_beghemyr_patch(p) = .false.
-             if (verbose) then
-                 write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
-             end if
+         else if (crop_inst%croplive_beghemyr_patch(p) < 0) then
+            if (idop(p) == 999) then
+               crop_inst%croplive_beghemyr_patch(p) = 0
+            else if (idop(p) > 0) then
+               crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
+               end if
+            else
+               crop_inst%croplive_beghemyr_patch(p) = 0
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
+               end if
+            end if
          end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
@@ -1939,7 +1941,7 @@ contains
          end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
-         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. (.not. crop_inst%croplive_beghemyr_patch(p))) then
+         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. crop_inst%croplive_beghemyr_patch(p) == 0) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
             ! to reach full physiological maturity
