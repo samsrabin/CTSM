@@ -1902,8 +1902,11 @@ contains
                       write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (NH: idpp ',idpp(p),')'
                    end if
                else 
-                   if (idop(p) < jdayyrstart(h)) then
+!                   if ((jday >= jdayyrstart(h) .and. (idop(p) < jdayyrstart(h) .or. idop(p) >= jday)) .or. (jday < jdayyrstart(h) .and. jday + 365 - idop(p) < jdayyrstart(h))) then
+                   if (jday >= jdayyrstart(h) .and. (idop(p) < jdayyrstart(h) .or. idop(p) >= jday)) then
                        !crop_inst%croplive_beghemyr_patch(p) = jday >= jdayyrstart(h)
+                       crop_inst%croplive_beghemyr_patch(p) = 1
+                   else if (jday < jdayyrstart(h) .and. idop(p) > jday .and. jday + 365 - idop(p) < jdayyrstart(h)) then
                        crop_inst%croplive_beghemyr_patch(p) = 1
                    else
                        crop_inst%croplive_beghemyr_patch(p) = 0
