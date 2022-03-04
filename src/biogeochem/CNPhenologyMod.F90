@@ -1909,7 +1909,7 @@ contains
                        crop_inst%croplive_beghemyr_patch(p) = 0
                    end if
                    if (verbose) then
-                      write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (SH: idop ',idpp(p),')'
+                      write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (SH: idop ',idop(p),')'
                    end if
                end if
             else
