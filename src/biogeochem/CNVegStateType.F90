@@ -44,7 +44,6 @@ module CNVegStateType
      integer  , pointer :: peaklai_patch               (:)     ! patch 1: max allowed lai; 0: not at max
 
      integer  , pointer :: idop_patch                  (:)     ! patch date of planting
-     real(r8) , pointer :: idop_patch_real             (:)     ! patch date of planting
 
      ! SSR troubleshooting
      integer  , pointer :: idpp_patch                  (:)     ! patch date of planting
@@ -210,8 +209,7 @@ contains
 
     allocate(this%idop_patch          (begp:endp))                   ; this%idop_patch          (:)   = huge(1)
 
-    ! SSR troubleshooting
-    allocate(this%idop_patch_real     (begp:endp))                   ; this%idop_patch_real     (:)   = -1.0_r8
+    ! REPRODUCTION_TEST(ssr, 2022-02-25)
     allocate(this%idpp_patch          (begp:endp))                   ; this%idpp_patch          (:)   = huge(1)
 
     allocate(this%lgdp_col            (begc:endc))                   ;
@@ -298,12 +296,6 @@ contains
        call hist_addfld1d (fname='GDDHARV', units='ddays', &
             avgflag='A', long_name='Growing degree days (gdd) needed to harvest', &
             ptr_patch=this%gddmaturity_patch, default='inactive')
-       
-       ! SSR troubleshooting
-       this%idop_patch_real(begp:endp) = -1._r8
-       call hist_addfld1d (fname='IDOP', units='days', &
-            avgflag='I', long_name='Day of latest planting for this patch', &
-            ptr_patch=this%idop_patch_real, default='inactive')
     end if
 
     this%lfc2_col(begc:endc) = spval

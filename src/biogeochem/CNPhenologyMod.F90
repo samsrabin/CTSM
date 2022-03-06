@@ -2246,7 +2246,6 @@ contains
                cphase(p) = 4._r8
 
                ! SSR troubleshooting
-               cnveg_state_inst%idop_patch_real(p) = -1._r8
                if (verbose) then
                   write (iulog,*) p_str,' cpv   HARVESTING'
                end if
@@ -2438,7 +2437,6 @@ contains
       crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
 
       ! SSR troubleshooting
-      cnveg_state_inst%idop_patch_real(p) = real(jday, r8)
       cnveg_state_inst%idpp_patch(p) = 0
 
       leafc_xfer(p)  = initial_seed_at_planting
