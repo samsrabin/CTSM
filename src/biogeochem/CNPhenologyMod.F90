@@ -1827,8 +1827,6 @@ contains
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
 
             ! SSR troubleshooting
-!            write(iulog,*) 'CropPhenology(): Setting sowing_count to 0 for patch ',p
-            !if ( (ivt(p) == nrice .or. ivt(p) == nirrig_rice) ) then
             if ( verbose ) then
                 write (iulog,*) p_str,' cpv   Resetting [sh]counts and [sh]dates]'
             end if
@@ -1843,15 +1841,7 @@ contains
             end do
          end if
 
-         ! SSR troubleshooting: Trying to reproduce previous results exactly
-!         if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
-!             if (croplive(p)) then
-!                 crop_inst%croplive_beghemyr_patch(p) = 1
-!             else
-!                 crop_inst%croplive_beghemyr_patch(p) = 0
-!             end if
-!         end if
-         !huge_idpp = huge(1)
+         ! REPRODUCTION_TEST(ssr, 2022-02-25) 
          huge_idpp = 1000000
          if (idpp(p) >= 0 .and. idpp(p) < huge_idpp) then
              if (mcsec == 0) then
@@ -1902,9 +1892,7 @@ contains
                       write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (NH: idpp ',idpp(p),')'
                    end if
                else 
-!                   if ((jday >= jdayyrstart(h) .and. (idop(p) < jdayyrstart(h) .or. idop(p) >= jday)) .or. (jday < jdayyrstart(h) .and. jday + 365 - idop(p) < jdayyrstart(h))) then
                    if (jday >= jdayyrstart(h) .and. (idop(p) < jdayyrstart(h) .or. idop(p) >= jday)) then
-                       !crop_inst%croplive_beghemyr_patch(p) = jday >= jdayyrstart(h)
                        crop_inst%croplive_beghemyr_patch(p) = 1
                    else if (jday < jdayyrstart(h) .and. idop(p) > jday .and. jday + 365 - idop(p) < jdayyrstart(h)) then
                        crop_inst%croplive_beghemyr_patch(p) = 1
@@ -2188,6 +2176,8 @@ contains
 
             ! days past planting may determine harvest
 
+            ! REPRODUCTION_TEST(ssr, 2022-02-25): Commented this out;
+            ! now happens at beginning of patch's turn through loop.
 !            if (jday >= idop(p)) then
 !               idpp = jday - idop(p)
 !            else
@@ -2257,10 +2247,6 @@ contains
 
                ! SSR troubleshooting
                cnveg_state_inst%idop_patch_real(p) = -1._r8
-               ! SSR troubleshooting
-!               if ( (ivt(p) == nrice .or. ivt(p) == nirrig_rice) ) then
-!                   write (iulog,'(a,i2,a,i4,a,i4)') 'Harvesting rice hemi ',h,' on jday ',jday,' idop ',idop(p)
-!               end if
                if (verbose) then
                   write (iulog,*) p_str,' cpv   HARVESTING'
                end if
