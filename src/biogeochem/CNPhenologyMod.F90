@@ -1672,7 +1672,7 @@ contains
     use clm_varctl       , only : use_fertilizer 
     use clm_varctl       , only : use_c13, use_c14
     use clm_varcon       , only : c13ratio, c14ratio
-    ! SSR troubleshooting
+    ! REPRODUCTION_TEST(ssr, 2022-02-25)
     use clm_time_manager , only : get_prev_date
     !
     ! !ARGUMENTS:
@@ -1703,16 +1703,16 @@ contains
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
     ! SSR troubleshooting
-    integer kyr       ! current year
-    integer kmo       ! month of year  (1, ..., 12)
-    integer kda       ! day of month   (1, ..., 31)
-    integer mcsec     ! seconds of day (0, ..., seconds/day)
     real(r8) verbose_londeg
     real(r8) verbose_latdeg
     integer verbose_ivt
     logical verbose
     character(len=4) p_str
     ! REPRODUCTION_TEST(ssr, 2022-02-25) 
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
     logical idop_in_swindow
     logical idop_dayafter_swindow
     integer huge_idpp
@@ -1783,10 +1783,11 @@ contains
       jday    = get_prev_calday()
 
       ! SSR troubleshooting
-      call get_prev_date(kyr, kmo, kda, mcsec)
       verbose_londeg = 0._r8
       verbose_latdeg = 0._r8
       verbose_ivt = nsugarcane
+      ! REPRODUCTION_TEST(ssr, 2022-02-25)
+      call get_prev_date(kyr, kmo, kda, mcsec)
 
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
@@ -1947,6 +1948,7 @@ contains
          end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
+         ! REPRODUCTION_TEST(ssr, 2022-02-25): Third condition(croplive_beghemyr_patch)
          if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. crop_inst%croplive_beghemyr_patch(p) == 0) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
@@ -2425,9 +2427,6 @@ contains
          crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
          )
 
-     ! SSR troubleshooting
-!     write (iulog,*)  'PlantCrop(): Planting patch ',p
-
       ! impose limit on growing season length needed
       ! for crop maturity - for cold weather constraints
       croplive(p)  = .true.
@@ -2436,7 +2435,7 @@ contains
       sowing_count(p) = sowing_count(p) + 1
       crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
 
-      ! SSR troubleshooting
+      ! REPRODUCTION_TEST(ssr, 2022-02-25)
       cnveg_state_inst%idpp_patch(p) = 0
 
       leafc_xfer(p)  = initial_seed_at_planting

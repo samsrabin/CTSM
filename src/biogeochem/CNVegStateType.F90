@@ -45,7 +45,7 @@ module CNVegStateType
 
      integer  , pointer :: idop_patch                  (:)     ! patch date of planting
 
-     ! SSR troubleshooting
+     ! REPRODUCTION_TEST(ssr, 2022-02-25)
      integer  , pointer :: idpp_patch                  (:)     ! patch date of planting
 
      real(r8) , pointer :: lgdp_col                    (:)     ! col gdp limitation factor for fire occurrence (0-1)
@@ -786,8 +786,7 @@ contains
             dim1name='pft', long_name='Date of planting', units='jday', nvalid_range=(/1,366/), &
             interpinic_flag='interp', readvar=readvar, data=this%idop_patch)
 
-       ! SSR troubleshooting
-       ! BACKWARDS_COMPATIBILITY(ssr, 2022-02-25)
+       ! REPRODUCTION_TEST(ssr, 2022-02-25)
        call restartvar(ncid=ncid, flag=flag,  varname='idpp', xtype=ncd_int,  &
             dim1name='pft', long_name='Days past planting', units='days', &
             interpinic_flag='interp', readvar=readvar, data=this%idpp_patch)

@@ -43,7 +43,7 @@ module CropType
      real(r8), pointer :: hdates_thisyr           (:,:) ! all actual harvest dates for this patch this year
      integer , pointer :: sowing_count            (:)   ! number of sowing events this year for this patch
      integer , pointer :: harvest_count           (:)   ! number of sowing events this year for this patch
-     ! SSR troubleshooting
+     ! REPRODUCTION_TEST(ssr, 2022-02-25)
      integer , pointer :: croplive_beghemyr_patch (:)   ! 1 if planted and not harvested in first timestep of year; -1 if unset; 0 otherwise
 
    contains
@@ -197,7 +197,6 @@ contains
 
     allocate(this%nyrs_crop_active_patch(begp:endp)) ; this%nyrs_crop_active_patch(:) = 0
     allocate(this%croplive_patch (begp:endp)) ; this%croplive_patch (:) = .false.
-    allocate(this%croplive_beghemyr_patch (begp:endp)) ; this%croplive_beghemyr_patch (:) = -1
     allocate(this%harvdate_patch (begp:endp)) ; this%harvdate_patch (:) = huge(1) 
     allocate(this%fertnitro_patch (begp:endp)) ; this%fertnitro_patch (:) = spval
     allocate(this%gddplant_patch (begp:endp)) ; this%gddplant_patch (:) = spval
@@ -209,6 +208,8 @@ contains
     allocate(this%hdates_thisyr(begp:endp,1:mxharvests)) ; this%hdates_thisyr(:,:) = spval
     allocate(this%sowing_count(begp:endp)) ; this%sowing_count(:) = 0
     allocate(this%harvest_count(begp:endp)) ; this%harvest_count(:) = 0
+    ! REPRODUCTION_TEST(ssr, 2022-02-25)
+    allocate(this%croplive_beghemyr_patch (begp:endp)) ; this%croplive_beghemyr_patch (:) = -1
 
   end subroutine InitAllocate
 
