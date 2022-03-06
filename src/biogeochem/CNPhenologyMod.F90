@@ -1943,7 +1943,7 @@ contains
                    ! ...or today is before jdayyrstart in the calendar year, idop is greater than
                    ! jday (indicating that planting occurred last calendar year at latest), and
                    ! planting occurred before jdayyrstart in the previous calendar year.
-                   else if (jday < jdayyrstart(h) .and. idop(p) > jday .and. jday + 365 - idop(p) < jdayyrstart(h)) then
+                   else if (jday < jdayyrstart(h) .and. idop(p) > jday .and. idop(p) < jdayyrstart(h)) then
                        crop_inst%croplive_beghemyr_patch(p) = 1
                    else
                        crop_inst%croplive_beghemyr_patch(p) = 0
