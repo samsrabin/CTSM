@@ -1842,8 +1842,25 @@ contains
             end do
          end if
 
-         ! REPRODUCTION_TEST(ssr, 2022-02-25) 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! REPRODUCTION_TEST(ssr, 2022-02-25)
+!!! My revisions in this branch (PR #1616) fix a bug where a crop
+!!! would not be planted if it was alive at the beginning of the
+!!! hemisphere's year (Hyear). As a test to make sure that this is the 
+!!! reason I'm seeing differences in results, I introduced a new logical 
+!!! member of CropType: croplive_beghemyr_patch. This code section (between
+!!! the two long strings of !) is how that variable gets set.
+
+!!! In some cases, setting croplive_beghemyr_patch requires that we know
+!!! how many days the crop has been in the ground. That means we have to
+!!! set idpp here instead of where it's usually set (just before crop
+!!! phase is determined).
+
          huge_idpp = 1000000
+
+         ! The normal way of setting idpp. That is, the crop has been planted before,
+         ! or at least idpp has been set before. Continues to accumulate even after
+         ! the crop has been harvested, but that's fine.
          if (idpp(p) >= 0 .and. idpp(p) < huge_idpp) then
              if (mcsec == 0) then
                  if (verbose) then
@@ -1851,12 +1868,20 @@ contains
                  end if
                  idpp(p) = idpp(p) + 1
              end if
+
+         ! If idpp has never been set, but the crop is alive, we need to determine
+         ! it based on day of planting (idop). This will be wrong in cases where idop
+         ! is wrong (e.g., when forced to use ignore_ic_date), but it will be wrong
+         ! in the same way the old code was wrong. (This method of determining idpp
+         ! is how the old code did it at every timestep the crop was alive.) (We don't
+         ! need to determine idpp if the crop wasn't alive, because we will be able
+         ! to set croplive_beghemyr_patch without using idpp.)
          else if (croplive(p)) then
              if (idpp(p) >= huge_idpp) then
                  if (jday >= idop(p)) then
                     idpp(p) = jday - idop(p)
                  else
-                    ! Should this actually be dayspyr of PREVIOUS year?
+                    ! Should this actually be dayspyr of PREVIOUS calendar year?
                     idpp(p) = int(dayspyr) + jday - idop(p)
                  end if
                  if (verbose) then
@@ -1867,6 +1892,10 @@ contains
                  call endrun(msg="Crop is alive but idpp is bad"//errmsg(sourcefile, __LINE__))
              end if
          end if
+
+!!! Now we're ready to set croplive_beghemyr_patch.
+
+         ! Simplest case: It's the beginning of the Hyear and the crop is alive.
          if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
              if (croplive(p)) then
                  crop_inst%croplive_beghemyr_patch(p) = 1
@@ -1878,23 +1907,42 @@ contains
                  idop(p) = -1
              end if
              if (verbose) then
-                 write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (year start)'
+                 write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (Hyear start)'
              end if
+         
+         ! We only want to set croplive_beghemyr_patch at the beginning of the Hyear
+         ! (above) OR if it hasn't yet been set (here).
          else if (crop_inst%croplive_beghemyr_patch(p) < 0) then
-            if (idop(p) == 999) then
+
+            ! idop is set to NOT_PLANTED value (I don't see where this would happen, but
+            ! it does seem to be the case in the restart files I'm using) OR idop has never
+            ! been set (i.e., the crop has never been planted).
+            if (idop(p) == 999 .or. idop(p) <= 0) then
                crop_inst%croplive_beghemyr_patch(p) = 0
                if (verbose) then
-                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idpp ',idpp(p),')'
+                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
                end if
+
+            ! idop has been set before
             else if (idop(p) > 0) then
+
+               ! It's pretty easy to tell whether the crop was planted this Hyear, because the
+               ! Hyear begins on the same day the calendar year does (Jan. 1).
                if (h == inNH) then
                    crop_inst%croplive_beghemyr_patch(p) = idpp(p) >= jday
                    if (verbose) then
                       write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (NH: idpp ',idpp(p),')'
                    end if
+
+               ! Things are trickier in the southern hemisphere. There are two conditions
+               ! indicating the crop has been planted this Hyear...
                else 
+                   ! ...today is after jdayyrstart in the calendar year, and idop was before...
                    if (jday >= jdayyrstart(h) .and. (idop(p) < jdayyrstart(h) .or. idop(p) >= jday)) then
                        crop_inst%croplive_beghemyr_patch(p) = 1
+                   ! ...or today is before jdayyrstart in the calendar year, idop is greater than
+                   ! jday (indicating that planting occurred last calendar year at latest), and
+                   ! planting occurred before jdayyrstart in the previous calendar year.
                    else if (jday < jdayyrstart(h) .and. idop(p) > jday .and. jday + 365 - idop(p) < jdayyrstart(h)) then
                        crop_inst%croplive_beghemyr_patch(p) = 1
                    else
@@ -1904,13 +1952,9 @@ contains
                       write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (SH: idop ',idop(p),')'
                    end if
                end if
-            else
-               crop_inst%croplive_beghemyr_patch(p) = 0
-               if (verbose) then
-                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
-               end if
             end if
          end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
          ! When resuming from a run with old code, may need to manually set these.
