@@ -1774,7 +1774,9 @@ contains
          leafn_xfer        =>    cnveg_nitrogenstate_inst%leafn_xfer_patch     , & ! Output: [real(r8) (:) ]  (gN/m2)   leaf N transfer                           
          crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch, & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
          cphase            =>    crop_inst%cphase_patch                        , & ! Output: [real(r8) (:)]   phenology phase
-         fert              =>    cnveg_nitrogenflux_inst%fert_patch              & ! Output: [real(r8) (:) ]  (gN/m2/s) fertilizer applied each timestep 
+         fert              =>    cnveg_nitrogenflux_inst%fert_patch            , & ! Output: [real(r8) (:) ]  (gN/m2/s) fertilizer applied each timestep 
+         ! REPRODUCTION_TEST(ssr, 2022-02-25)
+         sowing_count_hyr  =>    crop_inst%sowing_count_hyr                      & ! Inout:  [integer  (:) ]  number of sowing events this hemisphere-year for this patch
          )
 
       ! get time info
@@ -1864,6 +1866,9 @@ contains
              if (verbose) then
                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (Hyear start)'
              end if
+
+             ! Also reset this
+             sowing_count_hyr(p) = 0
          
          ! We only want to set croplive_beghemyr_patch at the beginning of the Hyear
          ! (above) OR if it hasn't yet been set (here).
@@ -1874,6 +1879,7 @@ contains
             ! been set (i.e., the crop has never been planted).
             if (idop(p) == 999 .or. idop(p) <= 0) then
                crop_inst%croplive_beghemyr_patch(p) = 0
+               sowing_count_hyr(p) = 0
                if (verbose) then
                   write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),')'
                end if
@@ -1881,17 +1887,24 @@ contains
             ! idop has been set before
             else if (idop(p) > 0) then
 
-               ! There are two conditions indicating the crop has been planted this Hyear...
+               ! There are two conditions indicating the crop was planted in previous Hyear...
                ! ...today is after jdayyrstart in the calendar year, and idop was before...
                if (jday >= jdayyrstart(h) .and. (idop(p) < jdayyrstart(h) .or. idop(p) >= jday)) then
                    crop_inst%croplive_beghemyr_patch(p) = 1
+                   sowing_count_hyr(p) = 0
                ! ...or today is before jdayyrstart in the calendar year, idop is greater than
                ! jday (indicating that planting occurred last calendar year at latest), and
                ! planting occurred before jdayyrstart in the previous calendar year.
                else if (jday < jdayyrstart(h) .and. idop(p) > jday .and. idop(p) < jdayyrstart(h)) then
                    crop_inst%croplive_beghemyr_patch(p) = 1
+                   sowing_count_hyr(p) = 0
                else
                    crop_inst%croplive_beghemyr_patch(p) = 0
+                   if (croplive(p)) then
+                       sowing_count_hyr(p) = 1
+                   else
+                       sowing_count_hyr(p) = 0
+                   end if
                end if
                if (verbose) then
                   write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (SH: idop ',idop(p),')'
@@ -1914,9 +1927,8 @@ contains
          ! old code *did* replant in first calendar year after restart).
          idop_in_swindow = idop(p) >= minplantjday(ivt(p),h) .and. idop(p) <= maxplantjday(ivt(p),h)
          idop_dayafter_swindow = (idop(p) == maxplantjday(ivt(p),h) + 1) .or. ((maxplantjday(ivt(p),h)==365) .and. (idop(p)==1))
-         if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0 &
+         if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
              ! REPRODUCTION_TEST(ssr, 2022-02-25) 
-             .and. (idop_in_swindow .or. (.not. idop_dayafter_swindow))) then
              if (verbose) then
                 write (iulog,*) p_str,' cpv   manually setting sowing_count and sdates_thisyr'
              end if
@@ -1937,7 +1949,7 @@ contains
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
          ! REPRODUCTION_TEST(ssr, 2022-02-25): Third condition(croplive_beghemyr_patch)
-         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. crop_inst%croplive_beghemyr_patch(p) == 0) then
+         if ( (.not. croplive(p)) .and. sowing_count_hyr(p) == 0 .and. crop_inst%croplive_beghemyr_patch(p) == 0) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
             ! to reach full physiological maturity
@@ -2406,6 +2418,7 @@ contains
          croplive          =>    crop_inst%croplive_patch                        , & ! Output: [logical  (:) ]  Flag, true if planted, not harvested
          harvdate          =>    crop_inst%harvdate_patch                        , & ! Output: [integer  (:) ]  harvest date
          sowing_count      =>    crop_inst%sowing_count                          , & ! Inout:  [integer  (:) ]  number of sowing events this year for this patch
+         sowing_count_hyr  =>    crop_inst%sowing_count_hyr                       , & ! Inout:  [integer  (:) ]  number of sowing events this hemisphere-year for this patch
          idop              =>    cnveg_state_inst%idop_patch                     , & ! Output: [integer  (:) ]  date of planting                                   
          leafc_xfer        =>    cnveg_carbonstate_inst%leafc_xfer_patch         , & ! Output: [real(r8) (:) ]  (gC/m2)   leaf C transfer
          leafn_xfer        =>    cnveg_nitrogenstate_inst%leafn_xfer_patch       , & ! Output: [real(r8) (:) ]  (gN/m2)   leaf N transfer
@@ -2419,6 +2432,7 @@ contains
       idop(p)      = jday
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
+      sowing_count_hyr(p) = sowing_count_hyr(p) + 1
       crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
 
       leafc_xfer(p)  = initial_seed_at_planting

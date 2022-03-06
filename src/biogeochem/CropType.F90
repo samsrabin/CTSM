@@ -45,6 +45,7 @@ module CropType
      integer , pointer :: harvest_count           (:)   ! number of sowing events this year for this patch
      ! REPRODUCTION_TEST(ssr, 2022-02-25)
      integer , pointer :: croplive_beghemyr_patch (:)   ! 1 if planted and not harvested in first timestep of year; -1 if unset; 0 otherwise
+     integer , pointer :: sowing_count_hyr        (:)   ! number of sowing events this hemisphere-year for this patch
 
    contains
      ! Public routines
@@ -210,6 +211,7 @@ contains
     allocate(this%harvest_count(begp:endp)) ; this%harvest_count(:) = 0
     ! REPRODUCTION_TEST(ssr, 2022-02-25)
     allocate(this%croplive_beghemyr_patch (begp:endp)) ; this%croplive_beghemyr_patch (:) = -1
+    allocate(this%sowing_count_hyr(begp:endp)) ; this%sowing_count_hyr(:) = 0
 
   end subroutine InitAllocate
 
