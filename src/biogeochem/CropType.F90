@@ -45,6 +45,7 @@ module CropType
      integer , pointer :: harvest_count           (:)   ! number of sowing events this year for this patch
      ! REPRODUCTION_TEST(ssr, 2022-02-25)
      integer , pointer :: croplive_beghemyr_patch (:)   ! 1 if planted and not harvested in first timestep of year; -1 if unset; 0 otherwise
+     logical , pointer :: cropplant_patch         (:)   ! patch Flag, true if planted
 
    contains
      ! Public routines
@@ -210,6 +211,7 @@ contains
     allocate(this%harvest_count(begp:endp)) ; this%harvest_count(:) = 0
     ! REPRODUCTION_TEST(ssr, 2022-02-25)
     allocate(this%croplive_beghemyr_patch (begp:endp)) ; this%croplive_beghemyr_patch (:) = -1
+    allocate(this%cropplant_patch(begp:endp)) ; this%cropplant_patch(:) = .false.
 
   end subroutine InitAllocate
 
@@ -519,6 +521,32 @@ contains
                 this%croplive_patch(p) = .true.
              else
                 this%croplive_patch(p) = .false.
+             end if
+          end do
+       end if
+       deallocate(temp1d)
+
+       ! REPRODUCTION_TEST(ssr, 2022-02-25)
+       allocate(temp1d(bounds%begp:bounds%endp))
+       if (flag == 'write') then 
+          do p= bounds%begp,bounds%endp
+             if (this%cropplant_patch(p)) then
+                temp1d(p) = 1
+             else
+                temp1d(p) = 0
+             end if
+          end do
+       end if
+       call restartvar(ncid=ncid, flag=flag,  varname='cropplant', xtype=ncd_log,  &
+            dim1name='pft', &
+            long_name='Flag that crop is planted, but not harvested' , &
+            interpinic_flag='interp', readvar=readvar, data=temp1d)
+       if (flag == 'read') then 
+          do p= bounds%begp,bounds%endp
+             if (temp1d(p) == 1) then
+                this%cropplant_patch(p) = .true.
+             else
+                this%cropplant_patch(p) = .false.
              end if
           end do
        end if
