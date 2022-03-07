@@ -1776,7 +1776,7 @@ contains
          cphase            =>    crop_inst%cphase_patch                        , & ! Output: [real(r8) (:)]   phenology phase
          fert              =>    cnveg_nitrogenflux_inst%fert_patch            , & ! Output: [real(r8) (:) ]  (gN/m2/s) fertilizer applied each timestep 
          ! REPRODUCTION_TEST(ssr, 2022-03-07)
-         cropplant         =>    crop_inst%cropplant_patch                     , & ! Output: [logical  (:) ]  Flag, true if crop may be planted
+         cropplant         =>    crop_inst%cropplant_patch                       & ! Output: [logical  (:) ]  Flag, true if crop may be planted
          )
 
       ! get time info
@@ -1904,7 +1904,7 @@ contains
 
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !!! REPRODUCTION_TEST(ssr, 2022-03-07)
-!!! Additional reproduction testing: Restore original behavior of gddharvest
+!!! Additional reproduction testing: Restore original behavior of gddmaturity (GDDHARV)
         
 ! Here, we bring back cropplant and set it the way it used to be set.
          if ( jday == jdayyrstart(h) .and. mcsec == 0 )then
@@ -1926,7 +1926,7 @@ contains
          end if
 
 ! Now we reproduce the original "Should we try sowing today?" logic, 
-! but only for the purposes of setting gddharvest to 0. Also commenting
+! but only for the purposes of setting gddmaturity to 0. Also commenting
 ! out the code to do that from where it usually happens (if it checks
 ! whether to sow and decides not to).
          
@@ -2479,9 +2479,9 @@ contains
          leafc_xfer        =>    cnveg_carbonstate_inst%leafc_xfer_patch         , & ! Output: [real(r8) (:) ]  (gC/m2)   leaf C transfer
          leafn_xfer        =>    cnveg_nitrogenstate_inst%leafn_xfer_patch       , & ! Output: [real(r8) (:) ]  (gN/m2)   leaf N transfer
          crop_seedc_to_leaf =>   cnveg_carbonflux_inst%crop_seedc_to_leaf_patch  , & ! Output: [real(r8) (:) ]  (gC/m2/s) seed source to leaf
-         crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
+         crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch, & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
          ! REPRODUCTION_TEST(ssr, 2022-03-07)
-         cropplant         =>    crop_inst%cropplant_patch                       , & ! Output: [logical  (:) ]  Flag, true if crop may be planted
+         cropplant         =>    crop_inst%cropplant_patch                         & ! Output: [logical  (:) ]  Flag, true if crop may be planted
          )
 
       ! impose limit on growing season length needed
