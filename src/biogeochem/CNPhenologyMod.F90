@@ -1906,62 +1906,62 @@ contains
 !!! REPRODUCTION_TEST(ssr, 2022-03-07)
 !!! Additional reproduction testing: Restore original behavior of gddmaturity (GDDHARV)
         
-! Here, we bring back cropplant and set it the way it used to be set.
-         if ( jday == jdayyrstart(h) .and. mcsec == 0 )then
-            !!! make sure variables aren't changed at beginning of the year
-            !!! for a crop that is currently planted, such as
-            !!! WINTER TEMPERATE CEREAL = winter (wheat + barley + rye)
-            !!! represented here by the winter wheat pft
-            if (.not. croplive(p))  then
-               cropplant(p) = .false.
-!               idop(p)      = NOT_Planted
-               !!! keep next for continuous, annual winter temperate cereal crop;
-               !!! if we removed elseif,
-               !!! winter cereal grown continuously would amount to a cereal/fallow
-               !!! rotation because cereal would only be planted every other year
-            else if (croplive(p) .and. (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat)) then
-               cropplant(p) = .false.
-               !           else ! not possible to have croplive and ivt==cornORsoy? (slevis)
-            end if
-         end if
-
-! Now we reproduce the original "Should we try sowing today?" logic, 
-! but only for the purposes of setting gddmaturity to 0. Also commenting
-! out the code to do that from where it usually happens (if it checks
-! whether to sow and decides not to).
-         
-         if ( (.not. croplive(p)) .and. (.not. cropplant(p)) ) then
-             if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
-                 ! Are all the normal requirements for planting met?
-                 do_plant_normal = a5tmin(p)   /= spval                  .and. &
-                                   a5tmin(p)   <= minplanttemp(ivt(p))   .and. &
-                                   jday        >= minplantjday(ivt(p),h) .and. &
-                                   (gdd020(p)  /= spval                  .and. &
-                                   gdd020(p)   >= gddmin(ivt(p)))
-                 ! If not, but it's the last day of the planting window, what about relaxed rules?
-                 do_plant_lastchance = (.not. do_plant_normal)               .and. &
-                                       jday       >=  maxplantjday(ivt(p),h) .and. &
-                                       gdd020(p)  /= spval                   .and. &
-                                       gdd020(p)  >= gddmin(ivt(p))
-             else
-                 ! Are all the normal requirements for planting met?
-                 do_plant_normal = t10(p) /= spval .and. a10tmin(p) /= spval .and. &
-                                   t10(p)     > planttemp(ivt(p))            .and. &
-                                   a10tmin(p) > minplanttemp(ivt(p))         .and. &
-                                   jday       >= minplantjday(ivt(p),h)      .and. &
-                                   jday       <= maxplantjday(ivt(p),h)      .and. &
-                                   gdd820(p)  /= spval                       .and. &
-                                   gdd820(p)  >= gddmin(ivt(p))
-                 ! If not, but it's the last day of the planting window, what about relaxed rules?
-                 do_plant_lastchance = (.not. do_plant_normal) .and. &
-                                       jday == maxplantjday(ivt(p),h) .and. &
-                                       gdd820(p) > 0._r8 .and. &
-                                       gdd820(p) /= spval
-             end if
-             if (.not. (do_plant_normal .or. do_plant_lastchance)) then
-                 gddmaturity(p) = 0._r8
-             end if
-         end if
+!! Here, we bring back cropplant and set it the way it used to be set.
+!         if ( jday == jdayyrstart(h) .and. mcsec == 0 )then
+!            !!! make sure variables aren't changed at beginning of the year
+!            !!! for a crop that is currently planted, such as
+!            !!! WINTER TEMPERATE CEREAL = winter (wheat + barley + rye)
+!            !!! represented here by the winter wheat pft
+!            if (.not. croplive(p))  then
+!               cropplant(p) = .false.
+!!               idop(p)      = NOT_Planted
+!               !!! keep next for continuous, annual winter temperate cereal crop;
+!               !!! if we removed elseif,
+!               !!! winter cereal grown continuously would amount to a cereal/fallow
+!               !!! rotation because cereal would only be planted every other year
+!            else if (croplive(p) .and. (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat)) then
+!               cropplant(p) = .false.
+!               !           else ! not possible to have croplive and ivt==cornORsoy? (slevis)
+!            end if
+!         end if
+!
+!! Now we reproduce the original "Should we try sowing today?" logic, 
+!! but only for the purposes of setting gddmaturity to 0. Also commenting
+!! out the code to do that from where it usually happens (if it checks
+!! whether to sow and decides not to).
+!         
+!         if ( (.not. croplive(p)) .and. (.not. cropplant(p)) ) then
+!             if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
+!                 ! Are all the normal requirements for planting met?
+!                 do_plant_normal = a5tmin(p)   /= spval                  .and. &
+!                                   a5tmin(p)   <= minplanttemp(ivt(p))   .and. &
+!                                   jday        >= minplantjday(ivt(p),h) .and. &
+!                                   (gdd020(p)  /= spval                  .and. &
+!                                   gdd020(p)   >= gddmin(ivt(p)))
+!                 ! If not, but it's the last day of the planting window, what about relaxed rules?
+!                 do_plant_lastchance = (.not. do_plant_normal)               .and. &
+!                                       jday       >=  maxplantjday(ivt(p),h) .and. &
+!                                       gdd020(p)  /= spval                   .and. &
+!                                       gdd020(p)  >= gddmin(ivt(p))
+!             else
+!                 ! Are all the normal requirements for planting met?
+!                 do_plant_normal = t10(p) /= spval .and. a10tmin(p) /= spval .and. &
+!                                   t10(p)     > planttemp(ivt(p))            .and. &
+!                                   a10tmin(p) > minplanttemp(ivt(p))         .and. &
+!                                   jday       >= minplantjday(ivt(p),h)      .and. &
+!                                   jday       <= maxplantjday(ivt(p),h)      .and. &
+!                                   gdd820(p)  /= spval                       .and. &
+!                                   gdd820(p)  >= gddmin(ivt(p))
+!                 ! If not, but it's the last day of the planting window, what about relaxed rules?
+!                 do_plant_lastchance = (.not. do_plant_normal) .and. &
+!                                       jday == maxplantjday(ivt(p),h) .and. &
+!                                       gdd820(p) > 0._r8 .and. &
+!                                       gdd820(p) /= spval
+!             end if
+!             if (.not. (do_plant_normal .or. do_plant_lastchance)) then
+!                 gddmaturity(p) = 0._r8
+!             end if
+!         end if
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 
@@ -2054,8 +2054,8 @@ contains
 
                ! REPRODUCTION_TEST(ssr, 2022-03-07): Commenting this out; happens
                ! at beginning of patch loop instead.
-               !!!else
-               !!!   gddmaturity(p) = 0._r8
+               else
+                  gddmaturity(p) = 0._r8
                end if
 
             else ! not winter cereal... slevis: added distinction between NH and SH
@@ -2123,8 +2123,8 @@ contains
 
                ! REPRODUCTION_TEST(ssr, 2022-03-07): Commenting this out; happens
                ! at beginning of patch loop instead.
-               !!!else
-               !!!   gddmaturity(p) = 0._r8
+               else
+                  gddmaturity(p) = 0._r8
                end if
             end if ! crop patch distinction
 
