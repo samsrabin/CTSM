@@ -290,6 +290,12 @@ contains
        call hist_addfld1d (fname='GDDHARV', units='ddays', &
             avgflag='A', long_name='Growing degree days (gdd) needed to harvest', &
             ptr_patch=this%gddmaturity_patch, default='inactive')
+
+       ! REPRODUCTION_TEST(ssr, 2022-03-07)
+       this%huigrain_patch(begp:endp) = 0.0
+       call hist_addfld1d (fname='HUIGRAIN', units='ddays', &
+            avgflag='A', long_name='heat unit index needed to reach vegetative maturity', &
+            ptr_patch=this%huigrain_patch, default='inactive')
     end if
 
     this%lfc2_col(begc:endc) = spval
