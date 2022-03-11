@@ -1986,7 +1986,7 @@ contains
                 write (iulog,*) p_str,' cpv   manually setting sowing_count and sdates_thisyr'
              end if
              sowing_count(p) = 1
-             crop_inst%sdates_thisyr(p,1) = real(jday, r8)
+             crop_inst%sdates_thisyr(p,1) = real(idop(p), r8)
          end if
 
          if (verbose) then
