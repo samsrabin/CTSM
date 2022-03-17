@@ -1788,7 +1788,7 @@ contains
       ! SSR troubleshooting
       verbose_londeg = 0._r8
       verbose_latdeg = 0._r8
-      verbose_ivt = nsugarcane
+      verbose_ivt = nwwheat
       ! REPRODUCTION_TEST(ssr, 2022-02-25)
       call get_prev_date(kyr, kmo, kda, mcsec)
 
@@ -1819,7 +1819,8 @@ contains
 
          ! SSR troubleshooting
 !         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
-         verbose = .false.
+         verbose = ivt(p) == verbose_ivt
+!         verbose = .false.
          write(p_str, '(i4)') p
          if (verbose) then
             write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
@@ -1898,7 +1899,7 @@ contains
                    crop_inst%croplive_beghemyr_patch(p) = 0
                end if
                if (verbose) then
-                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (SH: idop ',idop(p),')'
+                  write (iulog,*) p_str,' cpv   croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p),' (idop ',idop(p),', jdayyrstart ',jdayyrstart(h),')'
                end if
             end if
          end if
@@ -1997,9 +1998,7 @@ contains
             write (iulog,*) p_str,' cpv   croplive ',croplive(p)
             write (iulog,*) p_str,' cpv   idop ',idop(p)
             write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
-            write (iulog,*) p_str,' cpv   minplantjday ok? ',idop(p) >= minplantjday(ivt(p),h)
             write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
-            write (iulog,*) p_str,' cpv   maxplantjday ok? ',idop(p) >= maxplantjday(ivt(p),h)
          end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
@@ -2037,9 +2036,20 @@ contains
                                      gdd020(p)  /= spval                   .and. &
                                      gdd020(p)  >= gddmin(ivt(p))
 
-         if (verbose) then
-            write (iulog,*) 'ADD VERBOSE OUTPUT FOR WINTER CEREALS'
-         end if
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   a5tmin ',a5tmin(p)
+                  write (iulog,*) p_str,' cpv   minplanttemp ',minplanttemp(p)
+                  write (iulog,*) p_str,' cpv   gdd020 ',gdd020(p)
+                  write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   gddmin',gddmin(ivt(p))
+                  if (do_plant_normal) then
+                      write (iulog,*) p_str,' cpv   do_plant_normal'
+                  else if (do_plant_lastchance) then
+                      write (iulog,*) p_str,' cpv   do_plant_lastchance'
+                  end if
+               end if
 
                if (do_plant_normal .or. do_plant_lastchance) then
 
