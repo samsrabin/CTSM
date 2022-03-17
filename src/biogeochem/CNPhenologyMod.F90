@@ -1705,6 +1705,12 @@ contains
     real(r8) ndays_on ! number of days to fertilize
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
+    ! SSR troubleshooting
+    real(r8) verbose_londeg
+    real(r8) verbose_latdeg
+    integer verbose_ivt
+    logical verbose
+    character(len=4) p_str
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1770,6 +1776,11 @@ contains
       jday    = get_prev_calday()
       call get_prev_date(kyr, kmo, kda, mcsec)
 
+      ! SSR troubleshooting
+      verbose_londeg = 0._r8
+      verbose_latdeg = 0._r8
+      verbose_ivt = nwwheat
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1798,6 +1809,23 @@ contains
          ! initialize other variables that are calculated for crops
          ! on an annual basis in cropresidue subroutine
 
+         ! SSR troubleshooting
+!         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
+         verbose = ivt(p) == verbose_ivt
+!         verbose = .false.
+         write(p_str, '(i4)') p
+         if (verbose) then
+            write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
+         end if
+         if (verbose) then
+            write (iulog,*) p_str,' cpv   sowing_count ',sowing_count(p)
+            write (iulog,*) p_str,' cpv   harvest_count ',harvest_count(p)
+            write (iulog,*) p_str,' cpv   croplive ',croplive(p)
+            write (iulog,*) p_str,' cpv   idop ',idop(p)
+            write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+            write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+         end if
+
          if ( jday == jdayyrstart(h) .and. mcsec == 0 )then
 
             ! make sure variables aren't changed at beginning of the year
@@ -1809,6 +1837,11 @@ contains
                cropplant(p) = .false.
                idop(p)      = NOT_Planted
 
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) 'cpv   Hyear start: Setting cropplant to FALSE and idop to NOT_Planted'
+               end if
+
                ! keep next for continuous, annual winter temperate cereal crop;
                ! if we removed elseif,
                ! winter cereal grown continuously would amount to a cereal/fallow
@@ -1817,6 +1850,19 @@ contains
             else if (croplive(p) .and. (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat)) then
                cropplant(p) = .false.
                !           else ! not possible to have croplive and ivt==cornORsoy? (slevis)
+
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) 'cpv   Hyear start: Setting cropplant to FALSE'
+               end if
+
+            else
+
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) 'cpv   Hyear start: Leaving cropplant as ',cropplant(p)
+               end if
+
             end if
 
          end if
@@ -1869,6 +1915,21 @@ contains
                                      jday       >=  maxplantjday(ivt(p),h) .and. &
                                      gdd020(p)  /= spval                   .and. &
                                      gdd020(p)  >= gddmin(ivt(p))
+               
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   a5tmin ',a5tmin(p)
+                  write (iulog,*) p_str,' cpv   minplanttemp ',minplanttemp(p)
+                  write (iulog,*) p_str,' cpv   gdd020 ',gdd020(p)
+                  write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   gddmin',gddmin(ivt(p))
+                  if (do_plant_normal) then
+                        write (iulog,*) p_str,' cpv   do_plant_normal'
+                  else if (do_plant_lastchance) then
+                        write (iulog,*) p_str,' cpv   do_plant_lastchance'
+                  end if
+               end if
 
                if (do_plant_normal .or. do_plant_lastchance) then
 
@@ -1904,6 +1965,21 @@ contains
                                      jday == maxplantjday(ivt(p),h) .and. &
                                      gdd820(p) > 0._r8 .and. &
                                      gdd820(p) /= spval
+
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   t10 ',t10(p)
+                  write (iulog,*) p_str,' cpv   a10tmin ',a10tmin(p)
+                  write (iulog,*) p_str,' cpv   gdd820 ',gdd820(p)
+                  write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   gddmin',gddmin(ivt(p))
+                  if (do_plant_normal) then
+                     write (iulog,*) p_str,' cpv   do_plant_normal'
+                  else if (do_plant_lastchance) then
+                     write (iulog,*) p_str,' cpv   do_plant_lastchance'
+                  end if
+               end if
 
                if (do_plant_normal .or. do_plant_lastchance) then
 
@@ -2061,6 +2137,21 @@ contains
                hui(p) = max(hui(p),huigrain(p))
             endif
 
+            ! SSR troubleshooting
+            if (verbose) then
+               write (iulog,*) p_str,' cpv   live; GETTING PHASE'
+               write (iulog,*) p_str,' cpv   live;     leafout',leafout(p)
+               write (iulog,*) p_str,' cpv   live;     huileaf',huileaf(p)
+               write (iulog,*) p_str,' cpv   live;         hui',hui(p)
+               write (iulog,*) p_str,' cpv   live;    huigrain',huigrain(p)
+               write (iulog,*) p_str,' cpv   live;        idop',idop(p)
+               write (iulog,*) p_str,' cpv   live;        idop',idop(p)
+               write (iulog,*) p_str,' cpv   live;        idpp',idpp
+               write (iulog,*) p_str,' cpv   live;       mxmat',mxmat(ivt(p))
+               write (iulog,*) p_str,' cpv   live;      cphase',cphase(p)
+               write (iulog,*) p_str,' cpv   live; gddmaturity',gddmaturity(p)
+            end if
+
             if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat(ivt(p))) then
                cphase(p) = 2._r8
                if (abs(onset_counter(p)) > 1.e-6_r8) then
@@ -2091,6 +2182,12 @@ contains
                if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = 4._r8
+
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   HARVESTING'
+               end if
+
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
