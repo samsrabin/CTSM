@@ -1857,7 +1857,7 @@ contains
 
          ! Simplest case: It's the beginning of the Hyear and the crop is alive.
          if ( jday == jdayyrstart(h) .and. mcsec == 0 ) then
-             if (croplive(p)) then
+             if (croplive(p) .and. (.not. (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat))) then
                  crop_inst%croplive_beghemyr_patch(p) = 1
              else
                  crop_inst%croplive_beghemyr_patch(p) = 0
