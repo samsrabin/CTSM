@@ -2003,18 +2003,8 @@ contains
          end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
-!         ! REPRODUCTION_TEST(ssr, 2022-02-25): Third condition(croplive_beghemyr_patch)
-!         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. crop_inst%croplive_beghemyr_patch(p) == 0) then
-         ! REPRODUCTION_TEST(ssr, 2022-03-17)
-         if ( (.not. croplive(p)) .and. (.not. cropplant(p))) then
-
-            ! REPRODUCTION_TEST(ssr, 2022-03-17)
-            if (sowing_count(p) > 0) then
-                write (iulog,*) 'Planting crop ',ivt(p),' with sowing_count ',sowing_count(p)
-            end if
-            if (crop_inst%croplive_beghemyr_patch(p) > 0) then
-                write (iulog,*) 'Planting crop ',ivt(p),' with croplive_beghemyr_patch ',crop_inst%croplive_beghemyr_patch(p)
-            end if
+         ! REPRODUCTION_TEST(ssr, 2022-02-25): Third condition(croplive_beghemyr_patch)
+         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. crop_inst%croplive_beghemyr_patch(p) == 0) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
             ! to reach full physiological maturity
