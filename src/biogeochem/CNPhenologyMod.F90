@@ -1819,8 +1819,8 @@ contains
 
          ! SSR troubleshooting
 !         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
-         verbose = ivt(p) == verbose_ivt
-!         verbose = .false.
+!        verbose = ivt(p) == verbose_ivt
+          verbose = .false.
          write(p_str, '(i4)') p
          if (verbose) then
             write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
