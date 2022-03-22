@@ -2039,7 +2039,7 @@ contains
                ! SSR troubleshooting
                if (verbose) then
                   write (iulog,*) p_str,' cpv   a5tmin ',a5tmin(p)
-                  write (iulog,*) p_str,' cpv   minplanttemp ',minplanttemp(p)
+                  write (iulog,*) p_str,' cpv   minplanttemp ',minplanttemp(ivt(p))
                   write (iulog,*) p_str,' cpv   gdd020 ',gdd020(p)
                   write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
                   write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
