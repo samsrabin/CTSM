@@ -2003,7 +2003,7 @@ contains
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
          ! REPRODUCTION_TEST(ssr, 2022-02-25): Third condition(croplive_beghemyr_patch)
-         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. crop_inst%croplive_beghemyr_patch(p) == 0) then
+         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 .and. (crop_inst%croplive_beghemyr_patch(p) == 0 .or. (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat))) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
             ! to reach full physiological maturity
