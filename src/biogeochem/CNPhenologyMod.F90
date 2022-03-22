@@ -1982,7 +1982,7 @@ contains
          ! old code *did* replant in first calendar year after restart).
          idop_in_swindow = idop(p) >= minplantjday(ivt(p),h) .and. idop(p) <= maxplantjday(ivt(p),h)
          idop_dayafter_swindow = (idop(p) == maxplantjday(ivt(p),h) + 1) .or. ((maxplantjday(ivt(p),h)==365) .and. (idop(p)==1))
-         if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0 &
+         if (croplive(p) .and. idop(p) <= jday .and. idop(p) > 0 .and. sowing_count(p) == 0 &
              ! REPRODUCTION_TEST(ssr, 2022-02-25) 
              .and. (idop_in_swindow .or. (.not. idop_dayafter_swindow))) then
              if (verbose) then
