@@ -1818,9 +1818,8 @@ contains
             write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
          end if
          if (verbose) then
-            write (iulog,*) p_str,' cpv   sowing_count ',sowing_count(p)
-            write (iulog,*) p_str,' cpv   harvest_count ',harvest_count(p)
             write (iulog,*) p_str,' cpv   croplive ',croplive(p)
+            write (iulog,*) p_str,' cpv   cropplant ',cropplant(p)
             write (iulog,*) p_str,' cpv   idop ',idop(p)
             write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
             write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
@@ -1919,7 +1918,7 @@ contains
                ! SSR troubleshooting
                if (verbose) then
                   write (iulog,*) p_str,' cpv   a5tmin ',a5tmin(p)
-                  write (iulog,*) p_str,' cpv   minplanttemp ',minplanttemp(p)
+                  write (iulog,*) p_str,' cpv   minplanttemp ',minplanttemp(ivt(p))
                   write (iulog,*) p_str,' cpv   gdd020 ',gdd020(p)
                   write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
                   write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
