@@ -1683,6 +1683,10 @@ contains
     use clm_varctl       , only : use_c13, use_c14
     use clm_varctl       , only : use_cropcal_streams
     use clm_varcon       , only : c13ratio, c14ratio
+
+    ! SSR troubleshooting
+    use clm_time_manager , only : get_prev_date
+
     !
     ! !ARGUMENTS:
     integer                        , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
@@ -1719,6 +1723,18 @@ contains
     logical force_harvest ! Should we harvest today no matter what?
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical sown_today    ! Was the crop sown today?
+    ! SSR troubleshooting
+    real(r8) verbose_londeg
+    real(r8) verbose_latdeg
+    integer verbose_ivt
+    logical verbose
+    logical verbose_jday
+    logical verbose_mcsec
+    character(len=4) p_str
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1782,6 +1798,14 @@ contains
       avg_dayspyr = get_average_days_per_year()
       jday    = get_prev_calday()
 
+      ! SSR troubleshooting
+      verbose_londeg = 285._r8
+      verbose_latdeg = -50._r8
+      verbose_ivt = nsugarcane
+      verbose_jday = (jday <= 2) .or. (jday >= 364)
+      verbose_mcsec = 0._r8
+      call get_prev_date(kyr, kmo, kda, mcsec)
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1807,10 +1831,29 @@ contains
          ! initialize other variables that are calculated for crops
          ! on an annual basis in cropresidue subroutine
 
+         ! SSR troubleshooting
+!         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt) .and. verbose_jday .and. (mcsec == verbose_mcsec)
+!         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt) .and. verbose_jday
+!         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
+!        verbose = ivt(p) == verbose_ivt
+!        verbose = ivt(p) == verbose_ivt .and. verbose_jday
+        verbose = ivt(p) == verbose_ivt .and. verbose_jday .and. p == 31
+!          verbose = .false.
+         write(p_str, '(i4)') p
+         if (verbose) then
+            write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
+         end if
+
          ! Second condition ensures everything is correctly set when resuming from a run with old code
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
+
+            ! SSR troubleshooting
+            if ( verbose ) then
+                write (iulog,*) p_str,' cpv   Resetting [sh]counts and [sh]dates]'
+            end if
+
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -1840,7 +1883,7 @@ contains
          end if
 
          do_plant_prescribed = next_rx_sdate(p) == jday
-         
+
          if (generate_crop_gdds) then
              if (s==0 .and. next_rx_sdate(p)<=0) then
                  write(iulog,"(A,I4)") 'If using generate_crop_gdds, all simulated patches must have rx sdate. next_rx_sdate(p) <=0. PFT ',ivt(p)
@@ -1858,8 +1901,24 @@ contains
          ! (i.e., jday = get_prev_calday()) instead of the END of the timestep (i.e.,
          ! jday = get_calday()). See CTSM issue #1623.
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
+
+             ! SSR troubleshooting
+             if (verbose) then
+                write (iulog,*) p_str,' cpv   manually setting sowing_count and sdates_thisyr'
+             end if
+
              sowing_count(p) = 1
              crop_inst%sdates_thisyr(p,1) = real(idop(p), r8)
+         end if
+
+         ! SSR troubleshooting
+         if (verbose) then
+            write (iulog,*) p_str,' cpv   sowing_count ',sowing_count(p)
+            write (iulog,*) p_str,' cpv   harvest_count ',harvest_count(p)
+            write (iulog,*) p_str,' cpv   croplive ',croplive(p)
+            if (croplive(p)) then
+                write (iulog,*) p_str,' cpv   idop ',idop(p)
+            end if
          end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
@@ -1905,6 +1964,24 @@ contains
                                      gdd020(p)  /= spval                   .and. &
                                      gdd020(p)  >= gddmin(ivt(p))
 
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   next_rx_sdate ',next_rx_sdate(p)
+                  write (iulog,*) p_str,' cpv   a5tmin ',a5tmin(p)
+                  write (iulog,*) p_str,' cpv   minplanttemp ',minplanttemp(ivt(p))
+                  write (iulog,*) p_str,' cpv   gdd020 ',gdd020(p)
+                  write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   gddmin',gddmin(ivt(p))
+                  if (do_plant_prescribed) then
+                      write (iulog,*) p_str,' cpv   do_plant_prescribed'
+                  else if (do_plant_normal) then
+                      write (iulog,*) p_str,' cpv   do_plant_normal'
+                  else if (do_plant_lastchance) then
+                      write (iulog,*) p_str,' cpv   do_plant_lastchance'
+                  end if
+               end if
+
                if (do_plant_prescribed .or. do_plant_normal .or. do_plant_lastchance) then
 
                   cumvd(p)       = 0._r8
@@ -1941,6 +2018,24 @@ contains
                                      jday == maxplantjday(ivt(p),h) .and. &
                                      gdd820(p) > 0._r8 .and. &
                                      gdd820(p) /= spval
+
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   next_rx_sdate ',next_rx_sdate(p)
+                  write (iulog,*) p_str,' cpv   t10 ',t10(p)
+                  write (iulog,*) p_str,' cpv   a10tmin ',a10tmin(p)
+                  write (iulog,*) p_str,' cpv   gdd820 ',gdd820(p)
+                  write (iulog,*) p_str,' cpv   minplantjday ',minplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   maxplantjday ',maxplantjday(ivt(p),h)
+                  write (iulog,*) p_str,' cpv   gddmin',gddmin(ivt(p))
+                  if (do_plant_prescribed) then
+                      write (iulog,*) p_str,' cpv   do_plant_prescribed'
+                  else if (do_plant_normal) then
+                      write (iulog,*) p_str,' cpv   do_plant_normal'
+                  else if (do_plant_lastchance) then
+                      write (iulog,*) p_str,' cpv   do_plant_lastchance'
+                  end if
+               end if
 
                if (do_plant_prescribed .or. do_plant_normal .or. do_plant_lastchance) then
 
@@ -2093,10 +2188,16 @@ contains
                 do_harvest = .true.
                 force_harvest = .true.
                 fake_harvest = .true.
+                if (verbose) then
+                    write (iulog,*) p_str,' cpv   do_harvest (A)'
+                end if
             else if (do_plant_prescribed) then
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
                 force_harvest = .true.
+                if (verbose) then
+                    write (iulog,*) p_str,' cpv   do_harvest (B)'
+                end if
             else if (generate_crop_gdds) then
                if (.not. use_cropcal_streams) then 
                   write(iulog,*) 'If using generate_crop_gdds, you must set use_cropcal_streams to true.'
@@ -2110,15 +2211,46 @@ contains
                   ! until some time next year.
                   do_harvest = .false.
                endif
+               if (verbose) then
+                   if (do_harvest) then
+                       write (iulog,*) p_str,' cpv   do_harvest (C)'
+                   else
+                       write (iulog,*) p_str,' cpv   no_harvest (C)'
+                   end if
+               end if
             else if (sown_today) then
                ! Do not harvest on the day this growing season began;
                ! would create challenges for postprocessing.
                do_harvest = .false.
+               if (verbose) then
+                   write (iulog,*) p_str,' cpv   no_harvest (D)'
+               end if
             else
                ! Original harvest rule
                do_harvest = hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))
+               if (verbose) then
+                   if (do_harvest) then
+                       write (iulog,*) p_str,' cpv   do_harvest (E)'
+                   else
+                       write (iulog,*) p_str,' cpv   no_harvest (E)'
+                   end if
+               end if
             endif
             force_harvest = force_harvest .or. (generate_crop_gdds .and. do_harvest)
+
+            ! SSR troubleshooting
+            if (verbose) then
+               write (iulog,*) p_str,' cpv   live; GETTING PHASE'
+               write (iulog,*) p_str,' cpv   live;       leafout',leafout(p)
+               write (iulog,*) p_str,' cpv   live;       huileaf',huileaf(p)
+               write (iulog,*) p_str,' cpv   live;           hui',hui(p)
+               write (iulog,*) p_str,' cpv   live;      huigrain',huigrain(p)
+               write (iulog,*) p_str,' cpv   live;          idop',idop(p)
+               write (iulog,*) p_str,' cpv   live;          idpp',idpp
+               write (iulog,*) p_str,' cpv   live;         mxmat',mxmat(ivt(p))
+               write (iulog,*) p_str,' cpv   live;   gddmaturity',gddmaturity(p)
+               write (iulog,*) p_str,' cpv   live; force_harvest',force_harvest
+            end if
 
             if ((.not. force_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat(ivt(p))) then
                cphase(p) = 2._r8
@@ -2159,6 +2291,15 @@ contains
                   if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
                   harvest_count(p) = harvest_count(p) + 1
                   crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
+                  ! SSR troubleshooting
+                  if (verbose) then
+                     write (iulog,*) p_str,' cpv   HARVESTING'
+                  end if
+               else
+                  ! SSR troubleshooting
+                  if (verbose) then
+                     write (iulog,*) p_str,' cpv   FAKE HARVESTING'
+                  end if
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
@@ -2206,6 +2347,10 @@ contains
                end if
 
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
+            end if
+
+            if (verbose) then
+               write (iulog,*) p_str,' cpv   cphase',cphase(p)
             end if
 
             ! continue fertilizer application while in phase 2;
