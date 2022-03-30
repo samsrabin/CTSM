@@ -2249,13 +2249,13 @@ contains
                       if (verbose) then
                           write (iulog,*) p_str,' cpv   dayspyr ',dayspyr
                           if (do_harvest) then
-                              write (iulog,*) p_str,' cpv   do_harvest (E)'
+                              write (iulog,*) p_str,' cpv   do_harvest (F)'
                           else
-                              write (iulog,*) p_str,' cpv   no_harvest (E)'
+                              write (iulog,*) p_str,' cpv   no_harvest (F)'
                           end if
                       end if
                   else if (verbose) then
-                      write (iulog,*) p_str,' cpv   no_harvest (D)'
+                      write (iulog,*) p_str,' cpv   no_harvest (E)'
                   end if
                endif
             else if (sown_today) then
@@ -2263,16 +2263,16 @@ contains
                ! would create challenges for postprocessing.
                do_harvest = .false.
                if (verbose) then
-                   write (iulog,*) p_str,' cpv   no_harvest (F)'
+                   write (iulog,*) p_str,' cpv   no_harvest (G)'
                end if
             else
                ! Original harvest rule
                do_harvest = hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))
                if (verbose) then
                    if (do_harvest) then
-                       write (iulog,*) p_str,' cpv   do_harvest (G)'
+                       write (iulog,*) p_str,' cpv   do_harvest (H)'
                    else
-                       write (iulog,*) p_str,' cpv   no_harvest (G)'
+                       write (iulog,*) p_str,' cpv   no_harvest (H)'
                    end if
                end if
             endif
