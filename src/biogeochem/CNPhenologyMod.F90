@@ -1801,7 +1801,7 @@ contains
       ! SSR troubleshooting
       verbose_londeg = 285._r8
       verbose_latdeg = -50._r8
-      verbose_ivt = nsugarcane
+      verbose_ivt = nswheat
       verbose_jday = (jday <= 2) .or. (jday >= 364)
       verbose_mcsec = 0._r8
       call get_prev_date(kyr, kmo, kda, mcsec)
@@ -1834,10 +1834,11 @@ contains
          ! SSR troubleshooting
 !         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt) .and. verbose_jday .and. (mcsec == verbose_mcsec)
 !         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt) .and. verbose_jday
+         verbose = (grc%londeg(g) > verbose_londeg-0.1_r8) .and. (grc%londeg(g) < verbose_londeg+0.1_r8) .and. (grc%latdeg(g) > verbose_latdeg-0.1_r8) .and. (grc%latdeg(g) < verbose_latdeg+0.1_r8) .and. (ivt(p) == verbose_ivt)
 !         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
 !        verbose = ivt(p) == verbose_ivt
 !        verbose = ivt(p) == verbose_ivt .and. verbose_jday
-        verbose = ivt(p) == verbose_ivt .and. verbose_jday .and. p == 31
+!        verbose = ivt(p) == verbose_ivt .and. verbose_jday .and. p == 31
 !          verbose = .false.
          write(p_str, '(i4)') p
          if (verbose) then
@@ -2203,9 +2204,20 @@ contains
                   write(iulog,*) 'If using generate_crop_gdds, you must set use_cropcal_streams to true.'
                   call endrun(msg=errMsg(sourcefile, __LINE__))
                endif
+               if (verbose) then
+                   write (iulog,*) p_str,' cpv   next_rx_sdate ',next_rx_sdate(p)
+               end if
                if (next_rx_sdate(p) >= 0) then
                   ! Harvest the day before the next sowing date this year.
                   do_harvest = jday == next_rx_sdate(p) - 1
+
+                  if (verbose) then
+                      if (do_harvest) then
+                          write (iulog,*) p_str,' cpv   do_harvest (C)'
+                      else
+                          write (iulog,*) p_str,' cpv   no_harvest (C)'
+                      end if
+                  end if
                else
                   ! If this patch has already had all its plantings for the year, don't harvest
                   ! until some time next year.
@@ -2220,30 +2232,33 @@ contains
                   ! sowing dates.
                   else if (crop_inst%sdates_thisyr(p,1) == 1) then
                       do_harvest = jday == dayspyr
+                      if (verbose) then
+                          write (iulog,*) p_str,' cpv   dayspyr ',dayspyr
+                          if (do_harvest) then
+                              write (iulog,*) p_str,' cpv   do_harvest (E)'
+                          else
+                              write (iulog,*) p_str,' cpv   no_harvest (E)'
+                          end if
+                      end if
+                  else if (verbose) then
+                      write (iulog,*) p_str,' cpv   no_harvest (D)'
                   end if
                endif
-               if (verbose) then
-                   if (do_harvest) then
-                       write (iulog,*) p_str,' cpv   do_harvest (C)'
-                   else
-                       write (iulog,*) p_str,' cpv   no_harvest (C)'
-                   end if
-               end if
             else if (sown_today) then
                ! Do not harvest on the day this growing season began;
                ! would create challenges for postprocessing.
                do_harvest = .false.
                if (verbose) then
-                   write (iulog,*) p_str,' cpv   no_harvest (D)'
+                   write (iulog,*) p_str,' cpv   no_harvest (F)'
                end if
             else
                ! Original harvest rule
                do_harvest = hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))
                if (verbose) then
                    if (do_harvest) then
-                       write (iulog,*) p_str,' cpv   do_harvest (E)'
+                       write (iulog,*) p_str,' cpv   do_harvest (G)'
                    else
-                       write (iulog,*) p_str,' cpv   no_harvest (E)'
+                       write (iulog,*) p_str,' cpv   no_harvest (G)'
                    end if
                end if
             endif
