@@ -1901,6 +1901,7 @@ contains
          ! with CropPhenology() getting the day of the year from the START of the timestep
          ! (i.e., jday = get_prev_calday()) instead of the END of the timestep (i.e.,
          ! jday = get_calday()). See CTSM issue #1623.
+         ! Once removed, can also remove the "Instead, always harvest the day before idop" bit.
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
 
              ! SSR troubleshooting
@@ -2211,13 +2212,26 @@ contains
                   ! Harvest the day before the next sowing date this year.
                   do_harvest = jday == next_rx_sdate(p) - 1
 
-                  if (verbose) then
+                  ! ... unless that will lead to growing season length 365 (or 366,
+                  ! if last year was a leap year). This would result in idop==jday,
+                  ! which would invoke the "manually setting sowing_count and 
+                  ! sdates_thisyr" code. This would lead to crops never getting
+                  ! harvested. Instead, always harvest the day before idop.
+                  if ((.not. do_harvest) .and. \
+                      (idop(p) > 1 .and. jday == idop(p) - 1) .or. \
+                      (idop(p) == 1 .and. jday == dayspyr)) then
+                      do_harvest = .true.
+                      if (verbose) then
+                          write (iulog,*) p_str,' cpv   do_harvest (D)'
+                      end if
+                  else if (verbose) then
                       if (do_harvest) then
                           write (iulog,*) p_str,' cpv   do_harvest (C)'
                       else
                           write (iulog,*) p_str,' cpv   no_harvest (C)'
                       end if
                   end if
+
                else
                   ! If this patch has already had all its plantings for the year, don't harvest
                   ! until some time next year.
