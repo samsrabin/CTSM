@@ -59,7 +59,6 @@ module clm_driver
   use SoilBiogeochemVerticalProfileMod   , only : SoilBiogeochemVerticalProfile
   use SatellitePhenologyMod  , only : SatellitePhenology, interpMonthlyVeg
   use ndepStreamMod          , only : ndep_interp
-  use cropcalStreamMod       , only : cropcal_advance, cropcal_interp
   use ch4Mod                 , only : ch4, ch4_init_gridcell_balance_check, ch4_init_column_balance_check
   use DUSTMod                , only : DustDryDep, DustEmission
   use VOCEmissionMod         , only : VOCEmission
@@ -448,12 +447,6 @@ contains
     if ((.not. use_cn) .and. (.not. use_fates) .and. (doalb) .and. use_lai_streams) then
        call lai_advance( bounds_proc )
     endif
-
-    ! When crop calendar streams are being used
-    ! NOTE: This call needs to happen outside loops over nclumps (as streams are not threadsafe)
-    if (use_cropcal_streams .and. is_beg_curr_year()) then
-      call cropcal_advance( bounds_proc )
-    end if
 
     ! ============================================================================
     ! Initialize variables from previous time step, downscale atm forcings, and
@@ -1036,14 +1029,6 @@ contains
             water_inst%waterdiagnosticbulk_inst, water_inst%wateratm2lndbulk_inst, &
             frictionvel_inst, photosyns_inst, drydepvel_inst)
        call t_stopf('depvel')
-
-       if (use_cropcal_streams .and. is_beg_curr_year()) then
-          ! ============================================================================
-          ! Update crop calendars
-          ! ============================================================================
-          call cropcal_interp(bounds_clump, filter(nc)%num_pcropp, filter(nc)%pcropp, crop_inst)
-!          write(iulog,*) 'Exited cropcal_interp() in clm_drv()'
-       end if
 
        ! ============================================================================
        ! Calculate soil/snow hydrology with drainage (subsurface runoff)
