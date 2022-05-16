@@ -19,9 +19,6 @@ module NutrientCompetitionCLM45defaultMod
   use NutrientCompetitionMethodMod, only : params_inst
   use CropReprPoolsMod        , only : nrepr
   !use clm_varctl          , only : iulog  
-  ! SSR troubleshooting
-  use abortutils                      , only : endrun
-  use shr_log_mod                     , only : errMsg => shr_log_errMsg
   !
   implicit none
   private
@@ -823,12 +820,6 @@ contains
                      astem(p) = 0._r8
                      aroot(p) = 1._r8 - aleaf(p)
                   else
-
-                     ! SSR troubleshooting
-                     if (gddmaturity(p) == 0.0) then
-                        call endrun(msg=errMsg(sourcefile, __LINE__))
-                     end if
-
                      aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) -   &
                           (arooti(ivt(p)) - arootf(ivt(p))) *  &
                           min(1._r8, hui(p)/gddmaturity(p))))
@@ -854,11 +845,6 @@ contains
                   ! of days has elapsed since planting
 
                else if (hui(p) >= huigrain(p)) then
-
-                  ! SSR troubleshooting
-                  if (gddmaturity(p) == 0.0) then
-                     call endrun(msg=errMsg(sourcefile, __LINE__))
-                  end if
 
                   aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
                        (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity(p))))

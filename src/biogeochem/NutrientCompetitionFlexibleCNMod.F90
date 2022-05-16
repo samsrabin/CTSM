@@ -26,9 +26,6 @@ module NutrientCompetitionFlexibleCNMod
   use NutrientCompetitionMethodMod, only : params_inst
   use CropReprPoolsMod        , only : nrepr
   use clm_varctl          , only : iulog
-  ! SSR troubleshooting
-  use abortutils                      , only : endrun
-  use shr_log_mod                     , only : errMsg => shr_log_errMsg
   !
   implicit none
   private
@@ -285,8 +282,6 @@ contains
     real(r8) :: frNdemand_npool_to_reproductiven_storage(bounds%begp:bounds%endp, nrepr)
 
     ! -----------------------------------------------------------------------
-
-!    write(iulog,*) 'Entering calc_plant_cn_alloc() (NutrientCompetitionFlexibleCNMod.F90)'
 
     SHR_ASSERT_ALL_FL((ubound(aroot)   == (/bounds%endp/)) , sourcefile, __LINE__)
     SHR_ASSERT_ALL_FL((ubound(arepr)   == (/bounds%endp, nrepr/)) , sourcefile, __LINE__)
@@ -896,8 +891,6 @@ contains
 
     end associate
 
-!    write(iulog,*) 'Exiting calc_plant_cn_alloc() (NutrientCompetitionFlexibleCNMod.F90)'
-
   end subroutine calc_plant_cn_alloc
 
 ! -----------------------------------------------------------------------
@@ -1040,8 +1033,6 @@ contains
     real(r8) :: allocation_froot (bounds%begp:bounds%endp)
 
     ! -----------------------------------------------------------------------
-
-!    write(iulog,*) 'Entering calc_plant_nitrogen_demand() (NutrientCompetitionFlexibleCNMod.F90)'
 
     SHR_ASSERT_ALL_FL((ubound(aroot) == (/bounds%endp/)), sourcefile, __LINE__)
     SHR_ASSERT_ALL_FL((ubound(arepr) == (/bounds%endp, nrepr/)), sourcefile, __LINE__)
@@ -1310,17 +1301,6 @@ contains
                      astem(p) = 0._r8
                      aroot(p) = 1._r8 - aleaf(p)
                   else
-
-                     ! SSR troubleshooting
-                     if (gddmaturity(p) == 0.0) then
-                        write(iulog,*) 'gddmaturity(p) == 0.0'
-                        call endrun(msg=errMsg(sourcefile, __LINE__))
-                     end if
-                     if (huigrain(p) == 0.0) then
-                        write(iulog,*) 'huigrain(p) == 0.0'
-                        call endrun(msg=errMsg(sourcefile, __LINE__))
-                     end if
-
                      aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) -   &
                           (arooti(ivt(p)) - arootf(ivt(p))) *  &
                           min(1._r8, hui(p)/gddmaturity(p))))
@@ -1346,31 +1326,6 @@ contains
                   ! of days has elapsed since planting
 
                else if (hui(p) >= huigrain(p)) then
-
-                  ! SSR troubleshooting
-                  if (gddmaturity(p) == 0.0) then
-                     write(iulog,*) 'gddmaturity(p) == 0.0'
-                     call endrun(msg=errMsg(sourcefile, __LINE__))
-                  end if
-                  if (((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0) then
-                     write(iulog,*) '((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0'
-                     write(iulog,*) 'gddmaturity(p) = ',gddmaturity(p)
-                     write(iulog,*) 'declfact(ivt(p)) = ',declfact(ivt(p))
-                     write(iulog,*) 'huigrain(p) = ',huigrain(p)
-                     call endrun(msg=errMsg(sourcefile, __LINE__))
-                  end if
-                  if (allconss(ivt(p)) .lt. 0.0 .and. min((hui(p)-                 &
-                  huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
-                  huigrain(p)),1._r8) == 0.0) then
-                     write(iulog,*) 'Raising 0 to negative exponent'
-                     write(iulog,*) 'hui(p) = ',hui(p)
-                     write(iulog,*) 'huigrain(p) = ',huigrain(p)
-                     write(iulog,*) 'hui(p) = ',hui(p)
-                     write(iulog,*) 'gddmaturity(p) = ',gddmaturity(p)
-                     write(iulog,*) 'declfact(ivt(p)) = ',declfact(ivt(p))
-                     call endrun(msg=errMsg(sourcefile, __LINE__))
-                  end if
-
                   aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
                        (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity(p))))
                   if (astemi(p) > astemf(ivt(p))) then
@@ -1585,8 +1540,6 @@ contains
       end do ! end patch loop
 
     end associate
-
-!    write(iulog,*) 'Exiting calc_plant_nitrogen_demand() (NutrientCompetitionFlexibleCNMod.F90)'
 
   end subroutine calc_plant_nitrogen_demand
 
