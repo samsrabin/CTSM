@@ -31,9 +31,6 @@ module NutrientCompetitionFlexibleCNMod
   use CropType            , only : cphase_leafemerge, cphase_grainfill
   use clm_varctl          , only : iulog, use_crop_agsys
   use abortutils          , only : endrun
-  ! SSR troubleshooting
-  use shr_log_mod                     , only : errMsg => shr_log_errMsg
->>>>>>> ctsm5.1.dev092
   !
   implicit none
   private
