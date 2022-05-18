@@ -336,6 +336,17 @@ contains
                 astem(p) = 0._r8
                 aroot(p) = 1._r8 - aleaf(p)
              else
+
+               ! SSR troubleshooting
+               if (gddmaturity(p) == 0.0) then
+                  write(iulog,*) 'gddmaturity(p) == 0.0'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
+               end if
+               if (huigrain(p) == 0.0) then
+                  write(iulog,*) 'huigrain(p) == 0.0'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
+               end if
+
                 aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) -   &
                      (arooti(ivt(p)) - arootf(ivt(p))) *  &
                      min(1._r8, hui(p)/gddmaturity(p))))
@@ -360,6 +371,31 @@ contains
              ! of days has elapsed since planting
 
           else if (crop_phase(p) == cphase_grainfill) then
+
+            ! SSR troubleshooting
+            if (gddmaturity(p) == 0.0) then
+               write(iulog,*) 'gddmaturity(p) == 0.0'
+               call endrun(msg=errMsg(sourcefile, __LINE__))
+            end if
+            if (((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0) then
+               write(iulog,*) '((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0'
+               write(iulog,*) 'gddmaturity(p) = ',gddmaturity(p)
+               write(iulog,*) 'declfact(ivt(p)) = ',declfact(ivt(p))
+               write(iulog,*) 'huigrain(p) = ',huigrain(p)
+               call endrun(msg=errMsg(sourcefile, __LINE__))
+            end if
+            if (allconss(ivt(p)) .lt. 0.0 .and. min((hui(p)-                 &
+            huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
+            huigrain(p)),1._r8) == 0.0) then
+               write(iulog,*) 'Raising 0 to negative exponent'
+               write(iulog,*) 'hui(p) = ',hui(p)
+               write(iulog,*) 'huigrain(p) = ',huigrain(p)
+               write(iulog,*) 'hui(p) = ',hui(p)
+               write(iulog,*) 'gddmaturity(p) = ',gddmaturity(p)
+               write(iulog,*) 'declfact(ivt(p)) = ',declfact(ivt(p))
+               call endrun(msg=errMsg(sourcefile, __LINE__))
+            end if
+
              aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
                   (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity(p))))
              if (astemi(p) > astemf(ivt(p))) then
