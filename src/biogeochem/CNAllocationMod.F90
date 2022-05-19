@@ -403,6 +403,14 @@ contains
                
              end if
 
+             ! SSR troubleshooting
+             if (isnan(astem(p))) then
+               write(iulog,*) 'calc_crop_allocation_fractions() C: astem is NaN'
+             end if
+             if (isinf(astem(p))) then
+               write(iulog,*) 'calc_crop_allocation_fractions() C: astem is Inf'
+             end if
+
              ! AgroIBIS included here an immediate adjustment to aleaf & astem if the
              ! predicted lai from the above allocation coefficients exceeded laimx.
              ! We have decided to live with lais slightly higher than laimx by
@@ -410,6 +418,14 @@ contains
 
              astemi(p) = astem(p) ! save for use by equations after shift
              aleafi(p) = aleaf(p) ! to reproductive phenology stage begins
+
+             ! SSR troubleshooting
+             if (isnan(astemi(p))) then
+               write(iulog,*) 'calc_crop_allocation_fractions() D: astemi is NaN'
+             end if
+             if (isinf(astemi(p))) then
+               write(iulog,*) 'calc_crop_allocation_fractions() D: astemi is Inf'
+             end if
 
              ! Phase 2 completed:
              ! ==================
@@ -534,6 +550,20 @@ contains
           do k = 1, nrepr
              arepr(p,k) = 0._r8
           end do
+       end if
+
+       ! SSR troubleshooting
+       if (isnan(astem(p))) then
+         write(iulog,*) 'calc_crop_allocation_fractions() E: astem is NaN'
+       end if
+       if (isinf(astem(p))) then
+         write(iulog,*) 'calc_crop_allocation_fractions() E: astem is Inf'
+       end if
+       if (isnan(astemi(p))) then
+         write(iulog,*) 'calc_crop_allocation_fractions() E: astemi is NaN'
+       end if
+       if (isinf(astemi(p))) then
+         write(iulog,*) 'calc_crop_allocation_fractions() E: astemi is Inf'
        end if
 
     end do
