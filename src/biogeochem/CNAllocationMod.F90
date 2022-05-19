@@ -26,6 +26,8 @@ module CNAllocationMod
   use CropReprPoolsMod     , only : nrepr
   use CNPhenologyMod       , only : CropPhase
   use CNSharedParamsMod    , only : use_fun
+  ! SSR troubleshooting
+  use shr_infnan_mod       , only : isnan => shr_infnan_isnan, isinf => shr_infnan_isinf
   !
   implicit none
   private
@@ -398,6 +400,27 @@ contains
 
              aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
                   (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity(p))))
+
+             ! SSR troubleshooting
+             if (isnan(astemi(p))) then
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is NaN'
+             end if
+             if (isinf(astemi(p))) then
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is Inf'
+             end if
+             if (isnan(astemf(ivt(p)))) then
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is NaN'
+             end if
+             if (isinf(astemf(ivt(p)))) then
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is Inf'
+             end if
+             if (astemi(p) > astemi(p)) then
+                 write(iulog,*) 'Trying to trigger a crash with this conditional'
+             end if
+             if (astemf(ivt(p)) > astemf(ivt(p))) then
+                 write(iulog,*) 'And if not, maybe this one will'
+             end if
+
              if (astemi(p) > astemf(ivt(p))) then
                 astem(p) = max(0._r8, max(astemf(ivt(p)), astem(p) * &
                      (1._r8 - min((hui(p)-                 &
