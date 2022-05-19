@@ -352,11 +352,55 @@ contains
                 aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) -   &
                      (arooti(ivt(p)) - arootf(ivt(p))) *  &
                      min(1._r8, hui(p)/gddmaturity(p))))
+                
+               ! SSR troubleshooting
+               if (isnan(aroot(p)) .or. isinf(aroot(p))) then
+                  if (isnan(aroot(p))) then
+                     write(iulog,*) 'calc_crop_allocation_fractions(): aroot is NaN'
+                  end if
+                  if (isinf(aroot(p))) then
+                     write(iulog,*) 'calc_crop_allocation_fractions(): aroot is Inf'
+                  end if
+                  write(iulog,*) 'hui = ',hui(p)
+                  write(iulog,*) 'gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'arooti = ',arooti(ivt(p))
+                  write(iulog,*) 'arootf = ',arootf(ivt(p))
+               end if
+
                 fleaf = fleafi(ivt(p)) * (exp(-bfact(ivt(p))) -         &
                      exp(-bfact(ivt(p))*hui(p)/huigrain(p))) / &
                      (exp(-bfact(ivt(p)))-1) ! fraction alloc to leaf (from J Norman alloc curve)
                 aleaf(p) = max(1.e-5_r8, (1._r8 - aroot(p)) * fleaf)
+
+               ! SSR troubleshooting
+               if (isnan(aleaf(p)) .or. isinf(aleaf(p))) then
+                  if (isnan(aroot(p))) then
+                     write(iulog,*) 'calc_crop_allocation_fractions(): aleaf is NaN'
+                  end if
+                  if (isinf(aleaf(p))) then
+                     write(iulog,*) 'calc_crop_allocation_fractions(): aleaf is Inf'
+                  end if
+                  write(iulog,*) 'aroot = ',aroot(p)
+                  write(iulog,*) 'fleaf = ',fleaf
+                  write(iulog,*) 'hui = ',hui(p)
+                  write(iulog,*) 'huigrain = ',huigrain(p)
+                  write(iulog,*) 'fleafi = ',fleafi(ivt(p))
+                  write(iulog,*) 'bfact = ',bfact(ivt(p))
+                  write(iulog,*) 'gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'arooti = ',arooti(ivt(p))
+                  write(iulog,*) 'arootf = ',arootf(ivt(p))
+               end if
+
                 astem(p) = 1._r8 - aleaf(p) - aroot(p)
+
+               ! SSR troubleshooting
+               if (isnan(astem(p))) then
+                  write(iulog,*) 'calc_crop_allocation_fractions() A: astem is NaN'
+               end if
+               if (isinf(astem(p))) then
+                  write(iulog,*) 'calc_crop_allocation_fractions() A: astem is Inf'
+               end if
+               
              end if
 
              ! AgroIBIS included here an immediate adjustment to aleaf & astem if the
@@ -426,6 +470,23 @@ contains
                      (1._r8 - min((hui(p)-                 &
                      huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
                      huigrain(p)),1._r8)**allconss(ivt(p)) )))
+
+               ! SSR troubleshooting
+               if (isnan(astem(p)) .or. isinf(astem(p))) then
+                  if (isnan(astem(p))) then
+                     write(iulog,*) 'calc_crop_allocation_fractions() B: astem is NaN'
+                  end if
+                  if (isinf(astem(p))) then
+                     write(iulog,*) 'calc_crop_allocation_fractions() B: astem is Inf'
+                  end if
+                  write(iulog,*) 'astemf = ',astemf(ivt(p))
+                  write(iulog,*) 'hui = ',hui(p)
+                  write(iulog,*) 'huigrain = ',huigrain(p)
+                  write(iulog,*) 'gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'declfact = ',declfact(ivt(p))
+                  write(iulog,*) 'allconss = ',allconss(ivt(p))
+               end if
+
              end if
 
              ! If crops have hit peaklai, then set leaf allocation to small value
