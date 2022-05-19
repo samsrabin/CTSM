@@ -2586,6 +2586,9 @@ contains
          if (ivt(p) == ntmp_soybean .or. ivt(p) == nirrig_tmp_soybean .or. &
                ivt(p) == ntrp_soybean .or. ivt(p) == nirrig_trp_soybean) then
             gddmaturity(p) = min(gdd1020(p), hybgdd(ivt(p)))
+            if (gddmaturity(p) < min_crop_gdd_target) then
+               write(iulog,*) 'Some soy patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
+            endif
          end if
          if (ivt(p) == ntmp_corn .or. ivt(p) == nirrig_tmp_corn .or. &
                ivt(p) == ntrp_corn .or. ivt(p) == nirrig_trp_corn .or. &
@@ -2596,18 +2599,29 @@ contains
             if (do_plant_normal) then
                gddmaturity(p) = max(950._r8, min(gddmaturity(p)+150._r8, 1850._r8))
             end if
+            if (gddmaturity(p) < min_crop_gdd_target) then
+               write(iulog,*) 'Some corn/sgc/misc/swg patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
+            endif
          end if
          if (ivt(p) == nswheat .or. ivt(p) == nirrig_swheat .or. &
                ivt(p) == ncotton .or. ivt(p) == nirrig_cotton .or. &
                ivt(p) == nrice   .or. ivt(p) == nirrig_rice) then
             gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
+            if (gddmaturity(p) < min_crop_gdd_target) then
+               write(iulog,*) 'Some swheat/cotton/rice patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
+            endif
          end if
 
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
          if (gddmaturity(p) < min_crop_gdd_target) then
-            write(iulog,*) 'Some patch with ivt ',ivt(p),' has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
-         endif
+            write(iulog,*) 'gdd020',gdd020(p)
+            write(iulog,*) 'gdd820',gdd820(p)
+            write(iulog,*) 'gdd1020',gdd1020(p)
+            write(iulog,*) 'gddmin',pftcon%gddmin(ivt(p))
+            write(iulog,*) 'hybgdd',hybgdd(ivt(p))
+            write(iulog,*) 'do_plant_normal',do_plant_normal
+         end if
          gddmaturity(p) = max(gddmaturity(p), min_crop_gdd_target)
       endif
 !      write (iulog,'(a,i4,a,f0.0)')  'gddmaturity (ivt ',ivt(p),'): ',gddmaturity(p)
