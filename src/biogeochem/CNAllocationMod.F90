@@ -559,9 +559,10 @@ contains
        if (isinf(astem(p))) then
          write(iulog,*) 'calc_crop_allocation_fractions() E: astem is Inf'
        end if
-       if (isnan(astemi(p))) then
-         write(iulog,*) 'calc_crop_allocation_fractions() E: astemi is NaN'
-       end if
+       ! This is very often true without issue, so commenting it out.
+       ! if (isnan(astemi(p))) then
+       !   write(iulog,*) 'calc_crop_allocation_fractions() E: astemi is NaN'
+       ! end if
        if (isinf(astemi(p))) then
          write(iulog,*) 'calc_crop_allocation_fractions() E: astemi is Inf'
        end if
