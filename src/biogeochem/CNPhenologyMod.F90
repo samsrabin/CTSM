@@ -1686,6 +1686,8 @@ contains
     use clm_varctl       , only : use_c13, use_c14
     use clm_varctl       , only : use_cropcal_streams
     use clm_varcon       , only : c13ratio, c14ratio
+    ! SSR troubleshooting
+    use clm_time_manager , only : get_prev_date
     !
     ! !ARGUMENTS:
     integer                        , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
@@ -1725,6 +1727,16 @@ contains
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical sown_today    ! Was the crop sown today?
     logical is_day_before_next_sowing ! Is tomorrow a prescribed sowing day?
+    ! SSR troubleshooting
+    real(r8) verbose_londeg
+    real(r8) verbose_latdeg
+    integer verbose_ivt
+    logical verbose
+    character(len=4) p_str
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1787,6 +1799,12 @@ contains
       avg_dayspyr = get_average_days_per_year()
       jday    = get_prev_calday()
 
+      ! SSR troubleshooting
+      verbose_londeg = 0._r8
+      verbose_latdeg = 0._r8
+      verbose_ivt = nwwheat
+      call get_prev_date(kyr, kmo, kda, mcsec)
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1814,6 +1832,15 @@ contains
 
          ! initialize other variables that are calculated for crops
          ! on an annual basis in cropresidue subroutine
+
+         ! SSR troubleshooting
+!         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
+!        verbose = ivt(p) == verbose_ivt
+          verbose = .false.
+         write(p_str, '(i4)') p
+         if (verbose) then
+            write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
+         end if
 
          ! Second condition ensures everything is correctly set when resuming from a run with old code
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
@@ -1918,7 +1945,8 @@ contains
                                  temperature_inst, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+                                 grc%londeg(g), grc%latdeg(g), kyr, mcsec)
                   do_plant_prescribed = .false.
 
                else
@@ -1951,7 +1979,8 @@ contains
                                  temperature_inst, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+                                 grc%londeg(g), grc%latdeg(g), kyr, mcsec)
                   do_plant_prescribed = .false.
 
                else
@@ -2454,7 +2483,8 @@ contains
        temperature_inst, crop_inst, cnveg_state_inst,               &
        cnveg_carbonstate_inst, cnveg_nitrogenstate_inst,            &
        cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,              &
-       c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+       c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst,      &
+       londeg, latdeg, kyr, mcsec)
     !
     ! !DESCRIPTION:
     !
@@ -2488,6 +2518,11 @@ contains
     type(cnveg_nitrogenflux_type)  , intent(inout) :: cnveg_nitrogenflux_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: c13_cnveg_carbonstate_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: c14_cnveg_carbonstate_inst
+    ! SSR troubleshooting
+    real(r8)               , intent(in)    :: londeg
+    real(r8)               , intent(in)    :: latdeg
+    integer                , intent(in)    :: kyr
+    integer                , intent(in)    :: mcsec
     !
     ! LOCAL VARAIBLES:
     integer s              ! growing season index
@@ -2615,6 +2650,7 @@ contains
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
          if (gddmaturity(p) < min_crop_gdd_target) then
+            write (iulog,'(a,f7.2,a,f7.2,a,i5,a,i4,a,i12)')  'lon',londeg,' lat ',latdeg,' yr ',kyr,' jday ',jday,' mcsec ',mcsec
             write(iulog,*) 'gdd020',gdd020(p)
             write(iulog,*) 'gdd820',gdd820(p)
             write(iulog,*) 'gdd1020',gdd1020(p)
