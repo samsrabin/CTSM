@@ -1837,6 +1837,7 @@ contains
 !         verbose = (grc%londeg(g) == verbose_londeg) .and. (grc%latdeg(g) == verbose_latdeg) .and. (ivt(p) == verbose_ivt)
 !        verbose = ivt(p) == verbose_ivt
           verbose = .false.
+!          verbose = .true.
          write(p_str, '(i4)') p
          if (verbose) then
             write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
@@ -2649,17 +2650,19 @@ contains
 
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
-         if (gddmaturity(p) < min_crop_gdd_target) then
-            write (iulog,'(a,f7.2,a,f7.2,a,i5,a,i4,a,i12)')  'lon',londeg,' lat ',latdeg,' yr ',kyr,' jday ',jday,' mcsec ',mcsec
-            write(iulog,*) 'gdd020',gdd020(p)
-            write(iulog,*) 'gdd820',gdd820(p)
-            write(iulog,*) 'gdd1020',gdd1020(p)
-            write(iulog,*) 'gddmin',pftcon%gddmin(ivt(p))
-            write(iulog,*) 'hybgdd',hybgdd(ivt(p))
-            write(iulog,*) 'do_plant_normal',do_plant_normal
-         end if
          gddmaturity(p) = max(gddmaturity(p), min_crop_gdd_target)
       endif
+
+      write (iulog,'(a,f7.2,a,f7.2,a,i5,a,i4,a,i12)')  'lon',londeg,' lat ',latdeg,' yr ',kyr,' jday ',jday,' mcsec ',mcsec
+      write(iulog,*) 'ivt',ivt(p)
+      write(iulog,*) 'gdd020',gdd020(p)
+      write(iulog,*) 'gdd820',gdd820(p)
+      write(iulog,*) 'gdd1020',gdd1020(p)
+      write(iulog,*) 'gddmin',pftcon%gddmin(ivt(p))
+      write(iulog,*) 'hybgdd',hybgdd(ivt(p))
+      write(iulog,*) 'do_plant_normal',do_plant_normal
+      write(iulog,*) 'gddmaturity',gddmaturity(p)
+
 !      write (iulog,'(a,i4,a,f0.0)')  'gddmaturity (ivt ',ivt(p),'): ',gddmaturity(p)
 
     end associate
