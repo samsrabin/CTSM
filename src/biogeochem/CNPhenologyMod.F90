@@ -2623,7 +2623,7 @@ contains
                ivt(p) == ntrp_soybean .or. ivt(p) == nirrig_trp_soybean) then
             gddmaturity(p) = min(gdd1020(p), hybgdd(ivt(p)))
             if (gddmaturity(p) < min_crop_gdd_target) then
-               write(iulog,*) 'Some soy patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
+               write(iulog,*) 'srts: Some soy patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
             endif
          end if
          if (ivt(p) == ntmp_corn .or. ivt(p) == nirrig_tmp_corn .or. &
@@ -2636,7 +2636,7 @@ contains
                gddmaturity(p) = max(950._r8, min(gddmaturity(p)+150._r8, 1850._r8))
             end if
             if (gddmaturity(p) < min_crop_gdd_target) then
-               write(iulog,*) 'Some corn/sgc/misc/swg patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
+               write(iulog,*) 'srts: Some corn/sgc/misc/swg patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
             endif
          end if
          if (ivt(p) == nswheat .or. ivt(p) == nirrig_swheat .or. &
@@ -2644,7 +2644,7 @@ contains
                ivt(p) == nrice   .or. ivt(p) == nirrig_rice) then
             gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
             if (gddmaturity(p) < min_crop_gdd_target) then
-               write(iulog,*) 'Some swheat/cotton/rice patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
+               write(iulog,*) 'srts: Some swheat/cotton/rice patch (ivt ',ivt(p),') has calculated gddmaturity ',gddmaturity(p),'; using min_crop_gdd_target instead (',min_crop_gdd_target,')'
             endif
          end if
 
@@ -2653,15 +2653,15 @@ contains
          gddmaturity(p) = max(gddmaturity(p), min_crop_gdd_target)
       endif
 
-      write (iulog,'(a,f7.2,a,f7.2,a,i5,a,i4,a,i12)')  'lon',londeg,' lat ',latdeg,' yr ',kyr,' jday ',jday,' mcsec ',mcsec
-      write(iulog,*) 'ivt',ivt(p)
-      write(iulog,*) 'gdd020',gdd020(p)
-      write(iulog,*) 'gdd820',gdd820(p)
-      write(iulog,*) 'gdd1020',gdd1020(p)
-      write(iulog,*) 'gddmin',pftcon%gddmin(ivt(p))
-      write(iulog,*) 'hybgdd',hybgdd(ivt(p))
-      write(iulog,*) 'do_plant_normal',do_plant_normal
-      write(iulog,*) 'gddmaturity',gddmaturity(p)
+      write (iulog,'(a,f7.2,a,f7.2,a,i5,a,i4,a,i12)')  'srts: lon',londeg,' lat ',latdeg,' yr ',kyr,' jday ',jday,' mcsec ',mcsec
+      write(iulog,*) 'srts: ivt',ivt(p)
+      write(iulog,*) 'srts: gdd020',gdd020(p)
+      write(iulog,*) 'srts: gdd820',gdd820(p)
+      write(iulog,*) 'srts: gdd1020',gdd1020(p)
+      write(iulog,*) 'srts: gddmin',pftcon%gddmin(ivt(p))
+      write(iulog,*) 'srts: hybgdd',hybgdd(ivt(p))
+      write(iulog,*) 'srts: do_plant_normal',do_plant_normal
+      write(iulog,*) 'srts: gddmaturity',gddmaturity(p)
 
 !      write (iulog,'(a,i4,a,f0.0)')  'gddmaturity (ivt ',ivt(p),'): ',gddmaturity(p)
 

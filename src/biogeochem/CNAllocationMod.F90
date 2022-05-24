@@ -341,11 +341,11 @@ contains
 
                ! SSR troubleshooting
                if (gddmaturity(p) == 0.0) then
-                  write(iulog,*) 'gddmaturity(p) == 0.0'
+                  write(iulog,*) 'srts: gddmaturity(p) == 0.0'
                   call endrun(msg=errMsg(sourcefile, __LINE__))
                end if
                if (huigrain(p) == 0.0) then
-                  write(iulog,*) 'huigrain(p) == 0.0'
+                  write(iulog,*) 'srts: huigrain(p) == 0.0'
                   call endrun(msg=errMsg(sourcefile, __LINE__))
                end if
 
@@ -356,15 +356,15 @@ contains
                ! SSR troubleshooting
                if (isnan(aroot(p)) .or. isinf(aroot(p))) then
                   if (isnan(aroot(p))) then
-                     write(iulog,*) 'calc_crop_allocation_fractions(): aroot is NaN'
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aroot is NaN'
                   end if
                   if (isinf(aroot(p))) then
-                     write(iulog,*) 'calc_crop_allocation_fractions(): aroot is Inf'
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aroot is Inf'
                   end if
-                  write(iulog,*) 'hui = ',hui(p)
-                  write(iulog,*) 'gddmaturity = ',gddmaturity(p)
-                  write(iulog,*) 'arooti = ',arooti(ivt(p))
-                  write(iulog,*) 'arootf = ',arootf(ivt(p))
+                  write(iulog,*) 'srts: hui = ',hui(p)
+                  write(iulog,*) 'srts: gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'srts: arooti = ',arooti(ivt(p))
+                  write(iulog,*) 'srts: arootf = ',arootf(ivt(p))
                end if
 
                 fleaf = fleafi(ivt(p)) * (exp(-bfact(ivt(p))) -         &
@@ -375,40 +375,40 @@ contains
                ! SSR troubleshooting
                if (isnan(aleaf(p)) .or. isinf(aleaf(p))) then
                   if (isnan(aroot(p))) then
-                     write(iulog,*) 'calc_crop_allocation_fractions(): aleaf is NaN'
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aleaf is NaN'
                   end if
                   if (isinf(aleaf(p))) then
-                     write(iulog,*) 'calc_crop_allocation_fractions(): aleaf is Inf'
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aleaf is Inf'
                   end if
-                  write(iulog,*) 'aroot = ',aroot(p)
-                  write(iulog,*) 'fleaf = ',fleaf
-                  write(iulog,*) 'hui = ',hui(p)
-                  write(iulog,*) 'huigrain = ',huigrain(p)
-                  write(iulog,*) 'fleafi = ',fleafi(ivt(p))
-                  write(iulog,*) 'bfact = ',bfact(ivt(p))
-                  write(iulog,*) 'gddmaturity = ',gddmaturity(p)
-                  write(iulog,*) 'arooti = ',arooti(ivt(p))
-                  write(iulog,*) 'arootf = ',arootf(ivt(p))
+                  write(iulog,*) 'srts: aroot = ',aroot(p)
+                  write(iulog,*) 'srts: fleaf = ',fleaf
+                  write(iulog,*) 'srts: hui = ',hui(p)
+                  write(iulog,*) 'srts: huigrain = ',huigrain(p)
+                  write(iulog,*) 'srts: fleafi = ',fleafi(ivt(p))
+                  write(iulog,*) 'srts: bfact = ',bfact(ivt(p))
+                  write(iulog,*) 'srts: gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'srts: arooti = ',arooti(ivt(p))
+                  write(iulog,*) 'srts: arootf = ',arootf(ivt(p))
                end if
 
                 astem(p) = 1._r8 - aleaf(p) - aroot(p)
 
                ! SSR troubleshooting
                if (isnan(astem(p))) then
-                  write(iulog,*) 'calc_crop_allocation_fractions() A: astem is NaN'
+                  write(iulog,*) 'srts: calc_crop_allocation_fractions() A: astem is NaN'
                end if
                if (isinf(astem(p))) then
-                  write(iulog,*) 'calc_crop_allocation_fractions() A: astem is Inf'
+                  write(iulog,*) 'srts: calc_crop_allocation_fractions() A: astem is Inf'
                end if
                
              end if
 
              ! SSR troubleshooting
              if (isnan(astem(p))) then
-               write(iulog,*) 'calc_crop_allocation_fractions() C: astem is NaN'
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() C: astem is NaN'
              end if
              if (isinf(astem(p))) then
-               write(iulog,*) 'calc_crop_allocation_fractions() C: astem is Inf'
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() C: astem is Inf'
              end if
 
              ! AgroIBIS included here an immediate adjustment to aleaf & astem if the
@@ -421,10 +421,10 @@ contains
 
              ! SSR troubleshooting
              if (isnan(astemi(p))) then
-               write(iulog,*) 'calc_crop_allocation_fractions() D: astemi is NaN'
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() D: astemi is NaN'
              end if
              if (isinf(astemi(p))) then
-               write(iulog,*) 'calc_crop_allocation_fractions() D: astemi is Inf'
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() D: astemi is Inf'
              end if
 
              ! Phase 2 completed:
@@ -436,25 +436,25 @@ contains
 
             ! SSR troubleshooting
             if (gddmaturity(p) == 0.0) then
-               write(iulog,*) 'gddmaturity(p) == 0.0'
+               write(iulog,*) 'srts: gddmaturity(p) == 0.0'
                call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
             if (((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0) then
-               write(iulog,*) '((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0'
-               write(iulog,*) 'gddmaturity(p) = ',gddmaturity(p)
-               write(iulog,*) 'declfact(ivt(p)) = ',declfact(ivt(p))
-               write(iulog,*) 'huigrain(p) = ',huigrain(p)
+               write(iulog,*) 'srts: ((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0'
+               write(iulog,*) 'srts: gddmaturity(p) = ',gddmaturity(p)
+               write(iulog,*) 'srts: declfact(ivt(p)) = ',declfact(ivt(p))
+               write(iulog,*) 'srts: huigrain(p) = ',huigrain(p)
                call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
             if (allconss(ivt(p)) .lt. 0.0 .and. min((hui(p)-                 &
             huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
             huigrain(p)),1._r8) == 0.0) then
-               write(iulog,*) 'Raising 0 to negative exponent'
-               write(iulog,*) 'hui(p) = ',hui(p)
-               write(iulog,*) 'huigrain(p) = ',huigrain(p)
-               write(iulog,*) 'hui(p) = ',hui(p)
-               write(iulog,*) 'gddmaturity(p) = ',gddmaturity(p)
-               write(iulog,*) 'declfact(ivt(p)) = ',declfact(ivt(p))
+               write(iulog,*) 'srts: Raising 0 to negative exponent'
+               write(iulog,*) 'srts: hui(p) = ',hui(p)
+               write(iulog,*) 'srts: huigrain(p) = ',huigrain(p)
+               write(iulog,*) 'srts: hui(p) = ',hui(p)
+               write(iulog,*) 'srts: gddmaturity(p) = ',gddmaturity(p)
+               write(iulog,*) 'srts: declfact(ivt(p)) = ',declfact(ivt(p))
                call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
 
@@ -463,22 +463,22 @@ contains
 
              ! SSR troubleshooting
              if (isnan(astemi(p))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is NaN, ivt',ivt(p)
+                 write(iulog,*) 'srts: calc_crop_allocation_fractions(): astemi is NaN, ivt',ivt(p)
              end if
              if (isinf(astemi(p))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is Inf, ivt',ivt(p)
+                 write(iulog,*) 'srts: calc_crop_allocation_fractions(): astemi is Inf, ivt',ivt(p)
              end if
              if (isnan(astemf(ivt(p)))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is NaN, ivt',ivt(p)
+                 write(iulog,*) 'srts: calc_crop_allocation_fractions(): astemf is NaN, ivt',ivt(p)
              end if
              if (isinf(astemf(ivt(p)))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is Inf, ivt',ivt(p)
+                 write(iulog,*) 'srts: calc_crop_allocation_fractions(): astemf is Inf, ivt',ivt(p)
              end if
              if (astemi(p) > astemi(p)) then
-                 write(iulog,*) 'Trying to trigger a crash with this conditional'
+                 write(iulog,*) 'srts: Trying to trigger a crash with this conditional'
              end if
              if (astemf(ivt(p)) > astemf(ivt(p))) then
-                 write(iulog,*) 'And if not, maybe this one will'
+                 write(iulog,*) 'srts:And if not, maybe this one will'
              end if
 
              if (astemi(p) > astemf(ivt(p))) then
@@ -490,17 +490,17 @@ contains
                ! SSR troubleshooting
                if (isnan(astem(p)) .or. isinf(astem(p))) then
                   if (isnan(astem(p))) then
-                     write(iulog,*) 'calc_crop_allocation_fractions() B: astem is NaN'
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions() B: astem is NaN'
                   end if
                   if (isinf(astem(p))) then
-                     write(iulog,*) 'calc_crop_allocation_fractions() B: astem is Inf'
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions() B: astem is Inf'
                   end if
-                  write(iulog,*) 'astemf = ',astemf(ivt(p))
-                  write(iulog,*) 'hui = ',hui(p)
-                  write(iulog,*) 'huigrain = ',huigrain(p)
-                  write(iulog,*) 'gddmaturity = ',gddmaturity(p)
-                  write(iulog,*) 'declfact = ',declfact(ivt(p))
-                  write(iulog,*) 'allconss = ',allconss(ivt(p))
+                  write(iulog,*) 'srts: astemf = ',astemf(ivt(p))
+                  write(iulog,*) 'srts: hui = ',hui(p)
+                  write(iulog,*) 'srts: huigrain = ',huigrain(p)
+                  write(iulog,*) 'srts: gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'srts: declfact = ',declfact(ivt(p))
+                  write(iulog,*) 'srts: allconss = ',allconss(ivt(p))
                end if
 
              end if
@@ -554,17 +554,17 @@ contains
 
        ! SSR troubleshooting
        if (isnan(astem(p))) then
-         write(iulog,*) 'calc_crop_allocation_fractions() E: astem is NaN'
+         write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astem is NaN'
        end if
        if (isinf(astem(p))) then
-         write(iulog,*) 'calc_crop_allocation_fractions() E: astem is Inf'
+         write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astem is Inf'
        end if
        ! This is very often true without issue, so commenting it out.
        ! if (isnan(astemi(p))) then
-       !   write(iulog,*) 'calc_crop_allocation_fractions() E: astemi is NaN'
+       !   write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astemi is NaN'
        ! end if
        if (isinf(astemi(p))) then
-         write(iulog,*) 'calc_crop_allocation_fractions() E: astemi is Inf'
+         write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astemi is Inf'
        end if
 
     end do
