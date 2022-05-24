@@ -464,6 +464,7 @@ contains
              ! SSR troubleshooting
              if (isnan(astemi(p))) then
                  write(iulog,*) 'srts: calc_crop_allocation_fractions(): astemi is NaN, ivt',ivt(p)
+               call endrun(msg=errMsg(sourcefile, __LINE__))
              end if
              if (isinf(astemi(p))) then
                  write(iulog,*) 'srts: calc_crop_allocation_fractions(): astemi is Inf, ivt',ivt(p)
