@@ -463,16 +463,16 @@ contains
 
              ! SSR troubleshooting
              if (isnan(astemi(p))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is NaN'
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is NaN, ivt',ivt(p)
              end if
              if (isinf(astemi(p))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is Inf'
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemi is Inf, ivt',ivt(p)
              end if
              if (isnan(astemf(ivt(p)))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is NaN'
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is NaN, ivt',ivt(p)
              end if
              if (isinf(astemf(ivt(p)))) then
-                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is Inf'
+                 write(iulog,*) 'calc_crop_allocation_fractions(): astemf is Inf, ivt',ivt(p)
              end if
              if (astemi(p) > astemi(p)) then
                  write(iulog,*) 'Trying to trigger a crash with this conditional'
