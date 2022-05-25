@@ -29,6 +29,8 @@ module NutrientCompetitionFlexibleCNMod
   ! SSR troubleshooting
   use abortutils                      , only : endrun
   use shr_log_mod                     , only : errMsg => shr_log_errMsg
+  use GridcellType                    , only : grc
+  use shr_infnan_mod       , only : isnan => shr_infnan_isnan, isinf => shr_infnan_isinf
   !
   implicit none
   private
@@ -1149,8 +1151,11 @@ contains
          frootn                => cnveg_nitrogenstate_inst%frootn_patch             , & ! Input:  [real(r8) (:)   ]  (gN/m2) fine root N
          sminn_vr              => soilbiogeochem_nitrogenstate_inst%sminn_vr_col    , & ! Input:  [real(r8) (:,:) ]  (gN/m3) soil mineral N
          btran                 => energyflux_inst%btran_patch                       , & ! Input: [real(r8) (:)    ]  transpiration wetness factor (0 to 1)
-         t_scalar              => soilbiogeochem_carbonflux_inst%t_scalar_col        & ! Input:  [real(r8) (:,:) ]  soil temperature scalar for decomp
+         t_scalar              => soilbiogeochem_carbonflux_inst%t_scalar_col       , & ! Input:  [real(r8) (:,:) ]  soil temperature scalar for decomp
 
+         ! SSR troubleshooting
+         lon => grc%londeg, &
+         lat => grc%latdeg &
          )
 
       ! set time steps
@@ -1369,6 +1374,26 @@ contains
                      write(iulog,*) 'gddmaturity(p) = ',gddmaturity(p)
                      write(iulog,*) 'declfact(ivt(p)) = ',declfact(ivt(p))
                      call endrun(msg=errMsg(sourcefile, __LINE__))
+                  end if
+
+                  ! SSR troubleshooting
+                  if (isnan(astemi(p))) then
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemi NaN'
+                  end if
+                  if (isinf(astemi(p))) then
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemi Inf'
+                  end if
+                  if (isnan(astemf(ivt(p)))) then
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemf NaN'
+                  end if
+                  if (isinf(astemf(ivt(p)))) then
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemf Inf'
+                  end if
+                  if (astemi(p) > astemi(p)) then
+                      write(iulog,*) 'srts: Trying to trigger a crash with this conditional'
+                  end if
+                  if (astemf(ivt(p)) > astemf(ivt(p))) then
+                      write(iulog,*) 'srts: And if not, maybe this one will'
                   end if
 
                   aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
