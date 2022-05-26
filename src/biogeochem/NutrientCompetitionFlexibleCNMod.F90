@@ -1040,6 +1040,8 @@ contains
     real(r8) :: allocation_leaf  (bounds%begp:bounds%endp)
     real(r8) :: allocation_stem  (bounds%begp:bounds%endp)
     real(r8) :: allocation_froot (bounds%begp:bounds%endp)
+    ! SSR troubleshooting
+    integer  :: g ! Gridcell index
 
     ! -----------------------------------------------------------------------
 
@@ -1165,6 +1167,8 @@ contains
       dayscrecover = params_inst%dayscrecover     ! loop over patches to assess the total plant N demand
       do fp = 1,num_soilp
          p = filter_soilp(fp)
+         ! SSR troubleshooting
+         g = patch%gridcell(p)
 
          ! get the time step total gross photosynthesis
          ! this is coming from the canopy fluxes code, and is the
@@ -1378,16 +1382,16 @@ contains
 
                   ! SSR troubleshooting
                   if (isnan(astemi(p))) then
-                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemi NaN'
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemi NaN'
                   end if
                   if (isinf(astemi(p))) then
-                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemi Inf'
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemi Inf'
                   end if
                   if (isnan(astemf(ivt(p)))) then
-                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemf NaN'
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemf NaN'
                   end if
                   if (isinf(astemf(ivt(p)))) then
-                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(p),' lat ',lat(p),' ivt ',ivt(p),': astemf Inf'
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemf Inf'
                   end if
                   if (astemi(p) > astemi(p)) then
                       write(iulog,*) 'srts: Trying to trigger a crash with this conditional'
