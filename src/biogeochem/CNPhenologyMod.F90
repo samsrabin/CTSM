@@ -41,6 +41,8 @@ module CNPhenologyMod
   use GridcellType                    , only : grc                
   use PatchType                       , only : patch   
   use atm2lndType                     , only : atm2lnd_type             
+  ! SSR troubleshooting
+  use clm_time_manager , only : get_prev_date
   !
   implicit none
   private
@@ -72,6 +74,8 @@ module CNPhenologyMod
   private :: CNLivewoodTurnover             ! Liver wood turnover to deadwood
   private :: CNCropHarvestToProductPools    ! Move crop harvest to product pools
   private :: CNLitterToColumn               ! Move litter ofrom patch to column level
+  ! SSR troubleshooting
+  private :: is_verbose
   !
   ! !PRIVATE DATA MEMBERS:
   type, private :: params_type
@@ -1659,6 +1663,26 @@ contains
 
   end subroutine CNStressDecidPhenology
 
+
+  ! SSR troubleshooting
+  logical function is_verbose(londeg, latdeg, ivt)
+      real(r8), intent(in) :: londeg
+      real(r8), intent(in) :: latdeg
+      integer,  intent(in) :: ivt
+      real(r8)             verbose_londeg
+      real(r8)             verbose_latdeg
+      integer              verbose_ivt
+
+      verbose_londeg = 209.75_r8
+      verbose_latdeg = 64.25_r8
+      verbose_ivt = 19
+      !verbose = (londeg == verbose_londeg) .and. (latdeg == verbose_latdeg) .and. (ivt == verbose_ivt)
+      !verbose = (londeg >= verbose_londeg-0.1_r8) .and. (londeg <= verbose_londeg+0.1_r8) .and. (latdeg >= verbose_latdeg-0.1_r8) .and. (latdeg <= verbose_latdeg+0.1_r8) .and. (ivt == verbose_ivt)
+      is_verbose = ivt == verbose_ivt
+
+  end function is_verbose
+
+
   !-----------------------------------------------------------------------
   subroutine CropPhenology(num_pcropp, filter_pcropp                     , &
        waterdiagnosticbulk_inst, temperature_inst, crop_inst, canopystate_inst, cnveg_state_inst , &
@@ -1723,6 +1747,13 @@ contains
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical sown_today    ! Was the crop sown today?
     logical is_day_before_next_sowing ! Is tomorrow a prescribed sowing day?
+    ! SSR troubleshooting
+    character(len=4) p_str
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
+    real(r8) cphase_orig ! crop phase at beginning of this patch's run through the loop
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1785,6 +1816,9 @@ contains
       avg_dayspyr = get_average_days_per_year()
       jday    = get_prev_calday()
 
+      ! SSR troubleshooting
+      call get_prev_date(kyr, kmo, kda, mcsec)
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1812,6 +1846,9 @@ contains
 
          ! initialize other variables that are calculated for crops
          ! on an annual basis in cropresidue subroutine
+
+         ! SSR troubleshooting
+         cphase_orig = cphase(p)
 
          ! Second condition ensures everything is correctly set when resuming from a run with old code
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
@@ -2313,6 +2350,12 @@ contains
                c14_cnveg_carbonstate_inst%leafc_xfer_patch(p) = 0._r8
             endif
          end if ! croplive
+
+         ! SSR troubleshooting
+         if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p)) .and. cphase(p) /= cphase_orig) then
+             write (iulog,'(a,i4,a,i3,i8,a,f4.1,a,f4.1)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): crop phase ',cphase_orig,' -> ',cphase(p)
+         end if
+!         write (iulog,'(a,i4,a,i3,i8,a,i1,a,i1)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): crop phase ',cphase_orig,' -> ',cphase(p)
 
       end do ! prognostic crops loop
 
