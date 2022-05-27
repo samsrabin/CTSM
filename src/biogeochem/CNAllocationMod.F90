@@ -472,15 +472,19 @@ contains
             ! SSR troubleshooting
             if (isnan(astemi(p))) then
                   write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemi NaN'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
             if (isinf(astemi(p))) then
                   write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemi Inf'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
             if (isnan(astemf(ivt(p)))) then
                   write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemf NaN'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
             if (isinf(astemf(ivt(p)))) then
                   write(iulog,'(a,f7.2,a,f7.2,a,i3,a)') 'srts: lon ',lon(g),' lat ',lat(g),' ivt ',ivt(p),': astemf Inf'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
             if (astemi(p) > astemi(p)) then
                   write(iulog,*) 'srts: Trying to trigger a crash with this conditional'
