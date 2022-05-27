@@ -26,10 +26,8 @@ module CNAllocationMod
   use CropReprPoolsMod     , only : nrepr
   use CNPhenologyMod       , only : CropPhase
   use CNSharedParamsMod    , only : use_fun
-    ! SSR troubleshooting
-  use abortutils                      , only : endrun
-  use shr_log_mod                     , only : errMsg => shr_log_errMsg
-  use GridcellType                    , only : grc
+  ! SSR troubleshooting
+  use GridcellType         , only : grc
   use shr_infnan_mod       , only : isnan => shr_infnan_isnan, isinf => shr_infnan_isinf
   !
   implicit none
@@ -348,14 +346,77 @@ contains
                 astem(p) = 0._r8
                 aroot(p) = 1._r8 - aleaf(p)
              else
+
+               ! SSR troubleshooting
+               if (gddmaturity(p) == 0.0) then
+                  write(iulog,*) 'srts: gddmaturity(p) == 0.0'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
+               end if
+               if (huigrain(p) == 0.0) then
+                  write(iulog,*) 'srts: huigrain(p) == 0.0'
+                  call endrun(msg=errMsg(sourcefile, __LINE__))
+               end if
+
                 aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) -   &
                      (arooti(ivt(p)) - arootf(ivt(p))) *  &
                      min(1._r8, hui(p)/gddmaturity(p))))
+                
+               ! SSR troubleshooting
+               if (isnan(aroot(p)) .or. isinf(aroot(p))) then
+                  if (isnan(aroot(p))) then
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aroot is NaN'
+                  end if
+                  if (isinf(aroot(p))) then
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aroot is Inf'
+                  end if
+                  write(iulog,*) 'srts: hui = ',hui(p)
+                  write(iulog,*) 'srts: gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'srts: arooti = ',arooti(ivt(p))
+                  write(iulog,*) 'srts: arootf = ',arootf(ivt(p))
+               end if
+
                 fleaf = fleafi(ivt(p)) * (exp(-bfact(ivt(p))) -         &
                      exp(-bfact(ivt(p))*hui(p)/huigrain(p))) / &
                      (exp(-bfact(ivt(p)))-1) ! fraction alloc to leaf (from J Norman alloc curve)
                 aleaf(p) = max(1.e-5_r8, (1._r8 - aroot(p)) * fleaf)
+
+               ! SSR troubleshooting
+               if (isnan(aleaf(p)) .or. isinf(aleaf(p))) then
+                  if (isnan(aroot(p))) then
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aleaf is NaN'
+                  end if
+                  if (isinf(aleaf(p))) then
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions(): aleaf is Inf'
+                  end if
+                  write(iulog,*) 'srts: aroot = ',aroot(p)
+                  write(iulog,*) 'srts: fleaf = ',fleaf
+                  write(iulog,*) 'srts: hui = ',hui(p)
+                  write(iulog,*) 'srts: huigrain = ',huigrain(p)
+                  write(iulog,*) 'srts: fleafi = ',fleafi(ivt(p))
+                  write(iulog,*) 'srts: bfact = ',bfact(ivt(p))
+                  write(iulog,*) 'srts: gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'srts: arooti = ',arooti(ivt(p))
+                  write(iulog,*) 'srts: arootf = ',arootf(ivt(p))
+               end if
+
                 astem(p) = 1._r8 - aleaf(p) - aroot(p)
+
+               ! SSR troubleshooting
+               if (isnan(astem(p))) then
+                  write(iulog,*) 'srts: calc_crop_allocation_fractions() A: astem is NaN'
+               end if
+               if (isinf(astem(p))) then
+                  write(iulog,*) 'srts: calc_crop_allocation_fractions() A: astem is Inf'
+               end if
+               
+             end if
+
+             ! SSR troubleshooting
+             if (isnan(astem(p))) then
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() C: astem is NaN'
+             end if
+             if (isinf(astem(p))) then
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() C: astem is Inf'
              end if
 
              ! AgroIBIS included here an immediate adjustment to aleaf & astem if the
@@ -366,12 +427,45 @@ contains
              astemi(p) = astem(p) ! save for use by equations after shift
              aleafi(p) = aleaf(p) ! to reproductive phenology stage begins
 
+             ! SSR troubleshooting
+             if (isnan(astemi(p))) then
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() D: astemi is NaN'
+             end if
+             if (isinf(astemi(p))) then
+               write(iulog,*) 'srts: calc_crop_allocation_fractions() D: astemi is Inf'
+             end if
+
              ! Phase 2 completed:
              ! ==================
              ! shift allocation either when enough gdd are accumulated or maximum number
              ! of days has elapsed since planting
 
           else if (crop_phase(p) == cphase_grainfill) then
+
+            ! SSR troubleshooting
+            if (gddmaturity(p) == 0.0) then
+               write(iulog,*) 'srts: gddmaturity(p) == 0.0'
+               call endrun(msg=errMsg(sourcefile, __LINE__))
+            end if
+            if (((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0) then
+               write(iulog,*) 'srts: ((gddmaturity(p)*declfact(ivt(p)))-huigrain(p)) == 0.0'
+               write(iulog,*) 'srts: gddmaturity(p) = ',gddmaturity(p)
+               write(iulog,*) 'srts: declfact(ivt(p)) = ',declfact(ivt(p))
+               write(iulog,*) 'srts: huigrain(p) = ',huigrain(p)
+               call endrun(msg=errMsg(sourcefile, __LINE__))
+            end if
+            if (allconss(ivt(p)) .lt. 0.0 .and. min((hui(p)-                 &
+            huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
+            huigrain(p)),1._r8) == 0.0) then
+               write(iulog,*) 'srts: Raising 0 to negative exponent'
+               write(iulog,*) 'srts: hui(p) = ',hui(p)
+               write(iulog,*) 'srts: huigrain(p) = ',huigrain(p)
+               write(iulog,*) 'srts: hui(p) = ',hui(p)
+               write(iulog,*) 'srts: gddmaturity(p) = ',gddmaturity(p)
+               write(iulog,*) 'srts: declfact(ivt(p)) = ',declfact(ivt(p))
+               call endrun(msg=errMsg(sourcefile, __LINE__))
+            end if
+
              aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
                   (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity(p))))
 
@@ -400,6 +494,23 @@ contains
                      (1._r8 - min((hui(p)-                 &
                      huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
                      huigrain(p)),1._r8)**allconss(ivt(p)) )))
+
+               ! SSR troubleshooting
+               if (isnan(astem(p)) .or. isinf(astem(p))) then
+                  if (isnan(astem(p))) then
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions() B: astem is NaN'
+                  end if
+                  if (isinf(astem(p))) then
+                     write(iulog,*) 'srts: calc_crop_allocation_fractions() B: astem is Inf'
+                  end if
+                  write(iulog,*) 'srts: astemf = ',astemf(ivt(p))
+                  write(iulog,*) 'srts: hui = ',hui(p)
+                  write(iulog,*) 'srts: huigrain = ',huigrain(p)
+                  write(iulog,*) 'srts: gddmaturity = ',gddmaturity(p)
+                  write(iulog,*) 'srts: declfact = ',declfact(ivt(p))
+                  write(iulog,*) 'srts: allconss = ',allconss(ivt(p))
+               end if
+
              end if
 
              ! If crops have hit peaklai, then set leaf allocation to small value
@@ -447,6 +558,21 @@ contains
           do k = 1, nrepr
              arepr(p,k) = 0._r8
           end do
+       end if
+
+       ! SSR troubleshooting
+       if (isnan(astem(p))) then
+         write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astem is NaN'
+       end if
+       if (isinf(astem(p))) then
+         write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astem is Inf'
+       end if
+       ! This is very often true without issue, so commenting it out.
+       ! if (isnan(astemi(p))) then
+       !   write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astemi is NaN'
+       ! end if
+       if (isinf(astemi(p))) then
+         write(iulog,*) 'srts: calc_crop_allocation_fractions() E: astemi is Inf'
        end if
 
     end do
