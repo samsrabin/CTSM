@@ -41,6 +41,8 @@ module CNPhenologyMod
   use GridcellType                    , only : grc                
   use PatchType                       , only : patch   
   use atm2lndType                     , only : atm2lnd_type             
+  ! SSR troubleshooting
+  use clm_time_manager , only : get_prev_date
   !
   implicit none
   private
@@ -72,6 +74,8 @@ module CNPhenologyMod
   private :: CNLivewoodTurnover             ! Liver wood turnover to deadwood
   private :: CNCropHarvestToProductPools    ! Move crop harvest to product pools
   private :: CNLitterToColumn               ! Move litter ofrom patch to column level
+  ! SSR troubleshooting
+  private :: is_verbose
   !
   ! !PRIVATE DATA MEMBERS:
   type, private :: params_type
@@ -1659,6 +1663,36 @@ contains
 
   end subroutine CNStressDecidPhenology
 
+
+  ! SSR troubleshooting
+  logical function is_verbose(londeg, latdeg, ivt, kyr)
+      real(r8), intent(in) :: londeg
+      real(r8), intent(in) :: latdeg
+      integer,  intent(in) :: ivt
+      integer,  intent(in) :: kyr
+      real(r8)             verbose_londeg
+      real(r8)             verbose_latdeg
+      real(r8)             lonlat_prec
+      integer              verbose_ivt
+      integer              verbose_year
+      logical              lonlat_ok
+
+      verbose_londeg = 0._r8
+      verbose_latdeg = 0._r8
+      lonlat_prec = 0.1_r8
+      verbose_ivt = 61
+      verbose_year = 1980
+
+!      lonlat_ok = (londeg == verbose_londeg) .and. (latdeg == verbose_latdeg)
+!      lonlat_ok = (londeg >= verbose_londeg-0.1_r8) .and. (londeg <= verbose_londeg+0.1_r8) .and. (latdeg >= verbose_latdeg-0.1_r8) .and. (latdeg <= verbose_latdeg+0.1_r8)
+      lonlat_ok = (abs(londeg - verbose_londeg) <= lonlat_prec) .and. (abs(latdeg - verbose_latdeg) <= lonlat_prec)
+
+      is_verbose = lonlat_ok .and. (ivt == verbose_ivt) .and. (kyr == verbose_year)
+      !is_verbose = ivt == verbose_ivt
+
+  end function is_verbose
+
+
   !-----------------------------------------------------------------------
   subroutine CropPhenology(num_pcropp, filter_pcropp                     , &
        waterdiagnosticbulk_inst, temperature_inst, crop_inst, canopystate_inst, cnveg_state_inst , &
@@ -1723,6 +1757,14 @@ contains
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical sown_today    ! Was the crop sown today?
     logical is_day_before_next_sowing ! Is tomorrow a prescribed sowing day?
+    real(r8) planting_reason
+    ! SSR troubleshooting
+    character(len=4) p_str
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
+    real(r8) cphase_orig ! crop phase at beginning of this patch's run through the loop
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1785,6 +1827,9 @@ contains
       avg_dayspyr = get_average_days_per_year()
       jday    = get_prev_calday()
 
+      ! SSR troubleshooting
+      call get_prev_date(kyr, kmo, kda, mcsec)
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1796,6 +1841,11 @@ contains
          c = patch%column(p)
          g = patch%gridcell(p)
          h = inhemi(p)
+
+         ! SSR troubleshooting
+         if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+             write (iulog,'(a,i4,a,i3,i8)') 'srts: ',kyr,'-',jday,mcsec
+         end if
 
          ! background litterfall and transfer rates; long growing season factor
 
@@ -1812,6 +1862,9 @@ contains
 
          ! initialize other variables that are calculated for crops
          ! on an annual basis in cropresidue subroutine
+
+         ! SSR troubleshooting
+         cphase_orig = cphase(p)
 
          ! Second condition ensures everything is correctly set when resuming from a run with old code
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
@@ -1912,12 +1965,35 @@ contains
                   hdidx(p)       = 0._r8
                   vf(p)          = 0._r8
 
+                  planting_reason = 0._r8
+                  if (do_plant_prescribed) then
+                      planting_reason = 10._r8
+                  end if
+                  if (do_plant_normal) then
+                      planting_reason = planting_reason + 1._r8
+                  else if (do_plant_lastchance) then
+                      planting_reason = planting_reason + 2._r8
+                  end if
+
+                  ! SSR troubleshooting
+                  if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                      write (iulog, *) 'srts: Sowing?'
+                      write (iulog, *) 'srts    next_rx_sdate',next_rx_sdate(p)
+                      write (iulog, *) 'srts    a5tmin',a5tmin(p)
+                      write (iulog, *) 'srts    gdd020',gdd020(p)
+                      write (iulog, *) 'srts    gddmin',gddmin(p)
+                      write (iulog, *) 'srts    minplanttemp',minplanttemp(ivt(p))
+                      write (iulog, *) 'srts    minplantjday',minplantjday(ivt(p),h)
+                      write (iulog, *) 'srts    maxplantjday',maxplantjday(ivt(p),h)
+                  end if
+                  
                   call PlantCrop(p, leafcn(ivt(p)), jday, do_plant_normal, &
                                  do_plant_lastchance, do_plant_prescribed,  &
                                  temperature_inst, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+                                 planting_reason, kyr, mcsec)
                   do_plant_prescribed = .false.
 
                else
@@ -1946,12 +2022,37 @@ contains
 
                if (do_plant_prescribed .or. do_plant_normal .or. do_plant_lastchance) then
 
+                   planting_reason = 0._r8
+                   if (do_plant_prescribed) then
+                       planting_reason = 10._r8
+                   end if
+                   if (do_plant_normal) then
+                       planting_reason = planting_reason + 1._r8
+                   else if (do_plant_lastchance) then
+                       planting_reason = planting_reason + 2._r8
+                   end if
+
+                   ! SSR troubleshooting
+                   if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                       write (iulog, *) 'srts: Sowing?'
+                       write (iulog, *) 'srts    next_rx_sdate',next_rx_sdate(p)
+                       write (iulog, *) 'srts    t10',t10(p)
+                       write (iulog, *) 'srts    a10tmin',t10(p)
+                       write (iulog, *) 'srts    gdd820',gdd820(p)
+                       write (iulog, *) 'srts    gddmin',gddmin(p)
+                       write (iulog, *) 'srts    planttemp',planttemp(ivt(p))
+                       write (iulog, *) 'srts    minplanttemp',minplanttemp(ivt(p))
+                       write (iulog, *) 'srts    minplantjday',minplantjday(ivt(p),h)
+                       write (iulog, *) 'srts    maxplantjday',maxplantjday(ivt(p),h)
+                   end if
+
                    call PlantCrop(p, leafcn(ivt(p)), jday, do_plant_normal, &
                                  do_plant_lastchance, do_plant_prescribed,  &
                                  temperature_inst, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+                                 planting_reason, kyr, mcsec)
                   do_plant_prescribed = .false.
 
                else
@@ -2096,12 +2197,35 @@ contains
                 mxmat = 999
             end if
 
+            ! SSR troubleshooting
+            if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                write (iulog, *) 'srts: Harvest?'
+                write (iulog, *) 'srts:    dayspyr: ',dayspyr
+                write (iulog, *) 'srts:    do_plant_prescribed: ',do_plant_prescribed
+                write (iulog, *) 'srts:    hui: ',hui(p)
+                write (iulog, *) 'srts:    idop: ',idop(p)
+                write (iulog, *) 'srts:    next_rx_sdate: ',next_rx_sdate(p)
+                write (iulog, *) 'srts:    gddmaturity: ',gddmaturity(p)
+                write (iulog, *) 'srts:    generate_crop_gdds: ',generate_crop_gdds
+                write (iulog, *) 'srts:    idpp: ',idpp
+                write (iulog, *) 'srts:    mxmat: ',mxmat
+                write (iulog, *) 'srts:    rx_sdates_thisyr(p,1): ',crop_inst%rx_sdates_thisyr(p,1)
+                write (iulog, *) 'srts:    sdates_thisyr(p,1): ',crop_inst%sdates_thisyr(p,1)
+                write (iulog, *) 'srts:    sowing_count: ',sowing_count(p)
+                write (iulog, *) 'srts:    sown_today: ',sown_today
+            end if
+
             if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
                 ! Crop was incorrectly planted in last time step of Dec. 31.
                 do_harvest = .true.
                 force_harvest = .true.
                 fake_harvest = .true.
                 harvest_reason = 3._r8
+
+                ! SSR troubleshooting
+                if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                    write (iulog,'(a,i4,a,i3,i8,a)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): harvesting: was incorrectly planted in last time step of Dec. 31.'
+                end if
             else if (do_plant_prescribed) then
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
@@ -2320,6 +2444,18 @@ contains
             endif
          end if ! croplive
 
+         ! SSR troubleshooting
+         if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr) .and. cphase(p) /= cphase_orig) then
+             write (iulog,'(a,i4,a,i3,i8,a,f4.1,a,f4.1)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): crop phase ',cphase_orig,' -> ',cphase(p)
+         end if
+         if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+             if (cphase(p) /= cphase_orig .and. cphase(p)==cphase_harvest) then
+                 write (iulog,'(a,i4,a,i3,i8,a,f4.1)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): harvested, reason ',harvest_reason
+             else if (croplive(p) .and. mcsec == 0) then
+                 write (iulog,'(a,i4,a,i3,i8,a,i4,a,i4)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): still in ground, idpp ',idpp,', mxmat ',mxmat
+             end if
+         end if
+
       end do ! prognostic crops loop
 
     end associate
@@ -2458,7 +2594,8 @@ contains
        temperature_inst, crop_inst, cnveg_state_inst,               &
        cnveg_carbonstate_inst, cnveg_nitrogenstate_inst,            &
        cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,              &
-       c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+       c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+       planting_reason, kyr, mcsec)
     !
     ! !DESCRIPTION:
     !
@@ -2494,11 +2631,16 @@ contains
     type(cnveg_nitrogenflux_type)  , intent(inout) :: cnveg_nitrogenflux_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: c13_cnveg_carbonstate_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: c14_cnveg_carbonstate_inst
+    real(r8)               , intent(in)    :: planting_reason
     !
     ! LOCAL VARAIBLES:
     integer s              ! growing season index
     real(r8) gdd_target    ! cultivar GDD target this growing season
     real(r8) this_sowing_reason ! number representing sowing reason(s)
+    ! SSR troubleshooting
+    integer g
+    integer kyr
+    integer mcsec
     !------------------------------------------------------------------------
 
     associate(                                                                     & 
@@ -2528,12 +2670,17 @@ contains
       harvdate(p)  = NOT_Harvested
       s = sowing_count(p) + 1
 
+
       ! SSR troubleshooting
       if (s < 1) then
          write(iulog,*) 'PlantCrop(): s < 1'
          call endrun(msg=errMsg(sourcefile, __LINE__))
       else if (s > mxsowings) then
          write(iulog,*) 'PlantCrop(): s > mxsowings'
+      end if
+      g = patch%gridcell(p)
+      if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+          write (iulog,'(a,i4,a,i3,i8,a,f4.1)') 'srts: ',kyr,'-',jday,mcsec,': PlantCrop(): planting reason: ',planting_reason
       end if
 
       sowing_count(p) = s
