@@ -2306,7 +2306,7 @@ contains
                ! AgroIBIS uses a complex formula for lai decline.
                ! Use CN's simple formula at least as a place holder (slevis)
 
-            else if (hui(p) >= huigrain(p)) then
+            else if (hui(p) >= huigrain(p) .and. cphase(p) >= cphase_leafemerge) then
                cphase(p) = cphase_grainfill
 
                ! SSR troubleshooting
@@ -2410,7 +2410,7 @@ contains
           crop_phase(p) = cphase_planted
           if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
              crop_phase(p) = cphase_leafemerge
-          else if (hui(p) >= huigrain(p)) then
+          else if (hui(p) >= huigrain(p) .and. crop_inst%cphase_patch(p) >= cphase_leafemerge) then
              ! Since we know croplive is true, any hui greater than huigrain implies that
              ! we're in the grainfill stage: if we were passt gddmaturity then croplive
              ! would be false.
