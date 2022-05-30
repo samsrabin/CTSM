@@ -2160,6 +2160,11 @@ contains
                 force_harvest = .true.
                 fake_harvest = .true.
                 harvest_reason = 3._r8
+
+                ! SSR troubleshooting
+                if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p))) then
+                    write (iulog,'(a,i4,a,i3,i8,a)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): harvesting: was incorrectly planted in last time step of Dec. 31.'
+                end if
             else if (do_plant_prescribed) then
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
@@ -2382,7 +2387,13 @@ contains
          if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p)) .and. cphase(p) /= cphase_orig) then
              write (iulog,'(a,i4,a,i3,i8,a,f4.1,a,f4.1)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): crop phase ',cphase_orig,' -> ',cphase(p)
          end if
-!         write (iulog,'(a,i4,a,i3,i8,a,i1,a,i1)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): crop phase ',cphase_orig,' -> ',cphase(p)
+         if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p))) then
+             if (cphase(p) /= cphase_orig .and. cphase(p)==cphase_harvest) then
+                 write (iulog,'(a,i4,a,i3,i8,a,f4.1)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): harvested, reason ',harvest_reason
+             else if (croplive(p) .and. mcsec == 0) then
+                 write (iulog,'(a,i4,a,i3,i8,a,i4,a,i4)') 'srts: ',kyr,'-',jday,mcsec,': CropPhenology(): still in ground, idpp ',idpp,', mxmat ',mxmat
+             end if
+         end if
 
       end do ! prognostic crops loop
 
@@ -2596,6 +2607,7 @@ contains
       idop(p)      = jday
       harvdate(p)  = NOT_Harvested
       s = sowing_count(p) + 1
+
 
       ! SSR troubleshooting
       if (s < 1) then
