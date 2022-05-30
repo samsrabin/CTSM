@@ -2085,7 +2085,6 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
-            cphase(p) = cphase_planted
 
             ! call vernalization if winter temperate cereal planted, living, and the
             ! vernalization factor is not 1;
@@ -2315,6 +2314,8 @@ contains
                end if
 
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
+            else
+                cphase(p) = cphase_planted
             end if
 
             ! continue fertilizer application while in phase 2;
