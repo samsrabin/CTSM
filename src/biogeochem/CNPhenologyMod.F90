@@ -1747,6 +1747,7 @@ contains
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical sown_today    ! Was the crop sown today?
     logical is_day_before_next_sowing ! Is tomorrow a prescribed sowing day?
+    real(r8) planting_reason
     ! SSR troubleshooting
     character(len=4) p_str
     integer kyr       ! current year
@@ -1948,12 +1949,23 @@ contains
                   cumvd(p)       = 0._r8
                   hdidx(p)       = 0._r8
                   vf(p)          = 0._r8
+
+                  planting_reason = 0._r8
+                  if (do_plant_prescribed) then
+                      planting_reason = 10._r8
+                  end if
+                  if (do_plant_normal) then
+                      planting_reason = planting_reason + 1._r8
+                  else if (do_plant_lastchance) then
+                      planting_reason = planting_reason + 2._r8
+                  end if
                   
                   call PlantCrop(p, leafcn(ivt(p)), jday, do_plant_normal, &
                                  temperature_inst, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+                                 planting_reason, kyr, mcsec)
                   do_plant_prescribed = .false.
 
                else
@@ -1982,11 +1994,22 @@ contains
 
                if (do_plant_prescribed .or. do_plant_normal .or. do_plant_lastchance) then
 
+                   planting_reason = 0._r8
+                   if (do_plant_prescribed) then
+                       planting_reason = 10._r8
+                   end if
+                   if (do_plant_normal) then
+                       planting_reason = planting_reason + 1._r8
+                   else if (do_plant_lastchance) then
+                       planting_reason = planting_reason + 2._r8
+                   end if
+
                    call PlantCrop(p, leafcn(ivt(p)), jday, do_plant_normal, &
                                  temperature_inst, crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+                                 planting_reason, kyr, mcsec)
                   do_plant_prescribed = .false.
 
                else
@@ -2499,7 +2522,8 @@ contains
        temperature_inst, crop_inst, cnveg_state_inst,               &
        cnveg_carbonstate_inst, cnveg_nitrogenstate_inst,            &
        cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,              &
-       c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+       c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst, &
+       planting_reason, kyr, mcsec)
     !
     ! !DESCRIPTION:
     !
@@ -2533,11 +2557,16 @@ contains
     type(cnveg_nitrogenflux_type)  , intent(inout) :: cnveg_nitrogenflux_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: c13_cnveg_carbonstate_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: c14_cnveg_carbonstate_inst
+    real(r8)               , intent(in)    :: planting_reason
     !
     ! LOCAL VARAIBLES:
     integer s              ! growing season index
     real(r8) gdd_target    ! cultivar GDD target this growing season
     logical do_plant_prescribed ! are we planting because it was prescribed?
+    ! SSR troubleshooting
+    integer g
+    integer kyr
+    integer mcsec
     !------------------------------------------------------------------------
 
     associate(                                                                     & 
@@ -2574,6 +2603,10 @@ contains
          call endrun(msg=errMsg(sourcefile, __LINE__))
       else if (s > mxsowings) then
          write(iulog,*) 'PlantCrop(): s > mxsowings'
+      end if
+      g = patch%gridcell(p)
+      if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p))) then
+          write (iulog,'(a,i4,a,i3,i8,a,f4.1)') 'srts: ',kyr,'-',jday,mcsec,': PlantCrop(): planting reason: ',planting_reason
       end if
 
       sowing_count(p) = s
