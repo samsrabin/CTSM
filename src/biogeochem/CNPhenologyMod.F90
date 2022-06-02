@@ -2781,6 +2781,10 @@ contains
       endif
 !      write (iulog,'(a,i4,a,f0.0)')  'gddmaturity (ivt ',ivt(p),'): ',gddmaturity(p)
 
+      if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+          write(iulog,*) 'srts: sowing, reason ',planting_reason
+      end if
+
     end associate
 
   end subroutine PlantCrop
