@@ -1677,10 +1677,10 @@ contains
       integer              verbose_year
       logical              lonlat_ok
 
-      verbose_londeg = 0._r8
-      verbose_latdeg = 0._r8
+      verbose_londeg = 285._r8
+      verbose_latdeg = -10._r8
       lonlat_prec = 0.1_r8
-      verbose_ivt = 61
+      verbose_ivt = 67
       verbose_year = 1980
 
 !      lonlat_ok = (londeg == verbose_londeg) .and. (latdeg == verbose_latdeg)
@@ -1688,7 +1688,8 @@ contains
       lonlat_ok = (abs(londeg - verbose_londeg) <= lonlat_prec) .and. (abs(latdeg - verbose_latdeg) <= lonlat_prec)
 
       is_verbose = lonlat_ok .and. (ivt == verbose_ivt) .and. (kyr == verbose_year)
-      !is_verbose = ivt == verbose_ivt
+      !is_verbose = lonlat_ok .and. (ivt == verbose_ivt)
+      !is_verbose = .false.
 
   end function is_verbose
 
@@ -1885,6 +1886,9 @@ contains
                crop_inst%hui_thisyr(p,s) = -1._r8
                crop_inst%harvest_reason_thisyr(p,s) = -1._r8
             end do
+             if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                 write(iulog,'(a,i4,a,i4)') 'srts: next_rx_sdate A ',next_rx_sdate(p),' -> ',crop_inst%rx_sdates_thisyr(p,1)
+             end if
             next_rx_sdate(p) = crop_inst%rx_sdates_thisyr(p,1)
          end if
 
@@ -2691,8 +2695,14 @@ contains
 
       sowing_count(p) = s
       if (s < mxsowings) then
+         if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+             write(iulog,'(a,i4,a,i4)') 'srts: next_rx_sdate D ',next_rx_sdate(p),' -> ',crop_inst%rx_sdates_thisyr(p, s+1)
+         end if
          next_rx_sdate(p) = crop_inst%rx_sdates_thisyr(p, s+1)
       else
+         if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+             write(iulog,'(a,i4,a,i4)') 'srts: next_rx_sdate E ',next_rx_sdate(p),' -> ',-1
+         end if
          next_rx_sdate(p) = -1
       endif
       crop_inst%sdates_thisyr(p,s) = real(jday, r8)
