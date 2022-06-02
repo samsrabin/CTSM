@@ -1896,13 +1896,13 @@ contains
              call endrun(msg=errMsg(sourcefile, __LINE__))
          end if
 
-         ! SSR: I don't know why this is necessary. next_rx_sdate should get properly set in PlantCrop()
-         ! or above, but sometimes (NOT in first year after restart) I'm seeing crops planted Jan. 1 that
-         ! are harvested the same day. This (specifically, the second condition) fixes that.
+         ! Get next sowing date
          if (s < mxsowings) then
+             if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                 write(iulog,'(a,i4,a,i4)') 'srts: next_rx_sdate B ',next_rx_sdate(p),' -> ',crop_inst%rx_sdates_thisyr(p,s+1)
+                 write(iulog,'(a,i4,a,i4)') 'srts: s ',s,', mxsowings ',mxsowings
+             end if
              next_rx_sdate(p) = crop_inst%rx_sdates_thisyr(p,s+1)
-         else
-             next_rx_sdate(p) = -1
          end if
 
          do_plant_prescribed = next_rx_sdate(p) == jday
