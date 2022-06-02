@@ -1870,6 +1870,9 @@ contains
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
+            if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                write(iulog,*) 'srts: Doing beginning-of-year reset of sowing_count etc.'
+            end if
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -1912,6 +1915,9 @@ contains
          ! jday = get_calday()). See CTSM issue #1623.
          ! Once removed, can also remove the "Instead, always harvest the day before idop" bit.
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
+             if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
+                 write(iulog,*) 'srts: Setting sowing_count to 1 and sdates_thisyr to ',idop(p)
+             end if
              sowing_count(p) = 1
              crop_inst%sdates_thisyr(p,1) = real(idop(p), r8)
          end if
