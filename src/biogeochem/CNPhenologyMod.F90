@@ -2651,6 +2651,7 @@ contains
     integer g
     integer kyr
     integer mcsec
+    integer gdd_reason
     !------------------------------------------------------------------------
 
     associate(                                                                     & 
@@ -2750,21 +2751,25 @@ contains
       ! set GDD target
       if (do_plant_prescribed .and. (.not. generate_crop_gdds) .and. (.not. ignore_rx_crop_gdds) .and. crop_inst%rx_cultivar_gdds_thisyr(p,s) .gt. 0._r8) then
          gdd_target = crop_inst%rx_cultivar_gdds_thisyr(p,s)
+         gdd_reason = 1
 
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
          if (gdd_target < gddmin(ivt(p))) then
             write(iulog,*) 'Some patch with ivt ',ivt(p),' has rx gdd_target ',gdd_target,'; using gddmin(ivt(p)) instead (',gddmin(ivt(p)),')'
+            gdd_reason = 2
          endif
          gdd_target = max(gdd_target, gddmin(ivt(p)))
 
          gddmaturity(p) = gdd_target
       else if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
          gddmaturity(p) = hybgdd(ivt(p))
+         gdd_reason = 3
       else
          if (ivt(p) == ntmp_soybean .or. ivt(p) == nirrig_tmp_soybean .or. &
                ivt(p) == ntrp_soybean .or. ivt(p) == nirrig_trp_soybean) then
             gddmaturity(p) = min(gdd1020(p), hybgdd(ivt(p)))
+            gdd_reason = 4
          end if
          if (ivt(p) == ntmp_corn .or. ivt(p) == nirrig_tmp_corn .or. &
                ivt(p) == ntrp_corn .or. ivt(p) == nirrig_trp_corn .or. &
@@ -2772,27 +2777,43 @@ contains
                ivt(p) == nmiscanthus .or. ivt(p) == nirrig_miscanthus .or. &
                ivt(p) == nswitchgrass .or. ivt(p) == nirrig_switchgrass) then
             gddmaturity(p) = max(950._r8, min(gdd820(p)*0.85_r8, hybgdd(ivt(p))))
+            gdd_reason = 5
             if (do_plant_normal) then
                gddmaturity(p) = max(950._r8, min(gddmaturity(p)+150._r8, 1850._r8))
+               gdd_reason = 6
             end if
          end if
          if (ivt(p) == nswheat .or. ivt(p) == nirrig_swheat .or. &
                ivt(p) == ncotton .or. ivt(p) == nirrig_cotton .or. &
                ivt(p) == nrice   .or. ivt(p) == nirrig_rice) then
             gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
+            gdd_reason = 7
          end if
 
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
          if (gddmaturity(p) < gddmin(ivt(p))) then
             write(iulog,*) 'Some patch with ivt ',ivt(p),' has calculated gddmaturity ',gddmaturity(p),'; using gddmin(ivt(p)) instead (',gddmin(ivt(p)),')'
+            gdd_reason=8
          endif
          gddmaturity(p) = max(gddmaturity(p), gddmin(ivt(p)))
       endif
 !      write (iulog,'(a,i4,a,f0.0)')  'gddmaturity (ivt ',ivt(p),'): ',gddmaturity(p)
 
       if (is_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), kyr)) then
-          write(iulog,*) 'srts: sowing, reason ',planting_reason
+          write(iulog,*) 'srts: Sowing.'
+          write(iulog,*) 'srts:     planting_reason ',planting_reason
+          write(iulog,*) 'srts:     gddmaturity',gddmaturity(p)
+          write(iulog,*) 'srts:     gdd_reason ',gdd_reason
+          write(iulog,*) 'srts:     do_plant_prescribed',do_plant_prescribed
+          write(iulog,*) 'srts:     gdd020',gdd020(p)
+          write(iulog,*) 'srts:     gdd820',gdd820(p)
+          write(iulog,*) 'srts:     gdd1020',gdd1020(p)
+          write(iulog,*) 'srts:     gddmin',gddmin(ivt(p))
+          write(iulog,*) 'srts:     generate_crop_gdds',generate_crop_gdds
+          write(iulog,*) 'srts:     hybgdd',hybgdd(ivt(p))
+          write(iulog,*) 'srts:     ignore_rx_crop_gdds',ignore_rx_crop_gdds
+          write(iulog,*) 'srts:     rx_cultivar_gdds ',crop_inst%rx_cultivar_gdds_thisyr(p,s)
       end if
 
     end associate
