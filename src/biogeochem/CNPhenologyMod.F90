@@ -1677,19 +1677,22 @@ contains
       integer              verbose_year
       logical              lonlat_ok
 
-      verbose_londeg = 285._r8
-      verbose_latdeg = -10._r8
+      verbose_londeg = 300._r8
+      verbose_latdeg = 60._r8
       lonlat_prec = 0.1_r8
-      verbose_ivt = 67
+      verbose_ivt = 61
       verbose_year = 1980
 
 !      lonlat_ok = (londeg == verbose_londeg) .and. (latdeg == verbose_latdeg)
 !      lonlat_ok = (londeg >= verbose_londeg-0.1_r8) .and. (londeg <= verbose_londeg+0.1_r8) .and. (latdeg >= verbose_latdeg-0.1_r8) .and. (latdeg <= verbose_latdeg+0.1_r8)
       lonlat_ok = (abs(londeg - verbose_londeg) <= lonlat_prec) .and. (abs(latdeg - verbose_latdeg) <= lonlat_prec)
 
-      is_verbose = lonlat_ok .and. (ivt == verbose_ivt) .and. (kyr == verbose_year)
+      !is_verbose = lonlat_ok .and. (ivt == verbose_ivt) .and. (kyr == verbose_year)
+      !is_verbose = lonlat_ok .and. (ivt == verbose_ivt) .and. (kyr >= verbose_year)
+      !is_verbose = (ivt == verbose_ivt) .and. (kyr >= verbose_year)
       !is_verbose = lonlat_ok .and. (ivt == verbose_ivt)
-      !is_verbose = .false.
+      !is_verbose = ivt == verbose_ivt
+      is_verbose = .false.
 
   end function is_verbose
 
