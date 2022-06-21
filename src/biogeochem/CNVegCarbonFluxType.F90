@@ -839,6 +839,7 @@ contains
                   avgflag='A', &
                   long_name=get_repr_longname(k)//' C to food', &
                   ptr_patch=data1dptr)
+              write(iulog,*) 'Adding output ',get_repr_hist_fname(k)//'C_TO_FOOD'
           end do
 
           this%repr_grainc_to_food_accum_patch(begp:endp,:) = spval
@@ -851,6 +852,7 @@ contains
                   avgflag='I', &
                   long_name=get_repr_longname(k)//' C to food accumulated since planting', &
                   ptr_patch=data1dptr)
+              write(iulog,*) 'Adding output ',get_repr_hist_fname(k)//'C_TO_FOOD_ACCUM'
           end do
 
           this%repr_grainc_to_food_accum_thisyr(begp:endp,:,:) = spval
@@ -864,6 +866,7 @@ contains
                   avgflag='I', &
                   long_name=get_repr_longname(k)//' C to food accumulated by harvest; should only be output annually', &
                   ptr_patch=data2dptr)
+              write(iulog,*) 'Adding output ',get_repr_hist_fname(k)//'C_TO_FOOD_ACCUM_PERHARV'
           end do
           
           this%leafc_to_biofuelc_patch(begp:endp) = spval

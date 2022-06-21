@@ -2052,6 +2052,12 @@ contains
                hui(p) = max(hui(p),huigrain(p))
             endif
 
+               do k = repr_grain_min, repr_grain_max
+                  if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
+                      write(iulog,*) 'repr_grainc_to_food_accum_patch > 0 before harvest'
+                  end if
+               end do
+
             ! The following conditionals are similar to those in CropPhase. However, they
             ! differ slightly because here we are potentially setting a new crop phase,
             ! whereas CropPhase is just designed to get the current, already-determined
@@ -2091,6 +2097,13 @@ contains
                do k = repr_grain_min, repr_grain_max
                   cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p, harvest_count(p), k) = &
                      cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p, k)
+
+                  if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
+                      write(iulog,*) 'repr_grainc_to_food_accum_patch > 0 at harvest'
+                  end if
+                  if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p,harvest_count(p),k) .gt. 0._r8) then
+                      write(iulog,*) 'repr_grainc_to_food_accum_thisyr > 0'
+                  end if
                end do
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
@@ -3182,6 +3195,12 @@ contains
                 cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) = &
                      cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) + &
                      cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k)
+                if (cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k) .gt. 0._r8) then
+                    write(iulog,*) 'repr_grainc_to_food_patch > 0'
+                end if
+                if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
+                    write(iulog,*) 'repr_grainc_to_food_accum_patch > 0'
+                end if
                 cnveg_nitrogenflux_inst%crop_harvestn_to_cropprodn_patch(p) = &
                      cnveg_nitrogenflux_inst%crop_harvestn_to_cropprodn_patch(p) + &
                      cnveg_nitrogenflux_inst%repr_grainn_to_food_patch(p,k)
