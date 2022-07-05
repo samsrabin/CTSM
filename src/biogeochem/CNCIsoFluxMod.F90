@@ -23,6 +23,7 @@ module CNCIsoFluxMod
   use PatchType                          , only : patch                
   use clm_varctl                         , only : use_crop
   use clm_varctl                         , only : use_grainproduct
+  use clm_varctl                         , only : iulog
   !
   implicit none
   private
@@ -414,7 +415,7 @@ contains
          call CIsoFluxCalc(&
               iso_cnveg_cf%repr_grainc_to_food_patch        , cnveg_cf%repr_grainc_to_food_patch, &
               iso_cnveg_cs%reproductivec_patch              , cnveg_cs%reproductivec_patch, &
-              num_soilp                                     , filter_soilp, 1._r8, 0, isotope)
+              num_soilp                                     , filter_soilp, 1._r8, 1, isotope)
 
          call CIsoFluxCalc(&
               iso_cnveg_cf%leafc_to_biofuelc_patch          , cnveg_cf%leafc_to_biofuelc_patch, &
@@ -1611,6 +1612,11 @@ contains
 
         if (diag == 1) then
            ! put diagnostic print statements here for isoC flux calculations
+           if (ciso_flux(i) .gt. 0) then
+               write(iulog,'(a,i3,a)') 'ivt ',patch%itype(i),' iso_cnveg_cf%repr_grainc_to_food_patch > 0 in CIsoFluxCalc1d()'
+           else
+               write(iulog,'(a,i3,a)') 'ivt ',patch%itype(i),' iso_cnveg_cf%repr_grainc_to_food_patch = 0 in CIsoFluxCalc1d()'
+           end if
         end if
      end do
 

@@ -1810,6 +1810,7 @@ contains
             do s = 1, mxharvests
                crop_inst%hdates_thisyr(p,s) = -1._r8
                do k = repr_grain_min, repr_grain_max
+                  write(iulog,'(a,i3,a)') 'ivt ',ivt(p),' repr_grainc_to_food_accum_thisyr reset in CropPhenology()'
                   cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p,s,k) = 0._r8
                end do
             end do
@@ -2054,7 +2055,7 @@ contains
 
                do k = repr_grain_min, repr_grain_max
                   if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
-                      write(iulog,*) 'repr_grainc_to_food_accum_patch > 0 before harvest'
+                      write(iulog,'(i3,a,i3,a)') jday,' ivt ',ivt(p),' repr_grainc_to_food_accum_patch > 0 pre harvest'
                   end if
                end do
 
@@ -2095,14 +2096,15 @@ contains
                harvest_count(p) = harvest_count(p) + 1
                crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
                do k = repr_grain_min, repr_grain_max
+                  write(iulog,'(i3,a,i3,a)') jday,' ivt ',ivt(p),' repr_grainc_to_food_accum_thisyr assigned in CropPhenology()'
                   cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p, harvest_count(p), k) = &
                      cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p, k)
 
                   if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
-                      write(iulog,*) 'repr_grainc_to_food_accum_patch > 0 at harvest'
+                      write(iulog,'(a,i3,a)') 'ivt ',ivt(p),' repr_grainc_to_food_accum_patch > 0 at harvest'
                   end if
                   if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p,harvest_count(p),k) .gt. 0._r8) then
-                      write(iulog,*) 'repr_grainc_to_food_accum_thisyr > 0'
+                      write(iulog,'(a,i3,a)') 'ivt ',ivt(p),' repr_grainc_to_food_accum_thisyr > 0 at harvest'
                   end if
                end do
                croplive(p) = .false.     ! no re-entry in greater if-block
@@ -2355,6 +2357,7 @@ contains
       crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
       do k = repr_grain_min, repr_grain_max
          cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p, k) = 0._r8
+         write(iulog,'(i3,a,i3,a)') jday,' ivt ',patch%itype(p),' repr_grainc_to_food_accum_patch reset in PlantCrop().'
       end do
 
       leafc_xfer(p)  = initial_seed_at_planting
@@ -2789,6 +2792,9 @@ contains
                      ! Send the remaining grain to the food product pool
                      repr_grainc_to_food(p,k) = t1 * reproductivec(p,k) &
                           + cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)
+                     if (repr_grainc_to_food(p,k) .gt. 0._r8) then
+                         write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_patch > 0 in CNOffsetLitterfall()'
+                     end if
                      repr_grainn_to_food(p,k) = t1 * reproductiven(p,k) &
                           + npool_to_reproductiven(p,k) - repr_grainn_to_seed(p,k)
                   end do
@@ -3192,14 +3198,15 @@ contains
                 cnveg_carbonflux_inst%crop_harvestc_to_cropprodc_patch(p) = &
                      cnveg_carbonflux_inst%crop_harvestc_to_cropprodc_patch(p) + &
                      cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k)
+                write(iulog,'(a,i3,a)') 'ivt ',patch%itype(p),' repr_grainc_to_food_accum_patch accumulating in CNCropHarvestToProductPools().'
                 cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) = &
                      cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) + &
                      cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k)
                 if (cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k) .gt. 0._r8) then
-                    write(iulog,*) 'repr_grainc_to_food_patch > 0'
+                    write(iulog,'(a,i3,a)') 'ivt ',patch%itype(p),' repr_grainc_to_food_patch > 0 in CNCropHarvestToProductPools()'
                 end if
                 if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
-                    write(iulog,*) 'repr_grainc_to_food_accum_patch > 0'
+                    write(iulog,'(a,i3,a)') 'ivt ',patch%itype(p),' repr_grainc_to_food_accum_patch > 0 in CNCropHarvestToProductPools()'
                 end if
                 cnveg_nitrogenflux_inst%crop_harvestn_to_cropprodn_patch(p) = &
                      cnveg_nitrogenflux_inst%crop_harvestn_to_cropprodn_patch(p) + &
