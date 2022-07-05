@@ -2784,6 +2784,9 @@ contains
                      cropseedc_deficit_to_restore = min(cropseedc_deficit_remaining, reproductivec(p,k))
                      cropseedc_deficit_remaining = cropseedc_deficit_remaining - cropseedc_deficit_to_restore
                      repr_grainc_to_seed(p,k) = t1 * cropseedc_deficit_to_restore
+                     if (repr_grainc_to_seed(p,k) .gt. 0._r8) then
+                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_seed > 0 in CNOffsetLitterfall()'
+                     end if
 
                      cropseedn_deficit_to_restore = min(cropseedn_deficit_remaining, reproductiven(p,k))
                      cropseedn_deficit_remaining = cropseedn_deficit_remaining - cropseedn_deficit_to_restore

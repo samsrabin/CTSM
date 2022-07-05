@@ -26,7 +26,7 @@ module NutrientCompetitionFlexibleCNMod
   use PatchType           , only : patch
   use pftconMod           , only : pftcon, npcropmin
   use NutrientCompetitionMethodMod, only : nutrient_competition_method_type
-  use CropReprPoolsMod    , only : nrepr
+  use CropReprPoolsMod    , only : nrepr, repr_grain_min, repr_grain_max
   use CNPhenologyMod      , only : CropPhase
   use CropType            , only : cphase_leafemerge, cphase_grainfill
   use clm_varctl          , only : iulog, use_crop_agsys
@@ -450,6 +450,11 @@ contains
             cpool_to_deadcrootc_storage(p) = nlc * f2 * f3 * (1._r8 - f4) * (1._r8 - fcur)
             do k = 1, nrepr
                cpool_to_reproductivec(p,k)         = nlc * f5(k) * fcur
+               if (k .ge. repr_grain_min .and. k .le. repr_grain_max) then
+                  if (cpool_to_reproductivec(p,k) .gt. 0._r8) then
+                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' cpool_to_reproductivec > 0 in Flexible calc_plant_cn_alloc()'
+                  end if
+               end if
                cpool_to_reproductivec_storage(p,k) = nlc * f5(k) * (1._r8 -fcur)
             end do
          end if

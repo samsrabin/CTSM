@@ -266,6 +266,13 @@ contains
               do k = 1, nrepr
                  cs_veg%reproductivec_patch(p,k) = cs_veg%reproductivec_patch(p,k) &
                       + cf_veg%reproductivec_xfer_to_reproductivec_patch(p,k)*dt
+                  if (k .ge. repr_grain_min .and. k .le. repr_grain_max) then
+                     if (cf_veg%reproductivec_xfer_to_reproductivec_patch(p,k) .gt. 0._r8) then
+                           write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch accumulating > 0 at CStateUpdate1() a'
+                     else
+                           write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch "accumulating" 0 at CStateUpdate1() a'
+                     end if
+                  end if
                  cs_veg%reproductivec_xfer_patch(p,k) = cs_veg%reproductivec_xfer_patch(p,k) &
                       - cf_veg%reproductivec_xfer_to_reproductivec_patch(p,k)*dt
               end do
@@ -291,6 +298,11 @@ contains
               do k = repr_grain_min, repr_grain_max
                  cs_veg%reproductivec_patch(p,k)   = cs_veg%reproductivec_patch(p,k) &
                       - (cf_veg%repr_grainc_to_food_patch(p,k) + cf_veg%repr_grainc_to_seed_patch(p,k))*dt
+                    if (cs_veg%reproductivec_patch(p,k) .gt. 0._r8) then
+                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch > 0 after CStateUpdate1() b'
+                    else
+                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch 0 after CStateUpdate1() b'
+                    end if
                  cs_veg%cropseedc_deficit_patch(p) = cs_veg%cropseedc_deficit_patch(p) &
                       + cf_veg%repr_grainc_to_seed_patch(p,k) * dt
               end do
@@ -392,6 +404,13 @@ contains
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_to_reproductivec_patch(p,k)*dt
                  cs_veg%reproductivec_patch(p,k) = cs_veg%reproductivec_patch(p,k) &
                       + cf_veg%cpool_to_reproductivec_patch(p,k)*dt
+                      if (k .ge. repr_grain_min .and. k .le. repr_grain_max) then
+                        if (cf_veg%reproductivec_xfer_to_reproductivec_patch(p,k) .gt. 0._r8) then
+                              write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch accumulating > 0 at CStateUpdate1() c'
+                        else
+                              write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch "accumulating" 0 at CStateUpdate1() c'
+                        end if
+                     end if
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_to_reproductivec_storage_patch(p,k)*dt
                  cs_veg%reproductivec_storage_patch(p,k) = cs_veg%reproductivec_storage_patch(p,k) &
                       + cf_veg%cpool_to_reproductivec_storage_patch(p,k)*dt
