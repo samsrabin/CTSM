@@ -41,6 +41,7 @@ module CNPhenologyMod
   use GridcellType                    , only : grc                
   use PatchType                       , only : patch   
   use atm2lndType                     , only : atm2lnd_type             
+  use clm_time_manager , only : get_prev_date, get_prev_calday
   !
   implicit none
   private
@@ -1708,6 +1709,10 @@ contains
     real(r8) ndays_on ! number of days to fertilize
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1772,6 +1777,7 @@ contains
       dayspyr = get_curr_days_per_year()
       avg_dayspyr = get_average_days_per_year()
       jday    = get_prev_calday()
+      call get_prev_date(kyr, kmo, kda, mcsec)
 
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
@@ -1810,7 +1816,7 @@ contains
             do s = 1, mxharvests
                crop_inst%hdates_thisyr(p,s) = -1._r8
                do k = repr_grain_min, repr_grain_max
-                  write(iulog,'(a,i3,a)') 'ivt ',ivt(p),' repr_grainc_to_food_accum_thisyr reset in CropPhenology()'
+                  write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CropPhenology() a: ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_accum_thisyr reset'
                   cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p,s,k) = 0._r8
                end do
             end do
@@ -2055,7 +2061,7 @@ contains
 
                do k = repr_grain_min, repr_grain_max
                   if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
-                      write(iulog,'(i3,a,i3,a)') jday,' ivt ',ivt(p),' repr_grainc_to_food_accum_patch > 0 pre harvest'
+                      write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CropPhenology() b: ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_accum > 0 pre harvest'
                   end if
                end do
 
@@ -2096,15 +2102,13 @@ contains
                harvest_count(p) = harvest_count(p) + 1
                crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
                do k = repr_grain_min, repr_grain_max
-                  write(iulog,'(i3,a,i3,a)') jday,' ivt ',ivt(p),' repr_grainc_to_food_accum_thisyr assigned in CropPhenology()'
                   cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p, harvest_count(p), k) = &
                      cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p, k)
 
-                  if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
-                      write(iulog,'(a,i3,a)') 'ivt ',ivt(p),' repr_grainc_to_food_accum_patch > 0 at harvest'
-                  end if
                   if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_thisyr(p,harvest_count(p),k) .gt. 0._r8) then
-                      write(iulog,'(a,i3,a)') 'ivt ',ivt(p),' repr_grainc_to_food_accum_thisyr > 0 at harvest'
+                      write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CropPhenology() c (harvest): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_accum_thisyr > 0'
+                  else
+                      write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CropPhenology() c (harvest): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_accum_thisyr == 0'
                   end if
                end do
                croplive(p) = .false.     ! no re-entry in greater if-block
@@ -2335,6 +2339,10 @@ contains
     !
     ! LOCAL VARAIBLES:
     integer k              ! grain pool index
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
     !------------------------------------------------------------------------
 
     associate(                                                                     & 
@@ -2348,6 +2356,8 @@ contains
          crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
          )
 
+      call get_prev_date(kyr, kmo, kda, mcsec)
+
       ! impose limit on growing season length needed
       ! for crop maturity - for cold weather constraints
       croplive(p)  = .true.
@@ -2357,7 +2367,7 @@ contains
       crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
       do k = repr_grain_min, repr_grain_max
          cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p, k) = 0._r8
-         write(iulog,'(i3,a,i3,a)') jday,' ivt ',patch%itype(p),' repr_grainc_to_food_accum_patch reset in PlantCrop().'
+         write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' PlantCrop(): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_accum reset'
       end do
 
       leafc_xfer(p)  = initial_seed_at_planting
@@ -2687,6 +2697,11 @@ contains
     real(r8) :: cropseedn_deficit_remaining  ! remaining amount of crop seed N deficit that still needs to be restored (gN/m2) (positive, in contrast to the negative cropseedn_deficit)
     real(r8) :: cropseedc_deficit_to_restore ! amount of crop seed C deficit that will be restored from this grain pool (gC/m2)
     real(r8) :: cropseedn_deficit_to_restore ! amount of crop seed N deficit that will be restored from this grain pool (gN/m2)
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
+    integer jday      ! julian day of the year
     !-----------------------------------------------------------------------
 
     associate(                                                                           & 
@@ -2750,6 +2765,9 @@ contains
 
       ! The litterfall transfer rate starts at 0.0 and increases linearly
       ! over time, with displayed growth going to 0.0 on the last day of litterfall
+
+      jday    = get_prev_calday()
+      call get_prev_date(kyr, kmo, kda, mcsec)
       
       do fp = 1,num_soilp
          p = filter_soilp(fp)
@@ -2784,9 +2802,6 @@ contains
                      cropseedc_deficit_to_restore = min(cropseedc_deficit_remaining, reproductivec(p,k))
                      cropseedc_deficit_remaining = cropseedc_deficit_remaining - cropseedc_deficit_to_restore
                      repr_grainc_to_seed(p,k) = t1 * cropseedc_deficit_to_restore
-                     if (repr_grainc_to_seed(p,k) .gt. 0._r8) then
-                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_seed > 0 in CNOffsetLitterfall()'
-                     end if
 
                      cropseedn_deficit_to_restore = min(cropseedn_deficit_remaining, reproductiven(p,k))
                      cropseedn_deficit_remaining = cropseedn_deficit_remaining - cropseedn_deficit_to_restore
@@ -2796,7 +2811,11 @@ contains
                      repr_grainc_to_food(p,k) = t1 * reproductivec(p,k) &
                           + cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)
                      if (repr_grainc_to_food(p,k) .gt. 0._r8) then
-                         write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_patch > 0 in CNOffsetLitterfall()'
+                        write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CNOffsetLitterfall(): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food assigned > 0'
+                     else if (repr_grainc_to_seed(p,k) .gt. 0._r8) then
+                        write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CNOffsetLitterfall(): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food assigned NET 0'
+                     else
+                        write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CNOffsetLitterfall(): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food assigned 0'
                      end if
                      repr_grainn_to_food(p,k) = t1 * reproductiven(p,k) &
                           + npool_to_reproductiven(p,k) - repr_grainn_to_seed(p,k)
@@ -3179,9 +3198,17 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: fp, p, k
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
+    integer jday      ! julian day of the year
 
     character(len=*), parameter :: subname = 'CNCropHarvestToProductPools'
     !-----------------------------------------------------------------------
+
+      jday    = get_prev_calday()
+      call get_prev_date(kyr, kmo, kda, mcsec)
 
     if (use_crop) then
        do fp = 1, num_soilp
@@ -3201,15 +3228,13 @@ contains
                 cnveg_carbonflux_inst%crop_harvestc_to_cropprodc_patch(p) = &
                      cnveg_carbonflux_inst%crop_harvestc_to_cropprodc_patch(p) + &
                      cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k)
-                write(iulog,'(a,i3,a)') 'ivt ',patch%itype(p),' repr_grainc_to_food_accum_patch accumulating in CNCropHarvestToProductPools().'
                 cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) = &
                      cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) + &
                      cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k)
                 if (cnveg_carbonflux_inst%repr_grainc_to_food_patch(p,k) .gt. 0._r8) then
-                    write(iulog,'(a,i3,a)') 'ivt ',patch%itype(p),' repr_grainc_to_food_patch > 0 in CNCropHarvestToProductPools()'
-                end if
-                if (cnveg_carbonflux_inst%repr_grainc_to_food_accum_patch(p,k) .gt. 0._r8) then
-                    write(iulog,'(a,i3,a)') 'ivt ',patch%itype(p),' repr_grainc_to_food_accum_patch > 0 in CNCropHarvestToProductPools()'
+                    write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CNCropHarvestToProductPools(): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_accum gains > 0'
+                else
+                    write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CNCropHarvestToProductPools(): ivt ',patch%itype(p),' pool ',k,' repr_grainc_to_food_accum "gains" 0'
                 end if
                 cnveg_nitrogenflux_inst%crop_harvestn_to_cropprodn_patch(p) = &
                      cnveg_nitrogenflux_inst%crop_harvestn_to_cropprodn_patch(p) + &

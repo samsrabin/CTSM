@@ -21,6 +21,7 @@ module CNCStateUpdate1Mod
   use SoilBiogeochemCarbonStateType      , only : soilbiogeochem_carbonstate_type
   use PatchType                          , only : patch
   use clm_varctl                         , only : use_fates, use_cn, iulog
+  use clm_time_manager , only : get_prev_date, get_prev_calday
   !
   implicit none
   private
@@ -161,6 +162,11 @@ contains
     real(r8) :: check_cpool
     real(r8) :: cpool_delta
     real(r8), parameter :: kprod05 = 1.44e-7_r8  ! decay constant for 0.5-year product pool (1/s) (lose ~90% over a half year)
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
+    integer  :: jday      ! julian day of the year
     !-----------------------------------------------------------------------
 
     associate(                                                               & 
@@ -180,6 +186,9 @@ contains
 
       ! set time steps
       dt = get_step_size_real()
+
+      call get_prev_date(kyr, kmo, kda, mcsec)
+      jday    = get_prev_calday()
 
       ! Below is the input into the soil biogeochemistry model
 
@@ -266,11 +275,11 @@ contains
               do k = 1, nrepr
                  cs_veg%reproductivec_patch(p,k) = cs_veg%reproductivec_patch(p,k) &
                       + cf_veg%reproductivec_xfer_to_reproductivec_patch(p,k)*dt
-                  if (k .ge. repr_grain_min .and. k .le. repr_grain_max) then
+                  if ((k .ge. repr_grain_min) .and. (k .le. repr_grain_max)) then
                      if (cf_veg%reproductivec_xfer_to_reproductivec_patch(p,k) .gt. 0._r8) then
-                           write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch accumulating > 0 at CStateUpdate1() a'
-                     else
-                           write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch "accumulating" 0 at CStateUpdate1() a'
+                           write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CStateUpdate1() a: ivt ',patch%itype(p),' pool ',k,' reproductivec gains > 0'
+!                     else
+!                           write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch "accumulating" 0 at CStateUpdate1() a'
                      end if
                   end if
                  cs_veg%reproductivec_xfer_patch(p,k) = cs_veg%reproductivec_xfer_patch(p,k) &
@@ -298,10 +307,8 @@ contains
               do k = repr_grain_min, repr_grain_max
                  cs_veg%reproductivec_patch(p,k)   = cs_veg%reproductivec_patch(p,k) &
                       - (cf_veg%repr_grainc_to_food_patch(p,k) + cf_veg%repr_grainc_to_seed_patch(p,k))*dt
-                    if (cs_veg%reproductivec_patch(p,k) .gt. 0._r8) then
-                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch > 0 after CStateUpdate1() b'
-                    else
-                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch 0 after CStateUpdate1() b'
+                    if ((cf_veg%repr_grainc_to_food_patch(p,k) + cf_veg%repr_grainc_to_seed_patch(p,k))*dt .lt. 0._r8) then
+                        write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CStateUpdate1() b: ivt ',patch%itype(p),' pool ',k,' reproductivec gains > 0'
                     end if
                  cs_veg%cropseedc_deficit_patch(p) = cs_veg%cropseedc_deficit_patch(p) &
                       + cf_veg%repr_grainc_to_seed_patch(p,k) * dt
@@ -404,11 +411,11 @@ contains
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_to_reproductivec_patch(p,k)*dt
                  cs_veg%reproductivec_patch(p,k) = cs_veg%reproductivec_patch(p,k) &
                       + cf_veg%cpool_to_reproductivec_patch(p,k)*dt
-                      if (k .ge. repr_grain_min .and. k .le. repr_grain_max) then
+                      if ((k .ge. repr_grain_min) .and. (k .le. repr_grain_max)) then
                         if (cf_veg%reproductivec_xfer_to_reproductivec_patch(p,k) .gt. 0._r8) then
-                              write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch accumulating > 0 at CStateUpdate1() c'
-                        else
-                              write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch "accumulating" 0 at CStateUpdate1() c'
+                            write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' CStateUpdate1() c: ivt ',patch%itype(p),' pool ',k,' reproductivec gains > 0'
+!                        else
+!                              write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' reproductivec_patch "accumulating" 0 at CStateUpdate1() c'
                         end if
                      end if
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_to_reproductivec_storage_patch(p,k)*dt

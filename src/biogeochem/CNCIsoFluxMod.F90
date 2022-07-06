@@ -430,7 +430,7 @@ contains
          call CIsoFluxCalc(&
               iso_cnveg_cf%repr_grainc_to_seed_patch        , cnveg_cf%repr_grainc_to_seed_patch, &
               iso_cnveg_cs%reproductivec_patch              , cnveg_cs%reproductivec_patch, &
-              num_soilp                                     , filter_soilp, 1._r8, 0, isotope)
+              num_soilp                                     , filter_soilp, 1._r8, 1, isotope)
 
          call CIsoFluxCalc(&
               iso_cnveg_cf%repr_structurec_to_cropprod_patch, cnveg_cf%repr_structurec_to_cropprod_patch, &
@@ -465,7 +465,7 @@ contains
          call CIsoFluxCalc(&
               iso_cnveg_cf%cpool_to_reproductivec_patch     , cnveg_cf%cpool_to_reproductivec_patch, &
               iso_cnveg_cs%cpool_patch                      , cnveg_cs%cpool_patch, &
-              num_soilp                                     , filter_soilp, 1._r8, 0, isotope)
+              num_soilp                                     , filter_soilp, 1._r8, 1, isotope)
 
          call CIsoFluxCalc(&
               iso_cnveg_cf%cpool_to_reproductivec_storage_patch, cnveg_cf%cpool_to_reproductivec_storage_patch, &

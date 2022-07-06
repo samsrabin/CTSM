@@ -27,6 +27,7 @@ module CNVegCarbonFluxType
   use AnnualFluxDribbler                 , only : annual_flux_dribbler_type, annual_flux_dribbler_gridcell
   use dynSubgridControlMod               , only : get_for_testing_allow_non_annual_changes
   use abortutils                         , only : endrun
+  use clm_time_manager , only : get_prev_date, get_prev_calday
   ! 
   ! !PUBLIC TYPES:
   implicit none
@@ -3800,7 +3801,15 @@ contains
     ! !LOCAL VARIABLES:
     integer :: fi,i     ! loop index
     integer :: j,k,l    ! indices
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
+    integer  :: jday      ! julian day of the year
     !------------------------------------------------------------------------
+
+      call get_prev_date(kyr, kmo, kda, mcsec)
+      jday    = get_prev_calday()
 
     do fi = 1,num_patch
        i = filter_patch(fi)
@@ -4000,6 +4009,9 @@ contains
              i = filter_patch(fi)
              this%reproductivec_xfer_to_reproductivec_patch(i,k) = value_patch
              this%cpool_to_reproductivec_patch(i,k)                    = value_patch
+             if ((k .ge. repr_grain_min) .and. (k .le. repr_grain_max)) then
+                 write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' Flux%SetValues() a: ivt ',patch%itype(i),' pool ',k,' cpool_to_reproductivec set to 0'
+             end if
              this%cpool_to_reproductivec_storage_patch(i,k)            = value_patch
              this%cpool_reproductive_gr_patch(i,k)                     = value_patch
              this%cpool_reproductive_storage_gr_patch(i,k)             = value_patch
@@ -4013,6 +4025,7 @@ contains
              i = filter_patch(fi)
              this%repr_grainc_to_food_patch(i,k) = value_patch
              this%repr_grainc_to_seed_patch(i,k) = value_patch
+             write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' Flux%SetValues() b: ivt ',patch%itype(i),' pool ',k,' repr_grainc_to_{food,seed} set to 0'
           end do
        end do
 

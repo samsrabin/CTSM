@@ -21,7 +21,8 @@ module CNVegCarbonStateType
   use CNSpeciesMod   , only : species_from_string, CN_SPECIES_C12
   use dynPatchStateUpdaterMod, only : patch_state_updater_type
   use CNVegComputeSeedMod, only : ComputeSeedAmounts
-  use CropReprPoolsMod   , only : nrepr, get_repr_hist_fname, get_repr_rest_fname, get_repr_longname
+  use CropReprPoolsMod   , only : nrepr, get_repr_hist_fname, get_repr_rest_fname, get_repr_longname, repr_grain_min, repr_grain_max
+  use clm_time_manager , only : get_prev_date, get_prev_calday
   ! 
   ! !PUBLIC TYPES:
   implicit none
@@ -2408,6 +2409,15 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: fi,i,j,k,l     ! loop index
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
+    integer  :: jday      ! julian day of the year
+    !------------------------------------------------------------------------
+
+      call get_prev_date(kyr, kmo, kda, mcsec)
+      jday    = get_prev_calday()
     !------------------------------------------------------------------------
 
     do fi = 1,num_patch
@@ -2453,6 +2463,9 @@ contains
           do fi = 1,num_patch
              i  = filter_patch(fi)
              this%reproductivec_patch(i,k)          = value_patch
+             if ((k .ge. repr_grain_min) .and. (k .le. repr_grain_max)) then
+                 write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' State%SetValues(): ivt ',patch%itype(i),' pool ',k,' reproductivec set to 0'
+             end if
              this%reproductivec_storage_patch(i,k)  = value_patch
              this%reproductivec_xfer_patch(i,k)     = value_patch
           end do

@@ -31,6 +31,7 @@ module NutrientCompetitionFlexibleCNMod
   use CropType            , only : cphase_leafemerge, cphase_grainfill
   use clm_varctl          , only : iulog, use_crop_agsys
   use abortutils          , only : endrun
+  use clm_time_manager , only : get_prev_date, get_prev_calday
   !
   implicit none
   private
@@ -244,6 +245,11 @@ contains
     real(r8):: frootcn_max
     real(r8):: livewdcn_max
     real(r8):: frac_resp
+    integer  :: kyr     ! current year
+    integer  :: kmo     ! month of year  (1, ..., 12)
+    integer  :: kda     ! day of month   (1, ..., 31)
+    integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
+    integer jday      ! julian day of the year
 
     ! -----------------------------------------------------------------------
 
@@ -343,6 +349,9 @@ contains
          sminn_to_plant_fun           => cnveg_nitrogenflux_inst%sminn_to_plant_fun_patch            & ! Output:  [real(r8) (:) ]  Total soil N uptake of FUN (gN/m2/s)
 
          )
+
+      jday    = get_prev_calday()
+      call get_prev_date(kyr, kmo, kda, mcsec)
 
       ! patch loop to distribute the available N between the competing patches
       ! on the basis of relative demand, and allocate C and N to new growth and storage
@@ -450,9 +459,9 @@ contains
             cpool_to_deadcrootc_storage(p) = nlc * f2 * f3 * (1._r8 - f4) * (1._r8 - fcur)
             do k = 1, nrepr
                cpool_to_reproductivec(p,k)         = nlc * f5(k) * fcur
-               if (k .ge. repr_grain_min .and. k .le. repr_grain_max) then
+               if ((k .ge. repr_grain_min) .and. (k .le. repr_grain_max)) then
                   if (cpool_to_reproductivec(p,k) .gt. 0._r8) then
-                        write(iulog,'(a,i3,a,i1,a)') 'ivt ',patch%itype(p),' pool ',k,' cpool_to_reproductivec > 0 in Flexible calc_plant_cn_alloc()'
+                    write(iulog,'(a,i3,a,i6,a,i3,a,i1,a)') 'day ',jday,' ',mcsec,' Flexible calc_plant_cn_alloc(): ivt ',patch%itype(p),' pool ',k,' cpool_to_reproductivec > 0'
                   end if
                end if
                cpool_to_reproductivec_storage(p,k) = nlc * f5(k) * (1._r8 -fcur)
