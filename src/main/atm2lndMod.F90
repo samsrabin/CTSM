@@ -22,7 +22,7 @@ module atm2lndMod
   use filterColMod   , only : filter_col_type
   use LandunitType   , only : lun                
   use ColumnType     , only : col
-  use landunit_varcon, only : istice
+  use landunit_varcon, only : istice, istsoil
   use WaterType      , only : water_type
   use Wateratm2lndBulkType, only : wateratm2lndbulk_type
 
@@ -271,6 +271,12 @@ contains
          call downscale_hillslope_solar(bounds, atm2lnd_inst, surfalb_inst)
          call downscale_hillslope_precipitation(bounds, topo_inst, atm2lnd_inst, wateratm2lndbulk_inst)
       endif
+
+      ! SS for NWT
+      if(use_hillslope) then
+         call repartition_niwot_snowfall(bounds, atm2lnd_inst, wateratm2lndbulk_inst)
+      endif
+      ! SS
 
       call partition_precip(bounds, atm2lnd_inst, wateratm2lndbulk_inst, &
            eflx_sh_precip_conversion(bounds%begc:bounds%endc))
@@ -758,7 +764,7 @@ contains
     real(r8) :: norm(numrad)
     real(r8) :: sum_solar(bounds%begg:bounds%endg,numrad)
     real(r8) :: sum_wtgcell(bounds%begg:bounds%endg)
-    logical  :: checkConservation = .true.
+    logical  :: checkConservation = .false. !KJ for NWT
 
     character(len=*), parameter :: subname = 'downscale_hillslope_solar'
     !-----------------------------------------------------------------------
@@ -782,7 +788,9 @@ contains
          g = col%gridcell(c)
          if (col%is_hillslope_column(c) .and. col%active(c)) then
             if (coszen_grc(g) > 0._r8) then
-               forc_solad_col(c,1:numrad)  = forc_solad_grc(g,1:numrad)*(coszen_col(c)/coszen_grc(g))
+! KJ & SS for NWT   forc_solad_col(c,1:numrad)  = forc_solad_grc(g,1:numrad)*(coszen_col(c)/coszen_grc(g))
+               forc_solad_col(c,1:numrad) = forc_solad_grc(g,1:numrad) &
+                  *min(5._r8,(coszen_col(c)/coszen_grc(g)))
             endif
             
             sum_solar(g,1:numrad) = sum_solar(g,1:numrad) + col%wtgcell(c)*forc_solad_col(c,1:numrad)
@@ -792,18 +800,19 @@ contains
 
       ! Normalize column level solar
       do c = bounds%begc,bounds%endc
-         if (col%is_hillslope_column(c) .and. col%active(c)) then
-            g = col%gridcell(c)
-            do n = 1,numrad
-               ! absorbed energy is solar flux x area landunit (sum_wtgcell)
-               if(sum_solar(g,n) > 0._r8) then
-                  norm(n) = sum_wtgcell(g)*forc_solad_grc(g,n)/sum_solar(g,n)
-                  forc_solad_col(c,n)  = forc_solad_col(c,n)*norm(n)
-               else
-                  forc_solad_col(c,n)  = forc_solad_grc(g,n)
-               endif
-            enddo
-         end if
+! KJ & SS turn off solar normalization for NWT
+!        if (col%is_hillslope_column(c) .and. col%active(c)) then
+!           g = col%gridcell(c)
+!           do n = 1,numrad
+!              ! absorbed energy is solar flux x area landunit (sum_wtgcell)
+!              if(sum_solar(g,n) > 0._r8) then
+!                 norm(n) = sum_wtgcell(g)*forc_solad_grc(g,n)/sum_solar(g,n)
+!                 forc_solad_col(c,n)  = forc_solad_col(c,n)*norm(n)
+!              else
+!                 forc_solad_col(c,n)  = forc_solad_grc(g,n)
+!              endif
+!           enddo
+!        end if
          forc_solar_col(c) = sum(forc_solad_col(c,1:numrad))+sum(forc_solai_grc(g,1:numrad))
          
       end do
@@ -969,6 +978,123 @@ contains
     end associate
 
   end subroutine downscale_hillslope_precipitation
+
+  !-----------------------------------------------------------------------
+  subroutine repartition_niwot_snowfall(bounds, &
+       atm2lnd_inst, wateratm2lndbulk_inst)
+    !
+    ! !DESCRIPTION:
+    ! Downscale precipitation from gridcell to column.
+    !
+    ! Downscaling is done based on the difference between each CLM column's elevation and
+    ! the atmosphere's surface elevation (which is the elevation at which the atmospheric
+    ! forcings are valid).
+    !
+    ! !USES:
+    use clm_varcon      , only : rair, cpair, grav
+    use clm_varctl      , only : use_hillslope
+    !
+    ! !ARGUMENTS:
+    type(bounds_type)  , intent(in)    :: bounds
+    type(atm2lnd_type) , intent(in) :: atm2lnd_inst
+    type(wateratm2lndbulk_type) , intent(inout) :: wateratm2lndbulk_inst
+    !
+    ! !LOCAL VARIABLES:
+    integer :: g, l, c, fc         ! indices
+
+    ! temporaries for topo downscaling
+    real(r8) :: snow_anom
+    real(r8) :: redistribution_fraction(1:3)
+    real(r8) :: norm_snow(bounds%begg:bounds%endg)
+    real(r8) :: sum_wt(bounds%begg:bounds%endg)
+    logical  :: checkConservation = .false.  !ww mods
+    character(len=*), parameter :: subname = 'repartition_niwot_snowfall'
+    !-----------------------------------------------------------------------
+
+    associate(&
+         ! Gridcell-level metadata:
+         forc_snow_g  => wateratm2lndbulk_inst%forc_snow_not_downscaled_grc , & ! Input:  [real(r8) (:)]  snow rate [mm/s]         
+
+         ! Column-level downscaled fields:
+         forc_snow_c  => wateratm2lndbulk_inst%forc_snow_downscaled_col       & ! Output: [real(r8) (:)]  snow rate [mm/s]
+         )
+
+      ! Repartition snowfall between columns (- reduction / + addition)
+      ! in add_hillslope_neon.py: col_ndx[:,j,i] = [cwet+1,clow+1,cdry+1]
+      ! 100% increase for wet meadow, no change for moist meadow, 75% reduction for dry meadow
+      ! redistribution_fraction(1:3) = (/1.0,0.0,-0.75/)
+      ! no change for moist, 25% decrease for wet meadow, 90% decrease for dry 
+      redistribution_fraction(1:3) = (/0.0,-0.25,-0.90/)  !ww mods
+
+      do c = bounds%begc,bounds%endc
+         fc = c - bounds%begc + 1
+         g = col%gridcell(c)
+         if (lun%itype(col%landunit(c)) == istsoil) then
+
+            forc_snow_c(c) = forc_snow_c(c) &
+                 + redistribution_fraction(fc) * forc_snow_g(g)
+
+         end if
+      end do
+
+      ! Initialize arrays of total landunit precipitation
+      norm_snow(bounds%begg:bounds%endg) = 0._r8
+      sum_wt(bounds%begg:bounds%endg)    = 0._r8
+      ! Calculate normalization (area-weighted average precipitation)
+      !do c = bounds%begc,bounds%endc
+      !   g = col%gridcell(c)
+      !   if (lun%itype(col%landunit(c)) == istsoil) then
+      !      norm_snow(g) = norm_snow(g) + col%wtlunit(c)*forc_snow_c(c)
+      !      sum_wt(g)    = sum_wt(g) + col%wtlunit(c)
+      !   end if
+      !end do
+      !do g = bounds%begg,bounds%endg
+      !   if(sum_wt(g) > 0._r8) then
+      !      norm_snow(g) = norm_snow(g) / sum_wt(g)
+      !   endif
+      !enddo
+
+      ! Normalize column precipitation to conserve gridcell average 
+      !do c = bounds%begc,bounds%endc
+      !   g = col%gridcell(c)
+      !   if (lun%itype(col%landunit(c)) == istsoil) then
+      !      if (norm_snow(g) > 0._r8) then 
+      !         forc_snow_c(c) = forc_snow_c(c) * forc_snow_g(g) / norm_snow(g)  !ww mods
+      !      endif
+      !   end if
+      !end do
+
+      do c = bounds%begc,bounds%endc
+         g = col%gridcell(c)
+         if (lun%itype(col%landunit(c)) == istsoil) then
+            norm_snow(g) = norm_snow(g) + col%wtlunit(c)*forc_snow_c(c)
+             end if
+      end do
+      do g = bounds%begg,bounds%endg
+            forc_snow_g(g) = norm_snow(g)
+      end do
+      ! check conservation
+      if(checkConservation)  then
+         norm_snow(bounds%begg:bounds%endg) = 0._r8
+         sum_wt(bounds%begg:bounds%endg)   = 0._r8
+         ! Calculate normalization (area-weighted average precipitation)
+         do c = bounds%begc,bounds%endc
+            g = col%gridcell(c)
+            if (lun%itype(col%landunit(c)) == istsoil) then
+               norm_snow(g) = norm_snow(g) + col%wtlunit(c)*forc_snow_c(c)
+               sum_wt(g)    = sum_wt(g) + col%wtlunit(c)
+            end if
+         end do
+         do g = bounds%begg,bounds%endg
+            if(abs(norm_snow(g) - sum_wt(g)*forc_snow_g(g)) > 1.e-6) then
+               write(iulog,*) 'snow not conserved', g, norm_snow(g), sum_wt(g)*forc_snow_g(g)
+            endif
+         enddo
+      endif
+
+    end associate
+
+  end subroutine repartition_niwot_snowfall
 
 
 end module atm2lndMod
