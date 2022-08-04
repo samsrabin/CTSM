@@ -73,6 +73,7 @@ contains
                              toosmall_soil, toosmall_crop, toosmall_glacier, &
                              toosmall_lake, toosmall_wetland, toosmall_urban, &
                              n_dom_landunits
+    use clm_varcon  , only : re !scs for NWT
     use fileutils           , only : getfil
     use domainMod           , only : domain_type, domain_init, domain_clean
     use clm_instur          , only : wt_lunit, topo_glc_mec, pct_urban_max
@@ -125,6 +126,17 @@ contains
     call ncd_io(ncid=ncid, varname= 'PFTDATA_MASK', flag='read', data=ldomain%pftm, &
          dim1name=grlnd, readvar=readvar)
     if (.not. readvar) call endrun( msg=' ERROR: pftm NOT on surface dataset'//errMsg(sourcefile, __LINE__))
+
+
+    !scs: add read for gridcell area for single point
+    call ncd_io(ncid=ncid, varname= 'AREA', flag='read', data=ldomain%area, &
+         dim1name=grlnd, readvar=readvar)
+    ! convert from radians**2 to km**2
+    !ldomain%area = ldomain%area * (re**2)
+    ! convert from m**2 to km**2
+    ldomain%area = ldomain%area * (1e-6)
+    if (.not. readvar) call endrun( msg=' ERROR: area NOT on file'//errMsg(sourcefile, __LINE__))
+
 
     ! Cmopare surfdat_domain attributes to ldomain attributes
 
