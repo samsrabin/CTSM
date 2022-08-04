@@ -280,10 +280,16 @@ contains
 !    call get_curr_date( yr, mon, day, tod )
 !    ymd = yr*10000 + mon*100 + day
 
-    ! SSR TODO: Make this work with mxsowings > 1
+    ! SSR TODO: Make all this work with mxsowings > 1
     do fp = 1, num_pcropp
        p = filter_pcropp(fp)
        ivt = patch%itype(p)
+
+       if (ivt < npcropmin) then
+         write(iulog,'(a,i0)') 'cropcal_interp(), rx_sdates: Crop patch has ivt ',ivt
+         call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       endif
+
        ! Set crop calendars for each gridcell/patch combination
        write(stream_var_name_sdate1,"(i6)") ivt
        write(stream_var_name_cultivar_gdds1,"(i6)") ivt
@@ -294,22 +300,33 @@ contains
        if (ivt /= noveg) then
           ig = g_to_ig(patch%gridcell(p))
           crop_inst%rx_sdates_thisyr(p,1) = sdat_sdate%avs(1)%rAttr(ip,ig)
+
+          ! If read-in value is invalid, allow_unprescribed_planting in CropPhenology()
+          if (crop_inst%rx_sdates_thisyr(p,1) <= 0 .or. crop_inst%rx_sdates_thisyr(p,1) > 365) then
+            crop_inst%rx_sdates_thisyr(p,1) = -1
+          end if
        endif
 
-       ! SSR TODO: Add check that variable exists in netCDF
-       stream_var_name_cultivar_gdds1 = 'gdd1_'//trim(adjustl(stream_var_name_cultivar_gdds1))
-       ip = mct_aVect_indexRA(sdat_cultivar_gdds%avs(1),trim(stream_var_name_cultivar_gdds1))
-       if (ivt /= noveg) then
-          ig = g_to_ig(patch%gridcell(p))
-          crop_inst%rx_cultivar_gdds_thisyr(p,1) = sdat_cultivar_gdds%avs(1)%rAttr(ip,ig)
-       endif
+       if (.not. generate_crop_gdds) then
+         ! SSR TODO: Add check that variable exists in netCDF
+         stream_var_name_cultivar_gdds1 = 'gdd1_'//trim(adjustl(stream_var_name_cultivar_gdds1))
+         ip = mct_aVect_indexRA(sdat_cultivar_gdds%avs(1),trim(stream_var_name_cultivar_gdds1))
+         if (ivt /= noveg) then
+            ig = g_to_ig(patch%gridcell(p))
+            crop_inst%rx_cultivar_gdds_thisyr(p,1) = sdat_cultivar_gdds%avs(1)%rAttr(ip,ig)
 
-       ! Only for first sowing date of the year
-       crop_inst%next_rx_sdate(p) = crop_inst%rx_sdates_thisyr(p,1)
-!       ! SSR troubleshooting
-!       c = patch%column(p)
-!       g = patch%gridcell(p)
-!       write(iulog,'(I8,A,F8.3,A,F8.3,A,I4,A,I7)') ymd,' (',grc%londeg(g),',',grc%latdeg(g),') crop ',ivt,' read rx_sdate ',crop_inst%rx_sdates_thisyr(p,1)
+            !  If read-in value is invalid, have PlantCrop() set gddmaturity to PFT-default value.
+            if (crop_inst%rx_cultivar_gdds_thisyr(p,1) < 0._r8 .or. crop_inst%rx_cultivar_gdds_thisyr(p,1) > 1000000._r8) then
+               crop_inst%rx_cultivar_gdds_thisyr(p,1) = -1._r8
+            end if
+         endif
+      endif
+
+      ! Only for first sowing date of the year
+      ! The conditional here is to ensure nothing weird happens if it's called incorrectly on day 365
+      if (crop_inst%sdates_thisyr(p,1) <= 0) then
+         crop_inst%next_rx_sdate(p) = crop_inst%rx_sdates_thisyr(p,1)
+      endif
 
     end do
 
