@@ -133,8 +133,8 @@ contains
 
     ! create the field list for these cropcal fields...use in shr_strdata_create
     ! SSR TODO: Make this work with mxsowings > 1
-    fldList_sdate1 = shr_string_listCreateField( cft_ub, "sdate1", cft_lb )
-    fldList_cultivar_gdds1 = shr_string_listCreateField( cft_ub, "gdd1", cft_lb )
+    fldList_sdate1 = shr_string_listCreateField( cft_ub - cft_lb + 1, "sdate1" )
+    fldList_cultivar_gdds1 = shr_string_listCreateField( cft_ub - cft_lb + 1, "gdd1" )
 
     ! SSR TODO:
     ! - Delete "area" and "mask"?
