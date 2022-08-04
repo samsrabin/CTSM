@@ -499,6 +499,26 @@ contains
                 if (params_inst%sand_pf == 0._r8 .and. params_inst%clay_pf == 0._r8) then
                    soilstate_inst%cellsand_col(c,lev) = sand
                    soilstate_inst%cellclay_col(c,lev) = clay
+                   !scs: col_ndx[:,j,i] = [cwet+1,clow+1,cdry+1]
+                   ! organic x 1, 2, 0.25
+                   ! clay + 10 10 0
+                   ! sand - 10 10 0
+                   if((c-begc+1) == 1) then 
+                      om_frac = 0.75 * om_frac
+                      clay = clay + 0
+                      sand = sand - 0
+                   endif
+                   if((c-begc+1) == 2) then 
+                      om_frac = 1 * om_frac
+                      clay = clay + 10
+                      sand = sand - 10
+                   endif
+                   if((c-begc+1) == 3) then 
+                      om_frac = 0.75 * om_frac
+                      clay = clay - 0
+                      sand = sand + 0 
+                   endif
+
                 else
                    ! by default, will read sand and clay from the surface dataset
                    !     - sand_pf can be used to perturb the absolute percent sand
@@ -535,10 +555,16 @@ contains
                 om_sucsat         = min(10.3_r8 - 0.2_r8   *(zsoi(lev)/zsapric), 10.1_r8)
                 om_hksat          = max(0.28_r8 - 0.2799_r8*(zsoi(lev)/zsapric), xksat)
 
+               ! change watsat for DM column
+                if((c-begc+1) == 3) then
+                   soilstate_inst%watsat_col(c,lev) = soilstate_inst%watsat_col(c,lev)*0.50_r8 ! WW added to reduce watsat in  
+                endif
+
                 soilstate_inst%bd_col(c,lev)        = (1._r8 - soilstate_inst%watsat_col(c,lev))*params_inst%pd
                 ! do not allow watsat_sf to push watsat above 0.93
                 soilstate_inst%watsat_col(c,lev)    = min(params_inst%watsat_sf * ( (1._r8 - om_frac) * &
                                                       soilstate_inst%watsat_col(c,lev) + om_watsat*om_frac ), 0.93_r8)
+                
                 tkm                                 = (1._r8-om_frac) * (params_inst%tkd_sand*sand+params_inst%tkd_clay*clay)/ &
                                                       (sand+clay)+params_inst%tkm_om*om_frac ! W/(m K)
                 soilstate_inst%bsw_col(c,lev)       = params_inst%bsw_sf * ( (1._r8-om_frac) * &
@@ -630,7 +656,7 @@ contains
                 om_frac = 0.0_r8
              end if
 
-             soilstate_inst%watsat_col(c,lev) = 0.489_r8 - 0.00126_r8*sand
+             soilstate_inst%watsat_col(c,lev) = 0.489_r8 - 0.00126_r8*sand 
 
              soilstate_inst%bsw_col(c,lev)    = 2.91 + 0.159*clay
 
