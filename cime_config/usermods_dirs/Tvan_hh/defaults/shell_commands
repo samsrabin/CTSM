@@ -1,0 +1,22 @@
+./xmlchange PTS_LON=254.41676
+./xmlchange PTS_LAT=40.05236
+
+#./xmlchange CLM_USRDAT_DIR='/glade/work/jayka/inputdata/datm_NWT_Tvan/moist_meadow/'
+./xmlchange DIN_LOC_ROOT_CLMFORC='/glade/p/cgd/tss/people/wwieder/inputdata/single_point/datmdata_NWT_Tvan'
+./xmlchange CLM_USRDAT_NAME='moist_meadow'
+./xmlchange CLM_NML_USE_CASE=1850-2100_SSP3-7.0_transient
+./xmlchange CCSM_CO2_PPMV=408.83
+./xmlchange DATM_PRESAERO=trans_1850-2000
+./xmlchange CONTINUE_RUN=FALSE
+
+# Set up a simulation from cold start
+./xmlchange STOP_OPTION=nyears
+
+# Explicitly set PIO Type to NETCDF since this is a single processor case (should already be set this way)
+
+./xmlchange PIO_TYPENAME=netcdf
+
+# BD:05/06/2022 - The PIO_REARRANGER_LND value - for global runs, PIO_REARRANGER_LND = 1 is ideal
+#                 and a value of 2 results in slow I/O.  For point runs like these, a value of 1 results in a crash (PIO bug, probably),
+#                 so we explicitly set a value of 2.
+./xmlchange PIO_REARRANGER_LND=2

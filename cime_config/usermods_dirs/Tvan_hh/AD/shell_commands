@@ -1,0 +1,12 @@
+./xmlchange RUN_STARTDATE=2008-01-01
+./xmlchange DATM_YR_ALIGN=2008,DATM_YR_END=2011,DATM_YR_START=2008
+
+# Set up a simulation from cold start
+./xmlchange CLM_FORCE_COLDSTART=on
+./xmlchange CLM_ACCELERATED_SPINUP=on
+./xmlchange STOP_N=100
+./xmlchange REST_N=100
+./xmlchange RUN_REFDATE=0008-01-01
+./xmlchange RUN_STARTDATE=0008-01-01
+./xmlchange RESUBMIT=1
+

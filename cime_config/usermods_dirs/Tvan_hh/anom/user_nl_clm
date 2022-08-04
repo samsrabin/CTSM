@@ -1,0 +1,56 @@
+!----------------------------------------------------------------------------------
+! Users should add all user specific namelist changes below in the form of
+! namelist_var = new_namelist_value
+!
+! EXCEPTIONS:
+! Set use_cndv           by the compset you use and the CLM_BLDNML_OPTS -dynamic_vegetation setting
+! Set use_vichydro       by the compset you use and the CLM_BLDNML_OPTS -vichydro           setting
+! Set use_cn             by the compset you use and CLM_BLDNML_OPTS -bgc  setting
+! Set use_crop           by the compset you use and CLM_BLDNML_OPTS -crop setting
+! Set spinup_state       by the CLM_BLDNML_OPTS -bgc_spinup      setting
+! Set co2_ppmv           with CCSM_CO2_PPMV                      option
+! Set fatmlndfrc         with LND_DOMAIN_PATH/LND_DOMAIN_FILE    options
+! Set finidat            with RUN_REFCASE/RUN_REFDATE/RUN_REFTOD options for hybrid or branch cases
+!                        (includes $inst_string for multi-ensemble cases)
+!                        or with CLM_FORCE_COLDSTART to do a cold start
+!                        or set it with an explicit filename here.
+! Set maxpatch_glcmec    with GLC_NEC                            option
+! Set glc_do_dynglacier  with GLC_TWO_WAY_COUPLING               env variable
+!----------------------------------------------------------------------------------
+
+flanduse_timeseries = ' '   ! This isn't needed for a non transient case, but will be once we start using transient compsets
+model_year_align_urbantv = 2022
+stream_year_first_urbantv = 2022
+stream_year_last_urbantv = 2100
+stream_year_first_ndep = 2022
+model_year_align_ndep = 2022
+stream_year_last_ndep = 2100
+model_year_align_popdens = 2022
+stream_year_first_popdens = 2022
+stream_year_last_popdens = 2100
+
+fsurdat = '/glade/work/jayka/ctsm/hillslope_updates/cime/scripts/surfdat/surfdata_hist_78pfts_CMIP6_simyr2000_NIWO_c210720_nh_1_nc_3_site_stream_c3ArcticMods.nc'
+paramfile = '/glade/work/jayka/ctsm/hillslope_updates/cime/scripts/params/ctsm51_params.c211112_NIWO_critDay12h_dmax10_phenoMods_WMchanges.nc'
+use_hillslope = .true.
+downscale_hillslope_meteorology = .true.
+use_hillslope_routing = .true.
+hillslope_soil_profile_method = 'FromFile'
+hillslope_pft_distribution_method = 'FromFile'
+
+onset_thresh_depends_on_veg = .false.
+min_critical_dayl_method = 'Constant'
+jmaxb1 = 0.10
+
+stream_fldfilename_ndep = '/glade/p/cesmdata/cseg/inputdata/lnd/clm2/ndepdata/fndep_clm_f09_g17.CMIP6-SSP3-7.0-WACCM_1849-2101_monthly_c191007.nc'
+
+! h1 output stream 
+hist_fincl2 = 'QVEGT','QVEGE','QSOIL','RAIN','SNOW','Vcmx25Z','AR','ESAI','HTOP','ELAI','FCEV','FCTR','FGEV','FIRA','FSA','FSR','FSDS','FSH','GPP','H2OSOI','HR','SNOW_DEPTH','TBOT','TSOI','SOILC_vr','FV','NET_NMIN_vr','QLATFLOWOUT','BTRANMN','TV','AGNPP'
+hist_mfilt(2) = 17520  
+hist_nhtfrq(2) = 1  
+hist_dov2xy(2) = .false.  
+  
+
+hist_fincl3 = 'STREAM_WATER_VOLUME','QSTREAMFLOW','STREAM_WATER_DEPTH'  
+hist_mfilt(3) = 365  
+hist_nhtfrq(3) = -24  
+

@@ -1,0 +1,15 @@
+./xmlchange CLM_FORCE_COLDSTART=off
+./xmlchange CLM_ACCELERATED_SPINUP=off
+./xmlchange RUN_REFDATE=0208-01-01
+./xmlchange RUN_STARTDATE=0208-01-01
+./xmlchange CONTINUE_RUN=FALSE
+
+# Setting continue run to true will just read the results off the latest restart file that's available.
+# This can also be set to FALSE and point to an finidat file in user_nl_clm
+
+# remove from user_nl_clm?
+hist_empty_htapes = .true.
+hist_fincl1 = 'TOTECOSYSC', 'TOTECOSYSN', 'TOTSOMC', 'TOTSOMN', 'TOTVEGC', 'TOTVEGN', 'TLAI', 'GPP', 'CPOOL', 'NPP', 'TWS', 'H2OSNO'
+
+echo "finidat='/glade/scratch/wwieder/archive/NEON_NIWO_test3/rest/0208-01-01-00000/NEON_NIWO_test3.clm2.r.0208-01-01-00000.nc'" >> user_nl_clm
+
