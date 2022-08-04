@@ -148,7 +148,8 @@ contains
     
   !------------------------------------------------------------------------
   subroutine initVertical(bounds, glc_behavior, thick_wall, thick_roof)
-    use clm_varcon, only : zmin_bedrock
+    use clm_varcon           , only : zmin_bedrock
+
     !
     ! !ARGUMENTS:
     type(bounds_type)   , intent(in)    :: bounds
@@ -197,10 +198,6 @@ contains
     ! The distinction between "shallow" and "deep" bedrock is not made explicitly
     ! elsewhere. But, since these classes have somewhat different behavior, they are
     ! distinguished explicitly here.
-    integer, parameter :: LEVGRND_CLASS_STANDARD        = 1
-    integer, parameter :: LEVGRND_CLASS_DEEP_BEDROCK    = 2
-    integer, parameter :: LEVGRND_CLASS_SHALLOW_BEDROCK = 3
-
     character(len=*), parameter :: subname = 'initVertical'
     !------------------------------------------------------------------------
 
