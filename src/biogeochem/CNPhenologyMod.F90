@@ -1733,6 +1733,13 @@ contains
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical did_plant_prescribed_today    ! Was the crop sown today?
     logical will_plant_prescribed_tomorrow ! Is tomorrow a prescribed sowing day?
+
+    ! SSR troubleshooting
+    real(r8) verbose_londeg
+    real(r8) verbose_latdeg
+    integer verbose_ivt
+    logical verbose
+    character(len=6) p_str
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1798,6 +1805,11 @@ contains
       jday    = get_prev_calday()
       call get_prev_date(kyr, kmo, kda, mcsec)
 
+      ! SSR troubleshooting
+      verbose_londeg = 20._r8
+      verbose_latdeg = 36.94_r8
+      verbose_ivt = nirrig_rice
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1809,6 +1821,17 @@ contains
          c = patch%column(p)
          g = patch%gridcell(p)
          h = inhemi(p)
+
+         ! SSR troubleshooting
+         verbose = grc%londeg(g) >= (verbose_londeg - 0.1) &
+             .and. grc%londeg(g) <= (verbose_londeg + 0.1) &
+             .and. grc%latdeg(g) >= (verbose_latdeg - 0.1) &
+             .and. grc%latdeg(g) <= (verbose_latdeg + 0.1) !&
+!             .and. ivt(p) == verbose_ivt
+         write(p_str, '(i6)') p
+         if (verbose) then
+            write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
+         end if
 
          ! background litterfall and transfer rates; long growing season factor
 
@@ -1830,6 +1853,12 @@ contains
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr_patch(p,1) == spval ) then
+
+            ! SSR troubleshooting
+            if ( verbose ) then
+                write (iulog,*) p_str,' cpv   Resetting [sh]counts and [sh]dates]'
+            end if
+
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -1873,14 +1902,38 @@ contains
          ! jday = get_calday()). See CTSM issue #1623.
          ! Once removed, can also remove the "Instead, always harvest the day before idop" bit.
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
+
+             ! SSR troubleshooting
+             if ( verbose ) then
+                write (iulog,*) p_str,' cpv   croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0'
+                write (iulog,*) p_str,' cpv   sowing_count 0 -> 1'
+                write (iulog,'(a,i4,a,i4)') p_str,' cpv   sdates_thisyr(1) ',crop_inst%sdates_thisyr_patch(p,1),' -> ',idop(p)
+             end if
+
              sowing_count(p) = 1
              crop_inst%sdates_thisyr_patch(p,1) = real(idop(p), r8)
          end if
          ! Will be needed until we can rely on all restart files including iyop.
          if (croplive(p) .and. iyop(p) > kyr) then
+
+            ! SSR troubleshooting
+            if ( verbose ) then
+               write (iulog,*) p_str,' cpv   croplive(p) .and. iyop(p) > kyr'
+               write (iulog,*) p_str,' cpv   sowing_count 0 -> 1'
+               write (iulog,'(a,i4,a,i4)') p_str,' cpv   sdates_thisyr(1) ',crop_inst%sdates_thisyr_patch(p,1),' -> ',idop(p)
+            end if
+            
              if (idop(p) <= jday) then
+               ! SSR troubleshooting
+               if ( verbose ) then
+                  write (iulog,'(a,i4,a,i4)') p_str,' cpv   (a) iyop ',iyop(p),' -> ',kyr
+               end if
                  iyop(p) = kyr
              else
+                ! SSR troubleshooting
+               if ( verbose ) then
+                  write (iulog,'(a,i4,a,i4)') p_str,' cpv   (b) iyop ',iyop(p),' -> ',kyr-1
+               end if
                  iyop(p) = kyr - 1
              end if
          end if
@@ -1966,6 +2019,7 @@ contains
                call PlantCrop(p, leafcn(ivt(p)), jday, kyr, do_plant_normal, &
                               do_plant_lastchance, do_plant_prescribed,  &
                               temperature_inst, crop_inst, cnveg_state_inst, &
+                              verbose, p_str, &
                               cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                               cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
                               c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
@@ -2253,6 +2307,11 @@ contains
                   crop_inst%harvest_reason_thisyr_patch(p, harvest_count(p)) = harvest_reason
                endif
 
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   do_harvest'
+               end if
+
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
@@ -2455,6 +2514,7 @@ contains
   subroutine PlantCrop(p, leafcn_in, jday, kyr, do_plant_normal, &
        do_plant_lastchance, do_plant_prescribed,            &
        temperature_inst, crop_inst, cnveg_state_inst,               &
+       verbose, p_str, &
        cnveg_carbonstate_inst, cnveg_nitrogenstate_inst,            &
        cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,              &
        c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
@@ -2486,6 +2546,8 @@ contains
     logical                , intent(in)    :: do_plant_lastchance ! Are the last-chance requirements for planting met?
     logical                , intent(in)    :: do_plant_prescribed ! are we planting because it was prescribed?
     type(temperature_type)         , intent(in)    :: temperature_inst
+    logical                , intent(in)    :: verbose
+    character(len=6)               , intent(in)    :: p_str
     type(crop_type)                , intent(inout) :: crop_inst
     type(cnveg_state_type)         , intent(inout) :: cnveg_state_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: cnveg_carbonstate_inst
@@ -2549,6 +2611,12 @@ contains
           this_sowing_reason = this_sowing_reason + 2._r8
       end if
       sowing_reason(p,s) = this_sowing_reason
+
+      ! SSR troubleshooting
+      if (verbose) then
+         write (iulog,*) p_str,' cpv   do_sow'
+      end if
+
       crop_inst%sowing_reason_patch(p) = this_sowing_reason
 
       leafc_xfer(p)  = initial_seed_at_planting
