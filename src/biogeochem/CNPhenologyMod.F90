@@ -1790,7 +1790,7 @@ contains
 
       ! SSR troubleshooting
       verbose_londeg = 290._r8
-      verbose_latdeg = 33.157._r8
+      verbose_latdeg = 33.157
       verbose_ivt = nirrig_tmp_corn
 
       if (use_fertilizer) then
@@ -1806,10 +1806,10 @@ contains
          h = inhemi(p)
 
          ! SSR troubleshooting
-         verbose = grc%londeg >= (verbose_londeg - 0.1) &
-             .and. grc%londeg <= (verbose_londeg + 0.1) &
-             .and. grc%latdeg >= (verbose_latdeg - 0.1) &
-             .and. grc%latdeg <= (verbose_latdeg + 0.1) &
+         verbose = grc%londeg(g) >= (verbose_londeg - 0.1) &
+             .and. grc%londeg(g) <= (verbose_londeg + 0.1) &
+             .and. grc%latdeg(g) >= (verbose_latdeg - 0.1) &
+             .and. grc%latdeg(g) <= (verbose_latdeg + 0.1) &
              .and. ivt(p) == verbose_ivt
          write(p_str, '(i6)') p
          if (verbose) then
