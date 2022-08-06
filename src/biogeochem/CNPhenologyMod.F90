@@ -1715,6 +1715,12 @@ contains
     real(r8) ndays_on ! number of days to fertilize
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
+    ! SSR troubleshooting
+    real(r8) verbose_londeg
+    real(r8) verbose_latdeg
+    integer verbose_ivt
+    logical verbose
+    character(len=6) p_str
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1782,6 +1788,11 @@ contains
       jday    = get_prev_calday()
       call get_curr_date(kyr, kmo, kda, mcsec)
 
+      ! SSR troubleshooting
+      verbose_londeg = 290._r8
+      verbose_latdeg = 33.157._r8
+      verbose_ivt = nirrig_tmp_corn
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -1793,6 +1804,17 @@ contains
          c = patch%column(p)
          g = patch%gridcell(p)
          h = inhemi(p)
+
+         ! SSR troubleshooting
+         verbose = grc%londeg >= (verbose_londeg - 0.1) &
+             .and. grc%londeg <= (verbose_londeg + 0.1) &
+             .and. grc%latdeg >= (verbose_latdeg - 0.1) &
+             .and. grc%latdeg <= (verbose_latdeg + 0.1) &
+             .and. ivt(p) == verbose_ivt
+         write(p_str, '(i6)') p
+         if (verbose) then
+            write (iulog,'(a,a,f7.2,a,f7.2,a,i1,a,i4,a,i3,a,i7)') p_str,' cpv (lon ',grc%londeg(g),', lat ',grc%latdeg(g),', hemi ',h,') yr ',kyr,' jday ',jday,' mcsec ',mcsec
+         end if
 
          ! background litterfall and transfer rates; long growing season factor
 
@@ -1814,6 +1836,12 @@ contains
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
+
+            ! SSR troubleshooting
+            if ( verbose ) then
+                write (iulog,*) p_str,' cpv   Resetting [sh]counts and [sh]dates]'
+            end if
+
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -1843,14 +1871,38 @@ contains
          ! (i.e., jday = get_prev_calday()) instead of the END of the timestep (i.e.,
          ! jday = get_calday()). See CTSM issue #1623.
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
+
+             ! SSR troubleshooting
+             if ( verbose ) then
+                write (iulog,*) p_str,' cpv   croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0'
+                write (iulog,*) p_str,' cpv   sowing_count 0 -> 1'
+                write (iulog,'(a,i4,a,i4)') p_str,' cpv   sdates_thisyr(1) ',crop_inst%sdates_thisyr(p,1),' -> ',idop(p)
+             end if
+
              sowing_count(p) = 1
              crop_inst%sdates_thisyr(p,1) = real(idop(p), r8)
          end if
          ! Will be needed until we can rely on all restart files including iyop.
          if (croplive(p) .and. iyop(p) > kyr) then
+
+            ! SSR troubleshooting
+            if ( verbose ) then
+               write (iulog,*) p_str,' cpv   croplive(p) .and. iyop(p) > kyr'
+               write (iulog,*) p_str,' cpv   sowing_count 0 -> 1'
+               write (iulog,'(a,i4,a,i4)') p_str,' cpv   sdates_thisyr(1) ',crop_inst%sdates_thisyr(p,1),' -> ',idop(p)
+            end if
+            
              if (idop(p) <= jday) then
+               ! SSR troubleshooting
+               if ( verbose ) then
+                  write (iulog,'(a,i4,a,i4)') p_str,' cpv   (a) iyop ',iyop(p),' -> ',kyr
+               end if
                  iyop(p) = kyr
              else
+                ! SSR troubleshooting
+               if ( verbose ) then
+                  write (iulog,'(a,i4,a,i4)') p_str,' cpv   (b) iyop ',iyop(p),' -> ',kyr-1
+               end if
                  iyop(p) = kyr - 1
              end if
          end if
@@ -1902,6 +1954,7 @@ contains
                   
                   call PlantCrop(p, leafcn(ivt(p)), jday, kyr, &
                                  do_plant_normal, do_plant_lastchance, &
+                                 verbose, p_str, &
                                  crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
@@ -1935,6 +1988,7 @@ contains
 
                   call PlantCrop(p, leafcn(ivt(p)), jday, kyr, &
                                  do_plant_normal, do_plant_lastchance, &
+                                 verbose, p_str, &
                                  crop_inst, cnveg_state_inst, &
                                  cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                                  cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
@@ -2122,6 +2176,11 @@ contains
                ! changes to the offset subroutine below
 
             else if (hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
+
+               ! SSR troubleshooting
+               if (verbose) then
+                  write (iulog,*) p_str,' cpv   do_harvest'
+               end if
 
                if (hui(p) >= gddmaturity(p)) then
                   harvest_reason = 1._r8
@@ -2339,6 +2398,7 @@ contains
     !-----------------------------------------------------------------------
   subroutine PlantCrop(p, leafcn_in, jday, kyr, &
        do_plant_normal, do_plant_lastchance, &
+       verbose, p_str, &
        crop_inst, cnveg_state_inst,                                 &
        cnveg_carbonstate_inst, cnveg_nitrogenstate_inst,            &
        cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,              &
@@ -2361,6 +2421,8 @@ contains
     integer                , intent(in)    :: kyr       ! current year
     logical                , intent(in)    :: do_plant_normal ! Are all the normal requirements for planting met?
     logical                , intent(in)    :: do_plant_lastchance ! Are the last-chance requirements for planting met?
+    logical                , intent(in)    :: verbose
+    character(len=6)               , intent(in)    :: p_str
     type(crop_type)                , intent(inout) :: crop_inst
     type(cnveg_state_type)         , intent(inout) :: cnveg_state_inst
     type(cnveg_carbonstate_type)   , intent(inout) :: cnveg_carbonstate_inst
@@ -2396,6 +2458,11 @@ contains
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
       crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
+
+      ! SSR troubleshooting
+      if (verbose) then
+         write (iulog,*) p_str,' cpv   do_sow'
+      end if
 
       this_sowing_reason = 0._r8
       if (do_plant_normal) then
