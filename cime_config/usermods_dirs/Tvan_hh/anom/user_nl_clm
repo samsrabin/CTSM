@@ -44,13 +44,13 @@ jmaxb1 = 0.10
 stream_fldfilename_ndep = '/glade/p/cesmdata/cseg/inputdata/lnd/clm2/ndepdata/fndep_clm_f09_g17.CMIP6-SSP3-7.0-WACCM_1849-2101_monthly_c191007.nc'
 
 ! h1 output stream 
-hist_fincl2 = 'QVEGT','QVEGE','QSOIL','RAIN','SNOW','Vcmx25Z','AR','ESAI','HTOP','ELAI','FCEV','FCTR','FGEV','FIRA','FSA','FSR','FSDS','FSH','GPP','H2OSOI','HR','SNOW_DEPTH','TBOT','TSOI','SOILC_vr','FV','NET_NMIN_vr','QLATFLOWOUT','BTRANMN','TV','AGNPP'
+hist_fincl2 = 'QVEGT','QVEGE','QSOIL','RAIN','SNOW','Vcmx25Z','AR','ESAI','HTOP','ELAI','FCEV','FCTR','FGEV','FIRA','FSA','FSR','FSDS','FSH','GPP','H2OSOI','HR','SNOW_DEPTH','TBOT','TSOI','SOILC_vr','FV','NET_NMIN_vr','QLATFLOWOUT','VOLUMETRIC_DISCHARGE','BTRANMN','TV','AGNPP'
 hist_mfilt(2) = 17520  
 hist_nhtfrq(2) = 1  
 hist_dov2xy(2) = .false.  
   
 
-hist_fincl3 = 'STREAM_WATER_VOLUME','QSTREAMFLOW','STREAM_WATER_DEPTH'  
+hist_fincl3 = 'STREAM_WATER_VOLUME','VOLUMETRIC_STREAMFLOW','STREAM_WATER_DEPTH'  
 hist_mfilt(3) = 365  
 hist_nhtfrq(3) = -24  
 
