@@ -1667,7 +1667,7 @@ contains
        c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
 
     ! !DESCRIPTION:
-    ! Code from AgroIBIS to determine crop phenology and code from CN to
+    ! Code from AgroIBIS to determine croa phenology and code from CN to
     ! handle CN fluxes during the phenological onset                       & offset periods.
     
     ! !USES:
@@ -2122,6 +2122,12 @@ contains
             if (use_cropcal_streams .and. .not. generate_crop_gdds) then
                 mxmat = 999
             end if
+
+            ! SSR troubleshooting
+            if (generate_crop_gdds .and. crop_inst%rx_sdates_thisyr(p,1) .le. 0) then
+               write(iulog,*) 'Using generate_crop_gdds but some patch has rx_sdate <= 0'
+               call endrun(msg=errMsg(sourcefile, __LINE__))
+            endif
 
             if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
                 ! Crop was incorrectly planted in last time step of Dec. 31.
