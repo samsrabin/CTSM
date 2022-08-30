@@ -311,7 +311,7 @@ contains
        ! ========================================================================
 
        if (masterproc) then
-           write(iulog,*) 'dynSubgrid_driver(): updating filters'
+           write(iulog,*) 'ssrts: dynSubgrid_driver(): updating filters'
        end if
        call dynSubgrid_wrapup_weight_changes(bounds_clump, glc_behavior)
 
