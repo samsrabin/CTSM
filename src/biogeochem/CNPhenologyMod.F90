@@ -1878,6 +1878,12 @@ contains
                cnveg_carbonflux_inst%repr_grainc_to_food_thisyr(p,k) = 0._r8
             end do
             next_rx_sdate(p) = crop_inst%rx_sdates_thisyr(p,1)
+
+            ! SSR troubleshooting
+            if ( verbose ) then
+                write (iulog,*) p_str,' cpv   next_rx_sdate ',next_rx_sdate(p)
+            end if
+
          end if
 
          s = sowing_count(p)
@@ -2660,7 +2666,7 @@ contains
 
       ! SSR troubleshooting
       if (verbose) then
-         write (iulog,*) p_str,' cpv   do_sow'
+         write (iulog,*) p_str,' cpv   do_sow, reason',this_sowing_reason
       end if
 
       this_sowing_reason = 0._r8
