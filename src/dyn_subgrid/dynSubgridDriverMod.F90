@@ -45,6 +45,9 @@ module dynSubgridDriverMod
   use CropType                     , only : crop_type
   use glc2lndMod                   , only : glc2lnd_type
   use filterMod                    , only : filter, filter_inactive_and_active
+  ! SSR troubleshooting
+  use spmdMod                      , only : masterproc
+  use clm_varctl                      , only : iulog
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   implicit none
@@ -307,6 +310,9 @@ contains
        ! changed weights.
        ! ========================================================================
 
+       if (masterproc) then
+           write(iulog,*) 'dynSubgrid_driver(): updating filters'
+       end if
        call dynSubgrid_wrapup_weight_changes(bounds_clump, glc_behavior)
 
        call patch_state_updater%set_new_weights(bounds_clump)

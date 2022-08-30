@@ -344,6 +344,9 @@ contains
     ! ============================================================================
 
     call t_startf('dyn_subgrid')
+    if ( masterproc ) then
+       write(iulog,*)  'clm: calling dynSubgrid_driver()', get_nstep()
+    end if
     call dynSubgrid_driver(bounds_proc,                                               &
          urbanparams_inst, soilstate_inst, water_inst,                       &
          temperature_inst, energyflux_inst, lakestate_inst, &
@@ -989,6 +992,9 @@ contains
 
        if (use_cn) then
           call t_startf('ecosysdyn')
+          if ( masterproc ) then
+             write(iulog,*)  'clm: calling EcosystemDynamicsPreDrainage()->CropPhen', get_nstep()
+          end if
           call bgc_vegetation_inst%EcosystemDynamicsPreDrainage(bounds_clump,            &
                   filter(nc)%num_soilc, filter(nc)%soilc,                       &
                   filter(nc)%num_soilp, filter(nc)%soilp,                       &
@@ -1042,6 +1048,9 @@ contains
           ! ============================================================================
           ! Update crop calendars
           ! ============================================================================
+          if ( masterproc ) then
+             write(iulog,*)  'clm: calling cropcal_interp()', get_nstep()
+          end if
           call cropcal_interp(bounds_clump, filter(nc)%num_pcropp, filter(nc)%pcropp, crop_inst)
 !          write(iulog,*) 'Exited cropcal_interp() in clm_drv()'
        end if

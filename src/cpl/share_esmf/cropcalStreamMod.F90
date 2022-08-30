@@ -17,7 +17,14 @@ module cropcalStreamMod
   use perf_mod         , only : t_startf, t_stopf
   use spmdMod          , only : masterproc, mpicom, iam
   use pftconMod        , only : npcropmin
+  use pftconMod        , only : ntmp_corn, nswheat, nwwheat, ntmp_soybean
+  use pftconMod        , only : nirrig_tmp_corn, nirrig_swheat, nirrig_wwheat, nirrig_tmp_soybean
+  use pftconMod        , only : ntrp_corn, nsugarcane, ntrp_soybean, ncotton, nrice
+  use pftconMod        , only : nirrig_trp_corn, nirrig_sugarcane, nirrig_trp_soybean
+  use pftconMod        , only : nirrig_cotton, nirrig_rice
+  use pftconMod        , only : nmiscanthus, nirrig_miscanthus, nswitchgrass, nirrig_switchgrass
   use CNPhenologyMod  , only : generate_crop_gdds
+  use GridcellType     , only : grc ! SSR troubleshooting
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -214,10 +221,13 @@ contains
     integer :: sec     ! seconds into current date for nstep+1
     integer :: mcdate  ! Current model date (yyyymmdd)
     integer :: rc
-    logical           :: verbose = .false.
+    logical           :: verbose = .true.
+    logical           :: verbose_masterproc
     !-----------------------------------------------------------------------
 
-    if (verbose) write(iulog,*) 'cropcal_advance(): Beginning'
+    verbose_masterproc = verbose .and. masterproc
+
+    if (verbose_masterproc) write(iulog,*) 'cropcal_advance(): Beginning'
 
     call get_curr_date(year, mon, day, sec)
     mcdate = year*10000 + mon*100 + day
@@ -241,7 +251,7 @@ contains
        end do
     end if
 
-    if (verbose) write(iulog,*) 'cropcal_advance(): Ending'
+    if (verbose_masterproc) write(iulog,*) 'cropcal_advance(): Ending'
 
   end subroutine cropcal_advance
 
@@ -275,10 +285,24 @@ contains
     real(r8), pointer :: dataptr2d_sdate(:,:)
     real(r8), pointer :: dataptr1d_cultivar_gdds(:)
     real(r8), pointer :: dataptr2d_cultivar_gdds(:,:)
-    logical           :: verbose = .false.
+    logical           :: verbose = .true.
+    logical           :: verbose_masterproc
+
+    ! SSR troubleshooting
+    real(r8) verbose_patch_londeg
+    real(r8) verbose_patch_latdeg
+    integer verbose_patch_ivt
+    logical verbose_patch
     !-----------------------------------------------------------------------
 
-    if (verbose) write(iulog,*) 'cropcal_interp(): Beginning'
+    verbose_masterproc = verbose .and. masterproc
+
+    if (verbose_masterproc) write(iulog,*) 'cropcal_interp(): Beginning'
+
+    ! SSR troubleshooting
+    verbose_patch_londeg = 352.5_r8
+    verbose_patch_latdeg = 8.526
+    verbose_patch_ivt = nirrig_rice
 
     SHR_ASSERT_FL( (lbound(g_to_ig,1) <= bounds%begg ), sourcefile, __LINE__)
     SHR_ASSERT_FL( (ubound(g_to_ig,1) >= bounds%endg ), sourcefile, __LINE__)
@@ -291,7 +315,7 @@ contains
     allocate(dataptr2d_sdate(lsize, ncft))
     dataptr2d_sdate(:,:) = -5
     ! Starting with npcropmin will skip generic crops
-    if (verbose) write(iulog,*) 'cropcal_interp(): Reading sdate file'
+    if (verbose_masterproc) write(iulog,*) 'cropcal_interp(): Reading sdate file'
     do n = 1, ncft
        ivt = n + npcropmin - 1
        call dshr_fldbun_getFldPtr(sdat_cropcal_sdate%pstrm(1)%fldbun_model, trim(stream_varnames_sdate(n)), &
@@ -313,7 +337,7 @@ contains
     end do
 
     ! Set rx_sdate for each gridcell/patch combination
-    if (verbose) write(iulog,*) 'cropcal_interp(): Set rx_sdate for each gridcell/patch combination'
+    if (verbose_masterproc) write(iulog,*) 'cropcal_interp(): Set rx_sdate for each gridcell/patch combination'
     do fp = 1, num_pcropp
        p = filter_pcropp(fp)
        ivt = patch%itype(p)
@@ -323,6 +347,18 @@ contains
           ! vegetated pft
           ig = g_to_ig(patch%gridcell(p))
           crop_inst%rx_sdates_thisyr(p,1) = dataptr2d_sdate(ig,n)
+
+          ! SSR troubleshooting
+          g = patch%gridcell(p)
+          verbose_patch = grc%londeg(g) >= (verbose_patch_londeg - 0.1) &
+              .and. grc%londeg(g) <= (verbose_patch_londeg + 0.1) &
+              .and. grc%latdeg(g) >= (verbose_patch_latdeg - 0.1) &
+              .and. grc%latdeg(g) <= (verbose_patch_latdeg + 0.1) &
+              .and. ivt == verbose_patch_ivt &
+              .and. verbose
+          if (verbose_patch) then
+             write(iulog,'(a,i0)') 'cropcal_interp(), rx_sdates: verbose patch rx_sdate ',crop_inst%rx_sdates_thisyr(p,1)
+          end if
 
           ! Sanity check: Should only read in valid values
           if (crop_inst%rx_sdates_thisyr(p,1) > 365) then
@@ -367,7 +403,7 @@ contains
        end do
    
        ! Set rx_cultivar_gdd for each gridcell/patch combination
-       if (verbose) write(iulog,*) 'cropcal_interp(): Set rx_cultivar_gdd for each gridcell/patch combination'
+       if (verbose_masterproc) write(iulog,*) 'cropcal_interp(): Set rx_cultivar_gdd for each gridcell/patch combination'
        do fp = 1, num_pcropp
           p = filter_pcropp(fp)
 
@@ -394,6 +430,18 @@ contains
              end if
 
              crop_inst%rx_cultivar_gdds_thisyr(p,1) = dataptr2d_cultivar_gdds(ig,n)
+
+             ! SSR troubleshooting
+             g = patch%gridcell(p)
+             verbose_patch = grc%londeg(g) >= (verbose_patch_londeg - 0.1) &
+                 .and. grc%londeg(g) <= (verbose_patch_londeg + 0.1) &
+                 .and. grc%latdeg(g) >= (verbose_patch_latdeg - 0.1) &
+                 .and. grc%latdeg(g) <= (verbose_patch_latdeg + 0.1) &
+                 .and. ivt == verbose_patch_ivt &
+                 .and. verbose
+             if (verbose_patch) then
+                write(iulog,'(a,i0)') 'cropcal_interp(), rx_sdates: verbose patch GDD ',crop_inst%rx_cultivar_gdds_thisyr(p,1)
+             end if
    
              ! Sanity check: Try to catch uninitialized values
              if (crop_inst%rx_cultivar_gdds_thisyr(p,1) > 1000000._r8) then
@@ -410,7 +458,7 @@ contains
 
    deallocate(dataptr2d_cultivar_gdds)
 
-   if (verbose) write(iulog,*) 'cropcal_interp(): All done!'
+   if (verbose_masterproc) write(iulog,*) 'cropcal_interp(): All done!'
 
 
   end subroutine cropcal_interp
