@@ -305,7 +305,6 @@ contains
        ! Starting with npcropmin will skip generic crops
        if (verbose) write(iulog,*) 'cropcal_interp(): Reading sdate file'
        do n = 1, ncft
-          ivt = n + npcropmin - 1
           call dshr_fldbun_getFldPtr(sdat_cropcal_sdate%pstrm(1)%fldbun_model, trim(stream_varnames_sdate(n)), &
                fldptr1=dataptr1d_sdate,  rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) then
@@ -338,7 +337,8 @@ contains
    
              ! Sanity check: Should only read in valid values
              if (crop_inst%rx_sdates_thisyr(p,1) > 365) then
-                 write(iulog,'(a,i0,a,i0)') 'cropcal_interp(): Crop patch (ivt ',ivt,') has dataptr2d prescribed sowing date ',crop_inst%rx_sdates_thisyr(p,1)
+                 write(iulog,'(a,i0,a,i0)') 'cropcal_interp(): Crop patch (ivt ',ivt,') has dataptr2d prescribed sowing date ',&
+                                            crop_inst%rx_sdates_thisyr(p,1)
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
              end if
    
@@ -410,7 +410,8 @@ contains
    
              ! Sanity check: Try to catch uninitialized values
              if (crop_inst%rx_cultivar_gdds_thisyr(p,1) > 1000000._r8) then
-                 write(iulog,'(a,i0,a,f20.9)') 'cropcal_interp(): Crop patch (ivt ',ivt,') has rx_cultivar_gdds_thisyr(p,1) HUGE ',crop_inst%rx_cultivar_gdds_thisyr(p,1)
+                 write(iulog,'(a,i0,a,f20.9)') 'cropcal_interp(): Crop patch (ivt ',ivt,') has rx_cultivar_gdds_thisyr(p,1) HUGE ',&
+                                               crop_inst%rx_cultivar_gdds_thisyr(p,1)
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
              end if
           else

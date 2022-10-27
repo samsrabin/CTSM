@@ -1863,6 +1863,7 @@ contains
              next_rx_sdate(p) = crop_inst%rx_sdates_thisyr(p,s+1)
          end if
 
+         ! CropType->InitAllocate() initializes next_rx_sdate to -1. It's only changed from that, by cropCalStreamMod->cropcal_interp(),  when use_cropcal_rx_sdates is true. So if not using prescribed sowing dates, this boolean will always be false, because jday can never be -1.
          do_plant_prescribed = next_rx_sdate(p) == jday .and. sowing_count(p) < mxsowings
          
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
@@ -1889,8 +1890,7 @@ contains
             crop_inst%sowing_reason_patch(p) = 0
          endif
 
-         ! This is outside the croplive check to allow for using CLM sowing
-         ! dates with externally-prescribed GDD maturity requirements
+         ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
          !
          ! Only allow sowing according to normal "window" rules if not using prescribed
          ! sowing dates at all, or if this cell had no values in the prescribed sowing
@@ -2116,7 +2116,7 @@ contains
             end if
 
             if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
-                ! Crop was incorrectly planted in last time step of Dec. 31.
+                ! BACKWARDS_COMPATIBILITY(ssr, 2022-02-03): To get rid of crops incorrectly planted in last time step of Dec. 31. That was fixed in commit dadbc62 ("Call CropPhenology regardless of doalb"), but this handles restart files with the old behavior. fake_harvest ensures that outputs aren't polluted.
                 do_harvest = .true.
                 force_harvest = .true.
                 fake_harvest = .true.
@@ -2585,13 +2585,15 @@ contains
       endif
 
       ! set GDD target
-      if (use_cropcal_rx_cultivar_gdds .and. (.not. ignore_rx_crop_gdds) .and. crop_inst%rx_cultivar_gdds_thisyr(p,s) .ge. 0._r8) then
+      if (use_cropcal_rx_cultivar_gdds .and. (.not. ignore_rx_crop_gdds) &
+       .and. crop_inst%rx_cultivar_gdds_thisyr(p,s) .ge. 0._r8) then
          gdd_target = crop_inst%rx_cultivar_gdds_thisyr(p,s)
 
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
          if (gdd_target < gddmin(ivt(p))) then
-            write(iulog,*) 'Some patch with ivt ',ivt(p),' has rx gdd_target ',gdd_target,'; using gddmin(ivt(p)) instead (',gddmin(ivt(p)),')'
+            write(iulog,*) 'Some patch with ivt ',ivt(p),' has rx gdd_target ',gdd_target,'; using gddmin(ivt(p)) instead (',&
+                           gddmin(ivt(p)),')'
          endif
          gdd_target = max(gdd_target, gddmin(ivt(p)))
 
@@ -2622,7 +2624,8 @@ contains
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
          if (gddmaturity(p) < gddmin(ivt(p))) then
-            write(iulog,*) 'Some patch with ivt ',ivt(p),' has calculated gddmaturity ',gddmaturity(p),'; using gddmin(ivt(p)) instead (',gddmin(ivt(p)),')'
+            write(iulog,*) 'Some patch with ivt ',ivt(p),' has calculated gddmaturity ',gddmaturity(p),&
+                           '; using gddmin(ivt(p)) instead (',gddmin(ivt(p)),')'
          endif
          gddmaturity(p) = max(gddmaturity(p), gddmin(ivt(p)))
       endif
