@@ -1715,6 +1715,7 @@ contains
     real(r8) ndays_on ! number of days to fertilize
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
+    logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -2091,13 +2092,15 @@ contains
                hui(p) = max(hui(p),huigrain(p))
             endif
 
+            fake_harvest = jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0
+
             ! The following conditionals are similar to those in CropPhase. However, they
             ! differ slightly because here we are potentially setting a new crop phase,
             ! whereas CropPhase is just designed to get the current, already-determined
             ! phase. However, despite these differences: if you make changes to the
             ! following conditionals, you should also check to see if you should make
             ! similar changes in CropPhase.
-            if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat(ivt(p))) then
+            if ((.not. fake_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat(ivt(p))) then
                cphase(p) = cphase_leafemerge
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
@@ -2123,25 +2126,30 @@ contains
                ! the onset_counter would change from dt and you'd need to make
                ! changes to the offset subroutine below
 
-            else if (hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
+            else if (fake_harvest .or. hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
 
-               if (hui(p) >= gddmaturity(p)) then
+               if (fake_harvest) then
+                  harvest_reason = 3._r8
+               else if (hui(p) >= gddmaturity(p)) then
                   harvest_reason = 1._r8
                else if (idpp >= mxmat(ivt(p))) then
                   harvest_reason = 2._r8
                end if
 
-               if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
-               harvest_count(p) = harvest_count(p) + 1
-               crop_inst%sdates_perharv(p, harvest_count(p)) = real(idop(p), r8)
-               crop_inst%syears_perharv(p, harvest_count(p)) = real(iyop(p), r8)
-               crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
-               cnveg_state_inst%gddmaturity_thisyr(p,harvest_count(p)) = gddmaturity(p)
-               crop_inst%gddaccum_thisyr(p, harvest_count(p)) = crop_inst%gddaccum_patch(p)
-               crop_inst%hui_thisyr(p, harvest_count(p)) = hui(p)
-               crop_inst%sowing_reason_perharv(p, harvest_count(p)) = real(crop_inst%sowing_reason_patch(p), r8)
-               crop_inst%sowing_reason_patch(p) = -1
-               crop_inst%harvest_reason_thisyr(p, harvest_count(p)) = harvest_reason
+               if (.not. fake_harvest) then
+                   if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
+                   harvest_count(p) = harvest_count(p) + 1
+                   crop_inst%sdates_perharv(p, harvest_count(p)) = real(idop(p), r8)
+                   crop_inst%syears_perharv(p, harvest_count(p)) = real(iyop(p), r8)
+                   crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
+                   cnveg_state_inst%gddmaturity_thisyr(p,harvest_count(p)) = gddmaturity(p)
+                   crop_inst%gddaccum_thisyr(p, harvest_count(p)) = crop_inst%gddaccum_patch(p)
+                   crop_inst%hui_thisyr(p, harvest_count(p)) = hui(p)
+                   crop_inst%sowing_reason_perharv(p, harvest_count(p)) = real(crop_inst%sowing_reason_patch(p), r8)
+                   crop_inst%sowing_reason_patch(p) = -1
+                   crop_inst%harvest_reason_thisyr(p, harvest_count(p)) = harvest_reason
+               end if
+
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
