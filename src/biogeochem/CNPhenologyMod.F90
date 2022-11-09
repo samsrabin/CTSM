@@ -2128,7 +2128,7 @@ contains
                ! the onset_counter would change from dt and you'd need to make
                ! changes to the offset subroutine below
 
-            else if (fake_harvest .or. hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
+            else if (fake_harvest .or. (hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p)) .and. idop(p) /= jday)) then
 
                if (fake_harvest) then
                   harvest_reason = 3._r8
