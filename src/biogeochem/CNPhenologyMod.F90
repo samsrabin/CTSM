@@ -1967,6 +1967,8 @@ contains
                      gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
                   end if
 
+                  gddmaturity(p) = max(gddmaturity(p), gddmin(ivt(p)))
+
                else
                   gddmaturity(p) = 0._r8
                end if
