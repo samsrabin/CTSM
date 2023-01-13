@@ -131,6 +131,7 @@ module CNPhenologyMod
 
   logical,  public :: generate_crop_gdds = .false. ! If true, harvest the day before next sowing
   logical,  public :: use_mxmat = .true.           ! If true, ignore crop maximum growing season length
+  real(r8)         :: min_gddmaturity = 1.0_r8     ! Weird things can happen if gddmaturity is zero
 
   ! Constants for seasonal decidious leaf onset and offset
   logical,  private :: onset_thresh_depends_on_veg     = .false. ! If onset threshold depends on vegetation type
@@ -2466,7 +2467,7 @@ contains
 
     ! !USES:
     use clm_varctl       , only : use_c13, use_c14
-    use clm_varctl       , only : use_cropcal_rx_cultivar_gdds
+    use clm_varctl       , only : use_cropcal_rx_cultivar_gdds, use_cropcal_streams
     use clm_varcon       , only : c13ratio, c14ratio
     use clm_varpar       , only : mxsowings
     use pftconMod        , only : ntmp_corn, nswheat, nwwheat, ntmp_soybean
@@ -2610,8 +2611,8 @@ contains
             gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
          end if
 
-         if (generate_crop_gdds) then
-             gddmaturity(p) = max(gddmaturity(p), gddmin(ivt(p)))
+         if (use_cropcal_streams) then
+             gddmaturity(p) = max(gddmaturity(p), min_gddmaturity)
          endif
 
       endif
