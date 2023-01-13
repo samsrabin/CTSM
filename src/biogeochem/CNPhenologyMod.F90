@@ -2687,6 +2687,11 @@ contains
           gddmaturity(p) = max(gddmaturity(p), min_gddmaturity)
       endif
 
+      ! SSR troubleshooting
+      if (verbose) then
+         write (iulog,*) p_str,' cpv   gddmaturity ',gddmaturity(p)
+      end if
+
     end associate
 
   end subroutine PlantCrop
