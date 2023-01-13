@@ -131,7 +131,7 @@ module CNPhenologyMod
 
   logical,  public :: generate_crop_gdds = .false. ! If true, harvest the day before next sowing
   logical,  public :: use_mxmat = .true.           ! If true, ignore crop maximum growing season length
-  real(r8)         :: min_gddmaturity = 1.0_r8     ! Weird things can happen if gddmaturity is zero
+  real(r8)         :: min_gddmaturity = 50.0_r8     ! Weird things can happen if gddmaturity is zero
 
   ! Constants for seasonal decidious leaf onset and offset
   logical,  private :: onset_thresh_depends_on_veg     = .false. ! If onset threshold depends on vegetation type
