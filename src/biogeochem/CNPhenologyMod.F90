@@ -2679,10 +2679,12 @@ contains
             gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
          end if
 
-         if (use_cropcal_streams) then
-             gddmaturity(p) = max(gddmaturity(p), min_gddmaturity)
-         endif
+      endif
 
+      ! Weird things happen if gddmaturity is zero. E.g., errors about
+      ! "Unexpected non-zero delta mid-year."
+      if (use_cropcal_streams) then
+          gddmaturity(p) = max(gddmaturity(p), min_gddmaturity)
       endif
 
     end associate
