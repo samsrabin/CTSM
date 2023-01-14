@@ -338,7 +338,7 @@ contains
          ptr_patch=this%sowing_reason_perharv_patch, default='inactive')
 
     this%harvest_reason_thisyr_patch(begp:endp,:) = spval
-    call hist_addfld2d (fname='HARVEST_REASON_PERHARV', units='unitless', type2d='mxharvests', &
+    call hist_addfld2d (fname='HARVEST_REASON_PERHARV', units='1 = mature; 2 = max season length; 3 = incorrect Dec. 31 sowing; 4 = sowing today; 5 = sowing tomorrow; 6 = tomorrow == idop', type2d='mxharvests', &
          avgflag='I', long_name='Reason for each crop harvest; should only be output annually', &
          ptr_patch=this%harvest_reason_thisyr_patch, default='inactive')
 
@@ -498,7 +498,7 @@ contains
   end subroutine InitAccVars
 
   !-----------------------------------------------------------------------
-  subroutine Restart(this, bounds, ncid, flag)
+  subroutine Restart(this, bounds, ncid, cnveg_state_inst, flag)
     !
     ! !USES:
     use restUtilMod
@@ -506,11 +506,15 @@ contains
     use PatchType, only : patch
     use pftconMod, only : npcropmin, npcropmax
     use clm_varpar, only : mxsowings, mxharvests
+    ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2023-01-09)
+    use CNVegstateType, only : cnveg_state_type
+    use clm_time_manager , only : get_curr_calday, get_curr_date
     !
     ! !ARGUMENTS:
     class(crop_type), intent(inout)  :: this
     type(bounds_type), intent(in)    :: bounds
     type(file_desc_t), intent(inout) :: ncid
+    type(cnveg_state_type) , intent(inout) :: cnveg_state_inst ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2023-01-09)
     character(len=*) , intent(in)    :: flag
     !
     ! !LOCAL VARIABLES:
@@ -519,6 +523,14 @@ contains
     integer :: p
     logical :: readvar   ! determine if variable is on initial file
     integer :: seasons_found, seasons_loopvar      ! getting number of sowings/harvests in patch
+    ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2023-01-09)
+    integer jday      ! julian day of the year
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
+    ! BACKWARDS_COMPATIBILITY(ssr, 2023-01-13)
+    logical read_hdates_thisyr_patch
 
     character(len=*), parameter :: subname = 'Restart'
     !-----------------------------------------------------------------------
@@ -638,7 +650,7 @@ contains
                 dim1name='pft', dim2name='mxharvests', switchdim=.true., &
                 long_name='crop harvest dates for this patch this year', units='day of year', &
                 scale_by_thickness=.false., &
-                interpinic_flag='interp', readvar=readvar, data=this%hdates_thisyr_patch)
+                interpinic_flag='interp', readvar=read_hdates_thisyr_patch, data=this%hdates_thisyr_patch)
            call restartvar(ncid=ncid, flag=flag, varname='gddaccum_thisyr_patch', xtype=ncd_double,  &
                 dim1name='pft', dim2name='mxharvests', switchdim=.true., &
                 long_name='accumulated GDD at harvest for this patch this year', units='ddays', &
@@ -664,20 +676,48 @@ contains
                 long_name='reason for each harvest for this patch this year', units='unitless', &
                 scale_by_thickness=.false., &
                 interpinic_flag='interp', readvar=readvar, data=this%harvest_reason_thisyr_patch)
+
            ! Fill variable(s) derived from read-in variable(s)
-           if (flag == 'read' .and. readvar) then
+           if (flag == 'read') then
+             jday = get_curr_calday()
+             call get_curr_date(kyr, kmo, kda, mcsec)
              do p = bounds%begp,bounds%endp
-                seasons_found = 0
-                do seasons_loopvar = 1,mxharvests
-                   if (this%hdates_thisyr_patch(p,seasons_loopvar) >= 1 .and. this%hdates_thisyr_patch(p,seasons_loopvar) <= 366) then
-                      seasons_found = seasons_loopvar
-                   else
-                      exit
-                   end if
-                end do ! loop through possible harvests
-                this%harvest_count(p) = seasons_found
+
+                ! Harvest count
+                if (read_hdates_thisyr_patch) then
+                   seasons_found = 0
+                   do seasons_loopvar = 1,mxharvests
+                      if (this%hdates_thisyr_patch(p,seasons_loopvar) >= 1 .and. this%hdates_thisyr_patch(p,seasons_loopvar) <= 366) then
+                         seasons_found = seasons_loopvar
+                      else
+                         exit
+                      end if
+                   end do ! loop through possible harvests
+                   this%harvest_count(p) = seasons_found
+                end if
+
+                ! Year of planting
+                ! Calculating this here instead of saving in restart file to allow for
+                ! sensible iyop values in startup/hybrid runs.
+                ! * Assumes no growing season is longer than 364 days (or 365 days if
+                !   spanning a leap day).
+                if (cnveg_state_inst%idop_patch(p) <= jday) then
+                    cnveg_state_inst%iyop_patch(p) = kyr
+                else
+                    cnveg_state_inst%iyop_patch(p) = kyr - 1
+                end if
              end do ! loop through patches
            end if
+       end if
+
+       ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2023-01-09)
+       if (flag == 'read') then
+           do p = bounds%begp,bounds%endp
+               ! Will be needed until we can rely on all restart files including sowing_reason_patch.
+               if (this%croplive_patch(p) .and. this%sowing_reason_patch(p) < 0) then
+                  this%sowing_reason_patch(p) = 0
+               end if
+           end do ! loop through patches
        end if
     end if
 

@@ -145,6 +145,10 @@ contains
         write(iulog,*) 'Do not specify both generate_crop_gdds=.true. and stream_fldFileName_cultivar_gdds'
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
     end if
+    if (generate_crop_gdds .and. .not. use_cropcal_rx_sdates) then
+        write(iulog,*) 'ERROR If using generate_crop_gdds, you must specify stream_fldFileName_sdate'
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    endif
     use_cropcal_streams = use_cropcal_rx_sdates .or. use_cropcal_rx_cultivar_gdds
 
     ! Initialize the cdeps data type sdat_cropcal_sdate
@@ -300,7 +304,6 @@ contains
 
     ! Read prescribed sowing dates from input files
     allocate(dataptr2d_sdate(lsize, ncft))
-    dataptr2d_sdate(:,:) = -5
     if (use_cropcal_rx_sdates) then
        ! Starting with npcropmin will skip generic crops
        if (verbose) write(iulog,*) 'cropcal_interp(): Reading sdate file'
@@ -408,12 +411,6 @@ contains
 
              crop_inst%rx_cultivar_gdds_thisyr_patch(p,1) = dataptr2d_cultivar_gdds(ig,n)
    
-             ! Sanity check: Try to catch uninitialized values
-             if (crop_inst%rx_cultivar_gdds_thisyr_patch(p,1) > 1000000._r8) then
-                 write(iulog,'(a,i0,a,f20.9)') 'cropcal_interp(): Crop patch (ivt ',ivt,') has rx_cultivar_gdds_thisyr(p,1) HUGE ',&
-                                               crop_inst%rx_cultivar_gdds_thisyr_patch(p,1)
-                 call ESMF_Finalize(endflag=ESMF_END_ABORT)
-             end if
           else
              write(iulog,'(a,i0)') 'cropcal_interp(), rx_cultivar_gdds: Crop patch has ivt ',ivt
              call ESMF_Finalize(endflag=ESMF_END_ABORT)

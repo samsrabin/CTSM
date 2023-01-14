@@ -143,6 +143,13 @@ module CNPhenologyMod
   ! For determining leaf offset latitude that's considered high latitude (see Eitel 2019)
   real(r8), parameter :: critical_offset_high_lat         = 65._r8     ! Start of what's considered high latitude (degrees)
 
+  real(r8), parameter :: HARVEST_REASON_MATURE = 1._r8
+  real(r8), parameter :: HARVEST_REASON_MAXSEASLENGTH = 2._r8
+  real(r8), parameter :: HARVEST_REASON_SOWNBADDEC31 = 3._r8
+  real(r8), parameter :: HARVEST_REASON_SOWTODAY = 4._r8
+  real(r8), parameter :: HARVEST_REASON_SOWTOMORROW = 5._r8
+  real(r8), parameter :: HARVEST_REASON_IDOPTOMORROW = 6._r8
+
   character(len=*), parameter, private :: sourcefile = &
        __FILE__
   !-----------------------------------------------------------------------
@@ -427,7 +434,7 @@ contains
     !
     ! !USES:
     use clm_time_manager, only: get_step_size_real
-    use clm_varctl      , only: use_crop
+    use clm_varctl      , only: use_crop, use_cropcal_rx_sdates
     use clm_varcon      , only: secspday
     !
     ! !ARGUMENTS:
@@ -511,6 +518,9 @@ contains
             call endrun(msg="ERROR crit_dayl_lat_slope cannot allow crit_dayl longer than a day"//errmsg(sourcefile, __LINE__))
         end if
     end if
+    if (generate_crop_gdds .and. use_mxmat) then
+        call endrun(msg="ERROR If setting generate_crop_gdds to .true., you must set use_mxmat to .false."//errmsg(sourcefile, __LINE__))
+    endif
 
   end subroutine CNPhenologyInit
 
@@ -1722,6 +1732,9 @@ contains
     real(r8) avg_dayspyr ! average number of days per year
     real(r8) crmcorn  ! comparitive relative maturity for corn
     real(r8) ndays_on ! number of days to fertilize
+    logical is_in_sowing_window ! is the crop in its sowing window?
+    logical is_end_sowing_window ! is it the last day of the crop's sowing window?
+    logical sowing_gdd_requirement_met ! has the gridcell historically been warm enough to support the crop?
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
     logical do_plant_prescribed ! is today the prescribed sowing date?
@@ -1884,11 +1897,9 @@ contains
             next_rx_sdate(p) = crop_inst%rx_sdates_thisyr_patch(p,1)
          end if
 
-         s = sowing_count(p)
-
          ! Get next sowing date
-         if (s < mxsowings) then
-             next_rx_sdate(p) = crop_inst%rx_sdates_thisyr_patch(p,s+1)
+         if (sowing_count(p) < mxsowings) then
+             next_rx_sdate(p) = crop_inst%rx_sdates_thisyr_patch(p,sowing_count(p)+1)
          end if
 
          ! CropType->InitAllocate() initializes next_rx_sdate to -1. It's only changed from that, by cropCalStreamMod->cropcal_interp(),  when use_cropcal_rx_sdates is true. So if not using prescribed sowing dates, this boolean will always be false, because jday can never be -1.
@@ -1913,36 +1924,10 @@ contains
              sowing_count(p) = 1
              crop_inst%sdates_thisyr_patch(p,1) = real(idop(p), r8)
          end if
-         ! Will be needed until we can rely on all restart files including iyop.
-         if (croplive(p) .and. iyop(p) > kyr) then
-
-            ! SSR troubleshooting
-            if ( verbose ) then
-               write (iulog,*) p_str,' cpv   croplive(p) .and. iyop(p) > kyr'
-               write (iulog,*) p_str,' cpv   sowing_count 0 -> 1'
-               write (iulog,'(a,i4,a,i4)') p_str,' cpv   sdates_thisyr(1) ',crop_inst%sdates_thisyr_patch(p,1),' -> ',idop(p)
-            end if
-            
-             if (idop(p) <= jday) then
-               ! SSR troubleshooting
-               if ( verbose ) then
-                  write (iulog,'(a,i4,a,i4)') p_str,' cpv   (a) iyop ',iyop(p),' -> ',kyr
-               end if
-                 iyop(p) = kyr
-             else
-                ! SSR troubleshooting
-               if ( verbose ) then
-                  write (iulog,'(a,i4,a,i4)') p_str,' cpv   (b) iyop ',iyop(p),' -> ',kyr-1
-               end if
-                 iyop(p) = kyr - 1
-             end if
-         end if
-         ! Will be needed until we can rely on all restart files including sowing_reason_patch.
-         if (croplive(p) .and. crop_inst%sowing_reason_patch(p) < 0) then
-            crop_inst%sowing_reason_patch(p) = 0
-         endif
 
          ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
+         is_in_sowing_window = jday >= minplantjday(ivt(p),h) .and. jday <= maxplantjday(ivt(p),h)
+         is_end_sowing_window = jday == maxplantjday(ivt(p),h)
          !
          ! Only allow sowing according to normal "window" rules if not using prescribed
          ! sowing dates at all, or if this cell had no values in the prescribed sowing
@@ -1953,21 +1938,18 @@ contains
             do_plant_lastchance = .false.
          else if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
             ! winter temperate cereal : use gdd0 as a limit to plant winter cereal
-            !
+            sowing_gdd_requirement_met = gdd020(p) /= spval .and. gdd020(p) >= gddmin(ivt(p))
             ! Are all the normal requirements for planting met?
             do_plant_normal = allow_unprescribed_planting           .and. &
                               a5tmin(p)   /= spval                  .and. &
                               a5tmin(p)   <= minplanttemp(ivt(p))   .and. &
-                              jday        >= minplantjday(ivt(p),h) .and. &
-                              jday        <= maxplantjday(ivt(p),h) .and. &
-                              (gdd020(p)  /= spval                  .and. &
-                              gdd020(p)   >= gddmin(ivt(p)))
+                              is_in_sowing_window                   .and. &
+                              sowing_gdd_requirement_met
             ! If not, but it's the last day of the planting window, what about relaxed rules?
             do_plant_lastchance = allow_unprescribed_planting           .and. &
                                   (.not. do_plant_normal)               .and. &
-                                  jday       ==  maxplantjday(ivt(p),h) .and. &
-                                  gdd020(p)  /= spval                   .and. &
-                                  gdd020(p)  >= gddmin(ivt(p))
+                                  is_end_sowing_window                  .and. &
+                                  sowing_gdd_requirement_met
          else ! not winter cereal... slevis: added distinction between NH and SH
             ! slevis: The idea is that jday will equal idop sooner or later in the year
             !         while the gdd part is either true or false for the year.
@@ -1976,14 +1958,13 @@ contains
                               t10(p) /= spval .and. a10tmin(p) /= spval .and. &
                               t10(p)     > planttemp(ivt(p))            .and. &
                               a10tmin(p) > minplanttemp(ivt(p))         .and. &
-                              jday       >= minplantjday(ivt(p),h)      .and. &
-                              jday       <= maxplantjday(ivt(p),h)      .and. &
+                              is_in_sowing_window                       .and. &
                               gdd820(p)  /= spval                       .and. &
                               gdd820(p)  >= gddmin(ivt(p))
             ! If not, but it's the last day of the planting window, what about relaxed rules?
             do_plant_lastchance = allow_unprescribed_planting    .and. &
                                   (.not. do_plant_normal)        .and. &
-                                  jday == maxplantjday(ivt(p),h) .and. &
+                                  is_end_sowing_window           .and. &
                                   gdd820(p) > 0._r8 .and. &
                                   gdd820(p) /= spval
          end if
@@ -1991,7 +1972,7 @@ contains
          did_plant = .false.
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
-         if ( (.not. croplive(p)) .and. s == 0 ) then
+         if ( (.not. croplive(p)) .and. sowing_count(p) == 0 ) then
 
             ! gdd needed for * chosen crop and a likely hybrid (for that region) *
             ! to reach full physiological maturity
@@ -2074,8 +2055,6 @@ contains
 
          end if ! crop not live nor planted
 
-         s = sowing_count(p)
-
          ! ----------------------------------
          ! from AgroIBIS subroutine phenocrop
          ! ----------------------------------
@@ -2156,15 +2135,13 @@ contains
             force_harvest = .false.
             fake_harvest = .false.
             did_plant_prescribed_today = .false.
-            if (use_cropcal_rx_sdates .and. s > 0) then
-                did_plant_prescribed_today = crop_inst%sdates_thisyr_patch(p,s) == real(jday, r8)
+            if (use_cropcal_rx_sdates .and. sowing_count(p) > 0) then
+                did_plant_prescribed_today = crop_inst%sdates_thisyr_patch(p,sowing_count(p)) == real(jday, r8)
             end if
 
-            ! TEMPORARY? GGCMI seasons often much longer than CLM mxmat.
+            ! Optionally ignore maximum growing season length
             mxmat = pftcon%mxmat(ivt(p))
-            if (use_mxmat .and. generate_crop_gdds) then
-               call endrun(msg="If setting generate_crop_gdds to .true., you must set use_mxmat to .false.")
-            else if (.not. use_mxmat) then
+            if (.not. use_mxmat) then
                 mxmat = 999
             end if
 
@@ -2173,19 +2150,15 @@ contains
                 do_harvest = .true.
                 force_harvest = .true.
                 fake_harvest = .true.
-                harvest_reason = 3._r8
+                harvest_reason = HARVEST_REASON_SOWNBADDEC31
             else if (do_plant .and. .not. did_plant) then
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
                 force_harvest = .true.
-                harvest_reason = 4._r8
+                harvest_reason = HARVEST_REASON_SOWTODAY
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             else if (generate_crop_gdds .and. crop_inst%rx_sdates_thisyr_patch(p,1) .gt. 0) then
-               if (.not. use_cropcal_rx_sdates) then 
-                  write(iulog,*) 'If using generate_crop_gdds, you must specify stream_fldFileName_sdate'
-                  call endrun(msg=errMsg(sourcefile, __LINE__))
-               endif
                if (next_rx_sdate(p) >= 0) then
                   ! Harvest the day before the next sowing date this year.
                   do_harvest = jday == next_rx_sdate(p) - 1
@@ -2200,10 +2173,10 @@ contains
                       (idop(p) == 1 .and. jday == dayspyr)) then
                       do_harvest = .true.
                       if (do_harvest) then
-                          harvest_reason = 6._r8
+                          harvest_reason = HARVEST_REASON_IDOPTOMORROW
                       end if
                   else if (do_harvest) then
-                      harvest_reason = 5._r8
+                      harvest_reason = HARVEST_REASON_SOWTOMORROW
                   end if
 
                else
@@ -2220,7 +2193,7 @@ contains
                   end if
 
                   if (do_harvest) then
-                      harvest_reason = 7._r8
+                      harvest_reason = HARVEST_REASON_SOWTOMORROW
                   end if
 
                endif
@@ -2248,11 +2221,11 @@ contains
                do_harvest = do_harvest .or. will_plant_prescribed_tomorrow
 
                if (hui(p) >= gddmaturity(p)) then
-                   harvest_reason = 1._r8
+                   harvest_reason = HARVEST_REASON_MATURE
                else if (idpp >= mxmat) then
-                   harvest_reason = 2._r8
+                   harvest_reason = HARVEST_REASON_MAXSEASLENGTH
                else if (will_plant_prescribed_tomorrow) then
-                   harvest_reason = 5._r8
+                   harvest_reason = HARVEST_REASON_SOWTOMORROW
                    force_harvest = .true.
                end if
             endif
@@ -2527,7 +2500,7 @@ contains
 
     ! !USES:
     use clm_varctl       , only : use_c13, use_c14
-    use clm_varctl       , only : use_cropcal_rx_cultivar_gdds, use_cropcal_streams
+    use clm_varctl       , only : use_cropcal_rx_sdates, use_cropcal_rx_cultivar_gdds, use_cropcal_streams
     use clm_varcon       , only : c13ratio, c14ratio
     use clm_varpar       , only : mxsowings
     use pftconMod        , only : ntmp_corn, nswheat, nwwheat, ntmp_soybean
@@ -2591,15 +2564,14 @@ contains
       idop(p)      = jday
       iyop(p)      = kyr
       harvdate(p)  = NOT_Harvested
-      s = sowing_count(p) + 1
+      sowing_count(p) = sowing_count(p) + 1
 
-      sowing_count(p) = s
-      if (s < mxsowings) then
-         next_rx_sdate(p) = crop_inst%rx_sdates_thisyr_patch(p, s+1)
+      if (use_cropcal_rx_sdates .and. sowing_count(p) < mxsowings) then
+         next_rx_sdate(p) = crop_inst%rx_sdates_thisyr_patch(p, sowing_count(p)+1)
       else
          next_rx_sdate(p) = -1
       endif
-      crop_inst%sdates_thisyr_patch(p,s) = real(jday, r8)
+      crop_inst%sdates_thisyr_patch(p,sowing_count(p)) = real(jday, r8)
 
       this_sowing_reason = 0._r8
       if (do_plant_prescribed) then
@@ -2610,7 +2582,7 @@ contains
       else if (do_plant_lastchance) then
           this_sowing_reason = this_sowing_reason + 2._r8
       end if
-      sowing_reason(p,s) = this_sowing_reason
+      sowing_reason(p,sowing_count(p)) = this_sowing_reason
 
       ! SSR troubleshooting
       if (verbose) then
@@ -2644,8 +2616,8 @@ contains
       endif
 
       ! set GDD target
-      if (use_cropcal_rx_cultivar_gdds .and. crop_inst%rx_cultivar_gdds_thisyr_patch(p,s) .ge. 0._r8) then
-         gdd_target = crop_inst%rx_cultivar_gdds_thisyr_patch(p,s)
+      if (use_cropcal_rx_cultivar_gdds .and. crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p)) .ge. 0._r8) then
+         gdd_target = crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p))
 
          ! gddmaturity == 0.0 will cause problems elsewhere, where it appears in denominator
          ! Just manually set a minimum of 1.0
