@@ -3110,7 +3110,7 @@ contains
                      repr_grainc_to_food_thispool = cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)
                      repr_grainc_to_food(p,k) = t1 * reproductivec(p,k) &
                           + repr_grainc_to_food_thispool
-                     if (reproductivec(p,k) + repr_grainc_to_food_thispool * dt .gt. 0) then
+                     if (reproductivec(p,k) + repr_grainc_to_food_thispool * dt .ne. 0) then
                          if (h .le. 0) then
                              call endrun(msg="CNOffsetLitterfall(): Invalid harvest_count")
                          end if
