@@ -73,6 +73,8 @@ contains
     use clm_varctl , only : iulog, use_c13, use_c14, use_nitrif_denitrif, use_cn
     use clm_varpar , only : nlevdecomp
     use CNSharedParamsMod, only: use_fun
+    ! SSR troubleshooting
+    use shr_infnan_mod, only: shr_infnan_isnan, shr_infnan_isinf
     !
     ! !ARGUMENTS:
     integer                                 , intent(in)    :: num_soilc       ! number of soil columns in filter
@@ -123,6 +125,12 @@ contains
 
             ! all decomposing pools C and N
             do k = 1, ndecomp_pools
+
+               if (shr_infnan_isinf(cs%decomp_cpools_vr_col(c,j,k))) then
+                   write(iulog,*) 'cs%decomp_cpools_vr_col is Inf'
+               else if (shr_infnan_isnan(cs%decomp_cpools_vr_col(c,j,k))) then
+                   write(iulog,*) 'cs%decomp_cpools_vr_col is NaN'
+               end if
 
                if (abs(cs%decomp_cpools_vr_col(c,j,k)) < ccrit) then
                   cc = cc + cs%decomp_cpools_vr_col(c,j,k)
