@@ -304,6 +304,7 @@ contains
 
     ! Read prescribed sowing dates from input files
     allocate(dataptr2d_sdate(lsize, ncft))
+    dataptr2d_sdate(:,:) = -5
     if (use_cropcal_rx_sdates) then
        ! Starting with npcropmin will skip generic crops
        if (verbose) write(iulog,*) 'cropcal_interp(): Reading sdate file'
@@ -359,6 +360,7 @@ contains
     deallocate(dataptr2d_sdate)
    
     allocate(dataptr2d_cultivar_gdds(lsize, ncft))
+    dataptr2d_cultivar_gdds(:,:) = -5
     if (use_cropcal_rx_cultivar_gdds) then
        ! Read prescribed cultivar GDDs from input files
        ! Starting with npcropmin will skip generic crops
