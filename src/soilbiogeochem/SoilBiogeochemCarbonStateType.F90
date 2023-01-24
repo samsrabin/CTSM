@@ -158,6 +158,7 @@ contains
        end if
 
        this%decomp_cpools_col(begc:endc,:) = spval
+       this%decomp_cpools_vr_col(begc:endc,:,:) = spval
        do l  = 1, ndecomp_pools
           if ( nlevdecomp_full > 1 ) then
              data2dptr => this%decomp_cpools_vr_col(:,1:nlevsoi,l)
