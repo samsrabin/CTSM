@@ -7,7 +7,7 @@ module CNVegStateType
   use abortutils     , only : endrun
   use spmdMod        , only : masterproc
   use clm_varpar     , only : nlevsno, nlevgrnd, nlevlak, nlevsoi
-  use clm_varctl     , only : use_cn, iulog, fsurdat, use_crop, use_cndv, use_crop_agsys
+  use clm_varctl     , only : use_cn, iulog, fsurdat, use_crop, use_cndv, use_crop_agsys, use_cropcal_streams
   use clm_varcon     , only : spval, ispval, grlnd
   use landunit_varcon, only : istsoil, istcrop
   use LandunitType   , only : lun
@@ -122,6 +122,9 @@ module CNVegStateType
      procedure, private :: InitCold
 
   end type cnveg_state_type
+  !
+  ! PUBLIC DATA MEMBERS
+  real(r8), public :: min_gddmaturity = 1._r8     ! Weird things can happen if gddmaturity is tiny
   !------------------------------------------------------------------------
 
   character(len=*), parameter, private :: sourcefile = &
@@ -844,9 +847,21 @@ contains
             dim1name='pft', long_name='cumulative vernalization d', units='', &
             interpinic_flag='interp', readvar=readvar, data=this%cumvd_patch)
 
-      call restartvar(ncid=ncid, flag=flag,  varname='gddmaturity', xtype=ncd_double,  &
+       call restartvar(ncid=ncid, flag=flag,  varname='gddmaturity', xtype=ncd_double,  &
             dim1name='pft', long_name='Growing degree days needed to harvest', units='ddays', &
             interpinic_flag='interp', readvar=readvar, data=this%gddmaturity_patch)
+
+       ! BACKWARDS_COMPATIBILITY (ssr, 2023-01-28)
+       ! Ensure that gddmaturity is not so small as to cause potential problems.
+       ! Should never occur unless using prescribed calendars.
+       if (flag == 'read' .and. readvar .and. use_cropcal_streams) then
+           do p = bounds%begp,bounds%endp
+               if (this%gddmaturity_patch(p) < min_gddmaturity) then
+                   this%gddmaturity_patch(p) = min_gddmaturity
+               end if
+           end do
+       end if
+
 
        call restartvar(ncid=ncid, flag=flag,  varname='huileaf', xtype=ncd_double,  &
             dim1name='pft', long_name='heat unit index needed from planting to leaf emergence', units='', &

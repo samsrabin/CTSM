@@ -22,7 +22,7 @@ module CNPhenologyMod
   use abortutils                      , only : endrun
   use CanopyStateType                 , only : canopystate_type
   use CNDVType                        , only : dgvs_type
-  use CNVegstateType                  , only : cnveg_state_type
+  use CNVegstateType                  , only : cnveg_state_type, min_gddmaturity
   use CNVegCarbonStateType            , only : cnveg_carbonstate_type
   use CNVegCarbonFluxType             , only : cnveg_carbonflux_type
   use CNVegnitrogenstateType          , only : cnveg_nitrogenstate_type
@@ -129,7 +129,6 @@ module CNPhenologyMod
 
   real(r8), private :: initial_seed_at_planting        = 3._r8   ! Initial seed at planting
 
-  real(r8)         :: min_gddmaturity = 1._r8     ! Weird things can happen if gddmaturity is tiny
   logical,  public :: generate_crop_gdds = .false. ! If true, harvest the day before next sowing
   logical,  public :: use_mxmat = .true.           ! If true, ignore crop maximum growing season length
   logical          :: ignore_rx_crop_gdds = .false. ! Troubleshooting
