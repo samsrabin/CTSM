@@ -25,3 +25,5 @@
                   'SWup', 'LWup', 'URBAN_AC', 'URBAN_HEAT'
 
  use_ssre = .true.
+
+ paramfile='/glade/u/home/samrabin/ctsm_fruittree/clm5_params.c171117__FruitTree.nc'
