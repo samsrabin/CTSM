@@ -3997,7 +3997,7 @@ contains
 
                         ! calculate pruning litter fluxes added by O.Dombrowski
                         ! and adapted based on CLM-Palm (Fan et al. 2015) 
-                        if ( is_fruitree .and. prune_flag(p) == 1._r8) then
+                        if ( is_fruittree .and. prune_flag(p) == 1._r8) then
                            if (mulch_pruning(ivt(p)) == 0._r8) then
                               ! export pruning material as harvest
                               ! storage harvest mortality carbon fluxes
@@ -4049,7 +4049,7 @@ contains
          end do
       end do
 
-      if (use_fruittree)
+      if (use_fruittree) then
          do pi = 1,maxpatch_pft
             do fc = 1,num_soilc
                c = filter_soilc(fc)
