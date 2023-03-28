@@ -120,6 +120,9 @@ module clm_varctl
   ! If prognostic crops are turned on
   logical, public :: use_crop = .false.
 
+  ! If fruit tree crops are enabled
+  logical, public :: use_fruittree = .false.
+
   ! true => separate crop landunit is not created by default
   logical, public :: create_crop_landunit = .false.     
   

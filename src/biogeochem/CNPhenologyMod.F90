@@ -249,6 +249,7 @@ contains
        leaf_prof_patch, froot_prof_patch,stem_prof_patch, phase)
     ! !USES:
     use CNSharedParamsMod, only: use_fun
+    use clm_varctl       , only: use_fruittree
     !
     ! !DESCRIPTION:
     ! Dynamic phenology routine for coupled carbon-nitrogen code (CN)
@@ -312,10 +313,12 @@ contains
                cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
                c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
           ! FruitTreePhenology routine has a special filter for deciduous tree crop pfts (added by O.Dombrowski)
-          call FruitTreePhenology(num_pcropp, filter_pcropp, &
-               waterstate_inst, temperature_inst, crop_inst, canopystate_inst, cnveg_state_inst, dgvs_inst, &
-               cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-               c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+          if (use_fruittree) then
+               call FruitTreePhenology(num_pcropp, filter_pcropp, &
+                    waterstate_inst, temperature_inst, crop_inst, canopystate_inst, cnveg_state_inst, dgvs_inst, &
+                    cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
+                    c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+          end if
        end if
     else if ( phase == 2 ) then
        ! the same onset and offset routines are called regardless of
@@ -2143,6 +2146,7 @@ contains
     use clm_varcon       , only : spval, secspday
     use clm_varctl       , only : use_fertilizer 
     use clm_varctl       , only : use_c13, use_c14
+    use clm_varctl       , only : use_fruittree
     use clm_varcon       , only : c13ratio, c14ratio
     !
     ! !ARGUMENTS:
@@ -2252,7 +2256,7 @@ contains
          g = patch%gridcell(p)
          h = inhemi(p)
 
-         if (perennial(ivt(p)) == 1._r8) then
+         if (use_fruittree .and. perennial(ivt(p)) == 1._r8) then
             cycle
          end if
          

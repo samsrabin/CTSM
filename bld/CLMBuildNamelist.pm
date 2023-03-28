@@ -3093,6 +3093,24 @@ sub setup_logic_hydrstress {
 
 #-------------------------------------------------------------------------------
 
+sub setup_logic_fruittree {
+  #
+  # Flags to control fruit tree representation
+  #
+   my ($opts, $nl_flags, $definition, $defaults, $nl, $physv) = @_;
+
+   if ( $physv->as_long() >= $physv->as_long("clm4_5") ) {
+     add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'use_fruittree',
+     'use_crop'=>$nl_flags->{'use_crop'} );
+     my $use_fruittree = $nl->get_value('use_fruittree');
+     if ( (! &value_is_true($nl_flags->{'use_crop'})) && &value_is_true($use_fruittree) ) {
+       $log->fatal_error("use_fruittree can NOT be on without prognostic crop\n" );
+     }
+  }
+}
+
+#-------------------------------------------------------------------------------
+
 sub setup_logic_fertilizer {
   #
   # Flags to control fertilizer application
