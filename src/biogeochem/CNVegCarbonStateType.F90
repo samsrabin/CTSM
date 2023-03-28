@@ -1464,6 +1464,8 @@ contains
                          else
                             this%deadstemc_patch(i) = 0._r8 
                          end if
+                      else
+                         this%deadstemc_patch(i) = 0._r8 
                       end if
                       this%deadstemc_storage_patch(i)  = 0._r8 
                       this%deadstemc_xfer_patch(i)     = 0._r8 
