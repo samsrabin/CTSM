@@ -214,6 +214,7 @@ module CNFUNMod
    use clm_varpar      , only : nlevdecomp
    use clm_varcon      , only : secspday, smallValue, fun_period, tfrz, dzsoi_decomp, spval
    use clm_varctl      , only : use_nitrif_denitrif
+   use clm_varctl      , only : use_fruittree
    use PatchType       , only : patch
    use subgridAveMod   , only : p2c
    use pftconMod       , only : npcropmin
@@ -500,6 +501,8 @@ module CNFUNMod
   integer   :: FIX                               ! for loop. 1 for
   !  fixers, 2 for non fixers. This will become redundant with the
   !   'fixer' parameter if it works. 
+
+  logical   :: is_fruittree ! True if PFT is a fruit tree crop or a non-crop
   
   !--------------------------------------------------------------------
   !---------------------------------
@@ -1194,8 +1197,9 @@ fix_loop:   do FIX =plants_are_fixing, plants_not_fixing !loop around percentage
                !-------------------------------------------------------------------------------
                !           Calculate appropriate degree of retranslocation
                !-------------------------------------------------------------------------------
-      
-               if(leafc(p).gt.0.0_r8.and.litterfall_n_step(p,istp)* fixerfrac>0.0_r8.and. (ivt(p) <npcropmin .or. perennial(ivt(p)) == 1.0_r8)) then ! include perennial woody crops (added by O.Dombrowski)
+               
+               is_fruittree =  use_fruittree .and. perennial(ivt(p)) == 1.0_r8
+               if(leafc(p).gt.0.0_r8.and.litterfall_n_step(p,istp)* fixerfrac>0.0_r8 .and. (ivt(p) < npcropmin .or. is_fruittree)) then ! include perennial woody crops (added by O.Dombrowski)
                   call fun_retranslocation(p,dt,npp_to_spend,&
                                 litterfall_c_step(p,istp)* fixerfrac,&
                                 litterfall_n_step(p,istp)* fixerfrac,&

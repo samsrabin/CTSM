@@ -43,6 +43,7 @@ contains
     use pftconMod        , only : nsugarcane, nirrig_sugarcane
     use pftconMod        , only : pftcon
     use clm_varctl       , only : spinup_state
+    use clm_varctl       , only : use_fruittree
     use clm_time_manager , only : get_rad_step_size
     !
     ! !ARGUMENTS:
@@ -172,7 +173,7 @@ contains
 
             if (woody(ivt(p)) == 1._r8) then
 
-               if (perennial(ivt(p)) == 1._r8) then
+               if (use_fruittree .and. perennial(ivt(p)) == 1._r8) then
                   if (dormant_flag(p) == 0._r8) then
                      if (tlai(p) >= laimx(ivt(p))) peaklai(p) = 1
                   else if (dormant_flag(p) == 1._r8) then
@@ -197,14 +198,14 @@ contains
                else
                   !correct height calculation if doing accelerated spinup
                   if (spinup_state == 2) then                    
-                    if (perennial(ivt(p)) == 1._r8 .and. dormant_flag(p) == 1._r8 .and.  deadstemc(p)== 0._r8) then
+                    if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. dormant_flag(p) == 1._r8 .and.  deadstemc(p)== 0._r8) then
                         htop(p) =  0.01_r8                    
                     else
                        htop(p) = ((3._r8 * deadstemc(p) * 10._r8 * taper(ivt(p)) * taper(ivt(p)))/ &
                             (SHR_CONST_PI * nstem(ivt(p)) * dwood(ivt(p))))**(1._r8/3._r8)
                     end if
                   else
-                    if (perennial(ivt(p)) == 1._r8 .and. dormant_flag(p) == 1._r8 .and.  deadstemc(p)== 0._r8) then
+                    if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. dormant_flag(p) == 1._r8 .and.  deadstemc(p)== 0._r8) then
                         htop(p) = 0.01_r8
                     else
                        htop(p) = ((3._r8 * deadstemc(p) * taper(ivt(p)) * taper(ivt(p)))/ &
@@ -225,7 +226,7 @@ contains
                ! to 0.0.
                htop(p) = max(htop(p), 0.01_r8)
                ! for fruit trees restrict height to maximum pruned tree height
-               if (perennial(ivt(p)) == 1._r8) then
+               if (use_fruittree .and. perennial(ivt(p)) == 1._r8) then
                   htop(p) = min(htop(p), ztopmx(ivt(p)))
                end if
 

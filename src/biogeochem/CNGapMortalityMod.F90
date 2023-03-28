@@ -92,6 +92,7 @@ contains
     use clm_varpar       , only: nlevdecomp_full
     use clm_varcon       , only: secspday
     use clm_varctl       , only: use_cndv, spinup_state
+    use clm_varctl       , only: use_fruittree
     use pftconMod        , only: npcropmin
     !
     ! !ARGUMENTS:
@@ -236,7 +237,7 @@ contains
            cnveg_nitrogenflux_inst%m_deadcrootn_to_litter_patch(p)     = cnveg_nitrogenstate_inst%deadcrootn_patch(p)          * m 
          end if
 
-         if (ivt(p) < npcropmin .or. perennial(ivt(p)) == 1._r8) then ! perennial flag added by O.Dombrowski
+         if (ivt(p) < npcropmin .or. (use_fruittree .and. perennial(ivt(p)) == 1._r8)) then ! perennial flag added by O.Dombrowski
             cnveg_nitrogenflux_inst%m_retransn_to_litter_patch(p) = cnveg_nitrogenstate_inst%retransn_patch(p) * m
          end if
             

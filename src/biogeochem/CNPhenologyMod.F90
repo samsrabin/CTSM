@@ -347,9 +347,11 @@ contains
             leaf_prof_patch(bounds%begp:bounds%endp,1:nlevdecomp_full), & 
             froot_prof_patch(bounds%begp:bounds%endp,1:nlevdecomp_full), stem_prof_patch(bounds%begp:bounds%endp,1:nlevdecomp_full))
 
-       call CNRotationToColumn (num_soilc, filter_soilc, &
-            cnveg_state_inst, soilbiogeochem_state_inst, crop_inst, cnveg_carbonflux_inst, & 
-            cnveg_nitrogenflux_inst)
+       if (use_fruittree) then
+            call CNRotationToColumn (num_soilc, filter_soilc, &
+                 cnveg_state_inst, soilbiogeochem_state_inst, crop_inst, cnveg_carbonflux_inst, & 
+                 cnveg_nitrogenflux_inst)
+       end if
 
     else
        call endrun( 'bad phase' )
@@ -695,6 +697,7 @@ contains
     use shr_const_mod   , only: SHR_CONST_TKFRZ, SHR_CONST_PI
     use clm_varcon      , only: secspday
     use clm_varctl      , only: use_cndv
+    use clm_varctl      , only: use_fruittree
     !
     ! !ARGUMENTS:
     integer                        , intent(in)    :: num_soilp       ! number of soil patches in filter
@@ -803,7 +806,7 @@ contains
          c = patch%column(p)
          g = patch%gridcell(p)
 
-         if (season_decid(ivt(p)) == 1._r8 .and. perennial(ivt(p)) == 0._r8) then
+         if (season_decid(ivt(p)) == 1._r8 .and. (perennial(ivt(p)) == 0._r8 .or. .not. use_fruittree)) then
 
             ! set background litterfall rate, background transfer rate, and
             ! long growing season factor to 0 for seasonal deciduous types
@@ -2755,6 +2758,7 @@ contains
     ! !USES:
     use pftconMod       , only: npcropmin, npcropmax
     use clm_time_manager, only: get_calday
+    use clm_varctl      , only: use_fruittree
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds  
@@ -2767,7 +2771,7 @@ contains
 
     allocate( minplantjday(0:numpft,inSH)) ! minimum planting julian day
     allocate( maxplantjday(0:numpft,inSH)) ! maximum planting julian day
-    allocate( maxharvjday(0:numpft,inSH)) ! maximum harvest julian day (added by O.Dombrowski)
+    if (use_fruittree) allocate( maxharvjday(0:numpft,inSH)) ! maximum harvest julian day (added by O.Dombrowski)
 
     ! Julian day for the start of the year (mid-winter)
     jdayyrstart(inNH) =   1
@@ -2776,17 +2780,19 @@ contains
     ! Convert planting dates into julian day
     minplantjday(:,:) = huge(1)
     maxplantjday(:,:) = huge(1)
-    maxharvjday(:,:)   = huge(1)
+    if (use_fruittree) maxharvjday(:,:) = huge(1)
 
     do n = npcropmin, npcropmax
        if (pftcon%is_pft_known_to_model(n)) then
           minplantjday(n, inNH) = int( get_calday( pftcon%mnNHplantdate(n), 0 ) )
           maxplantjday(n, inNH) = int( get_calday( pftcon%mxNHplantdate(n), 0 ) )
 
-          maxharvjday(n, inNH) = int( get_calday( pftcon%mxNHharvdate(n), 0 ) )
           minplantjday(n, inSH) = int( get_calday( pftcon%mnSHplantdate(n), 0 ) )
           maxplantjday(n, inSH) = int( get_calday( pftcon%mxSHplantdate(n), 0 ) )
-          maxharvjday(n, inSH) = int( get_calday( pftcon%mxSHharvdate(n), 0 ) )
+          if (use_fruittree) then
+            maxharvjday(n, inNH) = int( get_calday( pftcon%mxNHharvdate(n), 0 ) )
+            maxharvjday(n, inSH) = int( get_calday( pftcon%mxSHharvdate(n), 0 ) )
+          end if
           
        end if
     end do
@@ -3093,6 +3099,7 @@ contains
     use pftconMod        , only : npcropmin
     use CNSharedParamsMod, only : use_fun
     use clm_varctl       , only : CNratio_floating
+    use clm_varctl       , only : use_fruittree
     use clm_time_manager , only : get_curr_date, get_curr_calday, get_days_per_year, is_beg_curr_year     
     !
     ! !ARGUMENTS:
@@ -3117,6 +3124,7 @@ contains
     real(r8) :: ntovr_leaf  
     real(r8) :: fr_leafn_to_litter ! fraction of the nitrogen turnover that goes to litter; remaining fraction is retranslocated
     real(r8) :: pr_fr    ! fraction of total stem biomass that is pruned
+    logical  :: is_fruittree
     !-----------------------------------------------------------------------
 
     associate(                                                                           & 
@@ -3279,24 +3287,24 @@ contains
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
-         ! determine days past planting for pruning management
-         idpp = int(dayspyr)*(kyr-yrop(p)) + jday - idop(p)
-         !incorporate a one-time harvest: annually for perennial crops (added by O.Dombrowski adopted based on CLM-Palm (Fan et al. 2015))
-         !grain flux goes to food
-         if (harvest_flag(p) == 1._r8)then
-           if (perennial(ivt(p)) == 1._r8) then
-              if (grainc(p) > 0._r8) then
-                 t1 = 1.0_r8 / dt
-                 ! replenish seed deficit (needed to balance seedc used for orchard establishment)
-                 grainc_to_seed(p) = t1 * min(-cropseedc_deficit(p), grainc(p))
-                 grainn_to_seed(p) = t1 * min(-cropseedn_deficit(p), grainn(p))
-                 ! send remaining grainc to food product pool 
-                 grainc_to_food(p) = t1 * grainc(p)  + cpool_to_grainc(p) - grainc_to_seed(p)
-                 grainn_to_food(p) = t1 * grainn(p)  + npool_to_grainn(p) - grainn_to_seed(p)
-                 
-              end if
-           end if
+         is_fruittree = use_fruittree .and. perennial(ivt(p)) == 1._r8
+
+         if (is_fruittree) then
+            ! determine days past planting for pruning management
+            idpp = int(dayspyr)*(kyr-yrop(p)) + jday - idop(p)
+            !incorporate a one-time harvest: annually for perennial crops (added by O.Dombrowski adopted based on CLM-Palm (Fan et al. 2015))
+            !grain flux goes to food
+            if (harvest_flag(p) == 1._r8 .and. grainc(p) > 0._r8) then
+               t1 = 1.0_r8 / dt
+               ! replenish seed deficit (needed to balance seedc used for orchard establishment)
+               grainc_to_seed(p) = t1 * min(-cropseedc_deficit(p), grainc(p))
+               grainn_to_seed(p) = t1 * min(-cropseedn_deficit(p), grainn(p))
+               ! send remaining grainc to food product pool 
+               grainc_to_food(p) = t1 * grainc(p)  + cpool_to_grainc(p) - grainc_to_seed(p)
+               grainn_to_food(p) = t1 * grainn(p)  + npool_to_grainn(p) - grainn_to_seed(p)
+            end if
          end if
+
          ! only calculate fluxes during offset period (a one time step for crops; multiple days for trees)
          if (offset_flag(p) == 1._r8) then
 
@@ -3308,7 +3316,7 @@ contains
                ! if this were ever changed, we'd need to add code to the "else"
                ! for perennial crops final harvest happens only at rotation
 
-               if (ivt(p) >= npcropmin .and. perennial(ivt(p)) == 0._r8) then
+               if (ivt(p) >= npcropmin .and. .not. is_fruittree) then
                   ! Replenish the seed deficits from grain, if there is enough
                   ! available grain. (If there is not enough available grain, the seed
                   ! deficits will accumulate until there is eventually enough grain to
@@ -3321,7 +3329,9 @@ contains
 
                   livestemc_to_litter(p) = t1 * livestemc(p)  + cpool_to_livestemc(p)
                end if
-               if (prune_flag(p) == 1._r8) then ! perennial fruit tree crops are pruned at the start of the dormancy period
+
+               ! perennial fruit tree crops are pruned at the start of the dormancy period
+               if (use_fruittree .and. prune_flag(p) == 1._r8) then 
                   ! young fruit trees are not pruned in the first 3 years after
                   ! transplanting
                   if (idpp < 1095._r8) then
@@ -3423,7 +3433,7 @@ contains
                endif    
             end if
             
-            if (ivt(p) >= npcropmin .and. perennial(ivt(p)) == 0._r8) then
+            if (ivt(p) >= npcropmin .and. .not. is_fruittree) then
                ! NOTE(slevis, 2014-12) results in -ve livestemn and -ve totpftn
                !X! livestemn_to_litter(p) = livestemc_to_litter(p) / livewdcn(ivt(p))
                ! NOTE(slevis, 2014-12) Beth Drewniak suggested this instead
@@ -3435,11 +3445,12 @@ contains
             prev_frootc_to_litter(p) = frootc_to_litter(p)
 
          end if ! end if offset period
+         
          ! offset2 is newly implemented for fruit trees, it initializes orchard
          ! rotation (complete harvest of all plant organs) after maximum
          ! lifespan is reached
          ! (introduced in CLM-Palm (Fan et al. 2015), and adopted here by O.Dombrowski)   
-         if (offset2_flag(p) == 1._r8 .and. perennial(ivt(p)) == 1._r8) then
+         if (is_fruittree .and. offset2_flag(p) == 1._r8) then
             ! Apply all harvest at the start of the year, otherwise will get
             ! error because of non zero delta mid-year for dribbler
             ! hrv_xsmrpool_to_atm_c
@@ -3498,8 +3509,8 @@ contains
             else
                croplive(p) = .true.
             end if
-
          end if ! end orchard rotation
+
       end do ! end patch loop
     
     end associate 
@@ -3812,6 +3823,7 @@ contains
     use clm_varpar , only : max_patch_per_col,maxpatch_pft, nlevdecomp
     use pftconMod  , only : npcropmin
     use clm_varctl , only : use_grainproduct
+    use clm_varctl , only : use_fruittree
     !
     ! !ARGUMENTS:
     type(bounds_type)               , intent(in)    :: bounds
@@ -3826,6 +3838,7 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: fc,c,pi,p,j       ! indices
+    logical :: is_fruittree
     !-----------------------------------------------------------------------
 
     SHR_ASSERT_ALL((ubound(leaf_prof_patch)   == (/bounds%endp,nlevdecomp_full/)), errMsg(sourcefile, __LINE__))
@@ -3902,6 +3915,7 @@ contains
 
                if ( pi <=  col%npatches(c) ) then
                   p = col%patchi(c) + pi - 1
+                  is_fruittree = use_fruittree .and. perennial(ivt(p)) == 1._r8
                   if (patch%active(p)) then
 
                      ! leaf litter carbon fluxes
@@ -3943,7 +3957,7 @@ contains
                      ! also for simplicity I've put "food" into the litter pools
 
                      if (ivt(p) >= npcropmin) then
-                        if ( perennial(ivt(p)) == 0._r8) then 
+                        if ( perennial(ivt(p)) == 0._r8 .or. .not. use_fruittree) then 
                            ! add livestemc to litter
                            ! stem litter carbon fluxes
                            phenology_c_to_litr_met_c(c,j) = phenology_c_to_litr_met_c(c,j) &
@@ -3983,7 +3997,7 @@ contains
 
                         ! calculate pruning litter fluxes added by O.Dombrowski
                         ! and adapted based on CLM-Palm (Fan et al. 2015) 
-                        if ( perennial(ivt(p)) == 1._r8 .and. prune_flag(p) == 1._r8) then
+                        if ( is_fruitree .and. prune_flag(p) == 1._r8) then
                            if (mulch_pruning(ivt(p)) == 0._r8) then
                               ! export pruning material as harvest
                               ! storage harvest mortality carbon fluxes
@@ -4035,29 +4049,28 @@ contains
          end do
       end do
 
-      
-      do pi = 1,maxpatch_pft
-        do fc = 1,num_soilc
-           c = filter_soilc(fc)
+      if (use_fruittree)
+         do pi = 1,maxpatch_pft
+            do fc = 1,num_soilc
+               c = filter_soilc(fc)
 
-           if (pi <=  col%npatches(c)) then
-              p = col%patchi(c) + pi - 1
-              if (perennial(ivt(p)) == 1._r8 .and. prune_flag(p) == 1._r8 .and. mulch_pruning(ivt(p)) == 0._r8) then 
-                 if (patch%active(p)) then
-                    ! wood harvest mortality carbon fluxes to product pools
-                    cwood_harvestc(c)  = cwood_harvestc(c)  + &
-                         pwood_harvestc(p)  * wtcol(p)
+               if (pi <=  col%npatches(c)) then
+                  p = col%patchi(c) + pi - 1
+                  if (perennial(ivt(p)) == 1._r8 .and. prune_flag(p) == 1._r8 .and. mulch_pruning(ivt(p)) == 0._r8 .and. patch%active(p)) then 
+                     ! wood harvest mortality carbon fluxes to product pools
+                     cwood_harvestc(c)  = cwood_harvestc(c)  + &
+                           pwood_harvestc(p)  * wtcol(p)
 
-                    ! wood harvest mortality nitrogen fluxes to product pools
-                    cwood_harvestn(c)  = cwood_harvestn(c)  + &
-                         pwood_harvestn(p)  * wtcol(p)
-                 end if
-              end if
-           end if
+                     ! wood harvest mortality nitrogen fluxes to product pools
+                     cwood_harvestn(c)  = cwood_harvestn(c)  + &
+                           pwood_harvestn(p)  * wtcol(p)
+                  end if
+               end if
 
-        end do
+            end do
 
-      end do
+         end do
+      end if
 
     end associate
 

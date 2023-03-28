@@ -149,6 +149,7 @@ contains
     ! variables (except for gap-phase mortality and fire fluxes)
     !
     use clm_varctl, only : carbon_resp_opt
+    use clm_varctl, only : use_fruittree
     ! !ARGUMENTS:
     integer                              , intent(in)    :: num_soilc       ! number of soil columns filter
     integer                              , intent(in)    :: filter_soilc(:) ! filter for soil columns
@@ -167,6 +168,7 @@ contains
     real(r8) :: check_cpool
     real(r8) :: cpool_delta
     real(r8), parameter :: kprod05 = 1.44e-7  ! decay constant for 0.5-year product pool (1/s) (lose ~90% over a half year)
+    logical  :: is_fruittree
     !-----------------------------------------------------------------------
 
     associate(                                                               & 
@@ -252,6 +254,8 @@ contains
         do fp = 1,num_soilp
            p = filter_soilp(fp)
            c = patch%column(p)
+
+           is_fruittree = use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8
   
            ! phenology: transfer growth fluxes
            cs_veg%leafc_patch(p)           = cs_veg%leafc_patch(p)       + cf_veg%leafc_xfer_to_leafc_patch(p)*dt
@@ -270,7 +274,7 @@ contains
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
               ! lines here for consistency; the transfer terms are zero
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%grainc_patch(p)          = cs_veg%grainc_patch(p)         + cf_veg%grainc_xfer_to_grainc_patch(p)*dt
                  cs_veg%grainc_xfer_patch(p)     = cs_veg%grainc_xfer_patch(p)    - cf_veg%grainc_xfer_to_grainc_patch(p)*dt
               else
@@ -293,7 +297,7 @@ contains
               cs_veg%deadcrootc_patch(p) = cs_veg%deadcrootc_patch(p) + cf_veg%livecrootc_to_deadcrootc_patch(p)*dt
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%grainc_patch(p)     = cs_veg%grainc_patch(p) &
                                             - (cf_veg%grainc_to_food_patch(p) + cf_veg%grainc_to_seed_patch(p))*dt
                  cs_veg%cropseedc_deficit_patch(p) = cs_veg%cropseedc_deficit_patch(p) &
@@ -330,7 +334,7 @@ contains
               
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%grain_curmr_patch(p)*dt
                  
               else
@@ -400,12 +404,12 @@ contains
               cs_veg%deadcrootc_storage_patch(p) = cs_veg%deadcrootc_storage_patch(p) + cf_veg%cpool_to_deadcrootc_storage_patch(p)*dt
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (carbon_resp_opt == 1 .and. perennial(ivt(p)) == 0._r8) then !(perennial flag added by O.Dombrowski)
+              if (carbon_resp_opt == 1 .and. (perennial(ivt(p)) == 0._r8 .or. .not. use_fruittree)) then !(perennial flag added by O.Dombrowski)
                  cf_veg%cpool_to_livestemc_patch(p) = cf_veg%cpool_to_livestemc_patch(p) - cf_veg%cpool_to_livestemc_resp_patch(p)
                  cf_veg%cpool_to_livestemc_storage_patch(p) = cf_veg%cpool_to_livestemc_storage_patch(p) - &
                  cf_veg%cpool_to_livestemc_storage_resp_patch(p)
               end if
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%cpool_patch(p)              = cs_veg%cpool_patch(p)              - cf_veg%cpool_to_grainc_patch(p)*dt
                  cs_veg%grainc_patch(p)             = cs_veg%grainc_patch(p)             + cf_veg%cpool_to_grainc_patch(p)*dt
                  cs_veg%cpool_patch(p)              = cs_veg%cpool_patch(p)              - cf_veg%cpool_to_grainc_storage_patch(p)*dt
@@ -435,7 +439,7 @@ contains
               cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_deadcroot_gr_patch(p)*dt
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_grain_gr_patch(p)*dt
               else
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_livestem_gr_patch(p)*dt
@@ -453,7 +457,7 @@ contains
               cs_veg%gresp_xfer_patch(p) = cs_veg%gresp_xfer_patch(p) - cf_veg%transfer_deadcroot_gr_patch(p)*dt
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%gresp_xfer_patch(p) = cs_veg%gresp_xfer_patch(p) - cf_veg%transfer_grain_gr_patch(p)*dt
               else
                  cs_veg%gresp_xfer_patch(p) = cs_veg%gresp_xfer_patch(p) - cf_veg%transfer_livestem_gr_patch(p)*dt
@@ -472,7 +476,7 @@ contains
             cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_deadcroot_storage_gr_patch(p)*dt
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_grain_storage_gr_patch(p)*dt
               else
                  cs_veg%cpool_patch(p) = cs_veg%cpool_patch(p) - cf_veg%cpool_livestem_storage_gr_patch(p)*dt
@@ -502,7 +506,7 @@ contains
               cs_veg%gresp_xfer_patch(p)         = cs_veg%gresp_xfer_patch(p)        + cf_veg%gresp_storage_to_xfer_patch(p)*dt
            end if
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+              if (is_fruittree) then ! (added by O.Dombrowski)
                  cs_veg%grainc_storage_patch(p)     = cs_veg%grainc_storage_patch(p)    - cf_veg%grainc_storage_to_xfer_patch(p)*dt
                  cs_veg%grainc_xfer_patch(p)        = cs_veg%grainc_xfer_patch(p)       + cf_veg%grainc_storage_to_xfer_patch(p)*dt
               else
@@ -515,7 +519,7 @@ contains
            end if
 
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-              if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
+              if (is_fruittree) then
                  cs_veg%xsmrpool_patch(p) = cs_veg%xsmrpool_patch(p) - cf_veg%grain_xsmr_patch(p)*dt 
               else
                  cs_veg%xsmrpool_patch(p) = cs_veg%xsmrpool_patch(p) - cf_veg%livestem_xsmr_patch(p)*dt

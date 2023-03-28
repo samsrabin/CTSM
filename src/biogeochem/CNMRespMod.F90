@@ -147,6 +147,7 @@ contains
     !
     ! !ARGUMENTS:
     use clm_varcon  , only : tfrz
+    use clm_varctl  , only : use_fruittree
     
     type(bounds_type)              , intent(in)    :: bounds          
     integer                        , intent(in)    :: num_soilc       ! number of soil points in column filter
@@ -264,7 +265,7 @@ contains
          if (woody(ivt(p)) == 1) then
             livestem_mr(p) = livestemn(p)*br*tc
             livecroot_mr(p) = livecrootn(p)*br_root*tc
-            if (perennial(ivt(p)) == 1._r8) then ! (added by O.Dombrowski)
+            if (use_fruittree .and. perennial(ivt(p)) == 1._r8) then ! (added by O.Dombrowski)
                grain_mr(p) = grainn(p)*br*tc
             end if
          else if (ivt(p) >= npcropmin) then

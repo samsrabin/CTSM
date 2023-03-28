@@ -883,6 +883,7 @@ contains
     use landunit_varcon	 , only : istsoil, istcrop 
     use clm_time_manager , only : is_restart, get_nstep
     use clm_varctl, only : MM_Nuptake_opt    
+    use clm_varctl, only : use_fruittree
     !
     ! !ARGUMENTS:
     class(cnveg_carbonstate_type)                       :: this 
@@ -986,10 +987,10 @@ contains
           this%livestemc_xfer_patch(p)    = 0._r8 
 
           if (pftcon%woody(patch%itype(p)) == 1._r8) then
-             if (patch%itype(p) < npcropmin)then ! (added by O.Dombrowski)
-                this%deadstemc_patch(p) = 0.1_r8 * ratio
-             else
+             if (use_fruittree .and. patch%itype(p) >= npcropmin) then ! (added by O.Dombrowski)
                 this%deadstemc_patch(p) = 0._r8 ! (added by O.Dombrowski)
+             else
+                this%deadstemc_patch(p) = 0.1_r8 * ratio
              end if
           else
              this%deadstemc_patch(p) = 0._r8 
@@ -1094,6 +1095,7 @@ contains
     use shr_infnan_mod   , only : isnan => shr_infnan_isnan, nan => shr_infnan_nan, assignment(=)
     use clm_varcon       , only : c13ratio, c14ratio
     use clm_varctl       , only : spinup_state, use_cndv, MM_Nuptake_opt
+    use clm_varctl       , only : use_fruittree
     use clm_time_manager , only : get_nstep, is_restart, get_nstep
     use landunit_varcon	 , only : istsoil, istcrop 
     use spmdMod          , only : mpicom
@@ -1414,7 +1416,7 @@ contains
 
                    this%leafcmax_patch(i) = 0._r8
 
-                   if (lun%itype(l) == istcrop .and. pftcon%perennial(patch%itype(i)) == 1._r8) then
+                   if (use_fruittree .and. lun%itype(l) == istcrop .and. pftcon%perennial(patch%itype(i)) == 1._r8) then
                      this%deadstemc_soy_patch(i) = 0._r8
                      this%deadstemc_storage_soy_patch(i) = 0._r8
                    end if
@@ -1458,12 +1460,8 @@ contains
                       this%livestemc_storage_patch(i) = 0._r8 
                       this%livestemc_xfer_patch(i)    = 0._r8 
 
-                      if (pftcon%woody(patch%itype(i)) == 1._r8) then
-                         if (patch%itype(p) < npcropmin) then
-                            this%deadstemc_patch(i) = 0.1_r8 * ratio
-                         else
-                            this%deadstemc_patch(i) = 0._r8 
-                         end if
+                      if (pftcon%woody(patch%itype(i)) == 1._r8 .and. patch%itype(p) < npcropmin) then
+                         this%deadstemc_patch(i) = 0.1_r8 * ratio
                       else
                          this%deadstemc_patch(i) = 0._r8 
                       end if

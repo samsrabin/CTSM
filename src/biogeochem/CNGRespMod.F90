@@ -32,6 +32,7 @@ contains
     ! On the radiation time step, update all the prognostic carbon state
     ! variables
     !
+    use clm_varctl, only : use_fruittree
     ! !ARGUMENTS:
     integer                        , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                        , intent(in)    :: filter_soilp(:) ! filter for soil patches
@@ -148,7 +149,7 @@ contains
          respfact_livestem_storage = 1.0_r8 	
          
          if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+            if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
                cpool_grain_gr(p) = cpool_to_grainc(p) * grperc(ivt(p))
 
                cpool_grain_storage_gr(p) = cpool_to_grainc_storage(p) * grperc(ivt(p)) * grpnow(ivt(p))

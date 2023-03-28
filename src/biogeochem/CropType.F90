@@ -17,6 +17,7 @@ module CropType
   use decompMod           , only : bounds_type
   use clm_varcon          , only : spval
   use clm_varctl          , only : iulog, use_crop
+  use clm_varctl          , only : use_fruittree
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -588,7 +589,7 @@ contains
           ivt = patch%itype(p)
           if ( (trim(this%baset_mapping) == baset_map_latvary) .and. &
              ((ivt == nswheat) .or. (ivt == nirrig_swheat) .or. &
-              (ivt == ncitrus) .or. (ivt == nirrig_citrus) .or. & ! added by Olga
+              (use_fruittree .and. (ivt == ncitrus) .or. (ivt == nirrig_citrus)) .or. & ! added by Olga
               (ivt == nsugarcane) .or. (ivt == nirrig_sugarcane)) ) then
              rbufslp(p) = max(0._r8, min(pftcon%mxtmp(ivt), &
              t_ref2m_patch(p)-(SHR_CONST_TKFRZ + this%latbaset_patch(p)))) &

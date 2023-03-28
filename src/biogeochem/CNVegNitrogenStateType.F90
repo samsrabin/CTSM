@@ -484,12 +484,8 @@ contains
           ! tree types need to be initialized with some stem mass so that
           ! roughness length is not zero in canopy flux calculation
 
-          if (pftcon%woody(patch%itype(p)) == 1._r8) then
-             if (patch%itype(p) < npcropmin) then
-                this%deadstemn_patch(p) = deadstemc_patch(p) / pftcon%deadwdcn(patch%itype(p))
-             else
-                this%deadstemn_patch(p) =  0._r8
-             end if
+          if (pftcon%woody(patch%itype(p)) == 1._r8 .and. patch%itype(p) < npcropmin) then
+             this%deadstemn_patch(p) = deadstemc_patch(p) / pftcon%deadwdcn(patch%itype(p))
           else
              this%deadstemn_patch(p) = 0._r8
           end if
@@ -808,12 +804,8 @@ contains
              ! tree types need to be initialized with some stem mass so that
              ! roughness length is not zero in canopy flux calculation
    
-             if (pftcon%woody(patch%itype(p)) == 1._r8) then
-                if (patch%itype(p) < npcropmin) then   
-                   this%deadstemn_patch(p) = deadstemc_patch(p) / pftcon%deadwdcn(patch%itype(p))
-                else
-                   this%deadstemn_patch(p) = 0._r8  
-                end if
+             if (pftcon%woody(patch%itype(p)) == 1._r8 .and. patch%itype(p) < npcropmin) then
+                this%deadstemn_patch(p) = deadstemc_patch(p) / pftcon%deadwdcn(patch%itype(p))
              else
                 this%deadstemn_patch(p) = 0._r8
              end if

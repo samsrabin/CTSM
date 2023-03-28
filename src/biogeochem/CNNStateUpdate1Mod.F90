@@ -93,6 +93,7 @@ contains
     ! On the radiation time step, update all the prognostic nitrogen state
     ! variables (except for gap-phase mortality and fire fluxes)
     !
+    use clm_varctl , only: use_fruittree
     ! !ARGUMENTS:
     integer                                 , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                                 , intent(in)    :: filter_soilc(:) ! filter for soil columns
@@ -106,6 +107,7 @@ contains
     integer :: c,p,j,l,g,k ! indices
     integer :: fp,fc     ! lake filter indices
     real(r8):: dt        ! radiation time step (seconds)
+    logical :: is_fruittree
     !-----------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -149,6 +151,8 @@ contains
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
+         is_fruittree = use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8
+
          ! phenology: transfer growth fluxes
          ns_veg%leafn_patch(p)       = ns_veg%leafn_patch(p)       + nf_veg%leafn_xfer_to_leafn_patch(p)*dt
          ns_veg%leafn_xfer_patch(p)  = ns_veg%leafn_xfer_patch(p)  - nf_veg%leafn_xfer_to_leafn_patch(p)*dt
@@ -168,7 +172,7 @@ contains
 
          if (ivt(p) >= npcropmin) then ! skip 2 generic crops
             ! lines here for consistency; the transfer terms are zero
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+            if (is_fruittree) then ! (added by O.Dombrowski)
                ns_veg%grainn_patch(p)       = ns_veg%grainn_patch(p)         + nf_veg%grainn_xfer_to_grainn_patch(p)*dt
                ns_veg%grainn_xfer_patch(p)  = ns_veg%grainn_xfer_patch(p)    - nf_veg%grainn_xfer_to_grainn_patch(p)*dt
                
@@ -199,7 +203,7 @@ contains
             ns_veg%retransn_patch(p)     = ns_veg%retransn_patch(p)   + nf_veg%livecrootn_to_retransn_patch(p)*dt
          end if
          if (ivt(p) >= npcropmin) then ! Beth adds retrans from froot
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+            if (is_fruittree) then ! (added by O.Dombrowski)
                 ns_veg%frootn_patch(p)       = ns_veg%frootn_patch(p)     - nf_veg%frootn_to_retransn_patch(p)*dt
                 ns_veg%retransn_patch(p)     = ns_veg%retransn_patch(p)   + nf_veg%frootn_to_retransn_patch(p)*dt
                 ns_veg%grainn_patch(p)   = ns_veg%grainn_patch(p) &
@@ -269,7 +273,7 @@ contains
          end if
 
          if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+            if (is_fruittree) then ! (added by O.Dombrowski)
                ns_veg%npool_patch(p)           = ns_veg%npool_patch(p)              - nf_veg%npool_to_grainn_patch(p)*dt
                ns_veg%grainn_patch(p)             = ns_veg%grainn_patch(p)          + nf_veg%npool_to_grainn_patch(p)*dt
                ns_veg%npool_patch(p)              = ns_veg%npool_patch(p)           - nf_veg%npool_to_grainn_storage_patch(p)*dt
@@ -306,7 +310,7 @@ contains
          end if
 
          if (ivt(p) >= npcropmin) then ! skip 2 generic crops
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1.0_r8) then ! (added by O.Dombrowski)
+            if (is_fruittree) then ! (added by O.Dombrowski)
                ns_veg%grainn_storage_patch(p) = ns_veg%grainn_storage_patch(p)    - nf_veg%grainn_storage_to_xfer_patch(p)*dt
                ns_veg%grainn_xfer_patch(p)    = ns_veg%grainn_xfer_patch(p)       + nf_veg%grainn_storage_to_xfer_patch(p)*dt
                

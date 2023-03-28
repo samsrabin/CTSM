@@ -192,6 +192,7 @@ contains
     ! !USES:
     use pftconMod             , only : pftcon, npcropmin
     use clm_varctl            , only : use_c13, use_c14, carbon_resp_opt
+    use clm_varctl            , only : use_fruittree
     use clm_varctl            , only : downreg_opt
     use clm_varctl            , only : CN_residual_opt
     use clm_varctl            , only : CN_partition_opt
@@ -547,10 +548,11 @@ contains
             cpool_to_grainc(p)             = nlc * f5 * fcur
             cpool_to_grainc_storage(p)     = nlc * f5 * (1._r8 -fcur)
          end if
+
          ! allocation for deciduous fruit trees (added by O.Dombrowski)
          ! for this crop type, storage growth is considered next to photosynthetic growth
          ! after harvest photosynthates are allocated to storage pool for refilling of C reserves
-         if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
+         if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
             if (storage_flag(p) == 0._r8) then
                fcur = fcur
             else if (storage_flag(p) == 1._r8) then
@@ -607,7 +609,7 @@ contains
             end if
             ! calculating corresponding N fluxes for deciduous fruit trees
             ! (added by O.Dombrowski)
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
+            if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
                cng = graincn(ivt(p))
                npool_to_livestemn(p)          = (nlc * f3 * f4 / cnlw) * fcur
                npool_to_livestemn_storage(p)  = (nlc * f3 * f4 / cnlw) * (1._r8 - fcur)
@@ -782,7 +784,7 @@ contains
             end if
             ! calculation of N fluxes for perennial woody croptypes added by
             ! O.Dombrowski
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
+            if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
                cng = graincn(ivt(p))
                npool_to_livestemn_demand(p) = (nlc * f3 * f4 / cnlw) * fcur
                npool_to_livestemn_supply(p) = npool(p)/dt * fcur - npool_to_frootn(p)
@@ -880,8 +882,9 @@ contains
             gresp_storage = gresp_storage + cpool_to_livestemc_storage(p)
             gresp_storage = gresp_storage + cpool_to_grainc_storage(p)
          end if
+
          !recalculate total gresp_storage of vegetation parts for fruit trees (added by O.Dombrowski)
-         if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
+         if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
             gresp_storage = cpool_to_leafc_storage(p) + cpool_to_frootc_storage(p) &
                             + cpool_to_livestemc_storage(p) &
                             + cpool_to_deadstemc_storage(p) &
@@ -928,7 +931,7 @@ contains
             end if
             ! computing nitrogen demand for fruit trees
             ! (added by O.Dombrowski)
-            if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
+            if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
 
                cng = graincn(ivt(p))
                npool_to_livestemn_demand(p)          = (nlc * f3 * f4 / cnlw) * fcur
@@ -1335,6 +1338,7 @@ contains
     use pftconMod              , only : ntrp_soybean, nirrig_trp_soybean
     use clm_varcon             , only : secspday, dzsoi_decomp
     use clm_varctl             , only : use_c13, use_c14
+    use clm_varctl             , only : use_fruittree
     use clm_varctl             , only : nscalar_opt, plant_ndemand_opt, substrate_term_opt, temp_scalar_opt
     use clm_varpar             , only : nlevdecomp
     use clm_time_manager       , only : get_step_size,get_curr_calday
@@ -1567,7 +1571,7 @@ contains
          if (woody(ivt(p)) == 1.0_r8) then
             mr = mr + livestem_mr(p) + livecroot_mr(p)
             !include all mr terms for woody crop types
-            if (perennial(ivt(p)) == 1._r8) then
+            if (use_fruittree .and. perennial(ivt(p)) == 1._r8) then
                 mr = mr + grain_mr(p)
             end if
          else if (ivt(p) >= npcropmin) then
@@ -1649,7 +1653,7 @@ contains
          if (ivt(p) >= npcropmin) then ! skip 2 generic crops
 
             if (croplive(p)) then
-               if (perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
+               if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. woody(ivt(p)) == 1._r8) then
                   ! same phases appear in subroutine CropPhenology
                   if (dormant_flag(p) == 0.0_r8) then
                      ! Phase 1 completed:
@@ -1860,7 +1864,8 @@ contains
                f5 = arepr(p) / aleaf(p)
                g1 = 0.25_r8
 
-               if (perennial(ivt(p)) == 1._r8 .and. dormant_flag(p) == 1._r8) then !dormant tree has no allocation to any organs (similar to .not. croplive)
+               ! dormant tree has no allocation to any organs (similar to .not. croplive)
+               if (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. dormant_flag(p) == 1._r8) then
                   f1 = 0._r8
                   f3 = 0._r8
                   f5 = 0._r8
@@ -1879,7 +1884,7 @@ contains
          ! determine N requirements
          if(use_fun)then ! In FUN, growth respiration is not part of the allometry calculation. 
 	         if (woody(ivt(p)) == 1.0_r8) then
-                    if (perennial(ivt(p)) == 1.0_r8) then !(added by O.Dombrowski)
+                    if (use_fruittree .and. perennial(ivt(p)) == 1.0_r8) then !(added by O.Dombrowski)
                        cng = graincn(ivt(p))
                        c_allometry(p) = (1._r8)*(1._r8+f1+f5+f3*(1._r8+f2))
                        n_allometry(p) = 1._r8/cnl + f1/cnfr + f5/cng + (f3*f4*(1._r8+f2))/cnlw + &
@@ -1889,7 +1894,7 @@ contains
                        n_allometry(p) = 1._r8/cnl + f1/cnfr + (f3*f4*(1._r8+f2))/cnlw + &
                             (f3*(1._r8-f4)*(1._r8+f2))/cndw
                     end if
-	         else if (ivt(p) >= npcropmin .and. perennial(ivt(p)) == 0.0_r8) then ! skip generic crops
+	         else if (ivt(p) >= npcropmin .and. (perennial(ivt(p)) == 0.0_r8 .or. .not. use_fruittree)) then ! skip generic crops
 	            cng = graincn(ivt(p))
 	            c_allometry(p) = (1._r8)*(1._r8+f1+f5+f3*(1._r8+f2))
 	            n_allometry(p) = 1._r8/cnl + f1/cnfr + f5/cng + (f3*f4*(1._r8+f2))/cnlw + &
@@ -2009,9 +2014,9 @@ contains
          !              retransn pool has N from leaves, stems, and roots for
          !              retranslocation
 
-         if (ivt(p) >= npcropmin .and. grain_flag(p) == 1._r8 .and. perennial(ivt(p)) == 0._r8) then
+         if (ivt(p) >= npcropmin .and. grain_flag(p) == 1._r8 .and. (perennial(ivt(p)) == 0._r8 .or. .not. use_fruittree)) then
             avail_retransn(p) = plant_ndemand(p)
-         else if ((ivt(p) < npcropmin .and. annsum_potential_gpp(p) > 0._r8) .or. (perennial(ivt(p)) == 1._r8 .and. annsum_potential_gpp(p) > 0._r8)) then
+         else if ((ivt(p) < npcropmin .and. annsum_potential_gpp(p) > 0._r8) .or. (use_fruittree .and. perennial(ivt(p)) == 1._r8 .and. annsum_potential_gpp(p) > 0._r8)) then
             avail_retransn(p) = (annmax_retransn(p)/2._r8)*(gpp(p)/annsum_potential_gpp(p))/dt
          else
             avail_retransn(p) = 0.0_r8
