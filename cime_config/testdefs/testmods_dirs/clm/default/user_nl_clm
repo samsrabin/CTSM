@@ -26,4 +26,4 @@
 
  use_ssre = .true.
 
- paramfile='/glade/u/home/samrabin/ctsm_fruittree/clm5_params.c171117__FruitTree.nc'
+ paramfile='/glade/u/home/samrabin/ctsm_fruittree/clm5_params.c171117__FruitTree.citrusOff.nc'
