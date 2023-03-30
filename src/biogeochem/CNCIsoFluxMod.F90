@@ -20,6 +20,7 @@ module CNCIsoFluxMod
   use PatchType                          , only : patch                
   use clm_varctl                         , only : use_crop
   use clm_varctl                         , only : use_grainproduct
+  use clm_varctl                         , only : use_fruittree
   !
   implicit none
   private
@@ -414,15 +415,17 @@ contains
               iso_cnveg_cs%totvegc_patch                       , cnveg_cs%totvegc_patch, &
               num_soilp                                        , filter_soilp, 1._r8, 0, isotope)
 
-         call CIsoFluxCalc(&
-              iso_cnveg_cf%crop_seedc_to_froot_patch            , cnveg_cf%crop_seedc_to_froot_patch, &
-              iso_cnveg_cs%totvegc_patch                       , cnveg_cs%totvegc_patch, &
-              num_soilp                                        , filter_soilp, 1._r8, 0, isotope)
+         if (use_fruittree) then
+              call CIsoFluxCalc(&
+                   iso_cnveg_cf%crop_seedc_to_froot_patch            , cnveg_cf%crop_seedc_to_froot_patch, &
+                   iso_cnveg_cs%totvegc_patch                       , cnveg_cs%totvegc_patch, &
+                   num_soilp                                        , filter_soilp, 1._r8, 0, isotope)
 
-         call CIsoFluxCalc(&
-              iso_cnveg_cf%crop_seedc_to_deadstem_patch        , cnveg_cf%crop_seedc_to_deadstem_patch, &
-              iso_cnveg_cs%totvegc_patch                       , cnveg_cs%totvegc_patch, &
-              num_soilp                                        , filter_soilp, 1._r8, 0, isotope)
+              call CIsoFluxCalc(&
+                   iso_cnveg_cf%crop_seedc_to_deadstem_patch        , cnveg_cf%crop_seedc_to_deadstem_patch, &
+                   iso_cnveg_cs%totvegc_patch                       , cnveg_cs%totvegc_patch, &
+                   num_soilp                                        , filter_soilp, 1._r8, 0, isotope)
+         end if
 
 
          call CIsoFluxCalc(&
