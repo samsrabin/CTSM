@@ -702,6 +702,10 @@ if can_plot:
 
         # Get info
         incl_vegtypes_str = gdd_maps_ds.attrs['incl_vegtypes_str']
+        if incl_vegtypes_str is None:
+            incl_vegtypes_str = []
+        elif isinstance(incl_vegtypes_str, np.ndarray):
+            incl_vegtypes_str = list(incl_vegtypes_str)
         dummy_fill = gdd_maps_ds.attrs['dummy_fill']
         if not outdir_figs:
             outdir_figs = gdd_maps_ds.attrs['outdir_figs']
