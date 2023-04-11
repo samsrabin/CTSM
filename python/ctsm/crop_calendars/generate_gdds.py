@@ -5,6 +5,7 @@ paramfile_dir = "/glade/p/cesmdata/cseg/inputdata/lnd/clm2/paramdata"
 # Import other shared functions
 import os
 import inspect
+import sys
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir) 
@@ -27,10 +28,19 @@ my_clm_subver = "c211112"
 
 def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hdates_file=None, output_dir=None, save_figs=True, only_make_figs=False, run1_name=None, run2_name=None, land_use_file=None, first_land_use_year=None, last_land_use_year=None, unlimited_season_length=False, logger=None):
     
+    # Set up log file and function, if needed
+    if logger is None:
+        logging.basicConfig(level=logging.DEBUG,
+                            format="",
+                            filename=os.path.join(output_dir, 'generate_gdds.log'),
+                            filemode='a')
+        logger = logging.getLogger('')
+
     # Disable plotting if any plotting module is unavailable
     if save_figs:
         try:
-            import cartopy, matplotlib
+            import cartopy
+            import matplotlib
         except:
             if only_make_figs:
                 raise RuntimeError("only_make_figs True but not all plotting modules are available")
@@ -49,14 +59,6 @@ def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hd
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     outdir_figs = os.path.join(output_dir, "figs")
-
-    # Set up log file and function, if needed
-    if logger is None:
-        logging.basicConfig(level=logging.DEBUG,
-                            format="",
-                            filename=os.path.join(output_dir, 'generate_gdds.log'),
-                            filemode='a')
-        logger = logging.getLogger('')
 
     # Print some info
     gddfn.log(logger, f"Saving to {output_dir}")
