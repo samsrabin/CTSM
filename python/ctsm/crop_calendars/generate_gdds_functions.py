@@ -725,6 +725,8 @@ if can_plot:
             lu_years_file = f"_mask{y1_lu}-{yN_lu}"
         else:
             lu_ds = None
+            lu_years_text = ""
+            lu_years_file = ""
 
         # layout = "3x1"
         # layout = "2x2"
@@ -755,7 +757,10 @@ if can_plot:
         ny = 3
         nx = 1
         log(logger, "Making before/after maps...")
-        for v, vegtype_str in enumerate(incl_vegtypes_str + ["Corn", "Cotton", "Rice", "Soybean", "Sugarcane", "Wheat"]):
+        vegtype_list = incl_vegtypes_str
+        if land_use_file:
+            vegtype_list += ["Corn", "Cotton", "Rice", "Soybean", "Sugarcane", "Wheat"]
+        for v, vegtype_str in enumerate(vegtype_list):
             print(f"{vegtype_str}...")
             
             # Get component types
