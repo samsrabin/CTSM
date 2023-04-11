@@ -84,9 +84,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         case.create_namelists(component='lnd')
         
         # Is flanduse_timeseries defined? If so, where is it? 
-        lnd_in_path = os.path.join(self._get_caseroot(), 'CaseDocs', 'lnd_in')
+        self._lnd_in_path = os.path.join(self._get_caseroot(), 'CaseDocs', 'lnd_in')
         self._flanduse_timeseries_in = None
-        with open (lnd_in_path,'r') as lnd_in:
+        with open (self._lnd_in_path,'r') as lnd_in:
             for line in lnd_in:
                 flanduse_timeseries_in = re.match(r" *flanduse_timeseries *= *'(.*)'", line)
                 if flanduse_timeseries_in:
@@ -100,65 +100,69 @@ class RXCROPMATURITY(SystemTestsCommon):
             # Download files from the server
             case.check_all_input_data()
             
-            # fsurdat should be defined. Where is it?
-            self._fsurdat_in = None
-            with open (lnd_in_path,'r') as lnd_in:
-                for line in lnd_in:
-                    fsurdat_in = re.match(r" *fsurdat *= *'(.*)'", line)
-                    if fsurdat_in:
-                        self._fsurdat_in = fsurdat_in.group(1)
-                        break
-            if self._fsurdat_in is None:
-                print("fsurdat not defined")
-                raise
+            # Make custom version of fsurdat
+            logger.info("  run make_surface_for_gdden")
+            self._run_make_surface_for_gdden()
             
-            # Where we will save the fsurdat version for this test
-            self._fsurdat_out = os.path.join(self._get_caseroot(), 'fsurdat.nc')
             
-            # Make fsurdat for this test, if not already done
-            if not os.path.exists(self._fsurdat_out):
-                logger.info("  run make_surface_for_gdden")
-                self._run_make_surface_for_gdden()
-            
-            # Modify namelist
-            logger.info("  modify user_nl files: new fsurdat")
-            self._modify_user_nl_newfsurdat()
             
             
     def _run_make_surface_for_gdden(self):
-        tool_path = os.path.join(self._ctsm_root,
-                                 'python', 'ctsm', 'crop_calendars',
-                                 'make_surface_for_gddgen.py')
+        
+        # fsurdat should be defined. Where is it?
+        self._fsurdat_in = None
+        with open (self._lnd_in_path,'r') as lnd_in:
+            for line in lnd_in:
+                fsurdat_in = re.match(r" *fsurdat *= *'(.*)'", line)
+                if fsurdat_in:
+                    self._fsurdat_in = fsurdat_in.group(1)
+                    break
+        if self._fsurdat_in is None:
+            print("fsurdat not defined")
+            raise
+        
+        # Where we will save the fsurdat version for this test
+        self._fsurdat_out = os.path.join(self._get_caseroot(), 'fsurdat.nc')
+        
+        # Make fsurdat for this test, if not already done
+        if not os.path.exists(self._fsurdat_out):
+            tool_path = os.path.join(self._ctsm_root,
+                                    'python', 'ctsm', 'crop_calendars',
+                                    'make_surface_for_gddgen.py')
 
-        self._case.load_env(reset=True)
-        conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
-        # Preprend the commands to get the conda environment for python first
-        conda_env += self._get_conda_env()
-        # Source the env
-        try:
-            command = f"{conda_env}python3 {tool_path} "\
-                + f"--flanduse-timeseries {self._flanduse_timeseries_in} "\
-                + f"--fsurdat {self._fsurdat_in} "\
-                + f"--outfile {self._fsurdat_out}"
-            print(f"command: {command}")
-            subprocess.run(command, shell=True, check=True)
-        except subprocess.CalledProcessError as error:
-            print("ERROR while getting the conda environment and/or ")
-            print("running the make_surface_for_gddgen tool: ")
-            print("(1) If your npl environment is out of date or you ")
-            print("have not created the npl environment, yet, you may ")
-            print("get past this error by running ./py_env_create ")
-            print("in your ctsm directory and trying this test again. ")
-            print("(2) If conda is not available, install and load conda, ")
-            print("run ./py_env_create, and then try this test again. ")
-            print("(3) If (1) and (2) are not the issue, then you may be ")
-            print("getting an error within the make_surface_for_gddgen tool itself. ")
-            print("Default error message: ")
-            print(error.output)
-            raise
-        except:
-            print("ERROR trying to run make_surface_for_gddgen tool.")
-            raise
+            self._case.load_env(reset=True)
+            conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
+            # Preprend the commands to get the conda environment for python first
+            conda_env += self._get_conda_env()
+            # Source the env
+            try:
+                command = f"{conda_env}python3 {tool_path} "\
+                    + f"--flanduse-timeseries {self._flanduse_timeseries_in} "\
+                    + f"--fsurdat {self._fsurdat_in} "\
+                    + f"--outfile {self._fsurdat_out}"
+                print(f"command: {command}")
+                subprocess.run(command, shell=True, check=True)
+            except subprocess.CalledProcessError as error:
+                print("ERROR while getting the conda environment and/or ")
+                print("running the make_surface_for_gddgen tool: ")
+                print("(1) If your npl environment is out of date or you ")
+                print("have not created the npl environment, yet, you may ")
+                print("get past this error by running ./py_env_create ")
+                print("in your ctsm directory and trying this test again. ")
+                print("(2) If conda is not available, install and load conda, ")
+                print("run ./py_env_create, and then try this test again. ")
+                print("(3) If (1) and (2) are not the issue, then you may be ")
+                print("getting an error within the make_surface_for_gddgen tool itself. ")
+                print("Default error message: ")
+                print(error.output)
+                raise
+            except:
+                print("ERROR trying to run make_surface_for_gddgen tool.")
+                raise
+        
+        # Modify namelist
+        logger.info("  modify user_nl files: new fsurdat")
+        self._modify_user_nl_newfsurdat()
 
     def _modify_user_nl_gengdds(self):
         nl_additions = [
