@@ -11,7 +11,6 @@ import subprocess
 from CIME.SystemTests.system_tests_common import SystemTestsCommon
 from CIME.XML.standard_module_setup import *
 from CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
-from python.ctsm.crop_calendars import generate_gdds
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +145,8 @@ class RXCROPMATURITY(SystemTestsCommon):
         except subprocess.CalledProcessError as error:
             print("ERROR while getting the conda environment and/or ")
             print("running the make_surface_for_gddgen tool: ")
-            print("(1) If your ctsm_pylib environment is out of date or you ")
-            print("have not created the ctsm_pylib environment, yet, you may ")
+            print("(1) If your npl environment is out of date or you ")
+            print("have not created the npl environment, yet, you may ")
             print("get past this error by running ./py_env_create ")
             print("in your ctsm directory and trying this test again. ")
             print("(2) If conda is not available, install and load conda, ")
@@ -220,9 +219,62 @@ class RXCROPMATURITY(SystemTestsCommon):
         last_season = first_season + self._run_Nyears - 1
         sdates_file = self._sdatefile
         hdates_file = self._hdatefile
-        generate_gdds.main(run_dir=run_dir, first_season=first_season, last_season=last_season,
-                           sdates_file=sdates_file, hdates_file=hdates_file, output_dir=caseroot,
-                           logger=logger)
+        # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
+        self._run_generate_gdds()
+
+    def _run_generate_gdds(self):
+        caseroot = self._case.get_value("CASEROOT")
+#        caseroot = "/glade/scratch/samrabin/RXCROPMATURITY_Ld3.f10_f10_mg37.IHistClm50BgcCrop.cheyenne_intel.clm-default.G.20230411_112631_hd6o3h"
+        outdir = "generate_gdds_out"
+        os.makedirs(outdir)
+
+        run_dir = os.path.join(caseroot, "run")
+        first_season = self._run_startyear + 2
+        last_season = first_season + self._run_Nyears - 1
+#        run_dir = "/glade/scratch/samrabin/archive/tests_10x15_20230329_gddgen/lnd/hist"
+#        first_season = 1997
+#        last_season = 1999
+        sdates_file = self._sdatefile
+        hdates_file = self._hdatefile
+
+        tool_path = os.path.join(self._ctsm_root,
+                                 'python', 'ctsm', 'crop_calendars',
+                                 'generate_gdds.py')
+
+        self._case.load_env(reset=True)
+        conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
+        # Preprend the commands to get the conda environment for python first
+        conda_env += self._get_conda_env()
+        # Source the env
+        try:
+            command = " ".join([
+                    f"{conda_env}python3 {tool_path}",
+                    f"--run-dir {run_dir}",
+                    f"--first-season {first_season}",
+                    f"--last-season {last_season}",
+                    f"--sdates-file {sdates_file}",
+                    f"--hdates-file {hdates_file}",
+                    #f"--output-dir {caseroot}"])
+                    f"--output-dir generate_gdds_out"])
+            print(f"command: {command}")
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as error:
+            print("ERROR while getting the conda environment and/or ")
+            print("running the generate_gdds tool: ")
+            print("(1) If your npl environment is out of date or you ")
+            print("have not created the npl environment, yet, you may ")
+            print("get past this error by running ./py_env_create ")
+            print("in your ctsm directory and trying this test again. ")
+            print("(2) If conda is not available, install and load conda, ")
+            print("run ./py_env_create, and then try this test again. ")
+            print("(3) If (1) and (2) are not the issue, then you may be ")
+            print("getting an error within the generate_gdds tool itself. ")
+            print("Default error message: ")
+            print(error.output)
+            raise
+        except:
+            print("ERROR trying to run generate_gdds tool.")
+            raise
         
         
 
@@ -241,7 +293,9 @@ class RXCROPMATURITY(SystemTestsCommon):
             conda_env = "module unload python; module load conda;"
 
         ## Run in the correct python environment
-        conda_env += " conda run -n ctsm_pylib "
+        # SSR: This was originally ctsm_pylib, but the fact that it's missing
+        #      cf_units caused problems in utils.import_ds().
+        conda_env += " conda run -n npl "
 
 
         return( conda_env )
