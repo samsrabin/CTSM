@@ -3,7 +3,6 @@ import utils
 
 import numpy as np
 import xarray as xr
-import cartopy.crs as ccrs
 from scipy import stats, signal
 import warnings
 import cftime
@@ -11,6 +10,10 @@ import pandas as pd
 import os
 import glob
 
+try:
+    import cartopy.crs as ccrs
+except:
+    pass
 
 # Define conversion multipliers, {from: {to1, to2, ...}, ...}
 multiplier_dict = {

@@ -1,5 +1,4 @@
-# Import the CTSM Python utilities, functions for GDD generation
-import utils
+# Import supporting functions
 import generate_gdds_functions as gddfn
 paramfile_dir = "/glade/p/cesmdata/cseg/inputdata/lnd/clm2/paramdata"
     
@@ -10,109 +9,33 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir) 
 import cropcal_module as cc
-from cropcal_figs_module import *
 
 # Import everything else
 import os
 import sys
 import numpy as np
 import xarray as xr
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
-from matplotlib.transforms import Bbox
-import warnings
-import cartopy.crs as ccrs
-import datetime as dt
 import pickle
 import datetime as dt
 import argparse
 import logging
 
-# Figure settings
-plt.rc('font',**{'family':'sans-serif','sans-serif':['Arial']})
-
 # Info re: PFT parameter set
 my_clm_ver = 51
 my_clm_subver = "c211112"
 
-# Suppress some warnings
-import warnings
-warnings.filterwarnings("ignore", message="__len__ for multi-part geometries is deprecated and will be removed in Shapely 2.0. Check the length of the `geoms` property instead to get the  number of parts of a multi-part geometry.")
-warnings.filterwarnings("ignore", message="Iteration over multi-part geometries is deprecated and will be removed in Shapely 2.0. Use the `geoms` property to access the constituent parts of a multi-part geometry.")
-
-
-def get_multicrop_maps(ds, theseVars, crop_fracs_yx, dummy_fill, gdd_units):
-    
-    # Get GDDs for these crops
-    da_eachCFT = xr.concat((ds[x] for i, x in enumerate(theseVars)),
-                            dim="cft")
-    if "time" in ds.dims:
-        da_eachCFT = da_eachCFT.isel(time=0, drop=True)
-    da_eachCFT = da_eachCFT.where(da_eachCFT != dummy_fill)
-    da_eachCFT.attrs['units'] = gdd_units
-    
-    # What are the maximum differences seen between different crop types?
-    if len(theseVars) > 1:
-        maxDiff = np.nanmax(da_eachCFT.max(dim="cft") - da_eachCFT.min(dim="cft"))
-        if maxDiff > 0:
-            print(f"   Max difference among crop types: {np.round(maxDiff)}")
-    
-    if crop_fracs_yx is None:
-        return da_eachCFT.isel(cft=0, drop=True)
-    
-    # Warn if GDD is NaN anywhere that there is area
-    da_eachCFT['cft'] = crop_fracs_yx['cft']
-    gddNaN_areaPos = np.isnan(da_eachCFT) & (crop_fracs_yx > 0)
-    if np.any(gddNaN_areaPos):
-        total_bad_croparea = np.nansum(crop_fracs_yx.where(gddNaN_areaPos).values)
-        total_croparea = np.nansum(crop_fracs_yx.values)
-        print(f"   GDD reqt NaN but area positive ({np.round(total_bad_croparea/total_croparea*100, 1)}% of this crop's area)")
-    
-    # Get areas and weights, masking cell-crops with NaN GDDs
-    crop_fracs_yx = crop_fracs_yx.where(~np.isnan(da_eachCFT))
-    crop_area_yx = crop_fracs_yx.sum(dim="cft")
-    weights_yx = crop_fracs_yx / crop_area_yx
-    weights_sum_gt0 = weights_yx.sum(dim='cft').where(weights_yx > 0)
-    assert(np.isclose(np.nanmin(weights_sum_gt0.values), 1.0))
-    assert(np.isclose(np.nanmax(weights_sum_gt0.values), 1.0))
-    
-    # Mask GDDs and weights where there is no area
-    da_eachCFT = da_eachCFT.where(crop_fracs_yx > 0)
-    if len(theseVars)==1:
-        return da_eachCFT.isel(cft=0, drop=True)
-    weights_yx = weights_yx.where(crop_fracs_yx > 0)
-    weights_sum = weights_yx.sum(dim='cft').where(crop_area_yx > 0)
-    assert(np.isclose(np.nanmin(weights_sum.values), 1.0))
-    assert(np.isclose(np.nanmax(weights_sum.values), 1.0))
-    
-    # Ensure grid match between GDDs and weights
-    if not np.array_equal(da_eachCFT['lon'].values, weights_yx['lon'].values):
-        raise RuntimeError("lon mismatch")
-    if not np.array_equal(da_eachCFT['lat'].values, weights_yx['lat'].values):
-        raise RuntimeError("lat mismatch")
-    
-    # Get area-weighted mean GDD requirements for all crops
-    da = (da_eachCFT * weights_yx).sum(dim="cft")
-    da.attrs['units'] = gdd_units
-    da = da.where(crop_area_yx > 0)
-    
-    # Ensure that weighted mean is between each cell's min and max
-    whereBad = (da < da_eachCFT.min(dim="cft")) | (da > da_eachCFT.max(dim="cft"))
-    if np.any(whereBad):
-        where_belowMin = da.where(da < da_eachCFT.min(dim="cft"))
-        worst_belowMin = np.min((da_eachCFT.min(dim='cft') - where_belowMin).values)
-        where_aboveMax = da.where(da > da_eachCFT.max(dim="cft"))
-        worst_aboveMax = np.max((where_aboveMax - da_eachCFT.max(dim='cft')).values)
-        worst = max(worst_belowMin, worst_aboveMax)
-        tol = 1e-12
-        if worst > 1e-12:
-            raise RuntimeError(f"Some value is outside expected range by {worst} (exceeds tolerance {tol})")
-    
-    return da
-
 
 def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hdates_file=None, output_dir=None, save_figs=True, only_make_figs=False, run1_name=None, run2_name=None, land_use_file=None, first_land_use_year=None, last_land_use_year=None, unlimited_season_length=False, logger=None):
+    
+    # Disable plotting if any plotting module is unavailable
+    if save_figs:
+        try:
+            import cartopy, matplotlib
+        except:
+            if only_make_figs:
+                raise RuntimeError("only_make_figs True but not all plotting modules are available")
+            gddfn.log(logger, "Not all plotting modules are available; disabling save_figs")
+            save_figs = False
     
     # Directories to save output files and figures
     if not output_dir:
@@ -334,356 +257,12 @@ def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hd
     #################################################
     ### Save before/after map and boxplot figures ###
     #################################################
-    
-    def get_bounds_ncolors(gdd_spacing, diff_map_yx):
-        vmax = np.floor(np.nanmax(diff_map_yx.values)/gdd_spacing)*gdd_spacing
-        vmin = -vmax
-        epsilon = np.nextafter(0, 1)
-        bounds = list(np.arange(vmin, vmax, gdd_spacing)) + [vmax-epsilon]
-        if 0 in bounds:
-            bounds.remove(0)
-            bounds[bounds.index(-gdd_spacing)] /= 2
-            bounds[bounds.index(gdd_spacing)] /= 2
-        Ncolors = len(bounds) + 1
-        return vmax, bounds, Ncolors    
-    
-    def make_map(ax, this_map, this_title, vmax, bin_width, fontsize_ticklabels, fontsize_titles, bounds=None, extend='both', cmap=None, cbar_ticks=None, vmin=None):
         
-        if bounds:
-            if not cmap:
-                raise RuntimeError("Calling make_map() with bounds requires cmap to be specified")
-            norm = mcolors.BoundaryNorm(bounds, cmap.N, extend=extend)
-            im1 = ax.pcolormesh(this_map.lon.values, this_map.lat.values,
-                                this_map, shading="auto",
-                                norm=norm,
-                                cmap=cmap)
-        else:
-            if np.any(this_map.values < 0):
-                gdd_spacing = 500
-                vmax = np.floor(np.nanmax(this_map.values)/gdd_spacing)*gdd_spacing
-                if vmin is not None:
-                    raise RuntimeError("Do not specify vmin in this call of make_map()")
-                vmin = -vmax
-                Ncolors = vmax/gdd_spacing
-                if Ncolors % 2 == 0: Ncolors += 1
-                if not cmap:
-                    cmap = cm.get_cmap(cropcal_colors['div_other_nonnorm'], Ncolors)
-                
-                if np.any(this_map.values > vmax) and np.any(this_map.values < vmin):
-                    extend = 'both'
-                elif np.any(this_map.values > vmax):
-                    extend = 'max'
-                elif np.any(this_map.values < vmin):
-                    extend = 'min'
-                else:
-                    extend = 'neither'
-                
-            else:
-                if vmin is None:
-                    vmin = 0
-                else:
-                    vmin = np.floor(vmin/500)*500
-                vmax = np.floor(vmax/500)*500
-                Ncolors = int(vmax/500)
-                if not cmap:
-                    cmap=cm.get_cmap(cropcal_colors['seq_other'], Ncolors+1)
-                extend = 'max'
-                extend_color = cmap.colors[-1]
-                cmap = mcolors.ListedColormap(cmap.colors[:Ncolors])
-                cmap.set_over(extend_color)
-                
-            im1 = ax.pcolormesh(this_map.lon.values, this_map.lat.values, 
-                    this_map, shading="auto",
-                    vmin=vmin, vmax=vmax,
-                    cmap=cmap)
-            
-        ax.set_extent([-180,180,-63,90],crs=ccrs.PlateCarree())
-        ax.coastlines(linewidth=0.3)
-        ax.set_title(this_title, fontsize=fontsize_titles, fontweight="bold", y=0.96)
-        cbar = plt.colorbar(im1, orientation="horizontal", fraction=0.1, pad=0.02,
-                            aspect=40, extend=extend, spacing='proportional')
-        cbar.ax.tick_params(labelsize=fontsize_ticklabels)
-        cbar.ax.set_xlabel(this_map.attrs['units'],
-                           fontsize=fontsize_ticklabels)
-        cbar.ax.xaxis.set_label_coords(x=0.115, y=2.6)
-        if cbar_ticks:
-            cbar.ax.set_xticks(cbar_ticks)
-        
-        ticks = np.arange(-60, 91, bin_width)
-        ticklabels = [str(x) for x in ticks]
-        for i,x in enumerate(ticks):
-            if x%2:
-                ticklabels[i] = ''
-        plt.yticks(np.arange(-60,91,15), labels=ticklabels,
-                   fontsize=fontsize_ticklabels)
-        plt.axis('off')
-        
-    def get_non_nans(in_da, fillValue):
-        in_da = in_da.where(in_da != fillValue)
-        return in_da.values[~np.isnan(in_da.values)]
-    
-    linewidth = 1.5
-    def set_boxplot_props(bp, color, linewidth):
-        linewidth = linewidth
-        plt.setp(bp['boxes'], color=color, linewidth=linewidth)
-        plt.setp(bp['whiskers'], color=color, linewidth=linewidth)
-        plt.setp(bp['caps'], color=color, linewidth=linewidth)
-        plt.setp(bp['medians'], color=color, linewidth=linewidth)
-        plt.setp(bp['fliers'], markeredgecolor=color, markersize=6, linewidth=linewidth, markeredgewidth=linewidth/2)
-    
-    def make_plot(data, offset, linewidth):
-        offset = 0.4*offset
-        bpl = plt.boxplot(data, positions=np.array(range(len(data)))*2.0+offset, widths=0.6, 
-                          boxprops=dict(linewidth=linewidth), whiskerprops=dict(linewidth=linewidth), 
-                          capprops=dict(linewidth=linewidth), medianprops=dict(linewidth=linewidth),
-                          flierprops=dict(markeredgewidth=0.5))
-        return bpl
-    
-    def make_figures(first_land_use_year, last_land_use_year, land_use_file, run1_name, run2_name, thisDir=None, gdd_maps_ds=None, gddharv_maps_ds=None, outdir_figs=None, linewidth=1.5):
-        if not gdd_maps_ds:
-            if not thisDir:
-                gddfn.error(logger, 'If not providing gdd_maps_ds, you must provide thisDir (location of gdd_maps.nc)')
-            gdd_maps_ds = xr.open_dataset(thisDir + 'gdd_maps.nc')
-        if not gddharv_maps_ds:
-            if not thisDir:
-                gddfn.error(logger, 'If not providing gddharv_maps_ds, you must provide thisDir (location of gddharv_maps.nc)')
-            gddharv_maps_ds = xr.open_dataset(thisDir + 'gdd_maps.nc')
-    
-        # Get info
-        incl_vegtypes_str = gdd_maps_ds.attrs['incl_vegtypes_str']
-        dummy_fill = gdd_maps_ds.attrs['dummy_fill']
-        if not outdir_figs:
-            outdir_figs = gdd_maps_ds.attrs['outdir_figs']
-        try:
-            y1 = gdd_maps_ds.attrs['y1']
-            yN = gdd_maps_ds.attrs['yN']
-        # Backwards compatibility with a bug (fixed 2023-01-03)
-        except:
-            y1 = gdd_maps_ds.attrs['first_season']
-            yN = gdd_maps_ds.attrs['last_season']
-        # Import LU data, if doing so
-        if land_use_file:
-            y1_lu = y1 if first_land_use_year == None else first_land_use_year
-            yN_lu = yN if last_land_use_year == None else last_land_use_year
-            lu_ds = cc.open_lu_ds(land_use_file, y1_lu, yN_lu, gdd_maps_ds, ungrid=False)
-            lu_years_text = f" (masked by {y1_lu}-{yN_lu} area)"
-            lu_years_file = f"_mask{y1_lu}-{yN_lu}"
-        else:
-            lu_ds = None
-    
-        # layout = "3x1"
-        # layout = "2x2"
-        layout = "3x2"
-        bin_width = 15
-        lat_bin_edges = np.arange(0, 91, bin_width)
-    
-        fontsize_titles = 12
-        fontsize_axislabels = 12
-        fontsize_ticklabels = 12
-    
-        Nbins = len(lat_bin_edges)-1
-        bin_names = ["All"]
-        for b in np.arange(Nbins):
-            lower = lat_bin_edges[b]
-            upper = lat_bin_edges[b+1]
-            bin_names.append(f"{lower}–{upper}")
-        
-        color_old = cropcal_colors_cases(run1_name)
-        if color_old is None:
-            color_old = '#beaed4'
-        color_new = cropcal_colors_cases(run2_name)
-        if color_new is None:
-            color_new = '#7fc97f'
-        gdd_units = 'GDD (°C • day)'
-    
-        # Maps
-        ny = 3
-        nx = 1
-        gddfn.log(logger, "Making before/after maps...")
-        for v, vegtype_str in enumerate(incl_vegtypes_str + ["Corn", "Cotton", "Rice", "Soybean", "Sugarcane", "Wheat"]):
-            print(f"{vegtype_str}...")
-            
-            # Get component types
-            if vegtype_str in incl_vegtypes_str:
-                vegtypes_str = [vegtype_str]
-            elif not lu_ds:
-                raise RuntimeError(f"If mapping {vegtype_str}, you must provide land use dataset")
-            else:
-                vegtypes_str = [x for x in incl_vegtypes_str if vegtype_str.lower() in x]
-            vegtypes_int = [utils.vegtype_str2int(x)[0] for x in vegtypes_str]
-            
-            # Crop fraction map (for masking and weighting)
-            if lu_ds:
-                crop_fracs_yx = (lu_ds.LANDFRAC_PFT * lu_ds.PCT_CROP * lu_ds.PCT_CFT.sel(cft=vegtypes_int)).sum(dim="time")
-                if np.sum(crop_fracs_yx) == 0:
-                    print(f"Skipping {vegtype_str} (no area)")
-                    continue
-            else:
-                crop_fracs_yx = None
-
-            theseVars = [f"gdd1_{x}" for x in vegtypes_int]
-            gddharv_map_yx = get_multicrop_maps(gddharv_maps_ds, theseVars, crop_fracs_yx, dummy_fill, gdd_units)
-            gdd_map_yx = get_multicrop_maps(gdd_maps_ds, theseVars, crop_fracs_yx, dummy_fill, gdd_units)
-            
-            # Get figure title
-            if len(vegtypes_str) > 1:
-                vegtype_str_title = vegtype_str
-            else:                
-                vegtype_str_title = vegtype_str.replace("_", " ")
-                if "irrigated" not in vegtype_str:
-                    vegtype_str_title = "rainfed " + vegtype_str_title
-                vegtype_str_title = vegtype_str_title.capitalize()
-                    
-            vmin = min(np.min(gdd_map_yx), np.min(gddharv_map_yx)).values
-            vmax = max(np.max(gdd_map_yx), np.max(gddharv_map_yx)).values
-            
-            # Set up figure and first subplot
-            if layout == "3x1":
-                fig = plt.figure(figsize=(7.5,14))
-                ax = fig.add_subplot(ny,nx,1,projection=ccrs.PlateCarree())
-            elif layout == "2x2":
-                fig = plt.figure(figsize=(12,6))
-                spec = fig.add_gridspec(nrows=2, ncols=2,
-                                        width_ratios=[0.4,0.6])
-                ax = fig.add_subplot(spec[0,0],projection=ccrs.PlateCarree())
-            elif layout == "3x2":
-                fig = plt.figure(figsize=(14,9))
-                spec = fig.add_gridspec(nrows=3, ncols=2,
-                                        width_ratios=[0.5,0.5],
-                                        wspace=0.2)
-                ax = fig.add_subplot(spec[0,0],projection=ccrs.PlateCarree())
-            else:
-                gddfn.error(logger, f"layout {layout} not recognized")
-            
-            thisMin = int(np.round(np.nanmin(gddharv_map_yx)))
-            thisMax = int(np.round(np.nanmax(gddharv_map_yx)))
-            thisTitle = f"{run1_name} (range {thisMin}–{thisMax})"
-            make_map(ax, gddharv_map_yx, thisTitle, vmax, bin_width,
-                     fontsize_ticklabels, fontsize_titles, vmin=vmin)
-            
-            if layout == "3x1":
-                ax = fig.add_subplot(ny,nx,2,projection=ccrs.PlateCarree())
-            elif layout in ["2x2", "3x2"]:
-                ax = fig.add_subplot(spec[1,0],projection=ccrs.PlateCarree())
-            else:
-                gddfn.error(logger, f"layout {layout} not recognized")
-            thisMin = int(np.round(np.nanmin(gdd_map_yx)))
-            thisMax = int(np.round(np.nanmax(gdd_map_yx)))
-            thisTitle = f"{run2_name} (range {thisMin}–{thisMax})"
-            make_map(ax, gdd_map_yx, thisTitle, vmax, bin_width,
-                     fontsize_ticklabels, fontsize_titles, vmin=vmin)
-            
-            # Difference
-            if layout == "3x2":
-                ax = fig.add_subplot(spec[2,0],projection=ccrs.PlateCarree())
-                thisMin = int(np.round(np.nanmin(gdd_map_yx)))
-                thisMax = int(np.round(np.nanmax(gdd_map_yx)))
-                thisTitle = f"{run2_name} minus {run1_name}"
-                diff_map_yx = gdd_map_yx - gddharv_map_yx
-                diff_map_yx.attrs['units'] = gdd_units
-                
-                gdd_spacing = 500
-                vmax, bounds, Ncolors = get_bounds_ncolors(gdd_spacing, diff_map_yx)
-                if Ncolors < 9:
-                    gdd_spacing = 250
-                    vmax, bounds, Ncolors = get_bounds_ncolors(gdd_spacing, diff_map_yx)
-                
-                cmap = cm.get_cmap(cropcal_colors['div_other_nonnorm'], Ncolors)
-                cbar_ticks = []
-                include_0bin_ticks = Ncolors <= 13
-                if vmax <= 3000:
-                    tick_spacing = gdd_spacing*2
-                elif vmax <= 5000:
-                    tick_spacing = 1500
-                else:
-                    tick_spacing = 2000
-                previous = -np.inf
-                for x in bounds:
-                    if (not include_0bin_ticks) and (x>0) and (previous<0):
-                        cbar_ticks.append(0)
-                    if x % tick_spacing == 0 or (include_0bin_ticks and abs(x)==gdd_spacing/2):
-                        cbar_ticks.append(x)
-                    previous = x
-                
-                make_map(ax, diff_map_yx, thisTitle, vmax, bin_width,
-                        fontsize_ticklabels, fontsize_titles, bounds=bounds,
-                        extend='both', cmap=cmap, cbar_ticks=cbar_ticks)
-            
-            # Boxplots #####################
-
-            gdd_vector = get_non_nans(gdd_map_yx, dummy_fill)
-            gddharv_vector = get_non_nans(gddharv_map_yx, dummy_fill)
-            
-            lat_abs = np.abs(gdd_map_yx.lat.values)
-            gdd_bybin_old = [gddharv_vector]
-            gdd_bybin_new = [gdd_vector]
-            for b in np.arange(Nbins):
-                lower = lat_bin_edges[b]
-                upper = lat_bin_edges[b+1]
-                lat_inds = np.where((lat_abs>=lower) & (lat_abs<upper))[0]
-                gdd_vector_thisBin = get_non_nans(gdd_map_yx[lat_inds,:], dummy_fill)
-                gddharv_vector_thisBin = get_non_nans(gddharv_map_yx[lat_inds,:], dummy_fill)
-                gdd_bybin_old.append(gddharv_vector_thisBin)
-                gdd_bybin_new.append(gdd_vector_thisBin)
-                    
-            if layout == "3x1":
-                ax = fig.add_subplot(ny,nx,3)
-            elif layout in ["2x2", "3x2"]:
-                ax = fig.add_subplot(spec[:,1])
-            else:
-                gddfn.error(logger, f"layout {layout} not recognized")
-    
-            # Shift bottom of plot up to make room for legend
-            ax_pos = ax.get_position()
-            ax.set_position(Bbox.from_extents(ax_pos.x0, 0.19, ax_pos.x1, ax_pos.y1))
-            # Define legend position
-            legend_bbox_to_anchor = (0, -0.15, 1, 0.2)
-            
-            bpl = make_plot(gdd_bybin_old, -1, linewidth)
-            bpr = make_plot(gdd_bybin_new, 1, linewidth)
-            set_boxplot_props(bpl, color_old, linewidth)
-            set_boxplot_props(bpr, color_new, linewidth)
-            
-            # draw temporary lines to create a legend
-            plt.plot([], c=color_old, label=run1_name, linewidth=linewidth)
-            plt.plot([], c=color_new, label=run2_name, linewidth=linewidth)
-            plt.legend(fontsize=fontsize_titles,
-                       bbox_to_anchor=legend_bbox_to_anchor,
-                       ncol = 2,
-                       loc='lower left',
-                       mode = 'expand')
-            
-            plt.xticks(range(0, len(bin_names) * 2, 2), bin_names,
-                       fontsize=fontsize_ticklabels)
-            plt.yticks(fontsize=fontsize_ticklabels)
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            
-            plt.xlabel("Latitude zone (absolute value)", fontsize=fontsize_axislabels)
-            plt.ylabel(gdd_units, fontsize=fontsize_axislabels)
-            ax.yaxis.set_label_coords(-0.11, 0.5)
-            plt.title(f"Zonal changes", fontsize=fontsize_titles, fontweight="bold")
-            
-            plt.suptitle(f"Maturity requirements: {vegtype_str_title}" + lu_years_text,
-                         fontsize=fontsize_titles*1.2,
-                         fontweight="bold",
-                         y=0.95)
-            
-            if vegtype_str in incl_vegtypes_str:
-                outfile = os.path.join(outdir_figs, f"{theseVars[0]}_{vegtype_str}_gs{y1}-{yN}{lu_years_file}.png")
-            else:
-                outfile = os.path.join(outdir_figs, f"{vegtype_str}_gs{y1}-{yN}{lu_years_file}.png")
-            plt.savefig(outfile, dpi=300, transparent=False, facecolor='white',
-                        bbox_inches='tight')
-            plt.close()
-    
-        gddfn.log(logger, "Done.")
-    
     if save_figs: 
         if only_make_figs:
             gdd_maps_ds = xr.open_dataset(os.path.join(run_dir, "figs", "gdd_maps.nc"))
             gddharv_maps_ds = xr.open_dataset(os.path.join(run_dir, "figs", "gddharv_maps.nc"))
-        make_figures(first_land_use_year, last_land_use_year, land_use_file, run1_name, run2_name, gdd_maps_ds=gdd_maps_ds, gddharv_maps_ds=gddharv_maps_ds, outdir_figs=outdir_figs, linewidth=linewidth)
+        gddfn.make_figures(first_land_use_year, last_land_use_year, land_use_file, run1_name, run2_name, logger, gdd_maps_ds=gdd_maps_ds, gddharv_maps_ds=gddharv_maps_ds, outdir_figs=outdir_figs)
 
 
 if __name__ == "__main__":
