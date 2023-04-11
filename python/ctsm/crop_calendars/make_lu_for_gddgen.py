@@ -25,7 +25,11 @@ def main(argv):
     ds_in = xr.open_dataset(args.flanduse_timeseries)
     if args.first_fake_year is None:
         first_fake_year = ds_in['time'].values[0].year
+    elif first_fake_year < ds_in['time'].values[0].year:
+        first_fake_year = ds_in['time'].values[0].year
     if args.last_fake_year is None:
+        last_fake_year = ds_in['time'].values[-1].year
+    elif last_fake_year > ds_in['time'].values[-1].year:
         last_fake_year = ds_in['time'].values[-1].year
     
     outfile = args.flanduse_timeseries.replace('.nc', f'.gddgen{first_fake_year}-{last_fake_year}.nc')
