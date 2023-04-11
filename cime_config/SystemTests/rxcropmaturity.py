@@ -113,7 +113,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Make flanduse_timeseries for this test, if not already done
         if not os.path.exists(self._flanduse_timeseries_out):
             
-            first_fake_year = self._run_startyear - 1
+            first_fake_year = self._run_startyear
             last_fake_year = first_fake_year + self._run_Nyears
             
             tool_path = os.path.join(self._ctsm_root,

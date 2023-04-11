@@ -24,22 +24,19 @@ def main(argv):
 
     ds_in = xr.open_dataset(args.flanduse_timeseries)
     if args.first_fake_year is None:
-        first_fake_year = ds_in['time'].values[0].year
-    elif first_fake_year < ds_in['time'].values[0].year:
-        first_fake_year = ds_in['time'].values[0].year
+        args.first_fake_year = ds_in['time'].values[0].year
     if args.last_fake_year is None:
-        last_fake_year = ds_in['time'].values[-1].year
-    elif last_fake_year > ds_in['time'].values[-1].year:
-        last_fake_year = ds_in['time'].values[-1].year
+        args.last_fake_year = ds_in['time'].values[-1].year
     
-    outfile = args.flanduse_timeseries.replace('.nc', f'.gddgen{first_fake_year}-{last_fake_year}.nc')
+    if args.outfile is None:
+        args.outfile = args.flanduse_timeseries.replace('.nc', f'.gddgen{args.first_fake_year}-{args.last_fake_year}.nc')
 
 
     ##########################
     ### Import and process ###
     ##########################
 
-    ds_tmp = ds_in.sel(time=slice(first_fake_year,last_fake_year)).copy()
+    ds_tmp = ds_in.sel(time=slice(args.first_fake_year,args.last_fake_year)).copy()
 
     # Where is each crop ever active?
     if "AREA" not in ds_tmp:
@@ -81,10 +78,10 @@ def main(argv):
     ### Save output netCDF ###
     ##########################
     
-    ds_out = xr.concat((ds_in.copy().sel(time=slice(0, first_fake_year-1)),
+    ds_out = xr.concat((ds_in.copy().sel(time=slice(0, args.first_fake_year)),
                         ds_tmp), dim="time")
     ds_out = ds_out.drop([v for v in ds_out if v not in ds_in])
-    ds_out.to_netcdf(outfile, format="NETCDF3_64BIT")
+    ds_out.to_netcdf(args.outfile, format="NETCDF3_64BIT")
 
 
 if __name__ == "__main__":
