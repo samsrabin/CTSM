@@ -100,13 +100,64 @@ class RXCROPMATURITY(SystemTestsCommon):
             # Download files from the server
             case.check_all_input_data()
             
-            # Make custom version of fsurdat
-            logger.info("  run make_surface_for_gdden")
-            self._run_make_surface_for_gdden()
+            # Make custom version of flanduse_timeseries
+            logger.info("  run make_lu_for_gdden")
+            self._run_make_lu_for_gdden()
             
             
+    def _run_make_lu_for_gdden(self):
+        
+        # Where we will save the flanduse_timeseries version for this test
+        self._flanduse_timeseries_out = os.path.join(self._get_caseroot(), 'flanduse_timeseries.nc')
+        
+        # Make flanduse_timeseries for this test, if not already done
+        if not os.path.exists(self._flanduse_timeseries_out):
             
+            first_fake_year = self._run_startyear - 1
+            last_fake_year = first_fake_year + self._run_Nyears
             
+            tool_path = os.path.join(self._ctsm_root,
+                                    'python', 'ctsm', 'crop_calendars',
+                                    'make_lu_for_gddgen.py')
+
+            self._case.load_env(reset=True)
+            conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
+            # Preprend the commands to get the conda environment for python first
+            conda_env += self._get_conda_env()
+            # Source the env
+            try:
+                command = " ".join([
+                    f"{conda_env}python3 {tool_path}",
+                    f"--flanduse-timeseries {self._flanduse_timeseries_in}",
+                    f"-y1 {first_fake_year}",
+                    f"-yN {last_fake_year}",
+                    f"--outfile {self._flanduse_timeseries_out}",
+                ])
+                print(f"command: {command}")
+                subprocess.run(command, shell=True, check=True)
+            except subprocess.CalledProcessError as error:
+                print("ERROR while getting the conda environment and/or ")
+                print("running the make_lu_for_gddgen tool: ")
+                print("(1) If your npl environment is out of date or you ")
+                print("have not created the npl environment, yet, you may ")
+                print("get past this error by running ./py_env_create ")
+                print("in your ctsm directory and trying this test again. ")
+                print("(2) If conda is not available, install and load conda, ")
+                print("run ./py_env_create, and then try this test again. ")
+                print("(3) If (1) and (2) are not the issue, then you may be ")
+                print("getting an error within the make_lu_for_gddgen tool itself. ")
+                print("Default error message: ")
+                print(error.output)
+                raise
+            except:
+                print("ERROR trying to run make_lu_for_gddgen tool.")
+                raise
+        
+        # Modify namelist
+        logger.info("  modify user_nl files: new flanduse_timeseries")
+        self._modify_user_nl_newflanduse_timeseries()
+
+
     def _run_make_surface_for_gdden(self):
         
         # fsurdat should be defined. Where is it?
@@ -199,6 +250,15 @@ class RXCROPMATURITY(SystemTestsCommon):
             "do_transient_crops = .false.",
             "flanduse_timeseries = ''",
             "use_init_interp = .true.",
+        ]
+        for addition in nl_additions:
+            append_to_user_nl_files(caseroot = self._get_caseroot(),
+                                    component = "clm",
+                                    contents = addition)
+    
+    def _modify_user_nl_newflanduse_timeseries(self):
+        nl_additions = [
+            "flanduse_timeseries = '{}'".format(self._flanduse_timeseries_out),
         ]
         for addition in nl_additions:
             append_to_user_nl_files(caseroot = self._get_caseroot(),
