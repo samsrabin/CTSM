@@ -3,7 +3,10 @@ import cf_units as cf
 import cftime
 import numpy as np
 import xarray as xr
-from cartopy.util import add_cyclic_point
+try:
+    from cartopy.util import add_cyclic_point
+except:
+    pass
 
 #from xr_ds_ex import xr_ds_ex
 
@@ -871,6 +874,8 @@ def import_ds(filelist, myVars=None, myVegtypes=None, timeSlice=None, myVars_mis
             preprocess=mfdataset_preproc_closure,
             compat='override',
             coords='all',
+            concat_dim='time',
+            combine='nested',
             chunks=chunks)
     elif isinstance(filelist, str):
         this_ds = xr.open_dataset(filelist, chunks=chunks)
