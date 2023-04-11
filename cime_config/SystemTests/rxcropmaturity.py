@@ -11,6 +11,7 @@ import subprocess
 from CIME.SystemTests.system_tests_common import SystemTestsCommon
 from CIME.XML.standard_module_setup import *
 from CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
+from python.ctsm.crop_calendars import generate_gdds
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,23 @@ class RXCROPMATURITY(SystemTestsCommon):
         initialize an object interface to the SMS system test
         """
         SystemTestsCommon.__init__(self, case)
-
+        
+        
+        """
+        Get some info
+        """
         self._ctsm_root = self._case.get_value('COMP_ROOT_DIR_LND')
+        run_startdate = self._case.get_value('RUN_STARTDATE')
+        self._run_startyear = int(run_startdate.split('-')[0])
+        self._run_Nyears = 4
         
         
         """
         Set run length
         """
-        
+
         self._case.set_value("STOP_OPTION", "nyears")
-        self._case.set_value("STOP_N", 4)
+        self._case.set_value("STOP_N", self._run_Nyears)
         
         
         """
@@ -193,6 +201,30 @@ class RXCROPMATURITY(SystemTestsCommon):
             append_to_user_nl_files(caseroot = self._get_caseroot(),
                                     component = "clm",
                                     contents = addition)
+    
+    def run_phase(self):
+        caseroot = self._case.get_value("CASEROOT")
+        orig_case = self._case
+        orig_casevar = self._case.get_value("CASE")
+        
+        """
+        (1) Perform GDD-Generating run, which was set up during init()
+        """
+        self.run_indv()
+        
+        """
+        (2) Generate prescribed GDDs file
+        """
+        run_dir = os.path.join(caseroot, "run")
+        first_season = self._run_startyear + 2
+        last_season = first_season + self._run_Nyears - 1
+        sdates_file = self._sdatefile
+        hdates_file = self._hdatefile
+        generate_gdds.main(run_dir=run_dir, first_season=first_season, last_season=last_season,
+                           sdates_file=sdates_file, hdates_file=hdates_file, output_dir=caseroot,
+                           logger=logger)
+        
+        
 
     def _get_conda_env(self):
         #
