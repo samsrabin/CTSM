@@ -14,8 +14,10 @@ def main(argv):
                         help="Land-use timeseries file (flanduse_timeseries) for CLM run",
                         required=True)
     parser.add_argument("-y1", "--first_fake_year", "--first-fake-year", 
+                        type=int,
                         help="First year in the output flanduse_timeseries file")
     parser.add_argument("-yN", "--last_fake_year", "--last-fake-year", 
+                        type=int,
                         help="Last year in the output flanduse_timeseries file")
     parser.add_argument("-o", "--outfile", 
                         help="Output flanduse_timeseries file")
@@ -78,7 +80,7 @@ def main(argv):
     ### Save output netCDF ###
     ##########################
     
-    ds_out = xr.concat((ds_in.copy().sel(time=slice(0, args.first_fake_year)),
+    ds_out = xr.concat((ds_in.copy().sel(time=slice(0, args.first_fake_year-1)),
                         ds_tmp), dim="time")
     ds_out = ds_out.drop([v for v in ds_out if v not in ds_in])
     ds_out.to_netcdf(args.outfile, format="NETCDF3_64BIT")
