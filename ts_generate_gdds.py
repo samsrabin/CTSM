@@ -16,7 +16,7 @@ h2 = utils.import_ds(glob(os.path.join(rundir, "*h2*")))
 for thisYear in [1850, 1851, 1852, 1853, 1854]:
     print(thisYear)
 
-    h2_filelist = glob(os.path.join(rundir, "*h2*"))
+    h2_filelist = glob(os.path.join(rundir, "*h2*nc"))
     dates_ds = utils.import_ds(h2_filelist, \
         myVars=["SDATES", "HDATES"], 
         myVegtypes=utils.define_mgdcrop_list(),
