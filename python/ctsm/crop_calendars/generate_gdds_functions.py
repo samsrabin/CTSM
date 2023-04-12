@@ -165,7 +165,7 @@ def import_and_process_1yr(y1, yN, y, thisYear, sdates_rx, hdates_rx, gddaccum_y
     log(logger, dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     
     # Get h2 file (list)
-    h2_pattern = os.path.join(indir, "*h2.*")
+    h2_pattern = os.path.join(indir, "*h2.*.nc")
     h2_filelist = glob.glob(h2_pattern)
     if not h2_filelist:
         error(logger, f"No files found matching pattern: {h2_pattern}")
@@ -356,13 +356,13 @@ def import_and_process_1yr(y1, yN, y, thisYear, sdates_rx, hdates_rx, gddaccum_y
     myVars = [clm_gdd_var]
     if not gddharv_in_h3:
         myVars.append("GDDHARV")
-    pattern = os.path.join(indir, f"*h1.{thisYear-1}-01-01*")
+    pattern = os.path.join(indir, f"*h1.{thisYear-1}-01-01*.nc")
     h1_ds = utils.import_ds(glob.glob(pattern), myVars=myVars, myVegtypes=utils.define_mgdcrop_list(), myVars_missing_ok=['GDDHARV'])
     if 'GDDHARV' not in h1_ds:
         if not gddharv_in_h3:
             log(logger, 'Trying to get GDDHARV from h3 file(s) instead.')
         try:
-            pattern = os.path.join(indir, f"*h3.{thisYear-1}-01-01*")
+            pattern = os.path.join(indir, f"*h3.{thisYear-1}-01-01*.nc")
             h3_ds = utils.import_ds(glob.glob(pattern), myVars=['GDDHARV'], myVegtypes=utils.define_mgdcrop_list())
             h1_ds['GDDHARV'] = h3_ds['GDDHARV']
             if not gddharv_in_h3:
