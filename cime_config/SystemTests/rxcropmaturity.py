@@ -288,16 +288,12 @@ class RXCROPMATURITY(SystemTestsCommon):
 
     def _run_generate_gdds(self):
         caseroot = self._case.get_value("CASEROOT")
-#        caseroot = "/glade/scratch/samrabin/RXCROPMATURITY_Ld3.f10_f10_mg37.IHistClm50BgcCrop.cheyenne_intel.clm-default.G.20230411_112631_hd6o3h"
         outdir = "generate_gdds_out"
         os.makedirs(outdir)
 
         run_dir = os.path.join(caseroot, "run")
         first_season = self._run_startyear + 2
         last_season = self._run_startyear + self._run_Nyears - 2
-#        run_dir = "/glade/scratch/samrabin/archive/tests_10x15_20230329_gddgen/lnd/hist"
-#        first_season = 1997
-#        last_season = 1999
         sdates_file = self._sdatefile
         hdates_file = self._hdatefile
 
