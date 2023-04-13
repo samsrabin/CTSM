@@ -78,7 +78,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             raise
         
         # Set sowing dates file (and other crop calendar settings) for all runs
-        logger.info("  modify user_nl files: generate GDDs")
+        logger.info("  modify user_nl files: all tests")
         self._modify_user_nl_allruns()
 
 
@@ -97,12 +97,14 @@ class RXCROPMATURITY(SystemTestsCommon):
         if os.path.exists(path_rxboth):
             shutil.rmtree(path_rxboth)
         self._case_rxboth = self._case.create_clone(path_rxboth, keepexe=True)
+        logger.info("  done cloning")
         
         
         #-------------------------------------------------------------------
         # (2) Make changes and files needed for GDD-Generating run only
         #-------------------------------------------------------------------
         
+        logger.info("  modify user_nl files: generate GDDs")
         self._modify_user_nl_gengdds()
         
         """
