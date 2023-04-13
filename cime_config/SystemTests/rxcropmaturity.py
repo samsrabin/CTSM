@@ -92,8 +92,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         self.build_indv(sharedlib_only=sharedlib_only, model_only=model_only)
         
         # Create Prescribed Calendars clone of GDD-Generating case
-        case_gddgen = self._case
-        path_rxboth = "{}.rxboth".format(case_gddgen.caseroot)
+        logger.info("  cloning")
+        caseroot = self._case.get_value("CASEROOT")
+        path_rxboth = f"{caseroot}.rxboth"
         if os.path.exists(path_rxboth):
             shutil.rmtree(path_rxboth)
         self._case_rxboth = self._case.create_clone(path_rxboth, keepexe=True)
@@ -337,7 +338,7 @@ class RXCROPMATURITY(SystemTestsCommon):
 
     def _run_generate_gdds(self):
         caseroot = self._case.get_value("CASEROOT")
-        outdir = "generate_gdds_out"
+        self._generate_gdds_dir = os.path.join(caseroot, "generate_gdds_out")
         os.makedirs(outdir)
 
         run_dir = os.path.join(caseroot, "run")
@@ -387,7 +388,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             raise
         
         # Where were the prescribed maturity requirements saved?
-        generated_gdd_files = glob.glob(os.path.join(caseroot, "generate_gdds", "gdds_*.nc"))
+        generated_gdd_files = glob.glob(os.path.join(self._generate_gdds_dir, "gdds_*.nc"))
         generated_gdd_files = [x for x in generated_gdd_files if "fill0" not in x]
         if len(generated_gdd_files) != 1:
             print(f"ERROR: Expected one matching prescribed maturity requirements file; found {len(generated_gdd_files)}: {generated_gdd_files}")
