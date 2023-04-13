@@ -137,12 +137,6 @@ class RXCROPMATURITY(SystemTestsCommon):
         """
         (2) Generate prescribed GDDs file
         """
-        run_dir = os.path.join(caseroot, "run")
-        first_season = self._run_startyear + 2
-        last_season = first_season + self._run_Nyears - 1
-        sdates_file = self._sdatefile
-        hdates_file = self._hdatefile
-        # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
         self._run_generate_gdds()
     
          
@@ -336,6 +330,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         conda_env += self._get_conda_env()
         # Source the env
         try:
+            # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
             command = " ".join([
                     f"{conda_env}python3 {tool_path}",
                     f"--run-dir {run_dir}",
