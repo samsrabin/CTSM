@@ -294,7 +294,7 @@ class RXCROPMATURITY(SystemTestsCommon):
 
         run_dir = os.path.join(caseroot, "run")
         first_season = self._run_startyear + 2
-        last_season = first_season + self._run_Nyears - 1
+        last_season = self._run_startyear + self._run_Nyears - 2
 #        run_dir = "/glade/scratch/samrabin/archive/tests_10x15_20230329_gddgen/lnd/hist"
 #        first_season = 1997
 #        last_season = 1999
