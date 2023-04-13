@@ -82,14 +82,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._modify_user_nl_allruns()
 
 
-    def build_phase(self, sharedlib_only=False, model_only=False):
-        
-        #-------------------------------------------------------------------
-        # (1) Set up GDD-generating run
-        #-------------------------------------------------------------------
-        
-        # Build GDD-generating run
-        self.build_indv(sharedlib_only=sharedlib_only, model_only=model_only)
+    def run_phase(self):
         
         # Create Prescribed Calendars clone of GDD-Generating case
         logger.info("  cloning")
@@ -97,16 +90,15 @@ class RXCROPMATURITY(SystemTestsCommon):
         path_rxboth = f"{caseroot}.rxboth"
         if os.path.exists(path_rxboth):
             shutil.rmtree(path_rxboth)
-        self._case_rxboth = self._case.create_clone(path_rxboth, keepexe=True)
+        case_rxboth = self._case.create_clone(path_rxboth, keepexe=True)
         logger.info("  done cloning")
         
-        
         #-------------------------------------------------------------------
-        # (2) Make changes and files needed for GDD-Generating run only
+        # (1) Set up GDD-generating run
         #-------------------------------------------------------------------
-        
         logger.info("  modify user_nl files: generate GDDs")
         self._modify_user_nl_gengdds()
+        self._case.create_namelists(component='lnd')
         
         """
         If needed, generate a surface dataset file with no crops missing years
@@ -126,34 +118,26 @@ class RXCROPMATURITY(SystemTestsCommon):
         # this test (if we haven't already).
         if self._flanduse_timeseries_in is not None:
             
-            # Download files from the server
+            # Download files from the server, if needed
             self._case.check_all_input_data()
             
             # Make custom version of flanduse_timeseries
             logger.info("  run make_lu_for_gdden")
             self._run_make_lu_for_gdden()
-    
-    
-    def run_phase(self):
         
-        """
-        (1) Perform GDD-Generating run, ensuring up-to-date namelists
-        """
-        self._case.create_namelists(component='lnd')
+        #-------------------------------------------------------------------
+        # (2) Perform GDD-generating run and generate prescribed GDDs file
+        #-------------------------------------------------------------------
         self.run_indv()
-        
-        """
-        (2) Generate prescribed GDDs file
-        """
         self._run_generate_gdds()
         
-        """
-        (3) Set up and perform Prescribed Calendars run
-        """
-        logger.info("Set up and perform Prescribed Calendars run")
+        #-------------------------------------------------------------------
+        # (3) Set up and perform Prescribed Calendars run
+        #-------------------------------------------------------------------
+        logger.info("  modify user_nl files: Prescribed Calendars")
         self._modify_user_nl_rxboth()
-        os.chdir(self._case_rxboth.get_value("CASEROOT"))
-        self._set_active_case(self._case_rxboth)
+        os.chdir(case_rxboth.get_value("CASEROOT"))
+        self._set_active_case(case_rxboth)
         self.run_indv(suffix="rxboth", st_archive=True)
     
          
