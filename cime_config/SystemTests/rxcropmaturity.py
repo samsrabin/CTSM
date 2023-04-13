@@ -74,17 +74,30 @@ class RXCROPMATURITY(SystemTestsCommon):
             print(f"ERROR: Harvest date file not found: {self._sdatefile}")
             raise
         
-        # Set sowing dates file for run
+        # Set sowing dates file (and other crop calendar settings) for all runs
         logger.info("  modify user_nl files: generate GDDs")
-        self._modify_user_nl_gengdds()
+        self._modify_user_nl_allruns()
+
+
+    def build_phase(self, sharedlib_only=False, model_only=False):
         
+        #-------------------------------------------------------------------
+        # (1) Set up GDD-generating run
+        #-------------------------------------------------------------------
+        
+        # Build GDD-generating run
+        self.build_indv(sharedlib_only=sharedlib_only, model_only=model_only)
+        
+        
+        #-------------------------------------------------------------------
+        # (2) Make changes and files needed for GDD-Generating run only
+        #-------------------------------------------------------------------
+        
+        self._modify_user_nl_gengdds()
         
         """
         If needed, generate a surface dataset file with no crops missing years
         """
-        
-        # Create out-of-the-box lnd_in to obtain fsurdat and flanduse_timeseries
-        case.create_namelists(component='lnd')
         
         # Is flanduse_timeseries defined? If so, where is it? 
         self._lnd_in_path = os.path.join(self._get_caseroot(), 'CaseDocs', 'lnd_in')
@@ -101,7 +114,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         if self._flanduse_timeseries_in is not None:
             
             # Download files from the server
-            case.check_all_input_data()
+            self._case.check_all_input_data()
             
             # Make custom version of flanduse_timeseries
             logger.info("  run make_lu_for_gdden")
@@ -114,8 +127,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         orig_casevar = self._case.get_value("CASE")
         
         """
-        (1) Perform GDD-Generating run, which was set up during init()
+        (1) Perform GDD-Generating run, ensuring up-to-date namelists
         """
+        self._case.create_namelists(component='lnd')
         self.run_indv()
         
         """
@@ -240,12 +254,10 @@ class RXCROPMATURITY(SystemTestsCommon):
         logger.info("  modify user_nl files: new fsurdat")
         self._modify_user_nl_newfsurdat()
         
-    def _modify_user_nl_gengdds(self):
+    def _modify_user_nl_allruns(self):
         nl_additions = [
             "stream_meshfile_cropcal = '{}'".format(self._case.get_value("LND_DOMAIN_MESH")),
             "stream_fldFileName_sdate = '{}'".format(self._sdatefile),
-            "generate_crop_gdds = .true.",
-            "use_mxmat = .false.",
             "stream_year_first_cropcal = 2000",
             "stream_year_last_cropcal = 2000",
             "model_year_align_cropcal = 2000",
@@ -263,6 +275,17 @@ class RXCROPMATURITY(SystemTestsCommon):
             "hist_mfilt(3) = 999",
             "hist_type1d_pertape(3) = 'PFTS'",
             "hist_dov2xy(3) = .false.",
+        ]
+        for addition in nl_additions:
+            append_to_user_nl_files(caseroot = self._get_caseroot(),
+                                    component = "clm",
+                                    contents = addition)
+
+
+    def _modify_user_nl_gengdds(self):
+        nl_additions = [
+            "generate_crop_gdds = .true.",
+            "use_mxmat = .false.",
         ]
         for addition in nl_additions:
             append_to_user_nl_files(caseroot = self._get_caseroot(),
