@@ -106,8 +106,30 @@ class RXCROPMATURITY(SystemTestsCommon):
             # Make custom version of flanduse_timeseries
             logger.info("  run make_lu_for_gdden")
             self._run_make_lu_for_gdden()
-            
-            
+    
+    
+    def run_phase(self):
+        caseroot = self._case.get_value("CASEROOT")
+        orig_case = self._case
+        orig_casevar = self._case.get_value("CASE")
+        
+        """
+        (1) Perform GDD-Generating run, which was set up during init()
+        """
+        self.run_indv()
+        
+        """
+        (2) Generate prescribed GDDs file
+        """
+        run_dir = os.path.join(caseroot, "run")
+        first_season = self._run_startyear + 2
+        last_season = first_season + self._run_Nyears - 1
+        sdates_file = self._sdatefile
+        hdates_file = self._hdatefile
+        # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
+        self._run_generate_gdds()
+    
+         
     def _run_make_lu_for_gdden(self):
         
         # Where we will save the flanduse_timeseries version for this test
@@ -217,7 +239,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Modify namelist
         logger.info("  modify user_nl files: new fsurdat")
         self._modify_user_nl_newfsurdat()
-
+        
     def _modify_user_nl_gengdds(self):
         nl_additions = [
             "stream_meshfile_cropcal = '{}'".format(self._case.get_value("LND_DOMAIN_MESH")),
@@ -267,27 +289,6 @@ class RXCROPMATURITY(SystemTestsCommon):
             append_to_user_nl_files(caseroot = self._get_caseroot(),
                                     component = "clm",
                                     contents = addition)
-    
-    def run_phase(self):
-        caseroot = self._case.get_value("CASEROOT")
-        orig_case = self._case
-        orig_casevar = self._case.get_value("CASE")
-        
-        """
-        (1) Perform GDD-Generating run, which was set up during init()
-        """
-        self.run_indv()
-        
-        """
-        (2) Generate prescribed GDDs file
-        """
-        run_dir = os.path.join(caseroot, "run")
-        first_season = self._run_startyear + 2
-        last_season = first_season + self._run_Nyears - 1
-        sdates_file = self._sdatefile
-        hdates_file = self._hdatefile
-        # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
-        self._run_generate_gdds()
 
     def _run_generate_gdds(self):
         caseroot = self._case.get_value("CASEROOT")
