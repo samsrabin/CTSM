@@ -29,7 +29,10 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._ctsm_root = self._case.get_value('COMP_ROOT_DIR_LND')
         run_startdate = self._case.get_value('RUN_STARTDATE')
         self._run_startyear = int(run_startdate.split('-')[0])
-        self._run_Nyears = 4
+        
+        # Minimum 4, but that only gets you 1 season usable for GDD
+        # generation, so you can't check for season-to-season consistency.
+        self._run_Nyears = 5
         
         
         """
