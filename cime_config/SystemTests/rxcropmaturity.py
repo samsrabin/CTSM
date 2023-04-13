@@ -11,6 +11,7 @@ import subprocess
 from CIME.SystemTests.system_tests_common import SystemTestsCommon
 from CIME.XML.standard_module_setup import *
 from CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
+import shutil, glob
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Build GDD-generating run
         self.build_indv(sharedlib_only=sharedlib_only, model_only=model_only)
         
+        # Create Prescribed Calendars clone of GDD-Generating case
+        case_gddgen = self._case
+        path_rxboth = "{}.rxboth".format(case_gddgen.caseroot)
+        if os.path.exists(path_rxboth):
+            shutil.rmtree(path_rxboth)
+        self._case_rxboth = self._case.create_clone(path_rxboth, keepexe=True)
+        
         
         #-------------------------------------------------------------------
         # (2) Make changes and files needed for GDD-Generating run only
@@ -124,9 +132,6 @@ class RXCROPMATURITY(SystemTestsCommon):
     
     
     def run_phase(self):
-        caseroot = self._case.get_value("CASEROOT")
-        orig_case = self._case
-        orig_casevar = self._case.get_value("CASE")
         
         """
         (1) Perform GDD-Generating run, ensuring up-to-date namelists
@@ -138,6 +143,15 @@ class RXCROPMATURITY(SystemTestsCommon):
         (2) Generate prescribed GDDs file
         """
         self._run_generate_gdds()
+        
+        """
+        (3) Set up and perform Prescribed Calendars run
+        """
+        logger.info("Set up and perform Prescribed Calendars run")
+        self._modify_user_nl_rxboth()
+        os.chdir(self._case_rxboth.get_value("CASEROOT"))
+        self._set_active_case(self._case_rxboth)
+        self.run_indv(suffix="rxboth", st_archive=True)
     
          
     def _run_make_lu_for_gdden(self):
@@ -288,6 +302,16 @@ class RXCROPMATURITY(SystemTestsCommon):
                                     component = "clm",
                                     contents = addition)
 
+    def _modify_user_nl_rxboth(self):
+        nl_additions = [
+            "generate_crop_gdds = .false.",
+            f"stream_fldFileName_cultivar_gdds = '{self._gdds_file}'",
+        ]
+        for addition in nl_additions:
+            append_to_user_nl_files(caseroot = self._get_caseroot(),
+                                    component = "clm",
+                                    contents = addition)
+
     def _modify_user_nl_newfsurdat(self):
         nl_additions = [
             "fsurdat = '{}'".format(self._fsurdat_out),
@@ -360,6 +384,13 @@ class RXCROPMATURITY(SystemTestsCommon):
             print("ERROR trying to run generate_gdds tool.")
             raise
         
+        # Where were the prescribed maturity requirements saved?
+        generated_gdd_files = glob.glob(os.path.join(caseroot, "generate_gdds", "gdds_*.nc"))
+        generated_gdd_files = [x for x in generated_gdd_files if "fill0" not in x]
+        if len(generated_gdd_files) != 1:
+            print(f"ERROR: Expected one matching prescribed maturity requirements file; found {len(generated_gdd_files)}: {generated_gdd_files}")
+            raise
+        self._gdds_file = generated_gdd_files[0]
         
 
     def _get_conda_env(self):
