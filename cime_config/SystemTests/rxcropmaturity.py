@@ -47,7 +47,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         Get and set sowing and harvest dates
         """
         
-        # Get sowing and harvest dates for this resolution
+        # Get sowing and harvest dates for this resolution.
+        # Eventually, I want to remove these hard-coded resolutions so that this test can generate
+        # its own sowing and harvest date files at whatever resolution is requested.
         lnd_grid = self._case.get_value("LND_GRID")
         blessed_crop_dates_dir="/glade/work/samrabin/crop_dates_blessed"
         if lnd_grid == "10x15":
