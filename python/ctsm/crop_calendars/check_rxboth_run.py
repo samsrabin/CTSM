@@ -1,5 +1,6 @@
 # %% Setup
 
+import numpy as np
 import sys, argparse
 import cropcal_module as cc
 import glob, os
@@ -34,11 +35,6 @@ def main(argv):
     
     h2files = glob.glob(os.path.join(args.directory, "*.clm2.h2.*.nc.rxboth"))
     
-    this_ds = cc.import_output(h2files, myVars=myVars,
-                               y1=args.first_usable_year,
-                               yN=args.last_usable_year,
-                               incl_irrig=False)
-
     # These should be constant in a Prescribed Calendars (rxboth) run, as long as the inputs were
     # static.
     case = {
@@ -47,7 +43,41 @@ def main(argv):
         'rx_gdds_file': args.rx_gdds_file,
         }
     
-    cc.check_constant_vars(this_ds, case, ignore_nan=True, verbose=True, throw_error=True)
+    case['ds'] = cc.import_output(h2files, myVars=myVars,
+                                  y1=args.first_usable_year,
+                                  yN=args.last_usable_year,
+                                  incl_irrig=False)
+    cc.check_constant_vars(case['ds'], case, ignore_nan=True, verbose=True, throw_error=True)
+    
+    # Import GGCMI sowing and harvest dates, and check sims
+    casename = "Prescribed Calendars"
+    gdd_min = None
+    if 'rx_sdates_file' in case:
+        if case['rx_sdates_file']:
+            case['rx_sdates_ds'] = cc.import_rx_dates("sdate", case['rx_sdates_file'], case['ds'])
+        if case['rx_gdds_file']:
+            case['rx_gdds_ds'] = cc.import_rx_dates("gdd", case['rx_gdds_file'], case['ds'])
+        
+        # Equalize lons/lats
+        lonlat_tol = 1e-4
+        for v in ['rx_sdates_ds', 'rx_gdds_ds']:
+            if v in case:
+                for l in ['lon', 'lat']:
+                    max_diff_orig = np.max(np.abs(case[v][l].values - case['ds'][l].values))
+                    if max_diff_orig > lonlat_tol:
+                        raise RuntimeError(f'{v} {l} values differ too much ({max_diff_orig} > {lonlat_tol})')
+                    elif max_diff_orig > 0:
+                        case[v] = case[v].assign_coords({l: case['ds'][l].values})
+                        max_diff = np.max(np.abs(case[v][l].values - case['ds'][l].values))
+                        print(f'{v} {l} max_diff {max_diff_orig} → {max_diff}')
+                    else:
+                        print(f'{v} {l} max_diff {max_diff_orig}')
+                    
+        # Check
+        if case['rx_sdates_file']:
+            cc.check_rx_obeyed(case['ds'].vegtype_str.values, case['rx_sdates_ds'].isel(time=0), case['ds'], casename, "SDATES")
+        if case['rx_gdds_file']:
+            cc.check_rx_obeyed(case['ds'].vegtype_str.values, case['rx_gdds_ds'].isel(time=0), case['ds'], casename, "GDDHARV", gdd_min=gdd_min)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
