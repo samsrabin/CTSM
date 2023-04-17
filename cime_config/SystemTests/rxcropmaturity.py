@@ -135,9 +135,10 @@ class RXCROPMATURITY(SystemTestsCommon):
         # (3) Set up and perform Prescribed Calendars run
         #-------------------------------------------------------------------
         logger.info("  modify user_nl files: Prescribed Calendars")
-        self._modify_user_nl_rxboth()
         os.chdir(case_rxboth.get_value("CASEROOT"))
         self._set_active_case(case_rxboth)
+        self._modify_user_nl_rxboth()
+        self._skip_pnl = False
         self.run_indv(suffix="rxboth", st_archive=True)
     
          
