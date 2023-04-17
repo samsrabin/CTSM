@@ -278,8 +278,8 @@ class RXCROPMATURITY(SystemTestsCommon):
                 + f"--directory {self._path_rxboth} "\
                 + f"-y1 {first_usable_year} "\
                 + f"-yN {last_usable_year} "\
-                + f"--rx-sdates-file {self._sdatefile}"\
-                + f"--rx-gdds-file {self._gdds_file}"\
+                + f"--rx-sdates-file {self._sdatefile} "\
+                + f"--rx-gdds-file {self._gdds_file} "\
                 + " | tee -p check_rxboth_run.log"
             print(f"command: {command}")
             subprocess.run(command, shell=True, check=True)
