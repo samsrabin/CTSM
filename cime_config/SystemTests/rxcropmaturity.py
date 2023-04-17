@@ -139,7 +139,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._set_active_case(case_rxboth)
         self._modify_user_nl_rxboth()
         self._skip_pnl = False
-        self.run_indv(suffix="rxboth", st_archive=True)
+        self.run_indv(suffix=None, st_archive=True)
         
         #-------------------------------------------------------------------
         # (4) Check Prescribed Calendars run
