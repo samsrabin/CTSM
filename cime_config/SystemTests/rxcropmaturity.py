@@ -87,10 +87,10 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Create Prescribed Calendars clone of GDD-Generating case
         logger.info("  cloning")
         caseroot = self._case.get_value("CASEROOT")
-        path_rxboth = f"{caseroot}.rxboth"
-        if os.path.exists(path_rxboth):
-            shutil.rmtree(path_rxboth)
-        case_rxboth = self._case.create_clone(path_rxboth, keepexe=True)
+        self._path_rxboth = f"{caseroot}.rxboth"
+        if os.path.exists(self._path_rxboth):
+            shutil.rmtree(self._path_rxboth)
+        case_rxboth = self._case.create_clone(self._path_rxboth, keepexe=True)
         logger.info("  done cloning")
         
         #-------------------------------------------------------------------
@@ -140,6 +140,12 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._modify_user_nl_rxboth()
         self._skip_pnl = False
         self.run_indv(suffix="rxboth", st_archive=True)
+        
+        #-------------------------------------------------------------------
+        # (4) Check Prescribed Calendars run
+        #-------------------------------------------------------------------
+        logger.info("  output check: Prescribed Calendars")
+        self._run_check_rxboth_run()
     
          
     def _run_make_lu_for_gdden(self):
@@ -252,6 +258,51 @@ class RXCROPMATURITY(SystemTestsCommon):
         logger.info("  modify user_nl files: new fsurdat")
         self._modify_user_nl_newfsurdat()
         
+    
+    def _run_check_rxboth_run(self):
+        
+        first_usable_year = self._run_startyear + 2
+        last_usable_year = self._run_startyear + self._run_Nyears - 2
+                
+        tool_path = os.path.join(self._ctsm_root,
+                                'python', 'ctsm', 'crop_calendars',
+                                'check_rxboth_run.py')
+
+        self._case.load_env(reset=True)
+        conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
+        # Preprend the commands to get the conda environment for python first
+        conda_env += self._get_conda_env()
+        # Source the env
+        try:
+            command = f"{conda_env}python3 {tool_path} "\
+                + f"--directory {self._path_rxboth} "\
+                + f"-y1 {first_usable_year} "\
+                + f"-yN {last_usable_year} "\
+                + f"--rx-sdates-file {self._sdatefile}"\
+                + f"--rx-gdds-file {self._gdds_file}"\
+                + " | tee -p check_rxboth_run.log"
+            print(f"command: {command}")
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as error:
+            print("ERROR while getting the conda environment and/or ")
+            print("running the check_rxboth_run tool: ")
+            print("(1) If your npl environment is out of date or you ")
+            print("have not created the npl environment, yet, you may ")
+            print("get past this error by running ./py_env_create ")
+            print("in your ctsm directory and trying this test again. ")
+            print("(2) If conda is not available, install and load conda, ")
+            print("run ./py_env_create, and then try this test again. ")
+            print("(3) If (1) and (2) are not the issue, then you may be ")
+            print("getting an error within the check_rxboth_run tool itself. ")
+            print("Default error message: ")
+            print(error.output)
+            raise
+        except:
+            print("ERROR trying to run check_rxboth_run tool.")
+            raise
+                
+    
+    
     def _modify_user_nl_allruns(self):
         nl_additions = [
             "stream_meshfile_cropcal = '{}'".format(self._case.get_value("LND_DOMAIN_MESH")),
