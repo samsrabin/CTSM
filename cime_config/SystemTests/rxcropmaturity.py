@@ -128,7 +128,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         #-------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
         #-------------------------------------------------------------------
-        self.run_indv()
+        self.run_indv(st_archive=True)
         self._run_generate_gdds()
         
         #-------------------------------------------------------------------
@@ -139,7 +139,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._set_active_case(case_rxboth)
         self._modify_user_nl_rxboth()
         self._skip_pnl = False
-        self.run_indv(suffix=None, st_archive=True)
+        self.run_indv()
         
         #-------------------------------------------------------------------
         # (4) Check Prescribed Calendars run
