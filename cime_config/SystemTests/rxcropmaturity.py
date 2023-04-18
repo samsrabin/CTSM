@@ -375,7 +375,7 @@ class RXCROPMATURITY(SystemTestsCommon):
     def _run_generate_gdds(self):
         caseroot = self._case.get_value("CASEROOT")
         self._generate_gdds_dir = os.path.join(caseroot, "generate_gdds_out")
-        os.makedirs(outdir)
+        os.makedirs(self._generate_gdds_dir)
 
         run_dir = os.path.join(caseroot, "run")
         first_season = self._run_startyear + 2
