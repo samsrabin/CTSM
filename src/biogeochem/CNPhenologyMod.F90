@@ -2103,6 +2103,7 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
+            cphase(p) = cphase_planted
 
             ! call vernalization if winter temperate cereal planted, living, and the
             ! vernalization factor is not 1;
@@ -2318,11 +2319,9 @@ contains
                ! AgroIBIS uses a complex formula for lai decline.
                ! Use CN's simple formula at least as a place holder (slevis)
 
-            else if (hui(p) >= huigrain(p) .and. cphase(p) >= cphase_leafemerge) then
+            else if (hui(p) >= huigrain(p)) then
                cphase(p) = cphase_grainfill
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
-            else
-                cphase(p) = cphase_planted
             end if
 
             ! continue fertilizer application while in phase 2;
@@ -2401,15 +2400,16 @@ contains
        p = filter_pcropp(fp)
 
        if (croplive(p)) then
+          ! Start with cphase_planted, but this might get changed in the later
+          ! conditional blocks.
+          crop_phase(p) = cphase_planted
           if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
              crop_phase(p) = cphase_leafemerge
-          else if (hui(p) >= huigrain(p) .and. crop_inst%cphase_patch(p) >= cphase_leafemerge) then
+          else if (hui(p) >= huigrain(p)) then
              ! Since we know croplive is true, any hui greater than huigrain implies that
              ! we're in the grainfill stage: if we were passt gddmaturity then croplive
              ! would be false.
              crop_phase(p) = cphase_grainfill
-          else
-             crop_phase(p) = cphase_planted
           end if
        end if
     end do
@@ -2555,7 +2555,13 @@ contains
          gddmin            =>    pftcon%gddmin                                 , & ! Input:
          gdd020            =>    temperature_inst%gdd020_patch                 , & ! Input:  [real(r8) (:) ]  20 yr mean of gdd0
          gdd820            =>    temperature_inst%gdd820_patch                 , & ! Input:  [real(r8) (:) ]  20 yr mean of gdd8
-         gdd1020           =>    temperature_inst%gdd1020_patch                  & ! Input:  [real(r8) (:) ]  20 yr mean of gdd10
+         gdd1020           =>    temperature_inst%gdd1020_patch                , & ! Input:  [real(r8) (:) ]  20 yr mean of gdd10
+         aleafi            =>    cnveg_state_inst%aleafi_patch                 , & ! Output: [real(r8) (:)   ]  saved allocation coefficient from phase 2
+         astemi            =>    cnveg_state_inst%astemi_patch                 , & ! Output: [real(r8) (:)   ]  saved allocation coefficient from phase 2
+         aleaf             =>    cnveg_state_inst%aleaf_patch                  , & ! Output: [real(r8) (:)   ]  leaf allocation coefficient
+         astem             =>    cnveg_state_inst%astem_patch                  , & ! Output: [real(r8) (:)   ]  stem allocation coefficient
+         aroot             =>    cnveg_state_inst%aroot_patch                  , & ! Output: [real(r8) (:)   ]  root allocation coefficient
+         arepr             =>    cnveg_state_inst%arepr_patch                    & ! Output: [real(r8) (:,:) ]  reproductive allocation coefficient(s)
          )
 
       ! impose limit on growing season length needed
@@ -2645,6 +2651,19 @@ contains
           endif
           gddmaturity(p) = min_gddmaturity
       endif
+
+      ! Initialize allocation coefficients.
+      ! Because crops have no live carbon pools when planted but not emerged, this shouldn't
+      ! matter unless they skip the vegetative phase (which only happens in very weird run
+      ! setups).
+      aleaf(p) = 1._r8
+      aleafi(p) = 1._r8
+      astem(p) = 0._r8
+      astemi(p) = 0._r8
+      aroot(p) = 0._r8
+      do k = 1, nrepr
+         arepr(p,k) = 0._r8
+      end do
 
     end associate
 
