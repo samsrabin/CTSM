@@ -128,7 +128,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         #-------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
         #-------------------------------------------------------------------
-        self.run_indv(st_archive=True)
+        self.run_indv()
         self._run_generate_gdds()
         
         #-------------------------------------------------------------------
