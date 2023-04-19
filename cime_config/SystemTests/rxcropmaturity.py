@@ -78,25 +78,25 @@ class RXCROPMATURITY(SystemTestsCommon):
             raise
         
         # Set sowing dates file (and other crop calendar settings) for all runs
-        logger.info("  modify user_nl files: all tests")
+        logger.info("SSRLOG  modify user_nl files: all tests")
         self._modify_user_nl_allruns()
 
 
     def run_phase(self):
         
         # Create Prescribed Calendars clone of GDD-Generating case
-        logger.info("  cloning")
+        logger.info("SSRLOG  cloning")
         caseroot = self._case.get_value("CASEROOT")
         self._path_rxboth = f"{caseroot}.rxboth"
         if os.path.exists(self._path_rxboth):
             shutil.rmtree(self._path_rxboth)
         case_rxboth = self._case.create_clone(self._path_rxboth, keepexe=True)
-        logger.info("  done cloning")
+        logger.info("SSRLOG  done cloning")
         
         #-------------------------------------------------------------------
         # (1) Set up GDD-generating run
         #-------------------------------------------------------------------
-        logger.info("  modify user_nl files: generate GDDs")
+        logger.info("SSRLOG  modify user_nl files: generate GDDs")
         self._modify_user_nl_gengdds()
         self._case.create_namelists(component='lnd')
         
@@ -122,19 +122,20 @@ class RXCROPMATURITY(SystemTestsCommon):
             self._case.check_all_input_data()
             
             # Make custom version of flanduse_timeseries
-            logger.info("  run make_lu_for_gdden")
+            logger.info("SSRLOG  run make_lu_for_gdden")
             self._run_make_lu_for_gdden()
         
         #-------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
         #-------------------------------------------------------------------
+        logger.info("SSRLOG  Start GDD-Generating run")
         self.run_indv()
         self._run_generate_gdds()
         
         #-------------------------------------------------------------------
         # (3) Set up and perform Prescribed Calendars run
         #-------------------------------------------------------------------
-        logger.info("  modify user_nl files: Prescribed Calendars")
+        logger.info("SSRLOG  modify user_nl files: Prescribed Calendars")
         os.chdir(case_rxboth.get_value("CASEROOT"))
         self._set_active_case(case_rxboth)
         self._modify_user_nl_rxboth()
@@ -144,7 +145,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         #-------------------------------------------------------------------
         # (4) Check Prescribed Calendars run
         #-------------------------------------------------------------------
-        logger.info("  output check: Prescribed Calendars")
+        logger.info("SSRLOG  output check: Prescribed Calendars")
         self._run_check_rxboth_run()
     
          
@@ -197,7 +198,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                 raise
         
         # Modify namelist
-        logger.info("  modify user_nl files: new flanduse_timeseries")
+        logger.info("SSRLOG  modify user_nl files: new flanduse_timeseries")
         self._modify_user_nl_newflanduse_timeseries()
 
 
@@ -255,7 +256,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                 raise
         
         # Modify namelist
-        logger.info("  modify user_nl files: new fsurdat")
+        logger.info("SSRLOG  modify user_nl files: new fsurdat")
         self._modify_user_nl_newfsurdat()
         
     
