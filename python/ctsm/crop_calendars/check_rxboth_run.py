@@ -33,7 +33,7 @@ def main(argv):
             'SYEARS_PERHARV', 'HDATES', 'HYEARS', 'GDDHARV_PERHARV', 'GDDACCUM_PERHARV',
             'HUI_PERHARV', 'SOWING_REASON_PERHARV', 'HARVEST_REASON_PERHARV']
     
-    h2files = glob.glob(os.path.join(args.directory, "*.clm2.h2.*.nc.rxboth"))
+    h2files = glob.glob(os.path.join(args.directory, "*.clm2.h2.*.nc"))
     
     # These should be constant in a Prescribed Calendars (rxboth) run, as long as the inputs were
     # static.
