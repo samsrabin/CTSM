@@ -262,6 +262,7 @@ class RXCROPMATURITY(SystemTestsCommon):
     
     def _run_check_rxboth_run(self):
         
+        output_dir = os.path.join(self._path_rxboth, "run")
         first_usable_year = self._run_startyear + 2
         last_usable_year = self._run_startyear + self._run_Nyears - 2
                 
@@ -276,7 +277,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Source the env
         try:
             command = f"{conda_env}python3 {tool_path} "\
-                + f"--directory {self._path_rxboth} "\
+                + f"--directory {output_dir} "\
                 + f"-y1 {first_usable_year} "\
                 + f"-yN {last_usable_year} "\
                 + f"--rx-sdates-file {self._sdatefile} "\
