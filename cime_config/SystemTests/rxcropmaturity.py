@@ -281,10 +281,11 @@ class RXCROPMATURITY(SystemTestsCommon):
                 + f"-y1 {first_usable_year} "\
                 + f"-yN {last_usable_year} "\
                 + f"--rx-sdates-file {self._sdatefile} "\
-                + f"--rx-gdds-file {self._gdds_file} "\
-                + " | tee -p check_rxboth_run.log"
+                + f"--rx-gdds-file {self._gdds_file} "
             print(f"command: {command}")
-            subprocess.run(command, shell=True, check=True)
+            with open("check_rxboth_run.log", "w") as f:
+                    subprocess.run(command, shell=True, check=True, text=True,
+                        stdout=f, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as error:
             print("ERROR while getting the conda environment and/or ")
             print("running the check_rxboth_run tool: ")
