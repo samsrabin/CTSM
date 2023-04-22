@@ -40,8 +40,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         Set run length
         """
 
-        self._case.set_value("STOP_OPTION", "nyears")
-        self._case.set_value("STOP_N", self._run_Nyears)
+        with self._case as case:
+            case.set_value("STOP_OPTION", "nyears")
+            case.set_value("STOP_N", self._run_Nyears)
         
         
         """
