@@ -28,14 +28,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
         # want to be saved as baseline.
 
-        #-------------------------------------------------------------------
-        # (1) Set up shared run stuff, incl. sowing date and land use files
-        #-------------------------------------------------------------------
-        self._setup_all()
 
-        
         #-------------------------------------------------------------------
-        # (2) Set up GDD-generating run
+        # (1) Set up GDD-generating run
         #-------------------------------------------------------------------
         # Create clone to be GDD-Generating case
         logger.info("SSRLOG  cloning setup")
@@ -52,9 +47,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         logger.info("SSRLOG  done cloning")
         print("SSRPRI  done cloning")
 
+
         os.chdir(self._path_gddgen)
         self._set_active_case(case_gddgen)
-        
+
+        # Set up stuff that applies to both tests
+        self._setup_all()
+
         logger.info("SSRLOG  modify user_nl files: generate GDDs")
         print("SSRPRI  modify user_nl files: generate GDDs")
         self._modify_user_nl_gengdds()
@@ -87,7 +86,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             self._run_make_lu_for_gddgen(case_gddgen)
         
         #-------------------------------------------------------------------
-        # (3) Perform GDD-generating run and generate prescribed GDDs file
+        # (2) Perform GDD-generating run and generate prescribed GDDs file
         #-------------------------------------------------------------------
         logger.info("SSRLOG  Start GDD-Generating run")
         print("SSRPRI  Start GDD-Generating run")
@@ -100,17 +99,21 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._run_generate_gdds(case_gddgen)
         
         #-------------------------------------------------------------------
-        # (4) Set up and perform Prescribed Calendars run
+        # (3) Set up and perform Prescribed Calendars run
         #-------------------------------------------------------------------
         os.chdir(caseroot)
         self._set_active_case()
+
+        # Set up stuff that applies to both tests
+        self._setup_all()
+
         logger.info("SSRLOG  modify user_nl files: Prescribed Calendars")
         print("SSRPRI  modify user_nl files: Prescribed Calendars")
         self._modify_user_nl_rxboth()
         self.run_indv()
         
         #-------------------------------------------------------------------
-        # (5) Check Prescribed Calendars run
+        # (4) Check Prescribed Calendars run
         #-------------------------------------------------------------------
         logger.info("SSRLOG  output check: Prescribed Calendars")
         print("SSRPRI  output check: Prescribed Calendars")
