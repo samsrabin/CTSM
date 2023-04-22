@@ -22,13 +22,21 @@ class RXCROPMATURITY(SystemTestsCommon):
         SystemTestsCommon.__init__(self, case)
 
         # set up a bunch of stuff for this run
-        self._setup_all()
 
 
     def run_phase(self):
         # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
         # want to be saved as baseline.
+
+        #-------------------------------------------------------------------
+        # (1) Set up shared run stuff, incl. sowing date and land use files
+        #-------------------------------------------------------------------
+        self._setup_all()
+
         
+        #-------------------------------------------------------------------
+        # (2) Set up GDD-generating run
+        #-------------------------------------------------------------------
         # Create clone to be GDD-Generating case
         logger.info("SSRLOG  cloning")
         print("SSRPRI  cloning")
@@ -40,10 +48,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         case_gddgen = case_rxboth.create_clone(self._path_gddgen, keepexe=True)
         logger.info("SSRLOG  done cloning")
         print("SSRPRI  done cloning")
-        
-        #-------------------------------------------------------------------
-        # (1) Set up GDD-generating run
-        #-------------------------------------------------------------------
+
         os.chdir(self._path_gddgen)
         self._set_active_case(case_gddgen)
         
@@ -79,7 +84,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             self._run_make_lu_for_gddgen(case_gddgen)
         
         #-------------------------------------------------------------------
-        # (2) Perform GDD-generating run and generate prescribed GDDs file
+        # (3) Perform GDD-generating run and generate prescribed GDDs file
         #-------------------------------------------------------------------
         logger.info("SSRLOG  Start GDD-Generating run")
         print("SSRPRI  Start GDD-Generating run")
@@ -92,7 +97,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._run_generate_gdds(case_gddgen)
         
         #-------------------------------------------------------------------
-        # (3) Set up and perform Prescribed Calendars run
+        # (4) Set up and perform Prescribed Calendars run
         #-------------------------------------------------------------------
         os.chdir(caseroot)
         self._set_active_case(case_rxboth)
@@ -102,7 +107,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self.run_indv()
         
         #-------------------------------------------------------------------
-        # (4) Check Prescribed Calendars run
+        # (5) Check Prescribed Calendars run
         #-------------------------------------------------------------------
         logger.info("SSRLOG  output check: Prescribed Calendars")
         print("SSRPRI  output check: Prescribed Calendars")
