@@ -38,14 +38,16 @@ class RXCROPMATURITY(SystemTestsCommon):
         # (2) Set up GDD-generating run
         #-------------------------------------------------------------------
         # Create clone to be GDD-Generating case
-        logger.info("SSRLOG  cloning")
-        print("SSRPRI  cloning")
-        case_rxboth = self._case
-        caseroot = case_rxboth.get_value("CASEROOT")
+        logger.info("SSRLOG  cloning setup")
+        print("SSRPRI  cloning setup")
+        self._case = self._case
+        caseroot = self._case.get_value("CASEROOT")
         self._path_gddgen = f"{caseroot}.gddgen"
         if os.path.exists(self._path_gddgen):
             shutil.rmtree(self._path_gddgen)
-        case_gddgen = case_rxboth.create_clone(self._path_gddgen, keepexe=True)
+        logger.info("SSRLOG  cloning")
+        print("SSRPRI  cloning")
+        case_gddgen = self._case.create_clone(self._path_gddgen, keepexe=True)
         logger.info("SSRLOG  done cloning")
         print("SSRPRI  done cloning")
 
@@ -100,7 +102,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         # (4) Set up and perform Prescribed Calendars run
         #-------------------------------------------------------------------
         os.chdir(caseroot)
-        self._set_active_case(case_rxboth)
+        self._set_active_case()
         logger.info("SSRLOG  modify user_nl files: Prescribed Calendars")
         print("SSRPRI  modify user_nl files: Prescribed Calendars")
         self._modify_user_nl_rxboth()
@@ -111,7 +113,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         #-------------------------------------------------------------------
         logger.info("SSRLOG  output check: Prescribed Calendars")
         print("SSRPRI  output check: Prescribed Calendars")
-        self._run_check_rxboth_run(case_rxboth)
+        self._run_check_rxboth_run()
 
 
     def _setup_all(self):
@@ -292,7 +294,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._modify_user_nl_newfsurdat()
         
     
-    def _run_check_rxboth_run(self, case_rxboth):
+    def _run_check_rxboth_run(self):
         
         output_dir = os.path.join(self._path_gddgen, "run")
         first_usable_year = self._run_startyear + 2
@@ -302,7 +304,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                                 'python', 'ctsm', 'crop_calendars',
                                 'check_rxboth_run.py')
 
-        case_rxboth.load_env(reset=True)
+        self._case.load_env(reset=True)
         conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
         # Preprend the commands to get the conda environment for python first
         conda_env += self._get_conda_env()
