@@ -85,32 +85,38 @@ class RXCROPMATURITY(SystemTestsCommon):
 
 
     def run_phase(self):
+        # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
+        # want to be saved as baseline.
         
-        # Create Prescribed Calendars clone of GDD-Generating case
+        # Create clone to be GDD-Generating case
         logger.info("SSRLOG  cloning")
         print("SSRPRI  cloning")
-        caseroot = self._case.get_value("CASEROOT")
-        self._path_rxboth = f"{caseroot}.rxboth"
-        if os.path.exists(self._path_rxboth):
-            shutil.rmtree(self._path_rxboth)
-        case_rxboth = self._case.create_clone(self._path_rxboth, keepexe=True)
+        case_rxboth = self._case
+        caseroot = case_rxboth.get_value("CASEROOT")
+        self._path_gddgen = f"{caseroot}.gddgen"
+        if os.path.exists(self._path_gddgen):
+            shutil.rmtree(self._path_gddgen)
+        case_gddgen = case_rxboth.create_clone(self._path_gddgen, keepexe=True)
         logger.info("SSRLOG  done cloning")
         print("SSRPRI  done cloning")
         
         #-------------------------------------------------------------------
         # (1) Set up GDD-generating run
         #-------------------------------------------------------------------
+        os.chdir(self._path_gddgen)
+        self._set_active_case(case_gddgen)
+        
         logger.info("SSRLOG  modify user_nl files: generate GDDs")
         print("SSRPRI  modify user_nl files: generate GDDs")
         self._modify_user_nl_gengdds()
-        self._case.create_namelists(component='lnd')
+        case_gddgen.create_namelists(component='lnd')
         
         """
         If needed, generate a surface dataset file with no crops missing years
         """
         
         # Is flanduse_timeseries defined? If so, where is it? 
-        self._lnd_in_path = os.path.join(self._get_caseroot(), 'CaseDocs', 'lnd_in')
+        self._lnd_in_path = os.path.join(self._path_gddgen, 'CaseDocs', 'lnd_in')
         self._flanduse_timeseries_in = None
         with open (self._lnd_in_path,'r') as lnd_in:
             for line in lnd_in:
@@ -124,30 +130,34 @@ class RXCROPMATURITY(SystemTestsCommon):
         if self._flanduse_timeseries_in is not None:
             
             # Download files from the server, if needed
-            self._case.check_all_input_data()
+            case_gddgen.check_all_input_data()
             
             # Make custom version of flanduse_timeseries
             logger.info("SSRLOG  run make_lu_for_gddgen")
             print("SSRPRI  run make_lu_for_gddgen")
-            self._run_make_lu_for_gddgen()
+            self._run_make_lu_for_gddgen(case_gddgen)
         
         #-------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
         #-------------------------------------------------------------------
         logger.info("SSRLOG  Start GDD-Generating run")
         print("SSRPRI  Start GDD-Generating run")
-        self.run_indv()
-        self._run_generate_gdds()
+        
+        # As per SSP test:
+        # "No history files expected, set suffix=None to avoid compare error"
+        self._skip_pnl = False
+        self.run_indv(suffix=None, st_archive=True)
+        
+        self._run_generate_gdds(case_gddgen)
         
         #-------------------------------------------------------------------
         # (3) Set up and perform Prescribed Calendars run
         #-------------------------------------------------------------------
+        os.chdir(caseroot)
+        self._set_active_case(case_rxboth)
         logger.info("SSRLOG  modify user_nl files: Prescribed Calendars")
         print("SSRPRI  modify user_nl files: Prescribed Calendars")
-        os.chdir(case_rxboth.get_value("CASEROOT"))
-        self._set_active_case(case_rxboth)
         self._modify_user_nl_rxboth()
-        self._skip_pnl = False
         self.run_indv()
         
         #-------------------------------------------------------------------
@@ -155,13 +165,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         #-------------------------------------------------------------------
         logger.info("SSRLOG  output check: Prescribed Calendars")
         print("SSRPRI  output check: Prescribed Calendars")
-        self._run_check_rxboth_run()
+        self._run_check_rxboth_run(case_rxboth)
     
          
-    def _run_make_lu_for_gddgen(self):
+    def _run_make_lu_for_gddgen(self, case_gddgen):
         
         # Where we will save the flanduse_timeseries version for this test
-        self._flanduse_timeseries_out = os.path.join(self._get_caseroot(), 'flanduse_timeseries.nc')
+        self._flanduse_timeseries_out = os.path.join(self._path_gddgen, 'flanduse_timeseries.nc')
         
         # Make flanduse_timeseries for this test, if not already done
         if not os.path.exists(self._flanduse_timeseries_out):
@@ -173,8 +183,8 @@ class RXCROPMATURITY(SystemTestsCommon):
                                     'python', 'ctsm', 'crop_calendars',
                                     'make_lu_for_gddgen.py')
 
-            self._case.load_env(reset=True)
-            conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
+            case_gddgen.load_env(reset=True)
+            conda_env = ". "+self._path_gddgen+"/.env_mach_specific.sh; "
             # Preprend the commands to get the conda environment for python first
             conda_env += self._get_conda_env()
             # Source the env
@@ -212,7 +222,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._modify_user_nl_newflanduse_timeseries()
 
 
-    def _run_make_surface_for_gddgen(self):
+    def _run_make_surface_for_gddgen(self, case_gddgen):
         
         # fsurdat should be defined. Where is it?
         self._fsurdat_in = None
@@ -227,7 +237,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             raise
         
         # Where we will save the fsurdat version for this test
-        self._fsurdat_out = os.path.join(self._get_caseroot(), 'fsurdat.nc')
+        self._fsurdat_out = os.path.join(self._path_gddgen, 'fsurdat.nc')
         
         # Make fsurdat for this test, if not already done
         if not os.path.exists(self._fsurdat_out):
@@ -235,8 +245,8 @@ class RXCROPMATURITY(SystemTestsCommon):
                                     'python', 'ctsm', 'crop_calendars',
                                     'make_surface_for_gddgen.py')
 
-            self._case.load_env(reset=True)
-            conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
+            case_gddgen.load_env(reset=True)
+            conda_env = ". "+self._path_gddgen+"/.env_mach_specific.sh; "
             # Preprend the commands to get the conda environment for python first
             conda_env += self._get_conda_env()
             # Source the env
@@ -271,9 +281,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._modify_user_nl_newfsurdat()
         
     
-    def _run_check_rxboth_run(self):
+    def _run_check_rxboth_run(self, case_rxboth):
         
-        output_dir = os.path.join(self._path_rxboth, "run")
+        output_dir = os.path.join(self._path_gddgen, "run")
         first_usable_year = self._run_startyear + 2
         last_usable_year = self._run_startyear + self._run_Nyears - 2
                 
@@ -281,7 +291,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                                 'python', 'ctsm', 'crop_calendars',
                                 'check_rxboth_run.py')
 
-        self._case.load_env(reset=True)
+        case_rxboth.load_env(reset=True)
         conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
         # Preprend the commands to get the conda environment for python first
         conda_env += self._get_conda_env()
@@ -386,12 +396,11 @@ class RXCROPMATURITY(SystemTestsCommon):
                                     component = "clm",
                                     contents = addition)
 
-    def _run_generate_gdds(self):
-        caseroot = self._case.get_value("CASEROOT")
-        self._generate_gdds_dir = os.path.join(caseroot, "generate_gdds_out")
+    def _run_generate_gdds(self, case_gddgen):
+        self._generate_gdds_dir = os.path.join(self._path_gddgen, "generate_gdds_out")
         os.makedirs(self._generate_gdds_dir)
 
-        run_dir = os.path.join(caseroot, "run")
+        run_dir = os.path.join(self._path_gddgen, "run")
         first_season = self._run_startyear + 2
         last_season = self._run_startyear + self._run_Nyears - 2
         sdates_file = self._sdatefile
@@ -401,7 +410,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                                  'python', 'ctsm', 'crop_calendars',
                                  'generate_gdds.py')
 
-        self._case.load_env(reset=True)
+        case_gddgen.load_env(reset=True)
         conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
         # Preprend the commands to get the conda environment for python first
         conda_env += self._get_conda_env()
