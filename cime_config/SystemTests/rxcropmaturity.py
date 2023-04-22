@@ -126,9 +126,9 @@ class RXCROPMATURITY(SystemTestsCommon):
             self._case.check_all_input_data()
             
             # Make custom version of flanduse_timeseries
-            logger.info("SSRLOG  run make_lu_for_gdden")
-            print("SSRPRI  run make_lu_for_gdden")
-            self._run_make_lu_for_gdden()
+            logger.info("SSRLOG  run make_lu_for_gddgen")
+            print("SSRPRI  run make_lu_for_gddgen")
+            self._run_make_lu_for_gddgen()
         
         #-------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
@@ -157,7 +157,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._run_check_rxboth_run()
     
          
-    def _run_make_lu_for_gdden(self):
+    def _run_make_lu_for_gddgen(self):
         
         # Where we will save the flanduse_timeseries version for this test
         self._flanduse_timeseries_out = os.path.join(self._get_caseroot(), 'flanduse_timeseries.nc')
@@ -211,7 +211,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._modify_user_nl_newflanduse_timeseries()
 
 
-    def _run_make_surface_for_gdden(self):
+    def _run_make_surface_for_gddgen(self):
         
         # fsurdat should be defined. Where is it?
         self._fsurdat_in = None
