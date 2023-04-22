@@ -42,12 +42,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         print("SSRPRI  cloning setup")
         self._case = self._case
         caseroot = self._case.get_value("CASEROOT")
-        self._path_gddgen = f"{caseroot}.gddgen"
+        clone_path = f"{caseroot}.gddgen"
+        self._path_gddgen = clone_path
         if os.path.exists(self._path_gddgen):
             shutil.rmtree(self._path_gddgen)
         logger.info("SSRLOG  cloning")
         print("SSRPRI  cloning")
-        case_gddgen = self._case.create_clone(self._path_gddgen, keepexe=True)
+        case_gddgen = self._case.create_clone(clone_path, keepexe=True)
         logger.info("SSRLOG  done cloning")
         print("SSRPRI  done cloning")
 
