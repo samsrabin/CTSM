@@ -18,70 +18,11 @@ logger = logging.getLogger(__name__)
 class RXCROPMATURITY(SystemTestsCommon):
 
     def __init__(self, case):
-        """
-        initialize an object interface to the SMS system test
-        """
+        # initialize an object interface to the SMS system test
         SystemTestsCommon.__init__(self, case)
-        
-        
-        """
-        Get some info
-        """
-        self._ctsm_root = self._case.get_value('COMP_ROOT_DIR_LND')
-        run_startdate = self._case.get_value('RUN_STARTDATE')
-        self._run_startyear = int(run_startdate.split('-')[0])
-        
-        # Minimum 4, but that only gets you 1 season usable for GDD
-        # generation, so you can't check for season-to-season consistency.
-        self._run_Nyears = 5
-        
-        
-        """
-        Set run length
-        """
 
-        with self._case as case:
-            case.set_value("STOP_OPTION", "nyears")
-            case.set_value("STOP_N", self._run_Nyears)
-        
-        
-        """
-        Get and set sowing and harvest dates
-        """
-        
-        # Get sowing and harvest dates for this resolution.
-        # Eventually, I want to remove these hard-coded resolutions so that this test can generate
-        # its own sowing and harvest date files at whatever resolution is requested.
-        lnd_grid = self._case.get_value("LND_GRID")
-        blessed_crop_dates_dir="/glade/work/samrabin/crop_dates_blessed"
-        if lnd_grid == "10x15":
-            self._sdatefile = os.path.join(
-                blessed_crop_dates_dir,
-                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.fill1.nc")
-            self._hdatefile = os.path.join(
-                blessed_crop_dates_dir,
-                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.fill1.nc")
-        elif lnd_grid == "1.9x2.5":
-            self._sdatefile = os.path.join(
-                blessed_crop_dates_dir,
-                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.fill1.nc")
-            self._hdatefile = os.path.join(
-                blessed_crop_dates_dir,
-                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.fill1.nc")
-        else:
-            print("ERROR: RXCROPMATURITY currently only supports 10x15 and 1.9x2.5 resolutions")
-            raise
-        if not os.path.exists(self._sdatefile):
-            print(f"ERROR: Sowing date file not found: {self._sdatefile}")
-            raise
-        if not os.path.exists(self._hdatefile):
-            print(f"ERROR: Harvest date file not found: {self._sdatefile}")
-            raise
-        
-        # Set sowing dates file (and other crop calendar settings) for all runs
-        logger.info("SSRLOG  modify user_nl files: all tests")
-        print("SSRPRI  modify user_nl files: all tests")
-        self._modify_user_nl_allruns()
+        # set up a bunch of stuff for this run
+        self._setup_all()
 
 
     def run_phase(self):
@@ -166,7 +107,72 @@ class RXCROPMATURITY(SystemTestsCommon):
         logger.info("SSRLOG  output check: Prescribed Calendars")
         print("SSRPRI  output check: Prescribed Calendars")
         self._run_check_rxboth_run(case_rxboth)
+
+
+    def _setup_all(self):
+        logger.info("SSRLOG  _setup_all start")
+        print("SSRPRI  _setup_all start")
+
+        """
+        Get some info
+        """
+        self._ctsm_root = self._case.get_value('COMP_ROOT_DIR_LND')
+        run_startdate = self._case.get_value('RUN_STARTDATE')
+        self._run_startyear = int(run_startdate.split('-')[0])
+        
+        # Minimum 4, but that only gets you 1 season usable for GDD
+        # generation, so you can't check for season-to-season consistency.
+        self._run_Nyears = 5
+
+
+        """
+        Set run length
+        """
+        with self._case as case:
+            case.set_value("STOP_OPTION", "nyears")
+            case.set_value("STOP_N", self._run_Nyears)
     
+
+        """
+        Get and set sowing and harvest dates
+        """
+        
+        # Get sowing and harvest dates for this resolution.
+        # Eventually, I want to remove these hard-coded resolutions so that this test can generate
+        # its own sowing and harvest date files at whatever resolution is requested.
+        lnd_grid = self._case.get_value("LND_GRID")
+        blessed_crop_dates_dir="/glade/work/samrabin/crop_dates_blessed"
+        if lnd_grid == "10x15":
+            self._sdatefile = os.path.join(
+                blessed_crop_dates_dir,
+                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.fill1.nc")
+            self._hdatefile = os.path.join(
+                blessed_crop_dates_dir,
+                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.fill1.nc")
+        elif lnd_grid == "1.9x2.5":
+            self._sdatefile = os.path.join(
+                blessed_crop_dates_dir,
+                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.fill1.nc")
+            self._hdatefile = os.path.join(
+                blessed_crop_dates_dir,
+                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.fill1.nc")
+        else:
+            print("ERROR: RXCROPMATURITY currently only supports 10x15 and 1.9x2.5 resolutions")
+            raise
+        if not os.path.exists(self._sdatefile):
+            print(f"ERROR: Sowing date file not found: {self._sdatefile}")
+            raise
+        if not os.path.exists(self._hdatefile):
+            print(f"ERROR: Harvest date file not found: {self._sdatefile}")
+            raise
+        
+        # Set sowing dates file (and other crop calendar settings) for all runs
+        logger.info("SSRLOG  modify user_nl files: all tests")
+        print("SSRPRI  modify user_nl files: all tests")
+        self._modify_user_nl_allruns()
+        logger.info("SSRLOG  _setup_all done")
+        print("SSRPRI  _setup_all done")
+
          
     def _run_make_lu_for_gddgen(self, case_gddgen):
         
