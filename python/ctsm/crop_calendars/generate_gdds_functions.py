@@ -13,7 +13,6 @@ can_plot = True
 try:
     from cropcal_figs_module import *
     from matplotlib.transforms import Bbox
-    plt.rc('font',**{'family':'sans-serif','sans-serif':['Arial']})
     warnings.filterwarnings("ignore", message="__len__ for multi-part geometries is deprecated and will be removed in Shapely 2.0. Check the length of the `geoms` property instead to get the  number of parts of a multi-part geometry.")
     warnings.filterwarnings("ignore", message="Iteration over multi-part geometries is deprecated and will be removed in Shapely 2.0. Use the `geoms` property to access the constituent parts of a multi-part geometry.")
 
