@@ -3,6 +3,14 @@ CTSM-specific test that first performs a GDD-generating run, then calls
 Python code to generate the maturity requirement file. This is then used
 in a sowing+maturity forced run, which finally is tested to ensure
 correct behavior.
+
+Currently only supports 10x15 and f19_g17 resolutions. Eventually, I want
+this test to be able to generate its own files at whatever resolution it's
+called at. Well, really, the ultimate goal would be to give CLM the files
+at the original resolution (for GGCMI phase 3, 0.5°) and have the stream
+code do the interpolation. However, that wouldn't act on harvest dates
+(which are needed for generate_gdds.py). I could have Python interpolate
+those, but this would cause a potential inconsistency.
 """
 
 import os
@@ -87,6 +95,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         
         # As per SSP test:
         # "No history files expected, set suffix=None to avoid compare error"
+        # We *do* expect history files here, but anyway. This works.
         self._skip_pnl = False
         self.run_indv(suffix=None, st_archive=True)
         
@@ -202,6 +211,10 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._modify_user_nl_newflanduse_timeseries()
 
 
+    # Unused because I couldn't get the GDD-Generating run to work with the fsurdat file generated
+    # by make_surface_for_gddgen.py. However, I think it'd be cleaner to just do the GDD-Generating
+    # run with a surface file (and no flanduse_timeseries file) since that run relies on land use
+    # staying constant. So it'd be nice to get this working eventually.
     def _run_make_surface_for_gddgen(self, case_gddgen):
         
         # fsurdat should be defined. Where is it?
