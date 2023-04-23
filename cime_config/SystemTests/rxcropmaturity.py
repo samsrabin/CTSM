@@ -30,7 +30,6 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
         # want to be saved as baseline.
 
-
         #-------------------------------------------------------------------
         # (1) Set up GDD-generating run
         #-------------------------------------------------------------------
@@ -45,7 +44,6 @@ class RXCROPMATURITY(SystemTestsCommon):
         logger.info("SSRLOG  cloning")
         case_gddgen = self._case.create_clone(clone_path, keepexe=True)
         logger.info("SSRLOG  done cloning")
-
 
         os.chdir(self._path_gddgen)
         self._set_active_case(case_gddgen)
@@ -287,12 +285,14 @@ class RXCROPMATURITY(SystemTestsCommon):
         ]
         self._append_to_user_nl_clm(nl_additions)
 
+
     def _modify_user_nl_rxboth(self):
         nl_additions = [
             "generate_crop_gdds = .false.",
             f"stream_fldFileName_cultivar_gdds = '{self._gdds_file}'",
         ]
         self._append_to_user_nl_clm(nl_additions)
+
 
     def _modify_user_nl_newfsurdat(self):
         nl_additions = [
@@ -303,11 +303,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         ]
         self._append_to_user_nl_clm(nl_additions)
     
+    
     def _modify_user_nl_newflanduse_timeseries(self):
         nl_additions = [
             "flanduse_timeseries = '{}'".format(self._flanduse_timeseries_out),
         ]
         self._append_to_user_nl_clm(nl_additions)
+
 
     def _run_generate_gdds(self, case_gddgen):
         self._generate_gdds_dir = os.path.join(self._path_gddgen, "generate_gdds_out")
@@ -360,9 +362,9 @@ class RXCROPMATURITY(SystemTestsCommon):
 
         ## Run in the correct python environment
         conda_env += f" conda run -n {this_conda_env} "
-
-
+        
         return( conda_env )
+    
     
     def _append_to_user_nl_clm(self, additions):
         if not isinstance(additions, list):
@@ -372,6 +374,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             append_to_user_nl_files(caseroot = caseroot,
                                     component = "clm",
                                     contents = a)
+    
     
     def _run_python_script(self, case, command, tool_path):
         tool_name = os.path.split(tool_path)[-1]
