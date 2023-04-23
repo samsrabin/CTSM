@@ -30,7 +30,7 @@ def main(input_dir=None, first_season=None, last_season=None, sdates_file=None, 
     
     # Set up log file and function, if needed
     if logger is None:
-        logging.basicConfig(level=logging.WARNING,
+        logging.basicConfig(level=logging.INFO,
                             format="",
                             filename=os.path.join(output_dir, 'generate_gdds.log'),
                             filemode='a')
