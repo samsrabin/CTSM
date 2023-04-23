@@ -300,7 +300,7 @@ class RXCROPMATURITY(SystemTestsCommon):
     
     def _run_check_rxboth_run(self):
         
-        output_dir = os.path.join(self._path_gddgen, "run")
+        output_dir = os.path.join(self._get_caseroot(), "run")
         first_usable_year = self._run_startyear + 2
         last_usable_year = self._run_startyear + self._run_Nyears - 2
                 
