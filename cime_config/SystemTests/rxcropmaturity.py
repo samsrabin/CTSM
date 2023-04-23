@@ -436,7 +436,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
             command = " ".join([
                     f"{conda_env}python3 {tool_path}",
-                    f"--run-dir {run_dir}",
+                    f"--input-dir {run_dir}",
                     f"--first-season {first_season}",
                     f"--last-season {last_season}",
                     f"--sdates-file {sdates_file}",

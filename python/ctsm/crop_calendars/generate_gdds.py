@@ -26,7 +26,7 @@ my_clm_ver = 51
 my_clm_subver = "c211112"
 
 
-def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hdates_file=None, output_dir=None, save_figs=True, only_make_figs=False, run1_name=None, run2_name=None, land_use_file=None, first_land_use_year=None, last_land_use_year=None, unlimited_season_length=False, logger=None):
+def main(input_dir=None, first_season=None, last_season=None, sdates_file=None, hdates_file=None, output_dir=None, save_figs=True, only_make_figs=False, run1_name=None, run2_name=None, land_use_file=None, first_land_use_year=None, last_land_use_year=None, unlimited_season_length=False, logger=None):
     
     # Set up log file and function, if needed
     if logger is None:
@@ -50,9 +50,9 @@ def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hd
     # Directories to save output files and figures
     if not output_dir:
         if only_make_figs:
-            output_dir = run_dir
+            output_dir = input_dir
         else:
-            output_dir = os.path.join(run_dir, "generate_gdds")
+            output_dir = os.path.join(input_dir, "generate_gdds")
             if not unlimited_season_length:
                 output_dir += ".mxmat"
             output_dir += "." + dt.datetime.now().strftime('%Y-%m-%d-%H%M%S')
@@ -105,7 +105,7 @@ def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hd
             if thisYear <= pickle_year:
                 continue
             
-            h1_ds, sdates_rx, hdates_rx, gddaccum_yp_list, gddharv_yp_list, skip_patches_for_isel_nan_lastyear, lastYear_active_patch_indices_list, incorrectly_daily, gddharv_in_h3, incl_vegtypes_str, incl_patches1d_itype_veg, mxsowings = gddfn.import_and_process_1yr(first_season, last_season, y, thisYear, sdates_rx, hdates_rx, gddaccum_yp_list, gddharv_yp_list, skip_patches_for_isel_nan_lastyear, lastYear_active_patch_indices_list, incorrectly_daily, gddharv_in_h3, run_dir, incl_vegtypes_str, h1_ds_file, mxmats, cc.get_gs_len_da, logger)
+            h1_ds, sdates_rx, hdates_rx, gddaccum_yp_list, gddharv_yp_list, skip_patches_for_isel_nan_lastyear, lastYear_active_patch_indices_list, incorrectly_daily, gddharv_in_h3, incl_vegtypes_str, incl_patches1d_itype_veg, mxsowings = gddfn.import_and_process_1yr(first_season, last_season, y, thisYear, sdates_rx, hdates_rx, gddaccum_yp_list, gddharv_yp_list, skip_patches_for_isel_nan_lastyear, lastYear_active_patch_indices_list, incorrectly_daily, gddharv_in_h3, input_dir, incl_vegtypes_str, h1_ds_file, mxmats, cc.get_gs_len_da, logger)
             
             gddfn.log(logger, f'   Saving pickle file ({pickle_file})...')
             with open(pickle_file, 'wb') as f:
@@ -262,8 +262,8 @@ def main(run_dir=None, first_season=None, last_season=None, sdates_file=None, hd
         
     if save_figs: 
         if only_make_figs:
-            gdd_maps_ds = xr.open_dataset(os.path.join(run_dir, "figs", "gdd_maps.nc"))
-            gddharv_maps_ds = xr.open_dataset(os.path.join(run_dir, "figs", "gddharv_maps.nc"))
+            gdd_maps_ds = xr.open_dataset(os.path.join(input_dir, "figs", "gdd_maps.nc"))
+            gddharv_maps_ds = xr.open_dataset(os.path.join(input_dir, "figs", "gddharv_maps.nc"))
         gddfn.make_figures(first_land_use_year, last_land_use_year, land_use_file, run1_name, run2_name, logger, gdd_maps_ds=gdd_maps_ds, gddharv_maps_ds=gddharv_maps_ds, outdir_figs=outdir_figs)
 
 
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     
     # Set arguments
     parser = argparse.ArgumentParser(description="ADD DESCRIPTION HERE")
-    parser.add_argument("-r", "--run-dir", 
+    parser.add_argument("-i", "--input-dir",
                         help="Directory where run outputs can be found (and where outputs will go). If --only-make-figs, this is the directory with the preprocessed files (e.g., *.pickle file).",
                         required=True)
     parser.add_argument("-1", "--first-season", 
@@ -287,7 +287,7 @@ if __name__ == "__main__":
                         required=True,
                         type=int)
     parser.add_argument("-o", "--output-dir",
-                        help="Output directory. Default is auto-generated subdir of -r/--run-dir.")
+                        help="Output directory. Default is auto-generated subdir of -i/--input-dir.")
     parser.add_argument("-sd", "--sdates-file", 
                         help="File of prescribed sowing dates",
                         required=True)
@@ -329,9 +329,9 @@ if __name__ == "__main__":
     save_figs = not args.dont_save_figs
     
     # Call main()
-    main(run_dir=args.run_dir, first_season=args.first_season, last_season=args.last_season, sdates_file=args.sdates_file, hdates_file=args.hdates_file, output_dir=args.output_dir, save_figs=save_figs, only_make_figs=args.only_make_figs, run1_name=args.run1_name, run2_name=args.run2_name, land_use_file=args.land_use_file, first_land_use_year=args.first_land_use_year, last_land_use_year=args.last_land_use_year, unlimited_season_length=args.unlimited_season_length)
+    main(input_dir=args.input_dir, first_season=args.first_season, last_season=args.last_season, sdates_file=args.sdates_file, hdates_file=args.hdates_file, output_dir=args.output_dir, save_figs=save_figs, only_make_figs=args.only_make_figs, run1_name=args.run1_name, run2_name=args.run2_name, land_use_file=args.land_use_file, first_land_use_year=args.first_land_use_year, last_land_use_year=args.last_land_use_year, unlimited_season_length=args.unlimited_season_length)
 
-# main(run_dir="/Users/Shared/CESM_runs/tests_10x15_20230329_gddgen/202303301820",
+# main(input_dir="/Users/Shared/CESM_runs/tests_10x15_20230329_gddgen/202303301820",
 #      sdates_file="/Users/Shared/CESM_work/crop_dates_mostrice/sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.nc",
 #      hdates_file="/Users/Shared/CESM_work/crop_dates_mostrice/hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.nc",
 #      first_season=1997, last_season=2003,
