@@ -35,7 +35,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Create clone to be GDD-Generating case
         logger.info("SSRLOG  cloning setup")
         print("SSRPRI  cloning setup")
-        self._case = self._case
+        case_rxboth = self._case
         caseroot = self._case.get_value("CASEROOT")
         clone_path = f"{caseroot}.gddgen"
         self._path_gddgen = clone_path
@@ -102,7 +102,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         # (3) Set up and perform Prescribed Calendars run
         #-------------------------------------------------------------------
         os.chdir(caseroot)
-        self._set_active_case()
+        self._set_active_case(case_rxboth)
 
         # Set up stuff that applies to both tests
         self._setup_all()
