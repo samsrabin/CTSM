@@ -15,6 +15,10 @@ import shutil, glob
 
 logger = logging.getLogger(__name__)
 
+# SSR: This was originally ctsm_pylib, but the fact that it's missing
+#      cf_units caused problems in utils.import_ds().
+this_conda_env = "npl"
+
 class RXCROPMATURITY(SystemTestsCommon):
 
     def __init__(self, case):
@@ -216,19 +220,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                 print(f"command: {command}")
                 subprocess.run(command, shell=True, check=True)
             except subprocess.CalledProcessError as error:
-                print("ERROR while getting the conda environment and/or ")
-                print("running the make_lu_for_gddgen tool: ")
-                print("(1) If your npl environment is out of date or you ")
-                print("have not created the npl environment, yet, you may ")
-                print("get past this error by running ./py_env_create ")
-                print("in your ctsm directory and trying this test again. ")
-                print("(2) If conda is not available, install and load conda, ")
-                print("run ./py_env_create, and then try this test again. ")
-                print("(3) If (1) and (2) are not the issue, then you may be ")
-                print("getting an error within the make_lu_for_gddgen tool itself. ")
-                print("Default error message: ")
-                print(error.output)
-                raise
+                conda_or_python_script_error(error, "make_lu_for_gddgen")
             except:
                 print("ERROR trying to run make_lu_for_gddgen tool.")
                 raise
@@ -275,19 +267,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                 print(f"command: {command}")
                 subprocess.run(command, shell=True, check=True)
             except subprocess.CalledProcessError as error:
-                print("ERROR while getting the conda environment and/or ")
-                print("running the make_surface_for_gddgen tool: ")
-                print("(1) If your npl environment is out of date or you ")
-                print("have not created the npl environment, yet, you may ")
-                print("get past this error by running ./py_env_create ")
-                print("in your ctsm directory and trying this test again. ")
-                print("(2) If conda is not available, install and load conda, ")
-                print("run ./py_env_create, and then try this test again. ")
-                print("(3) If (1) and (2) are not the issue, then you may be ")
-                print("getting an error within the make_surface_for_gddgen tool itself. ")
-                print("Default error message: ")
-                print(error.output)
-                raise
+                conda_or_python_script_error(error, "make_surface_for_gddgen")
             except:
                 print("ERROR trying to run make_surface_for_gddgen tool.")
                 raise
@@ -325,19 +305,7 @@ class RXCROPMATURITY(SystemTestsCommon):
                     subprocess.run(command, shell=True, check=True, text=True,
                         stdout=f, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as error:
-            print("ERROR while getting the conda environment and/or ")
-            print("running the check_rxboth_run tool: ")
-            print("(1) If your npl environment is out of date or you ")
-            print("have not created the npl environment, yet, you may ")
-            print("get past this error by running ./py_env_create ")
-            print("in your ctsm directory and trying this test again. ")
-            print("(2) If conda is not available, install and load conda, ")
-            print("run ./py_env_create, and then try this test again. ")
-            print("(3) If (1) and (2) are not the issue, then you may be ")
-            print("getting an error within the check_rxboth_run tool itself. ")
-            print("Default error message: ")
-            print(error.output)
-            raise
+            conda_or_python_script_error(error, "check_rxboth_run")
         except:
             print("ERROR trying to run check_rxboth_run tool.")
             raise
@@ -447,19 +415,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             print(f"command: {command}")
             subprocess.run(command, shell=True, check=True)
         except subprocess.CalledProcessError as error:
-            print("ERROR while getting the conda environment and/or ")
-            print("running the generate_gdds tool: ")
-            print("(1) If your npl environment is out of date or you ")
-            print("have not created the npl environment, yet, you may ")
-            print("get past this error by running ./py_env_create ")
-            print("in your ctsm directory and trying this test again. ")
-            print("(2) If conda is not available, install and load conda, ")
-            print("run ./py_env_create, and then try this test again. ")
-            print("(3) If (1) and (2) are not the issue, then you may be ")
-            print("getting an error within the generate_gdds tool itself. ")
-            print("Default error message: ")
-            print(error.output)
-            raise
+            conda_or_python_script_error(error, "generate_gdds")
         except:
             print("ERROR trying to run generate_gdds tool.")
             raise
@@ -488,9 +444,23 @@ class RXCROPMATURITY(SystemTestsCommon):
             conda_env = "module unload python; module load conda;"
 
         ## Run in the correct python environment
-        # SSR: This was originally ctsm_pylib, but the fact that it's missing
-        #      cf_units caused problems in utils.import_ds().
-        conda_env += " conda run -n npl "
+        conda_env += f" conda run -n {this_conda_env} "
 
 
         return( conda_env )
+
+
+def conda_or_python_script_error(error, toolname):
+    print("ERROR while getting the conda environment and/or ")
+    print(f"running the {toolname} tool: ")
+    print(f"(1) If your {this_conda_env} environment is out of date or you ")
+    print(f"have not created the {this_conda_env} environment, yet, you may ")
+    print("get past this error by running ./py_env_create ")
+    print("in your ctsm directory and trying this test again. ")
+    print("(2) If conda is not available, install and load conda, ")
+    print("run ./py_env_create, and then try this test again. ")
+    print("(3) If (1) and (2) are not the issue, then you may be ")
+    print(f"getting an error within the {toolname} tool itself. ")
+    print("Default error message: ")
+    print(error.output)
+    raise
