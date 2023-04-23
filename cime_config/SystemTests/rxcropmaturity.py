@@ -201,27 +201,14 @@ class RXCROPMATURITY(SystemTestsCommon):
             tool_path = os.path.join(self._ctsm_root,
                                     'python', 'ctsm', 'crop_calendars',
                                     'make_lu_for_gddgen.py')
-
-            case_gddgen.load_env(reset=True)
-            conda_env = ". "+self._path_gddgen+"/.env_mach_specific.sh; "
-            # Preprend the commands to get the conda environment for python first
-            conda_env += self._get_conda_env()
-            # Source the env
-            try:
-                command = " ".join([
-                    f"{conda_env}python3 {tool_path}",
+            command = " ".join([
+                    f"python3 {tool_path}",
                     f"--flanduse-timeseries {self._flanduse_timeseries_in}",
                     f"-y1 {first_fake_year}",
                     f"-yN {last_fake_year}",
                     f"--outfile {self._flanduse_timeseries_out}",
-                ])
-                print(f"command: {command}")
-                subprocess.run(command, shell=True, check=True)
-            except subprocess.CalledProcessError as error:
-                conda_or_python_script_error(error, "make_lu_for_gddgen")
-            except:
-                print("ERROR trying to run make_lu_for_gddgen tool.")
-                raise
+                    ])
+            self._run_python_script(case_gddgen, command, tool_path)
         
         # Modify namelist
         logger.info("SSRLOG  modify user_nl files: new flanduse_timeseries")
@@ -251,24 +238,11 @@ class RXCROPMATURITY(SystemTestsCommon):
             tool_path = os.path.join(self._ctsm_root,
                                     'python', 'ctsm', 'crop_calendars',
                                     'make_surface_for_gddgen.py')
-
-            case_gddgen.load_env(reset=True)
-            conda_env = ". "+self._path_gddgen+"/.env_mach_specific.sh; "
-            # Preprend the commands to get the conda environment for python first
-            conda_env += self._get_conda_env()
-            # Source the env
-            try:
-                command = f"{conda_env}python3 {tool_path} "\
+            command = f"python3 {tool_path} "\
                     + f"--flanduse-timeseries {self._flanduse_timeseries_in} "\
                     + f"--fsurdat {self._fsurdat_in} "\
                     + f"--outfile {self._fsurdat_out}"
-                print(f"command: {command}")
-                subprocess.run(command, shell=True, check=True)
-            except subprocess.CalledProcessError as error:
-                conda_or_python_script_error(error, "make_surface_for_gddgen")
-            except:
-                print("ERROR trying to run make_surface_for_gddgen tool.")
-                raise
+            self._run_python_script(case_gddgen, command, tool_path)
         
         # Modify namelist
         logger.info("SSRLOG  modify user_nl files: new fsurdat")
@@ -285,29 +259,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         tool_path = os.path.join(self._ctsm_root,
                                 'python', 'ctsm', 'crop_calendars',
                                 'check_rxboth_run.py')
-
-        self._case.load_env(reset=True)
-        conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
-        # Preprend the commands to get the conda environment for python first
-        conda_env += self._get_conda_env()
-        # Source the env
-        try:
-            command = f"{conda_env}python3 {tool_path} "\
+        command = f"python3 {tool_path} "\
                 + f"--directory {output_dir} "\
                 + f"-y1 {first_usable_year} "\
                 + f"-yN {last_usable_year} "\
                 + f"--rx-sdates-file {self._sdatefile} "\
                 + f"--rx-gdds-file {self._gdds_file} "
-            print(f"command: {command}")
-            with open("check_rxboth_run.log", "w") as f:
-                    subprocess.run(command, shell=True, check=True, text=True,
-                        stdout=f, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as error:
-            conda_or_python_script_error(error, "check_rxboth_run")
-        except:
-            print("ERROR trying to run check_rxboth_run tool.")
-            raise
-                
+        self._run_python_script(self._case, command, tool_path)                
     
     
     def _modify_user_nl_allruns(self):
@@ -368,6 +326,7 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._generate_gdds_dir = os.path.join(self._path_gddgen, "generate_gdds_out")
         os.makedirs(self._generate_gdds_dir)
 
+        # Get arguments to generate_gdds.py
         dout_sr = case_gddgen.get_value("DOUT_S_ROOT")
         input_dir = os.path.join(dout_sr, "lnd", "hist")
         first_season = self._run_startyear + 2
@@ -375,33 +334,19 @@ class RXCROPMATURITY(SystemTestsCommon):
         sdates_file = self._sdatefile
         hdates_file = self._hdatefile
 
+        # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
         tool_path = os.path.join(self._ctsm_root,
                                  'python', 'ctsm', 'crop_calendars',
                                  'generate_gdds.py')
-
-        case_gddgen.load_env(reset=True)
-        conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
-        # Preprend the commands to get the conda environment for python first
-        conda_env += self._get_conda_env()
-        # Source the env
-        try:
-            # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
-            command = " ".join([
-                    f"{conda_env}python3 {tool_path}",
-                    f"--input-dir {input_dir}",
-                    f"--first-season {first_season}",
-                    f"--last-season {last_season}",
-                    f"--sdates-file {sdates_file}",
-                    f"--hdates-file {hdates_file}",
-                    #f"--output-dir {caseroot}"])
-                    f"--output-dir generate_gdds_out"])
-            print(f"command: {command}")
-            subprocess.run(command, shell=True, check=True)
-        except subprocess.CalledProcessError as error:
-            conda_or_python_script_error(error, "generate_gdds")
-        except:
-            print("ERROR trying to run generate_gdds tool.")
-            raise
+        command = " ".join([
+                f"python3 {tool_path}",
+                f"--input-dir {input_dir}",
+                f"--first-season {first_season}",
+                f"--last-season {last_season}",
+                f"--sdates-file {sdates_file}",
+                f"--hdates-file {hdates_file}",
+                f"--output-dir generate_gdds_out"])
+        self._run_python_script(case_gddgen, command, tool_path)
         
         # Where were the prescribed maturity requirements saved?
         generated_gdd_files = glob.glob(os.path.join(self._generate_gdds_dir, "gdds_*.nc"))
@@ -440,19 +385,36 @@ class RXCROPMATURITY(SystemTestsCommon):
             append_to_user_nl_files(caseroot = caseroot,
                                     component = "clm",
                                     contents = a)
-
-
-def conda_or_python_script_error(error, toolname):
-    print("ERROR while getting the conda environment and/or ")
-    print(f"running the {toolname} tool: ")
-    print(f"(1) If your {this_conda_env} environment is out of date or you ")
-    print(f"have not created the {this_conda_env} environment, yet, you may ")
-    print("get past this error by running ./py_env_create ")
-    print("in your ctsm directory and trying this test again. ")
-    print("(2) If conda is not available, install and load conda, ")
-    print("run ./py_env_create, and then try this test again. ")
-    print("(3) If (1) and (2) are not the issue, then you may be ")
-    print(f"getting an error within the {toolname} tool itself. ")
-    print("Default error message: ")
-    print(error.output)
-    raise
+    
+    def _run_python_script(self, case, command, tool_path):
+        tool_name = os.path.split(tool_path)[-1]
+        case.load_env(reset=True)
+        
+        # Prepend the commands to get the conda environment for python first
+        conda_env = ". "+self._get_caseroot()+"/.env_mach_specific.sh; "
+        conda_env += self._get_conda_env()
+        command = conda_env + command
+        print(f"command: {command}")
+        
+        # Run
+        try:
+            with open(tool_name + ".log", "w") as f:
+                subprocess.run(command, shell=True, check=True, text=True,
+                    stdout=f, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as error:
+            print("ERROR while getting the conda environment and/or ")
+            print(f"running the {tool_name} tool: ")
+            print(f"(1) If your {this_conda_env} environment is out of date or you ")
+            print(f"have not created the {this_conda_env} environment, yet, you may ")
+            print("get past this error by running ./py_env_create ")
+            print("in your ctsm directory and trying this test again. ")
+            print("(2) If conda is not available, install and load conda, ")
+            print("run ./py_env_create, and then try this test again. ")
+            print("(3) If (1) and (2) are not the issue, then you may be ")
+            print(f"getting an error within {tool_name} itself. ")
+            print("Default error message: ")
+            print(error.output)
+            raise
+        except:
+            print(f"ERROR trying to run {tool_name}.")
+            raise
