@@ -417,7 +417,8 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._generate_gdds_dir = os.path.join(self._path_gddgen, "generate_gdds_out")
         os.makedirs(self._generate_gdds_dir)
 
-        run_dir = os.path.join(self._path_gddgen, "run")
+        dout_sr = case_gddgen.get_value("DOUT_S_ROOT")
+        input_dir = os.path.join(dout_sr, "lnd", "hist")
         first_season = self._run_startyear + 2
         last_season = self._run_startyear + self._run_Nyears - 2
         sdates_file = self._sdatefile
@@ -436,7 +437,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             # It'd be much nicer to call generate_gdds.main(), but I can't import generate_gdds.
             command = " ".join([
                     f"{conda_env}python3 {tool_path}",
-                    f"--input-dir {run_dir}",
+                    f"--input-dir {input_dir}",
                     f"--first-season {first_season}",
                     f"--last-season {last_season}",
                     f"--sdates-file {sdates_file}",
