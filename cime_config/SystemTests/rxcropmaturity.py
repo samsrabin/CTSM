@@ -59,15 +59,19 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Set up stuff that applies to both tests
         self._setup_all()
 
+        # Add stuff specific to GDD-Generating run
         logger.info("SSRLOG  modify user_nl files: generate GDDs")
-        self._modify_user_nl_gengdds()
-        case_gddgen.create_namelists(component='lnd')
+        self._append_to_user_nl_clm([
+            "generate_crop_gdds = .true.",
+            "use_mxmat = .false.",
+        ])
         
         """
         If needed, generate a surface dataset file with no crops missing years
         """
         
-        # Is flanduse_timeseries defined? If so, where is it? 
+        # Is flanduse_timeseries defined? If so, where is it?
+        case_gddgen.create_namelists(component='lnd')
         self._lnd_in_path = os.path.join(self._path_gddgen, 'CaseDocs', 'lnd_in')
         self._flanduse_timeseries_in = None
         with open (self._lnd_in_path,'r') as lnd_in:
@@ -110,8 +114,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Set up stuff that applies to both tests
         self._setup_all()
 
+        # Add stuff specific to Prescribed Calendars run
         logger.info("SSRLOG  modify user_nl files: Prescribed Calendars")
-        self._modify_user_nl_rxboth()
+        self._append_to_user_nl_clm([
+            "generate_crop_gdds = .false.",
+            f"stream_fldFileName_cultivar_gdds = '{self._gdds_file}'",
+        ])
+        
         self.run_indv()
         
         #-------------------------------------------------------------------
@@ -208,7 +217,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         
         # Modify namelist
         logger.info("SSRLOG  modify user_nl files: new flanduse_timeseries")
-        self._modify_user_nl_newflanduse_timeseries()
+        self._append_to_user_nl_clm([
+            "flanduse_timeseries = '{}'".format(self._flanduse_timeseries_out),
+        ])
 
 
     # Unused because I couldn't get the GDD-Generating run to work with the fsurdat file generated
@@ -245,7 +256,12 @@ class RXCROPMATURITY(SystemTestsCommon):
         
         # Modify namelist
         logger.info("SSRLOG  modify user_nl files: new fsurdat")
-        self._modify_user_nl_newfsurdat()
+        self._append_to_user_nl_clm([
+            "fsurdat = '{}'".format(self._fsurdat_out),
+            "do_transient_crops = .false.",
+            "flanduse_timeseries = ''",
+            "use_init_interp = .true.",
+        ])
         
     
     def _run_check_rxboth_run(self):
@@ -287,39 +303,6 @@ class RXCROPMATURITY(SystemTestsCommon):
             "hist_mfilt(3) = 999",
             "hist_type1d_pertape(3) = 'PFTS'",
             "hist_dov2xy(3) = .false.",
-        ]
-        self._append_to_user_nl_clm(nl_additions)
-
-
-    def _modify_user_nl_gengdds(self):
-        nl_additions = [
-            "generate_crop_gdds = .true.",
-            "use_mxmat = .false.",
-        ]
-        self._append_to_user_nl_clm(nl_additions)
-
-
-    def _modify_user_nl_rxboth(self):
-        nl_additions = [
-            "generate_crop_gdds = .false.",
-            f"stream_fldFileName_cultivar_gdds = '{self._gdds_file}'",
-        ]
-        self._append_to_user_nl_clm(nl_additions)
-
-
-    def _modify_user_nl_newfsurdat(self):
-        nl_additions = [
-            "fsurdat = '{}'".format(self._fsurdat_out),
-            "do_transient_crops = .false.",
-            "flanduse_timeseries = ''",
-            "use_init_interp = .true.",
-        ]
-        self._append_to_user_nl_clm(nl_additions)
-    
-    
-    def _modify_user_nl_newflanduse_timeseries(self):
-        nl_additions = [
-            "flanduse_timeseries = '{}'".format(self._flanduse_timeseries_out),
         ]
         self._append_to_user_nl_clm(nl_additions)
 
