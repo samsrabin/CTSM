@@ -25,8 +25,6 @@ class RXCROPMATURITY(SystemTestsCommon):
         # initialize an object interface to the SMS system test
         SystemTestsCommon.__init__(self, case)
 
-        # set up a bunch of stuff for this run
-
 
     def run_phase(self):
         # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
