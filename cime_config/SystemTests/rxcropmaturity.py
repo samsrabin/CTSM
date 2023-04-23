@@ -332,10 +332,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             "hist_type1d_pertape(3) = 'PFTS'",
             "hist_dov2xy(3) = .false.",
         ]
-        for addition in nl_additions:
-            append_to_user_nl_files(caseroot = self._get_caseroot(),
-                                    component = "clm",
-                                    contents = addition)
+        self._append_to_user_nl_clm(nl_additions)
 
 
     def _modify_user_nl_gengdds(self):
@@ -343,20 +340,14 @@ class RXCROPMATURITY(SystemTestsCommon):
             "generate_crop_gdds = .true.",
             "use_mxmat = .false.",
         ]
-        for addition in nl_additions:
-            append_to_user_nl_files(caseroot = self._get_caseroot(),
-                                    component = "clm",
-                                    contents = addition)
+        self._append_to_user_nl_clm(nl_additions)
 
     def _modify_user_nl_rxboth(self):
         nl_additions = [
             "generate_crop_gdds = .false.",
             f"stream_fldFileName_cultivar_gdds = '{self._gdds_file}'",
         ]
-        for addition in nl_additions:
-            append_to_user_nl_files(caseroot = self._get_caseroot(),
-                                    component = "clm",
-                                    contents = addition)
+        self._append_to_user_nl_clm(nl_additions)
 
     def _modify_user_nl_newfsurdat(self):
         nl_additions = [
@@ -365,19 +356,13 @@ class RXCROPMATURITY(SystemTestsCommon):
             "flanduse_timeseries = ''",
             "use_init_interp = .true.",
         ]
-        for addition in nl_additions:
-            append_to_user_nl_files(caseroot = self._get_caseroot(),
-                                    component = "clm",
-                                    contents = addition)
+        self._append_to_user_nl_clm(nl_additions)
     
     def _modify_user_nl_newflanduse_timeseries(self):
         nl_additions = [
             "flanduse_timeseries = '{}'".format(self._flanduse_timeseries_out),
         ]
-        for addition in nl_additions:
-            append_to_user_nl_files(caseroot = self._get_caseroot(),
-                                    component = "clm",
-                                    contents = addition)
+        self._append_to_user_nl_clm(nl_additions)
 
     def _run_generate_gdds(self, case_gddgen):
         self._generate_gdds_dir = os.path.join(self._path_gddgen, "generate_gdds_out")
@@ -446,6 +431,15 @@ class RXCROPMATURITY(SystemTestsCommon):
 
 
         return( conda_env )
+    
+    def _append_to_user_nl_clm(self, additions):
+        if not isinstance(additions, list):
+            additions = [additions]
+        caseroot = self._get_caseroot()
+        for a in additions:
+            append_to_user_nl_files(caseroot = caseroot,
+                                    component = "clm",
+                                    contents = a)
 
 
 def conda_or_python_script_error(error, toolname):
