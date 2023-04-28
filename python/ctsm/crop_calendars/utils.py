@@ -1,8 +1,8 @@
 import re
-import cf_units as cf
 import cftime
 import numpy as np
 import xarray as xr
+import importlib
 try:
     from cartopy.util import add_cyclic_point
 except:
@@ -35,18 +35,6 @@ def weighted_annual_mean(array, time_in='time', time_out='time'):
             array = array.rename({time_in: time_out})
         
     return array
-
-def change_units(ds, variable_str, variable_bounds_str, target_unit_str):
-    """ Applies unit conversion on an xarray DataArray """
-    orig_units = cf.Unit(ds[variable_str].attrs["units"])
-    target_units = cf.Unit(target_unit_str)
-    variable_in_new_units = xr.apply_ufunc(
-        orig_units.convert,
-        ds[variable_bounds_str],
-        target_units,
-        output_dtypes=[ds[variable_bounds_str].dtype],
-    )
-    return variable_in_new_units
 
 def clean_units(units):
     """replace some troublesome unit terms with acceptable replacements"""
@@ -779,7 +767,25 @@ def mfdataset_preproc(ds, vars_to_import, vegtypes_to_import, timeSlice):
     
     # Restrict to time slice, if any
     if timeSlice:
-        ds = ds.sel(time=timeSlice)
+        try:
+            ds = ds.sel(time=timeSlice)
+        except:
+            # If the issue might have been slicing using strings, try to fall back to integer slicing
+            if isinstance(timeSlice.start, str) and isinstance(timeSlice.stop, str) \
+                and len(timeSlice.start.split("-")) == 3 and timeSlice.start.split("-")[1:] == ["01", "01"] \
+                and len(timeSlice.stop.split("-")) == 3 and timeSlice.stop.split("-")[1:] == ["12", "31"]:
+                    fileyears = np.array([x.year for x in ds.time.values])
+                    if len(np.unique(fileyears)) != len(fileyears):
+                        print("Could not fall back to integer slicing of years: Time axis not annual")
+                        raise
+                    yStart = int(timeSlice.start.split("-")[0])
+                    yStop = int(timeSlice.stop.split("-")[0])
+                    where_in_timeSlice = np.where((fileyears >= yStart) & (fileyears <= yStop))[0]
+                    ds = ds.isel(time=where_in_timeSlice)
+            else:
+                print(f"Could not fall back to integer slicing for timeSlice {timeSlice}")
+                raise
+
 
     # Finish import
     ds = xr.decode_cf(ds, decode_times = True)
@@ -853,7 +859,28 @@ def import_ds(filelist, myVars=None, myVegtypes=None, timeSlice=None, myVars_mis
     if timeSlice:
         new_filelist = []
         for file in sorted(filelist):
-            if xr.open_dataset(file).time.sel(time=timeSlice).size:
+            filetime = xr.open_dataset(file).time
+            try:
+                filetime_sel = filetime.sel(time=timeSlice)
+            except:
+                # If the issue might have been slicing using strings, try to fall back to integer slicing
+                if isinstance(timeSlice.start, str) and isinstance(timeSlice.stop, str) \
+                    and len(timeSlice.start.split("-")) == 3 and timeSlice.start.split("-")[1:] == ["01", "01"] \
+                    and len(timeSlice.stop.split("-")) == 3 and timeSlice.stop.split("-")[1:] == ["12", "31"]:
+                        fileyears = np.array([x.year for x in filetime.values])
+                        if len(np.unique(fileyears)) != len(fileyears):
+                            print("Could not fall back to integer slicing of years: Time axis not annual")
+                            raise
+                        yStart = int(timeSlice.start.split("-")[0])
+                        yStop = int(timeSlice.stop.split("-")[0])
+                        if (yStart <= fileyears[-1]) and (yStop >= fileyears[0]):
+                            where_in_timeSlice = np.where((fileyears >= yStart) & (fileyears <= yStop))[0]
+                            filetime_sel = filetime.isel(time=where_in_timeSlice)
+                else:
+                    print(f"Could not fall back to integer slicing for timeSlice {timeSlice}")
+                    raise
+            include_this_file = filetime_sel.size
+            if include_this_file:
                 new_filelist.append(file)
             
              # If you found some matching files, but then you find one that doesn't, stop going through the list.
@@ -862,6 +889,8 @@ def import_ds(filelist, myVars=None, myVegtypes=None, timeSlice=None, myVars_mis
         if not new_filelist:
             raise RuntimeError(f"No files found in timeSlice {timeSlice}")
         filelist = new_filelist
+        if len(filelist) == 1:
+            filelist = filelist[0]
 
     # The xarray open_mfdataset() "preprocess" argument requires a function that takes exactly one variable (an xarray.Dataset object). Wrapping mfdataset_preproc() in this lambda function allows this. Could also just allow mfdataset_preproc() to access myVars and myVegtypes directly, but that's bad practice as it could lead to scoping issues.
     mfdataset_preproc_closure = \
@@ -869,6 +898,8 @@ def import_ds(filelist, myVars=None, myVegtypes=None, timeSlice=None, myVars_mis
 
     # Import
     if isinstance(filelist, list):
+        if importlib.util.find_spec('dask') is None:
+            raise ModuleNotFoundError("You have asked xarray to import a list of files as a single Dataset using open_mfdataset(), but this requires dask, which is not available.")
         this_ds = xr.open_mfdataset(sorted(filelist), \
             data_vars="minimal", 
             preprocess=mfdataset_preproc_closure,
