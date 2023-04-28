@@ -28,6 +28,19 @@ my_clm_subver = "c211112"
 
 def main(input_dir=None, first_season=None, last_season=None, sdates_file=None, hdates_file=None, output_dir=None, save_figs=True, only_make_figs=False, run1_name=None, run2_name=None, land_use_file=None, first_land_use_year=None, last_land_use_year=None, unlimited_season_length=False, logger=None):
     
+    # Directories to save output files and figures
+    if not output_dir:
+        if only_make_figs:
+            output_dir = input_dir
+        else:
+            output_dir = os.path.join(input_dir, "generate_gdds")
+            if not unlimited_season_length:
+                output_dir += ".mxmat"
+            output_dir += "." + dt.datetime.now().strftime('%Y-%m-%d-%H%M%S')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    outdir_figs = os.path.join(output_dir, "figs")
+
     # Set up log file and function, if needed
     if logger is None:
         logging.basicConfig(level=logging.INFO,
@@ -47,19 +60,6 @@ def main(input_dir=None, first_season=None, last_season=None, sdates_file=None, 
             gddfn.log(logger, "Not all plotting modules are available; disabling save_figs")
             save_figs = False
     
-    # Directories to save output files and figures
-    if not output_dir:
-        if only_make_figs:
-            output_dir = input_dir
-        else:
-            output_dir = os.path.join(input_dir, "generate_gdds")
-            if not unlimited_season_length:
-                output_dir += ".mxmat"
-            output_dir += "." + dt.datetime.now().strftime('%Y-%m-%d-%H%M%S')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    outdir_figs = os.path.join(output_dir, "figs")
-
     # Print some info
     gddfn.log(logger, f"Saving to {output_dir}")
     
