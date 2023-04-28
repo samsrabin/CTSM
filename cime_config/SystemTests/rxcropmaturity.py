@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # SSR: This was originally ctsm_pylib, but the fact that it's missing
 #      cf_units caused problems in utils.import_ds().
-this_conda_env = "npl"
+this_conda_env = "ctsm_pylib"
 
 class RXCROPMATURITY(SystemTestsCommon):
 
