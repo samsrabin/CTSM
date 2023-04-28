@@ -889,17 +889,17 @@ def import_ds(filelist, myVars=None, myVegtypes=None, timeSlice=None, myVars_mis
         if not new_filelist:
             raise RuntimeError(f"No files found in timeSlice {timeSlice}")
         filelist = new_filelist
-        if len(filelist) == 1:
-            filelist = filelist[0]
 
     # The xarray open_mfdataset() "preprocess" argument requires a function that takes exactly one variable (an xarray.Dataset object). Wrapping mfdataset_preproc() in this lambda function allows this. Could also just allow mfdataset_preproc() to access myVars and myVegtypes directly, but that's bad practice as it could lead to scoping issues.
     mfdataset_preproc_closure = \
         lambda ds: mfdataset_preproc(ds, myVars, myVegtypes, timeSlice)
 
     # Import
+    if isinstance(filelist, list) and len(filelist) == 1:
+        filelist = filelist[0]
     if isinstance(filelist, list):
         if importlib.util.find_spec('dask') is None:
-            raise ModuleNotFoundError("You have asked xarray to import a list of files as a single Dataset using open_mfdataset(), but this requires dask, which is not available.")
+            raise ModuleNotFoundError(f"You have asked xarray to import a list of files as a single Dataset using open_mfdataset(), but this requires dask, which is not available.\nFile list: {filelist}")
         this_ds = xr.open_mfdataset(sorted(filelist), \
             data_vars="minimal", 
             preprocess=mfdataset_preproc_closure,
