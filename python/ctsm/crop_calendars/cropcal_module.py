@@ -180,7 +180,7 @@ def check_and_trim_years(y1, yN, ds_in):
     
     # Remove years outside range of interest
     ### Include an extra year at the end to finish out final seasons.
-    ds_in = safer_timeslice(ds_in, slice(f"{y1+1}-01-01", f"{yN+2}-01-01"))
+    ds_in = utils.safer_timeslice(ds_in, slice(f"{y1+1}-01-01", f"{yN+2}-01-01"))
     
     # Make sure you have the expected number of timesteps (including extra year)
     Nyears_expected = yN - y1 + 2
@@ -2650,30 +2650,6 @@ def round_lonlats_to_match_ds(ds_a, ds_b, which_coord, tolerance):
     return ds_a, ds_b, tolerance
 
 
-# ctsm_pylib can't handle time slicing like Dataset.sel(time=slice("1998-01-01", "2005-12-31")) for some reason. This function tries to fall back to slicing by integers. It should work with both Datasets and DataArrays.
-def safer_timeslice(ds, timeSlice, timeVar="time"):
-    try:
-        ds = ds.sel({timeVar: timeSlice})
-    except:
-        # If the issue might have been slicing using strings, try to fall back to integer slicing
-        if isinstance(timeSlice.start, str) and isinstance(timeSlice.stop, str) \
-            and len(timeSlice.start.split("-")) == 3 and timeSlice.start.split("-")[1:] == ["01", "01"] \
-            and len(timeSlice.stop.split("-")) == 3 and (timeSlice.stop.split("-")[1:] == ["12", "31"] or timeSlice.stop.split("-")[1:] == ["01", "01"]):
-                fileyears = np.array([x.year for x in ds.time.values])
-                if len(np.unique(fileyears)) != len(fileyears):
-                    print("Could not fall back to integer slicing of years: Time axis not annual")
-                    raise
-                yStart = int(timeSlice.start.split("-")[0])
-                yStop = int(timeSlice.stop.split("-")[0])
-                where_in_timeSlice = np.where((fileyears >= yStart) & (fileyears <= yStop))[0]
-                ds = ds.isel({timeVar: where_in_timeSlice})
-        else:
-            print(f"Could not fall back to integer slicing for timeSlice {timeSlice}")
-            raise
-
-    return ds
-
-
 # For backwards compatibility with files missing SDATES_PERHARV.
 def set_firstharv_nan(this_ds, this_var, firstharv_nan_inds):
     this_da = this_ds[this_var]
@@ -2742,9 +2718,9 @@ def time_units_and_trim(ds, y1, yN, dt_type):
         raise TypeError(f"Expected time axis to be type {dt_type} but got {time0_type}")
     
     # Trim
-    ds = safer_timeslice(ds, slice(f"{y1}-01-01", f"{yN}-01-01"))
+    ds = utils.safer_timeslice(ds, slice(f"{y1}-01-01", f"{yN}-01-01"))
     if "time_mth" in ds.dims:
-        ds = safer_timeslice(ds, slice(f"{y1}-01-01", f"{yN}-12-31"), timeVar="time_mth")
+        ds = utils.safer_timeslice(ds, slice(f"{y1}-01-01", f"{yN}-12-31"), timeVar="time_mth")
         
     return ds
 
@@ -2755,7 +2731,7 @@ def time_units_and_trim_mth(ds, y1, yN):
     new_time = [x[0] for x in ds.time_bounds.values]
     ds = ds.assign_coords(time=new_time)
     
-    return safer_timeslice(ds, slice(f"{y1}-01-01", f"{yN+1}-12-31"))
+    return utils.safer_timeslice(ds, slice(f"{y1}-01-01", f"{yN+1}-12-31"))
 
 
 # gridded_xr can be an xarray Dataset or DataArray
