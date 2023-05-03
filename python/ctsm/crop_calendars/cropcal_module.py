@@ -421,7 +421,8 @@ def check_rx_obeyed(vegtype_list, rx_ds, dates_ds, which_ds, output_var, gdd_min
         sim_array_dims = ds_thisVeg[output_var].dims
         
         # Ignore patches without prescribed value
-        rx_array[np.where(rx_array < 0)] = np.nan
+        with np.errstate(invalid='ignore'):
+            rx_array[np.where(rx_array < 0)] = np.nan
         
         # Account for...
         if "GDDHARV" in output_var:
@@ -429,7 +430,8 @@ def check_rx_obeyed(vegtype_list, rx_ds, dates_ds, which_ds, output_var, gdd_min
             if gdd_min == None:
                 gdd_min = default_gdd_min()
                 print(f"gdd_min not provided when doing check_rx_obeyed() for {output_var}; using default {gdd_min}")
-            rx_array[(rx_array >= 0) & (rx_array < gdd_min)] = gdd_min
+            with np.errstate(invalid='ignore'):
+                rx_array[(rx_array >= 0) & (rx_array < gdd_min)] = gdd_min
             
             # ...harvest reason
             # 0: Should never happen in any simulation
@@ -453,11 +455,16 @@ def check_rx_obeyed(vegtype_list, rx_ds, dates_ds, which_ds, output_var, gdd_min
                     (diff_array < 0) & 
                     (ds_thisVeg["HARVEST_REASON_PERHARV"].values==5))
             elif output_var=="GDDHARV":
+                with np.errstate(invalid='ignore'):
+                    diff_lt_0 = diff_array < 0
+                    harv_reason_5 = ds_thisVeg["HARVEST_REASON"].values==5
                 diff_array = np.ma.masked_array(diff_array, mask= \
-                    (diff_array < 0) & 
-                    (ds_thisVeg["HARVEST_REASON"].values==5))
+                    diff_lt_0 &
+                    harv_reason_5)
 
-            if np.any(np.abs(diff_array[abs(diff_array) > 0]) > 0):
+            with np.errstate(invalid='ignore'):
+                abs_gt_0 = abs(diff_array) > 0
+            if np.any(np.abs(diff_array[abs_gt_0]) > 0):
                 min_diff, minLon, minLat, minGS, minRx = get_extreme_info(diff_array, rx_array, np.nanmin, sim_array_dims, dates_ds.gs, patch_lons_thisVeg, patch_lats_thisVeg)
                 max_diff, maxLon, maxLat, maxGS, maxRx = get_extreme_info(diff_array, rx_array, np.nanmax, sim_array_dims, dates_ds.gs, patch_lons_thisVeg, patch_lats_thisVeg)
                 
@@ -551,20 +558,23 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
     hdates_pym = np.transpose(hdates_ymp.copy(), (2,0,1))
     sdates_ymp = this_ds.SDATES_PERHARV.copy().where(this_ds.SDATES_PERHARV > 0).values
     sdates_pym = np.transpose(sdates_ymp.copy(), (2,0,1))
-    hdates_pym[hdates_pym <= 0] = np.nan
+    with np.errstate(invalid='ignore'):
+        hdates_pym[hdates_pym <= 0] = np.nan
     
     # Find years where patch was inactive
     inactive_py = np.transpose(
         np.isnan(this_ds.HDATES).all(dim="mxharvests").values \
         & np.isnan(this_ds.SDATES_PERHARV).all(dim="mxharvests").values)
     # Find seasons that were planted while the patch was inactive
-    sown_inactive_py = inactive_py[:,:-1] & (hdates_pym[:,1:,0] < sdates_pym[:,1:,0])
+    with np.errstate(invalid='ignore'):
+        sown_inactive_py = inactive_py[:,:-1] & (hdates_pym[:,1:,0] < sdates_pym[:,1:,0])
     sown_inactive_py = np.concatenate((np.full((Npatch, 1), False),
                                        sown_inactive_py),
                                       axis=1)
 
     # "Ignore harvests from seasons sown (a) before this output began or (b) when the crop was inactive"
-    first_season_before_first_year_p = hdates_pym[:,0,0] < sdates_pym[:,0,0]
+    with np.errstate(invalid='ignore'):
+        first_season_before_first_year_p = hdates_pym[:,0,0] < sdates_pym[:,0,0]
     first_season_before_first_year_py = np.full(hdates_pym.shape[:-1], fill_value=False)
     first_season_before_first_year_py[:,0] = first_season_before_first_year_p
     sown_prerun_or_inactive_py = first_season_before_first_year_py | sown_inactive_py
@@ -584,7 +594,9 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
     sdates_orig_pym = np.transpose(sdates_orig_ymp.copy(), (2,0,1))
     hdates_pym2 = hdates_pym.copy()
     sdates_pym2 = sdates_pym.copy()
-    nosow_py = np.all(~(sdates_orig_pym > 0), axis=2)
+    with np.errstate(invalid='ignore'):
+        sdates_gt_0 = sdates_orig_pym > 0
+    nosow_py = np.all(~sdates_gt_0, axis=2)
     nosow_py_1st = nosow_py & np.isnan(hdates_pym[:,:,0])
     where_nosow_py_1st = np.where(nosow_py_1st)
     hdates_pym2[where_nosow_py_1st[0], where_nosow_py_1st[1], 0] = -np.inf
@@ -600,11 +612,17 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
         
     # "In years with sowing that are followed by inactive years, check whether the last sowing was harvested before the patch was deactivated. If not, pretend the LAST [easier to implement!] no-harvest is meaningful."
     sdates_orig_masked_pym = sdates_orig_pym.copy()
-    sdates_orig_masked_pym[np.where(sdates_orig_masked_pym <= 0)] = np.nan
-    last_sdate_firstNgs_py = np.nanmax(sdates_orig_masked_pym[:,:-1,:], axis=2)
-    last_hdate_firstNgs_py = np.nanmax(hdates_pym2[:,:-1,:], axis=2)
+    with np.errstate(invalid='ignore'):
+        sdates_le_0 = sdates_orig_masked_pym <= 0
+    sdates_orig_masked_pym[np.where(sdates_le_0)] = np.nan
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action='ignore', message='All-NaN slice encountered')
+        last_sdate_firstNgs_py = np.nanmax(sdates_orig_masked_pym[:,:-1,:], axis=2)
+        last_hdate_firstNgs_py = np.nanmax(hdates_pym2[:,:-1,:], axis=2)
+    with np.errstate(invalid='ignore'):
+        hdate_lt_sdate = last_hdate_firstNgs_py < last_sdate_firstNgs_py
     last_sowing_not_harvested_sameyear_firstNgs_py = \
-        (last_hdate_firstNgs_py < last_sdate_firstNgs_py) \
+        hdate_lt_sdate \
         | np.isnan(last_hdate_firstNgs_py)
     inactive_lastNgs_py = inactive_py[:,1:]
     last_sowing_never_harvested_firstNgs_py = last_sowing_not_harvested_sameyear_firstNgs_py & inactive_lastNgs_py
@@ -633,7 +651,9 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
         print(f'After "In years with no sowing, pretend the first no-harvest is meaningful: discrepancy of {np.sum(~np.isnan(hdates_pg)) - expected_valid} patch-seasons')
     
     # "Ignore any harvests that were planted in the final year, because some cells will have incomplete growing seasons for the final year."
-    lastyear_complete_season = (hdates_pg[:,-mxharvests:] >= sdates_pg[:,-mxharvests:]) | np.isinf(hdates_pg[:,-mxharvests:])
+    with np.errstate(invalid='ignore'):
+        hdates_ge_sdates = hdates_pg[:,-mxharvests:] >= sdates_pg[:,-mxharvests:]
+    lastyear_complete_season = hdates_ge_sdates | np.isinf(hdates_pg[:,-mxharvests:])
     def ignore_lastyear_complete_season(pg, excl, mxharvests):
         tmp_L = pg[:,:-mxharvests]
         tmp_R = pg[:,-mxharvests:]
@@ -1319,7 +1339,9 @@ def default_gdd_min():
 # Get growing season lengths from a DataArray of hdate-sdate
 def get_gs_len_da(this_da):
     tmp = this_da.values
-    tmp[tmp < 0] = 365 + tmp[tmp < 0]
+    with np.errstate(invalid='ignore'):
+        tmp_lt_0 = tmp < 0
+    tmp[tmp_lt_0] = 365 + tmp[tmp_lt_0]
     this_da.values = tmp
     this_da.attrs['units'] = 'days'
     return this_da
@@ -1419,7 +1441,9 @@ def get_Nharv(array_in, these_dims):
 
 def get_pct_harv_at_mature(harvest_reason_da):
     Nharv_at_mature = len(np.where(harvest_reason_da.values==1)[0])
-    Nharv = len(np.where(harvest_reason_da.values>0)[0])
+    with np.errstate(invalid='ignore'):
+        harv_reason_gt_0 = harvest_reason_da.values>0
+    Nharv = len(np.where(harv_reason_gt_0)[0])
     if Nharv == 0:
         return np.nan
     pct_harv_at_mature = Nharv_at_mature / Nharv * 100
@@ -2075,8 +2099,9 @@ def import_output(filename, myVars, y1=None, yN=None, myVegtypes=utils.define_mg
     all_pos = np.full(this_ds[date_vars[0]].shape, True)
     for v in date_vars:
         all_nan = all_nan & np.isnan(this_ds[v].values)
-        all_nonpos = all_nonpos & (this_ds[v].values <= 0)
-        all_pos = all_pos & (this_ds[v].values > 0)
+        with np.errstate(invalid='ignore'):
+            all_nonpos = all_nonpos & (this_ds[v].values <= 0)
+            all_pos = all_pos & (this_ds[v].values > 0)
     if np.any(np.bitwise_not(all_nan | all_nonpos | all_pos)):
         raise RuntimeError("Inconsistent missing/present values on mxharvests axis")
     
@@ -2086,7 +2111,8 @@ def import_output(filename, myVars, y1=None, yN=None, myVegtypes=utils.define_mg
     # In all but the last calendar year, which patches had no sowing?
     no_sowing_yp = np.all(np.isnan(this_ds.SDATES.values[:-1,:,:]), axis=1)
     # In all but the first calendar year, which harvests' jdays are < their sowings' jdays? (Indicates sowing the previous calendar year.)
-    hsdate1_gt_hdate1_yp = this_ds.SDATES_PERHARV.values[1:,0,:] > this_ds.HDATES.values[1:,0,:]
+    with np.errstate(invalid='ignore'):
+        hsdate1_gt_hdate1_yp = this_ds.SDATES_PERHARV.values[1:,0,:] > this_ds.HDATES.values[1:,0,:]
     # Where both, we have the problem.
     falsely_alive_yp = no_sowing_yp & hsdate1_gt_hdate1_yp
     if np.any(falsely_alive_yp):
@@ -2115,7 +2141,9 @@ def import_output(filename, myVars, y1=None, yN=None, myVegtypes=utils.define_mg
                 else:
                     print(f"WARNING: Unexpected negative value(s) in {v}; minimum {the_min} ({which_file})")
                 values = this_ds[v].copy().values
-                values[np.where((values < 0) & (values >= -tiny_negOK))] = 0
+                with np.errstate(invalid='ignore'):
+                    do_setto_0 = (values < 0) & (values >= -tiny_negOK)
+                values[np.where(do_setto_0)] = 0
                 this_ds[v] = xr.DataArray(values,
                                           coords = this_ds[v].coords,
                                           dims = this_ds[v].dims,
