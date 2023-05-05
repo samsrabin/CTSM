@@ -126,6 +126,20 @@ SSR 2023-04-28: I just copied everything except DESC from the above. I'm not sur
     <HIST_N>$STOP_N</HIST_N>
   </test>
 
+  <test NAME="RXCROPMATURITY58">
+    <DESC>Generate prescribed maturity requirements, then test with them</DESC>
+    <INFO_DBUG>1</INFO_DBUG>
+    <DOUT_S>FALSE</DOUT_S>
+    <CONTINUE_RUN>FALSE</CONTINUE_RUN>
+    <REST_OPTION>never</REST_OPTION>
+    <HIST_OPTION>$STOP_OPTION</HIST_OPTION>
+    <HIST_N>$STOP_N</HIST_N>
+    <RUN_TYPE>hybrid</RUN_TYPE>
+    <RUN_STARTDATE>1958-01-01</RUN_STARTDATE>
+    <RUN_REFDATE>1958-01-01</RUN_REFDATE>
+    <RUN_REFCASE>20230227_clm52_1901-1957</RUN_REFCASE>
+  </test>
+
 <!--
 SSP    smoke CLM spinup test (only valid for CLM compsets with CLM45)
        do an initial spin test (setting CLM_ACCELERATED_SPINUP to on)

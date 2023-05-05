@@ -27,11 +27,15 @@ logger = logging.getLogger(__name__)
 #      cf_units caused problems in utils.import_ds().
 this_conda_env = "ctsm_pylib"
 
-class RXCROPMATURITY(SystemTestsCommon):
+class rxcropmaturityparent(SystemTestsCommon):
 
     def __init__(self, case):
         # initialize an object interface to the SMS system test
         SystemTestsCommon.__init__(self, case)
+
+        # If reference case is specified, make sure that the grid of this test matches
+        self._refcase = self._case.get_value("RUN_REFCASE")
+        self._check_grid_against_refcase()
         
         # Ensure run length is at least 5 years. Minimum to produce one complete growing season (i.e., two complete calendar years) actually 4 years, but that only gets you 1 season usable for GDD generation, so you can't check for season-to-season consistency.
         stop_n = self._case.get_value("STOP_N")
@@ -214,6 +218,9 @@ class RXCROPMATURITY(SystemTestsCommon):
         logger.info("SSRLOG  modify user_nl files: all tests")
         self._modify_user_nl_allruns()
         logger.info("SSRLOG  _setup_all done")
+
+        # Copy restart files to run directory, if needed
+        self._stage_restart_files()
 
          
     def _run_make_lu_for_gddgen(self, case_gddgen):
@@ -427,4 +434,28 @@ class RXCROPMATURITY(SystemTestsCommon):
             raise
         except:
             print(f"ERROR trying to run {tool_name}.")
+            raise
+
+    def _check_grid_against_refcase(self):
+        if self._refcase == "case.std":
+            return
+
+        refcase_grids = {
+                "cropcals.f19-g17.yield_perharv2.IHistClm50BgcCrop.1901-1957": "a%1.9x2.5_l%1.9x2.5_oi%null_r%r05_g%null_w%null_z%null_m%gx1v7",
+            }
+        if self._refcase not in refcase_grids.keys():
+            raise RuntimeError(f"Define gridspec for refcase {self._refcase}")
+        gridspec = self._case.get_value("GRID")
+        if gridspec != refcase_grids[self._refcase]:
+            raise RuntimeError(f"Requested grid\n    {gridspec}\n does not match refcase {self._refcase} grid\n    {refcase_grids[self._refcase]}")
+
+    def _stage_restart_files(self):
+        if self._refcase == "case.std":
+            return
+
+        command = f"cp -a /glade/work/samrabin/clm51_restarts/{self._refcase}/rest/{self._start_year}-01-01-00000/* run/"
+        try:
+            subprocess.run(command, shell=True, check=True, text=True)
+        except subprocess.CalledProcessError as error:
+            print(error.output)
             raise
