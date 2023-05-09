@@ -2261,6 +2261,7 @@ contains
                 print *,'SSRts   sowing_count(p) ',sowing_count(p)
                 print *,'SSRts   vernalization_forces_harvest ',vernalization_forces_harvest
                 print *,'SSRts   will_plant_prescribed_tomorrow ',will_plant_prescribed_tomorrow
+                call endrun(msg="SSRts Stopping.")
             endif
 
             ! The following conditionals are similar to those in CropPhase. However, they
