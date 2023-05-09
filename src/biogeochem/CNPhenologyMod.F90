@@ -2239,6 +2239,30 @@ contains
             endif
             force_harvest = force_harvest .or. (generate_crop_gdds .and. do_harvest)
 
+            ! SSR troubleshooting
+            if (force_harvest .and. .not. do_harvest) then
+                print *,'SSRts force_harvest .and. .not. do_harvest'
+                print *,'SSRts   croplive(p) ',croplive(p)
+                print *,'SSRts   did_plant ',did_plant
+                print *,'SSRts   did_plant_prescribed_today ',did_plant_prescribed_today
+                print *,'SSRts   do_plant ',do_plant
+                print *,'SSRts   fake_harvest ',fake_harvest
+                print *,'SSRts   gddmaturity(p) ',gddmaturity(p)
+                print *,'SSRts   generate_crop_gdds ',generate_crop_gdds
+                print *,'SSRts   harvest_reason ',harvest_reason
+                print *,'SSRts   hui(p) ',hui(p)
+                print *,'SSRts   idop(p) ',idop(p)
+                print *,'SSRts   idpp ',idpp
+                print *,'SSRts   jday ',jday
+                print *,'SSRts   mxmat ',mxmat
+                print *,'SSRts   next_rx_sdate(p) ',next_rx_sdate(p)
+                print *,'SSRts   rx_sdates_thisyr_patch(p,1) ',crop_inst%rx_sdates_thisyr_patch(p,1)
+                print *,'SSRts   sdates_thisyr_patch(p,1) ',crop_inst%sdates_thisyr_patch(p,1)
+                print *,'SSRts   sowing_count(p) ',sowing_count(p)
+                print *,'SSRts   vernalization_forces_harvest ',vernalization_forces_harvest
+                print *,'SSRts   will_plant_prescribed_tomorrow ',will_plant_prescribed_tomorrow
+            endif
+
             ! The following conditionals are similar to those in CropPhase. However, they
             ! differ slightly because here we are potentially setting a new crop phase,
             ! whereas CropPhase is just designed to get the current, already-determined
