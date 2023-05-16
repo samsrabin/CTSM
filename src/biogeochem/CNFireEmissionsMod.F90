@@ -12,6 +12,9 @@ module CNFireEmissionsMod
   use decompMod,    only : bounds_type
   use shr_fire_emis_mod,  only : shr_fire_emis_comps_n, shr_fire_emis_comp_t, shr_fire_emis_linkedlist
   use shr_fire_emis_mod,  only : shr_fire_emis_mechcomps_n, shr_fire_emis_mechcomps
+  ! ssrts
+  use clm_varctl     , only : iulog
+  use GridcellType                    , only : grc
   !
   implicit none
   private
@@ -301,6 +304,9 @@ contains
                n_emis_comps = shr_fire_emis_mechcomps(imech)%n_emis_comps
                do icomp = 1,n_emis_comps ! loop over number of emission components that make up the nth mechanism compoud
                   ii = shr_fire_emis_mechcomps(imech)%emis_comps(icomp)%ptr%index
+                  if (isnan(shr_fire_emis_mechcomps(imech)%coeffs(icomp)*emis_flux(ii))) then
+                      write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN emis_flux lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," imech ",imech," icomp ",icomp," ii ",ii
+                  end if
                   fire_emis(p,imech) = fire_emis(p,imech) + shr_fire_emis_mechcomps(imech)%coeffs(icomp)*emis_flux(ii)
                enddo
                mech(imech)%emis(p) = fire_emis(p,imech)
