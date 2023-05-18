@@ -1224,7 +1224,7 @@ contains
 
         f = farea_burned(c)
         if (isnan(f)) then
-            write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN farea_burned lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," c ",c
+            write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3)') "ssrts   NaN farea_burned lat ",grc%latdeg(g)," lon ",grc%londeg(g)," c ",c
         endif
 
         ! If fire is active add to active fire filter
@@ -1239,7 +1239,7 @@ contains
            ! carbon fluxes
            do l = 1, ndecomp_pools
               if (isnan(decomp_cpools_vr(c,j,l))) then
-                 write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN decomp_cpools_vr lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," c ",c," j ",j," l ",l
+                 write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3)') "ssrts   NaN decomp_cpools_vr lat ",grc%latdeg(g)," lon ",grc%londeg(g)," c ",c," j ",j," l ",l
               endif
               
               if ( is_litter(l) ) then
@@ -1250,7 +1250,7 @@ contains
               end if
               if ( is_cwd(l) ) then
                  if (isnan(baf_crop(c))) then
-                     write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN baf_crop lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," c ",c
+                     write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3)') "ssrts   NaN baf_crop lat ",grc%latdeg(g)," lon ",grc%londeg(g)," c ",c
                  endif
                  m_decomp_cpools_to_fire_vr(c,j,l) = decomp_cpools_vr(c,j,l) * &
                       (f-baf_crop(c)) * 0.25_r8

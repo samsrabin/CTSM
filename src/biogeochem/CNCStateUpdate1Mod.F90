@@ -10,6 +10,8 @@ module CNCStateUpdate1Mod
   use shr_kind_mod                       , only : r8 => shr_kind_r8
   use shr_log_mod                        , only : errMsg => shr_log_errMsg
   use clm_varpar                         , only : ndecomp_cascade_transitions, nlevdecomp
+  use clm_varctl                     , only : iulog
+  use GridcellType                    , only : grc
   use clm_time_manager                   , only : get_step_size_real
   use clm_varpar                         , only : i_litr_min, i_litr_max, i_cwd
   use pftconMod                          , only : npcropmin, nc3crop, pftcon
@@ -76,10 +78,19 @@ contains
           do fc = 1, num_soilc_with_inactive
              c = filter_soilc_with_inactive(fc)
              do i = i_litr_min, i_litr_max
+                if (isnan(cf_veg%dwt_frootc_to_litr_c_col(c,j,i))) then
+                   write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3)') "ssrts   NaN dwt_frootc_to_litr_c_col lat ",grc%latdeg(g)," lon ",grc%londeg(g)," c ",c," j ",j," i ",i
+                endif
                 cs_soil%decomp_cpools_vr_col(c,j,i) = &
                      cs_soil%decomp_cpools_vr_col(c,j,i) + &
                      cf_veg%dwt_frootc_to_litr_c_col(c,j,i) * dt
              end do
+             if (isnan(cf_veg%dwt_livecrootc_to_cwdc_col(c,j))) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3)') "ssrts   NaN dwt_livecrootc_to_cwdc_col lat ",grc%latdeg(g)," lon ",grc%londeg(g)," c ",c," j ",j
+             endif
+             if (isnan(cf_veg%dwt_deadcrootc_to_cwdc_col(c,j))) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3)') "ssrts   NaN dwt_deadcrootc_to_cwdc_col lat ",grc%latdeg(g)," lon ",grc%londeg(g)," c ",c," j ",j
+             endif
              cs_soil%decomp_cpools_vr_col(c,j,i_cwd) = cs_soil%decomp_cpools_vr_col(c,j,i_cwd) + &
                   ( cf_veg%dwt_livecrootc_to_cwdc_col(c,j) + cf_veg%dwt_deadcrootc_to_cwdc_col(c,j) ) * dt
           end do

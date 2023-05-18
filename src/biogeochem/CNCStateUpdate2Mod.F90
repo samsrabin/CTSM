@@ -13,6 +13,7 @@
   use abortutils                     , only : endrun
   use clm_time_manager               , only : get_step_size_real
   use clm_varpar                     , only : i_litr_min, i_litr_max, nlevdecomp, i_cwd
+  use clm_varctl                     , only : iulog
   use CNvegCarbonStateType           , only : cnveg_carbonstate_type
   use CNVegCarbonFluxType            , only : cnveg_carbonflux_type
   use SoilBiogeochemCarbonStatetype  , only : soilbiogeochem_carbonstate_type
@@ -80,10 +81,16 @@ contains
             !
             if (.not. use_soil_matrixcn)then
                do i = i_litr_min, i_litr_max
+                  if (isnan(cf_veg%gap_mortality_c_to_litr_c_col(c,j,i))) then
+                      write(iulog,'(a,i3,a,i3,a,i3)') "ssrts   NaN gap_mortality_c_to_litr_c_col c ",c," j ",j," i ",i
+                  endif
                   cs_soil%decomp_cpools_vr_col(c,j,i) = &
                     cs_soil%decomp_cpools_vr_col(c,j,i) + &
                     cf_veg%gap_mortality_c_to_litr_c_col(c,j,i) * dt
                end do
+               if (isnan(cf_veg%gap_mortality_c_to_cwdc_col(c,j))) then
+                  write(iulog,'(a,i3,a,i3)') "ssrts   NaN gap_mortality_c_to_cwdc_col c ",c," j ",j
+               endif
                ! Currently i_cwd .ne. i_litr_max + 1 if .not. fates and
                !           i_cwd = 0 if fates, so not including in the i-loop
                cs_soil%decomp_cpools_vr_col(c,j,i_cwd) = &
@@ -220,10 +227,16 @@ contains
             !
             if (.not. use_soil_matrixcn)then
                do i = i_litr_min, i_litr_max
+                  if (isnan(cf_veg%harvest_c_to_litr_c_col(c,j,i))) then
+                      write(iulog,'(a,i3,a,i3,a,i3)') "ssrts   NaN harvest_c_to_litr_c_col c ",c," j ",j," i ",i
+                  endif
                   cs_soil%decomp_cpools_vr_col(c,j,i) = &
                     cs_soil%decomp_cpools_vr_col(c,j,i) + &
                     cf_veg%harvest_c_to_litr_c_col(c,j,i) * dt
                end do
+               if (isnan(cf_veg%harvest_c_to_cwdc_col(c,j))) then
+                  write(iulog,'(a,i3,a,i3)') "ssrts   NaN harvest_c_to_cwdc_col c ",c," j ",j
+               endif
                ! Currently i_cwd .ne. i_litr_max + 1 if .not. fates and
                !           i_cwd = 0 if fates, so not including in the i-loop
                cs_soil%decomp_cpools_vr_col(c,j,i_cwd) = &
@@ -364,9 +377,15 @@ contains
 
             ! column gross unrepresented landcover change fluxes
             do i = i_litr_min, i_litr_max
+              if (isnan(cf_veg%harvest_c_to_litr_c_col(c,j,i))) then
+                  write(iulog,'(a,i3,a,i3,a,i3)') "ssrts   NaN gru_c_to_litr_c_col c ",c," j ",j," i ",i
+              endif
                cs_soil%decomp_cpools_vr_col(c,j,i) = &
                   cs_soil%decomp_cpools_vr_col(c,j,i) + cf_veg%gru_c_to_litr_c_col(c,j,i) * dt
             end do
+            if (isnan(cf_veg%gru_c_to_cwdc_col(c,j))) then
+                write(iulog,'(a,i3,a,i3)') "ssrts   NaN gru_c_to_cwdc_col c ",c," j ",j
+            endif
             cs_soil%decomp_cpools_vr_col(c,j,i_cwd) = &
                  cs_soil%decomp_cpools_vr_col(c,j,i_cwd) + cf_veg%gru_c_to_cwdc_col(c,j)  * dt
 

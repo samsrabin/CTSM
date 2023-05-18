@@ -19,6 +19,7 @@ module CNCStateUpdate3Mod
   use SoilBiogeochemCarbonFluxType   , only : soilbiogeochem_carbonflux_type
   use SoilBiogeochemDecompCascadeConType , only : use_soil_matrixcn
   use CNSharedParamsMod              , only : use_matrixcn
+  use clm_varctl                     , only : iulog
   !
   implicit none
   private
@@ -74,11 +75,17 @@ contains
             ! State update without the matrix solution
             !
             if (.not. use_soil_matrixcn) then
+              if (isnan(cf_veg%fire_mortality_c_to_cwdc_col(c,j))) then
+                  write(iulog,'(a,i3,a,i3)') "ssrts   NaN fire_mortality_c_to_cwdc_col c ",c," j ",j
+              endif
                cs_soil%decomp_cpools_vr_col(c,j,i_cwd) = cs_soil%decomp_cpools_vr_col(c,j,i_cwd) + &
                  cf_veg%fire_mortality_c_to_cwdc_col(c,j) * dt
 
                ! patch-level wood to column-level litter (uncombusted wood)
                do i = i_litr_min, i_litr_max
+                if (isnan(cf_veg%m_c_to_litr_fire_col(c,j,i))) then
+                    write(iulog,'(a,i3,a,i3,a,i3)') "ssrts   NaN m_c_to_litr_fire_col c ",c," j ",j," i ",i
+                endif
                   cs_soil%decomp_cpools_vr_col(c,j,i) = &
                      cs_soil%decomp_cpools_vr_col(c,j,i) + &
                      cf_veg%m_c_to_litr_fire_col(c,j,i) * dt
