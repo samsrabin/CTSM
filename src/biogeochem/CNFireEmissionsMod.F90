@@ -253,10 +253,22 @@ contains
                fire_flux_lf1=0._r8
                do l = 1, ndecomp_pools
                   do j = 1, nlevdecomp
+                     if (isnan(cnveg_cf_inst%m_decomp_cpools_to_fire_vr_col(c,j,l))) then
+                        write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN m_decomp_cpools_to_fire_vr_col lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," c ",c," j ",j," l ",l
+                     endif
+                     if (isnan(dzsoi_decomp(j))) then
+                        write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3)') "ssrts   NaN dzsoi_decomp lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," j ",j
+                     endif
                      fire_flux_lf1 = fire_flux_lf1 + &
                           cnveg_cf_inst%m_decomp_cpools_to_fire_vr_col(c,j,l)*dzsoi_decomp(j)
                   enddo
                end do
+               if (isnan(fire_flux_lf1)) then
+                  write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN fire_flux_lf1 lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+               endif
+               if (cnveg_cs_inst%totvegc_patch(p) == 0._r8 .and. cnveg_cs_inst%totvegc_col(c) == 0._r8) then
+                  write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   totvegc_patch=totvegc_col=0 lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+               endif
                fire_flux_lf = fire_flux_lf1*cnveg_cs_inst%totvegc_patch(p)/cnveg_cs_inst%totvegc_col(c)
             else
                fire_flux_lf=0._r8
