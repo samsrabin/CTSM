@@ -261,27 +261,111 @@ contains
             else
                fire_flux_lf=0._r8
             end if
+
+            if (isnan(fire_flux_lf)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN fire_flux_lf lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+
             fire_flux = fire_flux_lf &
-                 + cnveg_cf_inst%m_leafc_to_fire_patch                     (p) & ! (gC/m2/s) fire C emissions from leafc
-                 + cnveg_cf_inst%m_leafc_storage_to_fire_patch             (p) & ! (gC/m2/s) fire C emissions from leafc_storage
-                 + cnveg_cf_inst%m_leafc_xfer_to_fire_patch                (p) & ! (gC/m2/s) fire C emissions from leafc_xfer
-                 + cnveg_cf_inst%m_livestemc_to_fire_patch                 (p) & ! (gC/m2/s) fire C emissions from livestemc
-                 + cnveg_cf_inst%m_livestemc_storage_to_fire_patch         (p) & ! (gC/m2/s) fire C emissions from livestemc_storage
-                 + cnveg_cf_inst%m_livestemc_xfer_to_fire_patch            (p) & ! (gC/m2/s) fire C emissions from livestemc_xfer
-                 + cnveg_cf_inst%m_deadstemc_to_fire_patch                 (p) & ! (gC/m2/s) fire C emissions from deadstemc_xfer
-                 + cnveg_cf_inst%m_deadstemc_storage_to_fire_patch         (p) & ! (gC/m2/s) fire C emissions from deadstemc_storage
-                 + cnveg_cf_inst%m_deadstemc_xfer_to_fire_patch            (p) & ! (gC/m2/s) fire C emissions from deadstemc_xfer
-                 + cnveg_cf_inst%m_frootc_to_fire_patch                    (p) & ! (gC/m2/s) fire C emissions from frootc
-                 + cnveg_cf_inst%m_frootc_storage_to_fire_patch            (p) & ! (gC/m2/s) fire C emissions from frootc_storage
-                 + cnveg_cf_inst%m_frootc_xfer_to_fire_patch               (p) & ! (gC/m2/s) fire C emissions from frootc_xfer
-                 + cnveg_cf_inst%m_livecrootc_to_fire_patch                (p) & ! (gC/m2/s) fire C emissions from livecrootc
-                 + cnveg_cf_inst%m_livecrootc_storage_to_fire_patch        (p) & ! (gC/m2/s) fire C emissions from livecrootc_storage
-                 + cnveg_cf_inst%m_livecrootc_xfer_to_fire_patch           (p) & ! (gC/m2/s) fire C emissions from livecrootc_xfer
-                 + cnveg_cf_inst%m_deadcrootc_to_fire_patch                (p) & ! (gC/m2/s) fire C emissions from deadcrootc
-                 + cnveg_cf_inst%m_deadcrootc_storage_to_fire_patch        (p) & ! (gC/m2/s) fire C emissions from deadcrootc_storage
-                 + cnveg_cf_inst%m_deadcrootc_xfer_to_fire_patch           (p) & ! (gC/m2/s) fire C emissions from deadcrootc_xfer
-                 + cnveg_cf_inst%m_gresp_storage_to_fire_patch             (p) & ! (gC/m2/s) fire C emissions from gresp_storage
-                 + cnveg_cf_inst%m_gresp_xfer_to_fire_patch                (p)   ! (gC/m2/s) fire C emissions from gresp_xfer
+                 + cnveg_cf_inst%m_leafc_to_fire_patch                     (p) ! (gC/m2/s) fire C emissions from leafc
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_leafc_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_leafc_storage_to_fire_patch             (p) ! (gC/m2/s) fire C emissions from leafc_storage
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_leafc_storage_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_leafc_xfer_to_fire_patch                (p) ! (gC/m2/s) fire C emissions from leafc_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_leafc_xfer_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_livestemc_to_fire_patch                 (p) ! (gC/m2/s) fire C emissions from livestemc
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_livestemc_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_livestemc_storage_to_fire_patch         (p) ! (gC/m2/s) fire C emissions from livestemc_storage
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_livestemc_storage_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_livestemc_xfer_to_fire_patch            (p) ! (gC/m2/s) fire C emissions from livestemc_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_livestemc_xfer_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_deadstemc_to_fire_patch                 (p) ! (gC/m2/s) fire C emissions from deadstemc_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_deadstemc_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_deadstemc_storage_to_fire_patch         (p) ! (gC/m2/s) fire C emissions from deadstemc_storage
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_deadstemc_storage_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_deadstemc_xfer_to_fire_patch            (p) ! (gC/m2/s) fire C emissions from deadstemc_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_deadstemc_xfer_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_frootc_to_fire_patch                    (p) ! (gC/m2/s) fire C emissions from frootc
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_frootc_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_frootc_storage_to_fire_patch            (p) ! (gC/m2/s) fire C emissions from frootc_storage
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_frootc_storage_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_frootc_xfer_to_fire_patch               (p) ! (gC/m2/s) fire C emissions from frootc_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_frootc_xfer_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_livecrootc_to_fire_patch                (p) ! (gC/m2/s) fire C emissions from livecrootc
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_livecrootc_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_livecrootc_storage_to_fire_patch        (p) ! (gC/m2/s) fire C emissions from livecrootc_storage
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_livecrootc_storage_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_livecrootc_xfer_to_fire_patch           (p) ! (gC/m2/s) fire C emissions from livecrootc_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_livecrootc_xfer_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_deadcrootc_to_fire_patch                (p) ! (gC/m2/s) fire C emissions from deadcrootc
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_deadcrootc_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_deadcrootc_storage_to_fire_patch        (p) ! (gC/m2/s) fire C emissions from deadcrootc_storage
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_deadcrootc_storage_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_deadcrootc_xfer_to_fire_patch           (p) ! (gC/m2/s) fire C emissions from deadcrootc_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_deadcrootc_xfer_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_gresp_storage_to_fire_patch             (p) ! (gC/m2/s) fire C emissions from gresp_storage
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_gresp_storage_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
+            fire_flux = fire_flux &
+                 + cnveg_cf_inst%m_gresp_xfer_to_fire_patch                (p) ! (gC/m2/s) fire C emissions from gresp_xfer
+            if (isnan(fire_flux)) then
+               write(iulog,'(a,f7.2,a,f7.2,a,i3)') "ssrts   NaN m_gresp_xfer_to_fire_patch lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)
+            end if
             ! for diagnostics
             totfire%emis(p) = fire_flux !  gC/m2/sec
 
@@ -294,6 +378,10 @@ contains
 
                comp(icomp)%emis(p) = epsilon * fire_flux* 1.e-3_r8/0.5_r8  ! (to convert gC/m2/sec to kg species/m2/sec)
                emis_flux(icomp) = comp(icomp)%emis(p)
+
+               if (isnan(emis_flux(icomp))) then
+                  write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3)') "ssrts   NaN emis_flux lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," icomp ",icomp
+               end if
 
                emis_cmp => emis_cmp%next_emiscomp
 
