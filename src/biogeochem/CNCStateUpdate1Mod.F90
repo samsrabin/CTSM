@@ -292,6 +292,9 @@ ptch: do fp = 1,num_soilp
          if(.not. use_matrixcn)then
            ! NOTE: Any changes that go here MUST be applied to the matrix
            ! version as well
+           if (isnan(cf_veg%leafc_xfer_to_leafc_patch(p))) then
+              write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN leafc_xfer_to_leafc_patch p ",p," file ",__FILE__," line ",__LINE__
+           endif
            cs_veg%leafc_patch(p)           = cs_veg%leafc_patch(p)       + cf_veg%leafc_xfer_to_leafc_patch(p)*dt
            cs_veg%leafc_xfer_patch(p)      = cs_veg%leafc_xfer_patch(p)  - cf_veg%leafc_xfer_to_leafc_patch(p)*dt
            cs_veg%frootc_patch(p)          = cs_veg%frootc_patch(p)      + cf_veg%frootc_xfer_to_frootc_patch(p)*dt
@@ -319,6 +322,9 @@ ptch: do fp = 1,num_soilp
            end if
 
            ! phenology: litterfall fluxes
+           if (isnan(cf_veg%leafc_to_litter_patch(p))) then
+              write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN leafc_to_litter_patch p ",p," file ",__FILE__," line ",__LINE__
+           endif
            cs_veg%leafc_patch(p) = cs_veg%leafc_patch(p) - cf_veg%leafc_to_litter_patch(p)*dt
            cs_veg%frootc_patch(p) = cs_veg%frootc_patch(p) - cf_veg%frootc_to_litter_patch(p)*dt
          
@@ -332,6 +338,9 @@ ptch: do fp = 1,num_soilp
            if (ivt(p) >= npcropmin) then ! skip 2 generic crops
               cs_veg%livestemc_patch(p)  = cs_veg%livestemc_patch(p)  - cf_veg%livestemc_to_litter_patch(p)*dt
               cs_veg%livestemc_patch(p)  = cs_veg%livestemc_patch(p)  - cf_veg%livestemc_to_biofuelc_patch(p)*dt
+              if (isnan(cf_veg%leafc_to_biofuelc_patch(p))) then
+                  write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN leafc_to_biofuelc_patch p ",p," file ",__FILE__," line ",__LINE__
+              endif
               cs_veg%leafc_patch(p)      = cs_veg%leafc_patch(p)      - cf_veg%leafc_to_biofuelc_patch(p)*dt
               cs_veg%cropseedc_deficit_patch(p) = cs_veg%cropseedc_deficit_patch(p) &
                    - cf_veg%crop_seedc_to_leaf_patch(p) * dt
@@ -410,6 +419,9 @@ ptch: do fp = 1,num_soilp
          ! State update without the matrix solution
          !
          if(.not. use_matrixcn) then
+           if (isnan(cf_veg%cpool_to_leafc_patch(p))) then
+              write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN cpool_to_leafc_patch p ",p," file ",__FILE__," line ",__LINE__
+           endif
            cs_veg%leafc_patch(p)           = cs_veg%leafc_patch(p)          + cf_veg%cpool_to_leafc_patch(p)*dt
            cs_veg%leafc_storage_patch(p)   = cs_veg%leafc_storage_patch(p)  + cf_veg%cpool_to_leafc_storage_patch(p)*dt
            cs_veg%frootc_patch(p)          = cs_veg%frootc_patch(p)         + cf_veg%cpool_to_frootc_patch(p)*dt

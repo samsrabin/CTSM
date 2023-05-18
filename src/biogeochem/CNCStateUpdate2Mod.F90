@@ -125,6 +125,9 @@ contains
          if(.not.  use_matrixcn)then
             ! patch-level carbon fluxes from gap-phase mortality
             ! displayed pools
+            if (isnan(cf_veg%m_leafc_to_litter_patch(p))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN m_leafc_to_litter_patch p ",p," file ",__FILE__," line ",__LINE__
+            endif
             cs_veg%leafc_patch(p) = cs_veg%leafc_patch(p)                           &
               - cf_veg%m_leafc_to_litter_patch(p) * dt
             cs_veg%frootc_patch(p) = cs_veg%frootc_patch(p)                         &
@@ -282,6 +285,9 @@ contains
          !
          if(.not. use_matrixcn)then
             ! displayed pools
+            if (isnan(cf_veg%hrv_leafc_to_litter_patch(p))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hrv_leafc_to_litter_patch p ",p," file ",__FILE__," line ",__LINE__
+            endif
             cs_veg%leafc_patch(p) = cs_veg%leafc_patch(p)                           &
               - cf_veg%hrv_leafc_to_litter_patch(p) * dt
             cs_veg%frootc_patch(p) = cs_veg%frootc_patch(p)                         &
@@ -399,6 +405,9 @@ contains
 
          ! patch-level carbon fluxes from gross unrepresented landcover change mortality
          ! displayed pools
+         if (isnan(cf_veg%gru_leafc_to_litter_patch(p))) then
+              write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN gru_leafc_to_litter_patch p ",p," file ",__FILE__," line ",__LINE__
+         endif
          cs_veg%leafc_patch(p) = cs_veg%leafc_patch(p)                           &
               - cf_veg%gru_leafc_to_litter_patch(p) * dt
          cs_veg%frootc_patch(p) = cs_veg%frootc_patch(p)                         &

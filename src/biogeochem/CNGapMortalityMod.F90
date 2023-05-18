@@ -194,6 +194,9 @@ contains
 
          if(.not. use_matrixcn)then
             ! displayed pools
+            if (isnan(cnveg_carbonstate_inst%leafc_patch(p))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN leafc_patch p ",p," file ",__FILE__," line ",__LINE__
+            endif
             cnveg_carbonflux_inst%m_leafc_to_litter_patch(p)               = cnveg_carbonstate_inst%leafc_patch(p)               * m
             cnveg_carbonflux_inst%m_frootc_to_litter_patch(p)              = cnveg_carbonstate_inst%frootc_patch(p)              * m
             cnveg_carbonflux_inst%m_livestemc_to_litter_patch(p)           = cnveg_carbonstate_inst%livestemc_patch(p)           * m
