@@ -24,6 +24,7 @@ module CNGapMortalityMod
   use PatchType                      , only : patch
   use GridcellType                   , only : grc
   use CNSharedParamsMod              , only : use_matrixcn
+  use clm_varctl                     , only : iulog
 
   implicit none
   private
@@ -417,7 +418,34 @@ contains
 
                   if (patch%active(p)) then
 
+                     if (isnan(m_leafc_to_litter(p))) then
+                        write(iulog,*) "ssrts   NaN m_leafc_to_litter"
+                     endif
+                     if (isnan(m_frootc_to_litter(p))) then
+                        write(iulog,*) "ssrts   NaN m_frootc_to_litter"
+                     endif
+                     if (isnan(wtcol(p))) then
+                        write(iulog,*) "ssrts   NaN wtcol"
+                     endif
+                     if (isnan(leaf_prof(p,j))) then
+                        write(iulog,*) "ssrts   NaN leaf_prof"
+                     endif
+                     if (isnan(m_leafc_storage_to_litter(p))) then
+                        write(iulog,*) "ssrts   NaN m_leafc_storage_to_litter"
+                     endif
+                     if (isnan(m_gresp_storage_to_litter(p))) then
+                        write(iulog,*) "ssrts   NaN m_gresp_storage_to_litter"
+                     endif
+
                      do i = i_litr_min, i_litr_max
+
+                        if (isnan(lf_f(ivt(p),i))) then
+                           write(iulog,*) "ssrts   NaN lf_f"
+                        endif
+                        if (isnan(fr_f(ivt(p),i))) then
+                           write(iulog,*) "ssrts   NaN fr_f"
+                        endif
+
                         gap_mortality_c_to_litr_c(c,j,i) = &
                            gap_mortality_c_to_litr_c(c,j,i) + &
                            ! leaf gap mortality carbon fluxes
