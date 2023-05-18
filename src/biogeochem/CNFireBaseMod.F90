@@ -1027,6 +1027,9 @@ contains
         c = filter_soilc(fc)
 
         f = farea_burned(c) 
+        if (isnan(f)) then
+            write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN farea_burned lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," c ",c
+        endif
 
         ! If fire is active add to active fire filter
         if(f /= 0 .or. f /= baf_crop(c))then
@@ -1036,6 +1039,9 @@ contains
         do j = 1, nlevdecomp
            ! carbon fluxes
            do l = 1, ndecomp_pools
+              if (isnan(decomp_cpools_vr(c,j,l))) then
+                 write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN decomp_cpools_vr lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," c ",c," j ",j," l ",l
+              endif
               if ( is_litter(l) ) then
                  m_decomp_cpools_to_fire_vr(c,j,l) = decomp_cpools_vr(c,j,l) * f * &
                       cmb_cmplt_fact_litter
@@ -1044,6 +1050,9 @@ contains
                  end if
               end if
               if ( is_cwd(l) ) then
+                 if (isnan(baf_crop(c))) then
+                     write(iulog,'(a,f7.2,a,f7.2,a,i3,a,i3,a,i3,a,i3)') "ssrts   NaN baf_crop lat ",grc%latdeg(g)," lon ",grc%londeg(g)," itype ",patch%itype(p)," c ",c
+                 endif
                  m_decomp_cpools_to_fire_vr(c,j,l) = decomp_cpools_vr(c,j,l) * &
                       (f-baf_crop(c)) * cmb_cmplt_fact_cwd
                  if(use_soil_matrixcn)then
