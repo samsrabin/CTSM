@@ -338,11 +338,34 @@ contains
              if (peaklai(p) == 1) then ! lai at maximum allowed
                 aleaf(p) = 1.e-5_r8
                 astem(p) = 0._r8
+                if (isnan(aleaf(p))) then
+                  write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN aleaf p ",p," file ",__FILE__," line ",__LINE__
+                endif
                 aroot(p) = 1._r8 - aleaf(p)
              else
+                if (isnan(arooti(ivt(p)))) then
+                   write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN arooti p ",p," file ",__FILE__," line ",__LINE__
+                endif
+                if (isnan(arootf(ivt(p)))) then
+                   write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN arootf p ",p," file ",__FILE__," line ",__LINE__
+                endif
+                
+                if (isnan(hui(p))) then
+                   write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui p ",p," file ",__FILE__," line ",__LINE__
+                endif
+                if (isnan(gddmaturity(p))) then
+                   write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN gddmaturity p ",p," file ",__FILE__," line ",__LINE__
+                endif
+                if (gddmaturity(p) == 0._r8 .and. hui(p) == 0._r8) then
+                   write(iulog,"(a,i3,a,a,a,i4)") "ssrts   0/0 hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
+                endif
+                if (isnan(hui(p)/gddmaturity(p))) then
+                  write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
+                endif
                 aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) -   &
                      (arooti(ivt(p)) - arootf(ivt(p))) *  &
                      min(1._r8, hui(p)/gddmaturity(p))))
+
                 fleaf = fleafi(ivt(p)) * (exp(-bfact(ivt(p))) -         &
                      exp(-bfact(ivt(p))*hui(p)/huigrain(p))) / &
                      (exp(-bfact(ivt(p)))-1) ! fraction alloc to leaf (from J Norman alloc curve)
@@ -364,6 +387,27 @@ contains
              ! of days has elapsed since planting
 
           else if (crop_phase(p) == cphase_grainfill) then
+
+            if (isnan(arooti(ivt(p)))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN arooti p ",p," file ",__FILE__," line ",__LINE__
+            endif
+            if (isnan(arootf(ivt(p)))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN arootf p ",p," file ",__FILE__," line ",__LINE__
+            endif
+            
+            if (isnan(hui(p))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui p ",p," file ",__FILE__," line ",__LINE__
+            endif
+            if (isnan(gddmaturity(p))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN gddmaturity p ",p," file ",__FILE__," line ",__LINE__
+            endif
+            if (gddmaturity(p) == 0._r8 .and. hui(p) == 0._r8) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   0/0 hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
+            endif
+            if (isnan(hui(p)/gddmaturity(p))) then
+              write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
+            endif
+
              aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
                   (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity(p))))
              if (astemi(p) > astemf(ivt(p))) then
