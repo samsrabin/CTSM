@@ -515,28 +515,90 @@ contains
           g1a = 0._r8
        end if
        if (woody(ivt(p)) == 1.0_r8) then
+         if (isnan(g1a)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN g1a p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f1)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f1 p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f2)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f2 p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f3)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f3 p ",p," file ",__FILE__," line ",__LINE__
+          endif
           c_allometry(p) = (1._r8+g1a)*(1._r8+f1+f3*(1._r8+f2))
+          if (isnan(c_allometry(p))) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN c_allometry p ",p," file ",__FILE__," line ",__LINE__
+          endif
           n_allometry(p) = 1._r8/cnl + f1/cnfr + (f3*f4*(1._r8+f2))/cnlw + &
                (f3*(1._r8-f4)*(1._r8+f2))/cndw
        else if (ivt(p) >= npcropmin) then ! skip generic crops
           cng = graincn(ivt(p))
+          if (isnan(aroot(p))) then
+             write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN aroot p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(astem(p))) then
+             write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN astem p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(aleaf(p))) then
+             write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN aleaf p ",p," file ",__FILE__," line ",__LINE__
+          endif
           f1 = aroot(p) / aleaf(p)
           f3 = astem(p) / aleaf(p)
           do k = 1, nrepr
+             if (isnan(arepr(p,k))) then
+                write(iulog,"(a,i3,a,i3,a,a,a,i4)") "ssrts   NaN arepr p ",p," k ",k," file ",__FILE__," line ",__LINE__
+             endif
+             if (arepr(p,k) == 0._r8 .and. aleaf(p) == 0._r8) then
+               write(iulog,"(a,i3,a,i3,a,a,a,i4)") "ssrts   0/0 arepr/aleaf p ",p," k ",k," file ",__FILE__," line ",__LINE__
+            endif
              f5(k) = arepr(p,k) / aleaf(p)
           end do
           f5_tot = 0._r8
           f5_n_tot = 0._r8
           do k = 1, nrepr
+             if (isnan(f5(k))) then
+                write(iulog,"(a,i3,a,i3,a,a,a,i4)") "ssrts   NaN f5 p ",p," k ",k," file ",__FILE__," line ",__LINE__
+             endif
              f5_tot = f5_tot + f5(k)
              ! Note that currently we use the same C/N ratio for all grain components:
              f5_n_tot = f5_n_tot + f5(k)/cng
           end do
+
+          if (isnan(g1a)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN g1a p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f1)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f1 p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f2)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f2 p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f3)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f3 p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f5_tot)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f5_tot p ",p," file ",__FILE__," line ",__LINE__
+          endif
+
           c_allometry(p) = (1._r8+g1a)*(1._r8+f1+f5_tot+f3*(1._r8+f2))
+          if (isnan(c_allometry(p))) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN c_allometry p ",p," file ",__FILE__," line ",__LINE__
+          endif
           n_allometry(p) = 1._r8/cnl + f1/cnfr + f5_n_tot + (f3*f4*(1._r8+f2))/cnlw + &
                (f3*(1._r8-f4)*(1._r8+f2))/cndw
        else
           c_allometry(p) = 1._r8+g1a+f1+f1*g1a
+          if (isnan(g1a)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN g1a p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(f1)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN f1 p ",p," file ",__FILE__," line ",__LINE__
+          endif
+          if (isnan(c_allometry(p))) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN c_allometry p ",p," file ",__FILE__," line ",__LINE__
+          endif
           n_allometry(p) = 1._r8/cnl + f1/cnfr
        end if
 
