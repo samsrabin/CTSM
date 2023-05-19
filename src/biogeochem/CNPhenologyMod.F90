@@ -2009,8 +2009,11 @@ contains
                               c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
                did_plant = .true.
 
-            else
-               gddmaturity(p) = 0._r8
+            ! BACKWARDS_COMPATIBILITY (ssr, 2023-05-19)
+            ! Previously, crops that didn't get planted would have their gddmaturity
+            ! set to 0 here. (Not sure if this actually helps!)
+            else if (gddmaturity(p) < min_gddmaturity) then
+               gddmaturity(p) = min_gddmaturity
             end if
 
             ! crop phenology (gdd thresholds) controlled by gdd needed for
