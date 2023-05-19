@@ -579,6 +579,9 @@ contains
           do p= bounds%begp,bounds%endp
              if (temp1d(p) == 1) then
                 this%croplive_patch(p) = .true.
+                if (cnveg_state_inst%gddmaturity_patch(p) == 0._r8) then
+                  call endrun(msg="CropType Restart(): gddmaturity 0")
+                endif
              else
                 this%croplive_patch(p) = .false.
              end if
