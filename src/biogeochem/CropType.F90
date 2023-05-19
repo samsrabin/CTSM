@@ -586,7 +586,7 @@ contains
                 this%croplive_patch(p) = .true.
                 if (cnveg_state_inst%gddmaturity_patch(p) < min_gddmaturity) then
                    g = patch%gridcell(p)
-                   write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": live crop gddmaturity ",cnveg_state_inst%gddmaturity_patch(p)," -> min_gddmaturity ",min_gddmaturity
+                   write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropType%Restart(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": live crop gddmaturity ",cnveg_state_inst%gddmaturity_patch(p)," -> min_gddmaturity ",min_gddmaturity
                    cnveg_state_inst%gddmaturity_patch(p) = min_gddmaturity
                 endif
              else

@@ -2106,8 +2106,10 @@ contains
 
          if (croplive(p)) then
 
-            if (gddmaturity(p) == 0._r8) then
-               call endrun(msg="CropPhenology(): gddmaturity 0")
+            ! BACKWARDS_COMPATIBILITY (ssr 2023-05-19)
+            if (gddmaturity(p) < min_gddmaturity) then
+               write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropPhenology(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": live crop gddmaturity ",gddmaturity(p)," -> min_gddmaturity ",min_gddmaturity
+               gddmaturity(p) = min_gddmaturity
             endif
 
             cphase(p) = cphase_planted
