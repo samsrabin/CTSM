@@ -32,6 +32,9 @@ module CropType
   real(r8), parameter, public :: cphase_grainfill   = 3._r8
   real(r8), parameter, public :: cphase_harvest     = 4._r8
 
+  ! Minimum GDD required for maturity. 0 can cause 0/0 in allocation.
+  real(r8), parameter, public :: min_gddmaturity = 1._r8
+
   ! Crop state variables structure
   type, public :: crop_type
 
@@ -506,6 +509,7 @@ contains
     use PatchType, only : patch
     use pftconMod, only : npcropmin, npcropmax
     use clm_varpar, only : mxsowings, mxharvests
+    use GridcellType, only : grc
     ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2023-01-09)
     use CNVegstateType, only : cnveg_state_type
     use clm_time_manager , only : get_curr_calday, get_curr_date
@@ -521,6 +525,7 @@ contains
     integer, pointer :: temp1d(:) ! temporary
     integer :: restyear
     integer :: p
+    integer :: g
     logical :: readvar   ! determine if variable is on initial file
     integer :: seasons_found, seasons_loopvar      ! getting number of sowings/harvests in patch
     ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2023-01-09)
@@ -579,8 +584,10 @@ contains
           do p= bounds%begp,bounds%endp
              if (temp1d(p) == 1) then
                 this%croplive_patch(p) = .true.
-                if (cnveg_state_inst%gddmaturity_patch(p) == 0._r8) then
-                  call endrun(msg="CropType Restart(): gddmaturity 0")
+                if (cnveg_state_inst%gddmaturity_patch(p) < min_gddmaturity) then
+                   g = patch%gridcell(p)
+                   write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": live crop gddmaturity ",cnveg_state_inst%gddmaturity_patch(p)," -> min_gddmaturity ",min_gddmaturity
+                   cnveg_state_inst%gddmaturity_patch(p) = min_gddmaturity
                 endif
              else
                 this%croplive_patch(p) = .false.

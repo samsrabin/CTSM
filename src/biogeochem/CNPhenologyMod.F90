@@ -31,6 +31,7 @@ module CNPhenologyMod
   use CropType                        , only : crop_type
   use CropType                        , only : cphase_planted, cphase_leafemerge
   use CropType                        , only : cphase_grainfill, cphase_harvest
+  use CropType                        , only : min_gddmaturity
   use pftconMod                       , only : pftcon
   use SoilStateType                   , only : soilstate_type
   use TemperatureType                 , only : temperature_type
@@ -135,7 +136,6 @@ module CNPhenologyMod
 
   real(r8), private :: initial_seed_at_planting        = 3._r8   ! Initial seed at planting
 
-  real(r8)         :: min_gddmaturity = 1._r8     ! Weird things can happen if gddmaturity is tiny
   logical,  public :: generate_crop_gdds = .false. ! If true, harvest the day before next sowing
   logical,  public :: use_mxmat = .true.           ! If true, ignore crop maximum growing season length
 
