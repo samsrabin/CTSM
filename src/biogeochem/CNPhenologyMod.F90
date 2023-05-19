@@ -2201,6 +2201,9 @@ contains
                ! Do not harvest on the day this growing season began;
                ! would create challenges for postprocessing.
                do_harvest = .false.
+            elseif (vernalization_forces_harvest) then
+               do_harvest = .true.
+               harvest_reason = HARVEST_REASON_VERNFREEZEKILL
             else
                ! Original harvest rule
                do_harvest = hui(p) >= cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__) .or. idpp >= mxmat
@@ -2219,9 +2222,7 @@ contains
                end if
                do_harvest = do_harvest .or. will_plant_prescribed_tomorrow
 
-               if (vernalization_forces_harvest) then
-                   harvest_reason = HARVEST_REASON_VERNFREEZEKILL
-               else if (hui(p) >= cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)) then
+               if (hui(p) >= cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)) then
                    harvest_reason = HARVEST_REASON_MATURE
                else if (idpp >= mxmat) then
                    harvest_reason = HARVEST_REASON_MAXSEASLENGTH
@@ -2694,7 +2695,6 @@ contains
 
          hdidx       => cnveg_state_inst%hdidx_patch       , & ! Output: [real(r8) (:) ]  cold hardening index?                             
          cumvd       => cnveg_state_inst%cumvd_patch       , & ! Output: [real(r8) (:) ]  cumulative vernalization d?ependence?             
-         huigrain    => cnveg_state_inst%huigrain_patch    , & ! Output: [real(r8) (:) ]  heat unit index needed to reach vegetative maturity
 
          vf          => crop_inst%vf_patch                   & ! Output: [real(r8) (:) ]  vernalization factor for cereal
          )
@@ -2786,8 +2786,9 @@ contains
                write (iulog,*)  'crop damaged by cold temperatures at p,c =', p,c
             else if (tlai(p) > 0._r8) then 
                ! slevis: kill if past phase1 by forcing through harvest
-               call cnveg_state_inst%SetGDDMaturity(p, 0._r8, __FILE__, __LINE__)
-               huigrain(p)    = 0._r8
+               ! srabin: do this with force_harvest instead of setting
+               !         gddmaturity = huigrain = 0, since gddmaturity==0
+               !         can lead to 0/0.
                force_harvest = .true.
                write (iulog,*)  '95% of crop killed by cold temperatures at p,c =', p,c
             end if
