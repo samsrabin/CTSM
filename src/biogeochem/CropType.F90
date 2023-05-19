@@ -17,6 +17,7 @@ module CropType
   use decompMod           , only : bounds_type
   use clm_varcon          , only : spval
   use clm_varctl          , only : iulog, use_crop
+  use CNVegstateType      , only : min_gddmaturity
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -31,9 +32,6 @@ module CropType
   real(r8), parameter, public :: cphase_leafemerge  = 2._r8
   real(r8), parameter, public :: cphase_grainfill   = 3._r8
   real(r8), parameter, public :: cphase_harvest     = 4._r8
-
-  ! Minimum GDD required for maturity. 0 can cause 0/0 in allocation.
-  real(r8), parameter, public :: min_gddmaturity = 1._r8
 
   ! Crop state variables structure
   type, public :: crop_type
@@ -584,17 +582,17 @@ contains
           do p= bounds%begp,bounds%endp
              if (temp1d(p) == 1) then
                 this%croplive_patch(p) = .true.
-                if (cnveg_state_inst%gddmaturity_patch(p) < min_gddmaturity) then
+                if (cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__) < min_gddmaturity) then
                    g = patch%gridcell(p)
-                   write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropType%Restart(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": live crop gddmaturity ",cnveg_state_inst%gddmaturity_patch(p)," -> min_gddmaturity ",min_gddmaturity
-                   cnveg_state_inst%gddmaturity_patch(p) = min_gddmaturity
+                   write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropType%Restart(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": live crop gddmaturity ",cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)," -> min_gddmaturity ",min_gddmaturity
+                   call cnveg_state_inst%SetGDDMaturity(p, min_gddmaturity, __FILE__, __LINE__)
                 endif
              else
                 this%croplive_patch(p) = .false.
-                if (cnveg_state_inst%gddmaturity_patch(p) < min_gddmaturity) then
+                if (cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__) < min_gddmaturity) then
                      g = patch%gridcell(p)
-                     write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropType%Restart(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": non-live crop gddmaturity ",cnveg_state_inst%gddmaturity_patch(p)," -> min_gddmaturity ",min_gddmaturity
-                     cnveg_state_inst%gddmaturity_patch(p) = min_gddmaturity
+                     write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropType%Restart(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": non-live crop gddmaturity ",cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)," -> min_gddmaturity ",min_gddmaturity
+                     call cnveg_state_inst%SetGDDMaturity(p, min_gddmaturity, __FILE__, __LINE__)
                endif
              end if
           end do

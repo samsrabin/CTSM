@@ -283,6 +283,7 @@ contains
     integer :: p, fp, k
     real(r8) :: fleaf                                      ! fraction allocated to leaf
     real(r8) :: crop_phase(bounds%begp:bounds%endp)
+    real(r8) :: gddmaturity
 
     character(len=*), parameter :: subname = 'calc_crop_allocation_fractions'
     !-----------------------------------------------------------------------
@@ -301,7 +302,6 @@ contains
          croplive              => crop_inst%croplive_patch                          , & ! Input:  [logical  (:)   ]  flag, true if planted, not harvested
          hui                   => crop_inst%hui_patch                               , & ! Input:  [real(r8) (:)   ]  crop patch heat unit index (growing degree-days); set to 0 at sowing and accumulated until harvest
          peaklai               => cnveg_state_inst%peaklai_patch                    , & ! Input:  [integer  (:)   ]  1: max allowed lai; 0: not at max
-         gddmaturity           => cnveg_state_inst%gddmaturity_patch                , & ! Input:  [real(r8) (:)   ]  gdd needed to harvest
          huigrain              => cnveg_state_inst%huigrain_patch                   , & ! Input:  [real(r8) (:)   ]  same to reach vegetative maturity
          aleafi                => cnveg_state_inst%aleafi_patch                     , & ! Output: [real(r8) (:)   ]  saved allocation coefficient from phase 2
          astemi                => cnveg_state_inst%astemi_patch                     , & ! Output: [real(r8) (:)   ]  saved allocation coefficient from phase 2
@@ -326,6 +326,8 @@ contains
           ! leaf emergence also has to have taken place for lai changes to occur
           ! and carbon assimilation
           ! Next phase: leaf emergence to start of leaf decline
+
+          gddmaturity = cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)
 
           if (crop_phase(p) == cphase_leafemerge) then
 
@@ -353,18 +355,18 @@ contains
                 if (isnan(hui(p))) then
                    write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui p ",p," file ",__FILE__," line ",__LINE__
                 endif
-                if (isnan(gddmaturity(p))) then
+                if (isnan(gddmaturity)) then
                    write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN gddmaturity p ",p," file ",__FILE__," line ",__LINE__
                 endif
-                if (gddmaturity(p) == 0._r8 .and. hui(p) == 0._r8) then
+                if (gddmaturity == 0._r8 .and. hui(p) == 0._r8) then
                    write(iulog,"(a,i3,a,a,a,i4)") "ssrts   0/0 hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
                 endif
-                if (isnan(hui(p)/gddmaturity(p))) then
+                if (isnan(hui(p)/gddmaturity)) then
                   write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
                 endif
                 aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) -   &
                      (arooti(ivt(p)) - arootf(ivt(p))) *  &
-                     min(1._r8, hui(p)/gddmaturity(p))))
+                     min(1._r8, hui(p)/gddmaturity)))
 
                 fleaf = fleafi(ivt(p)) * (exp(-bfact(ivt(p))) -         &
                      exp(-bfact(ivt(p))*hui(p)/huigrain(p))) / &
@@ -398,22 +400,22 @@ contains
             if (isnan(hui(p))) then
                write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui p ",p," file ",__FILE__," line ",__LINE__
             endif
-            if (isnan(gddmaturity(p))) then
+            if (isnan(gddmaturity)) then
                write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN gddmaturity p ",p," file ",__FILE__," line ",__LINE__
             endif
-            if (gddmaturity(p) == 0._r8 .and. hui(p) == 0._r8) then
+            if (gddmaturity == 0._r8 .and. hui(p) == 0._r8) then
                write(iulog,"(a,i3,a,a,a,i4)") "ssrts   0/0 hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
             endif
-            if (isnan(hui(p)/gddmaturity(p))) then
+            if (isnan(hui(p)/gddmaturity)) then
               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN hui/gddmaturity p ",p," file ",__FILE__," line ",__LINE__
             endif
 
              aroot(p) = max(0._r8, min(1._r8, arooti(ivt(p)) - &
-                  (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity(p))))
+                  (arooti(ivt(p)) - arootf(ivt(p))) * min(1._r8, hui(p)/gddmaturity)))
              if (astemi(p) > astemf(ivt(p))) then
                 astem(p) = max(0._r8, max(astemf(ivt(p)), astem(p) * &
                      (1._r8 - min((hui(p)-                 &
-                     huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
+                     huigrain(p))/((gddmaturity*declfact(ivt(p)))- &
                      huigrain(p)),1._r8)**allconss(ivt(p)) )))
              end if
 
@@ -423,7 +425,7 @@ contains
              else if (aleafi(p) > aleaff(ivt(p))) then
                 aleaf(p) = max(1.e-5_r8, max(aleaff(ivt(p)), aleaf(p) * &
                      (1._r8 - min((hui(p)-                    &
-                     huigrain(p))/((gddmaturity(p)*declfact(ivt(p)))- &
+                     huigrain(p))/((gddmaturity*declfact(ivt(p)))- &
                      huigrain(p)),1._r8)**allconsl(ivt(p)) )))
              end if
 

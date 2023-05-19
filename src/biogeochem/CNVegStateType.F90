@@ -21,6 +21,11 @@ module CNVegStateType
   implicit none
   private
   !
+  ! !PUBLIC DATA TYPES
+  !
+  ! Minimum GDD required for maturity. 0 can cause 0/0 in allocation.
+  real(r8), parameter, public :: min_gddmaturity = 1._r8
+  !
   ! !PUBLIC TYPES:
   type, public :: cnveg_state_type
 
@@ -34,7 +39,7 @@ module CNVegStateType
      ! moved to CropType
      real(r8) , pointer :: hdidx_patch                 (:)     ! patch cold hardening index?
      real(r8) , pointer :: cumvd_patch                 (:)     ! patch cumulative vernalization d?ependence?
-     real(r8) , pointer :: gddmaturity_patch           (:)     ! patch growing degree days (gdd) needed to harvest (ddays)
+     real(r8) , pointer, private :: gddmaturity_patch  (:)     ! patch growing degree days (gdd) needed to harvest (ddays)
      real(r8) , pointer :: gddmaturity_thisyr          (:,:)   ! all at-harvest values of the above for this patch this year (ddays) [patch, mxharvests]
      real(r8) , pointer :: huileaf_patch               (:)     ! patch heat unit index needed from planting to leaf emergence
      real(r8) , pointer :: huigrain_patch              (:)     ! patch heat unit index needed to reach vegetative maturity
@@ -120,6 +125,8 @@ module CNVegStateType
      procedure, private :: InitAllocate
      procedure, private :: InitHistory
      procedure, private :: InitCold
+     procedure, public  :: GetGDDMaturity
+     procedure, public  :: SetGDDMaturity
 
   end type cnveg_state_type
   !------------------------------------------------------------------------
@@ -903,5 +910,46 @@ contains
     end if
 
   end subroutine Restart
+
+  function GetGDDMaturity(this, p, calling_file, calling_line)
+    !
+    ! !ARGUMENTS:
+    class(cnveg_state_type)      :: this
+    integer, intent(in)          :: p
+    character(len=*), intent(in) :: calling_file
+    integer, intent(in)          :: calling_line
+    ! Local variables
+    real(r8) :: GetGDDMaturity
+
+    GetGDDMaturity = this%gddmaturity_patch(p)
+
+     if (GetGDDMaturity < min_gddmaturity) then
+        write(iulog,"(a,f10.6,a,f10.6,a,a,a,i4)") "WARNING: GetGDDMaturity(): crop gddmaturity ",GetGDDMaturity," -> min_gddmaturity ",min_gddmaturity,", ",calling_file," line ",calling_line
+        this%gddmaturity_patch(p) = min_gddmaturity
+        GetGDDMaturity = this%gddmaturity_patch(p)
+     end if
+     
+  end function GetGDDMaturity
+
+  subroutine SetGDDMaturity(this, p, new_value, calling_file, calling_line)
+     !
+     ! !ARGUMENTS:
+     class(cnveg_state_type)      :: this
+     integer,  intent(in)         :: p
+     real(r8), intent(in)         :: new_value
+     character(len=*), intent(in) :: calling_file
+     integer, intent(in)          :: calling_line
+     ! Local variables
+     real(r8) :: set_value
+  
+      set_value = new_value
+      if (new_value < min_gddmaturity) then
+         write(iulog,"(a,f10.6,a,f10.6,a,a,a,i4)") "WARNING: SetGDDMaturity(): requested value ",set_value," -> min_gddmaturity ",min_gddmaturity,", ",calling_file," line ",calling_line
+         set_value = min_gddmaturity
+      end if
+
+      this%gddmaturity_patch(p) = set_value
+      
+   end subroutine SetGDDMaturity
 
 end module CNVegStateType

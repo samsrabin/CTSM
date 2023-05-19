@@ -31,7 +31,6 @@ module CNPhenologyMod
   use CropType                        , only : crop_type
   use CropType                        , only : cphase_planted, cphase_leafemerge
   use CropType                        , only : cphase_grainfill, cphase_harvest
-  use CropType                        , only : min_gddmaturity
   use pftconMod                       , only : pftcon
   use SoilStateType                   , only : soilstate_type
   use TemperatureType                 , only : temperature_type
@@ -1822,7 +1821,6 @@ contains
          
          idop              =>    cnveg_state_inst%idop_patch                   , & ! Output: [integer  (:) ]  date of planting (day of year)
          iyop              =>    cnveg_state_inst%iyop_patch                   , & ! Output: [integer  (:) ]  year of planting (day of year)
-         gddmaturity       =>    cnveg_state_inst%gddmaturity_patch            , & ! Output: [real(r8) (:) ]  gdd needed to harvest                             
          huileaf           =>    cnveg_state_inst%huileaf_patch                , & ! Output: [real(r8) (:) ]  heat unit index needed from planting to leaf emergence
          huigrain          =>    cnveg_state_inst%huigrain_patch               , & ! Output: [real(r8) (:) ]  same to reach vegetative maturity                 
          cumvd             =>    cnveg_state_inst%cumvd_patch                  , & ! Output: [real(r8) (:) ]  cumulative vernalization d?ependence?             
@@ -2009,11 +2007,6 @@ contains
                               c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
                did_plant = .true.
 
-            ! BACKWARDS_COMPATIBILITY (ssr, 2023-05-19)
-            ! Previously, crops that didn't get planted would have their gddmaturity
-            ! set to 0 here. (Not sure if this actually helps!)
-            else if (gddmaturity(p) < min_gddmaturity) then
-               gddmaturity(p) = min_gddmaturity
             end if
 
             ! crop phenology (gdd thresholds) controlled by gdd needed for
@@ -2028,7 +2021,7 @@ contains
             ! Carlson and Gage, 1989, Agric. For. Met., 45: 313-324
             ! J.T. Ritchie, 1991: Modeling Plant and Soil systems
 
-            huileaf(p) = lfemerg(ivt(p)) * gddmaturity(p) ! 3-7% in cereal
+            huileaf(p) = lfemerg(ivt(p)) * cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__) ! 3-7% in cereal
 
             ! calculate threshhold from phase 2 to phase 3:
             ! from leaf emergence to beginning of grain-fill period
@@ -2046,7 +2039,7 @@ contains
                ! the following estimation of crmcorn from gddmaturity is based on a linear
                ! regression using data from Pioneer-brand corn hybrids (Kucharik, 2003,
                ! Earth Interactions 7:1-33: fig. 2)
-               crmcorn = max(73._r8, min(135._r8, (gddmaturity(p)+ 53.683_r8)/13.882_r8))
+               crmcorn = max(73._r8, min(135._r8, (cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)+ 53.683_r8)/13.882_r8))
 
                ! the following adjustment of grnfill based on crmcorn is based on a tuning
                ! of Agro-IBIS to give reasonable results for max LAI and the seasonal
@@ -2054,9 +2047,9 @@ contains
                huigrain(p) = -0.002_r8  * (crmcorn - 73._r8) + grnfill(ivt(p))
 
                huigrain(p) = min(max(huigrain(p), grnfill(ivt(p))-0.1_r8), grnfill(ivt(p)))
-               huigrain(p) = huigrain(p) * gddmaturity(p)     ! Cabelguenne et
+               huigrain(p) = huigrain(p) * cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)     ! Cabelguenne et
             else
-               huigrain(p) = grnfill(ivt(p)) * gddmaturity(p) ! al. 1999
+               huigrain(p) = grnfill(ivt(p)) * cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__) ! al. 1999
             end if
 
          end if ! crop not live nor planted
@@ -2105,12 +2098,6 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
-
-            ! BACKWARDS_COMPATIBILITY (ssr 2023-05-19)
-            if (gddmaturity(p) < min_gddmaturity) then
-               write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropPhenology(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": live crop gddmaturity ",gddmaturity(p)," -> min_gddmaturity ",min_gddmaturity
-               gddmaturity(p) = min_gddmaturity
-            endif
 
             cphase(p) = cphase_planted
 
@@ -2216,7 +2203,7 @@ contains
                do_harvest = .false.
             else
                ! Original harvest rule
-               do_harvest = hui(p) >= gddmaturity(p) .or. idpp >= mxmat
+               do_harvest = hui(p) >= cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__) .or. idpp >= mxmat
 
                ! Always harvest the day before the next prescribed sowing, if still alive.
                ! WARNING: This implementation assumes that sowing dates don't change over time!
@@ -2234,7 +2221,7 @@ contains
 
                if (vernalization_forces_harvest) then
                    harvest_reason = HARVEST_REASON_VERNFREEZEKILL
-               else if (hui(p) >= gddmaturity(p)) then
+               else if (hui(p) >= cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)) then
                    harvest_reason = HARVEST_REASON_MATURE
                else if (idpp >= mxmat) then
                    harvest_reason = HARVEST_REASON_MAXSEASLENGTH
@@ -2284,7 +2271,7 @@ contains
                   crop_inst%sdates_perharv_patch(p, harvest_count(p)) = real(idop(p), r8)
                   crop_inst%syears_perharv_patch(p, harvest_count(p)) = real(iyop(p), r8)
                   crop_inst%hdates_thisyr_patch(p, harvest_count(p)) = real(jday, r8)
-                  cnveg_state_inst%gddmaturity_thisyr(p,harvest_count(p)) = gddmaturity(p)
+                  cnveg_state_inst%gddmaturity_thisyr(p,harvest_count(p)) = cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)
                   crop_inst%gddaccum_thisyr_patch(p, harvest_count(p)) = crop_inst%gddaccum_patch(p)
                   crop_inst%hui_thisyr_patch(p, harvest_count(p)) = hui(p)
                   crop_inst%sowing_reason_perharv_patch(p, harvest_count(p)) = real(crop_inst%sowing_reason_patch(p), r8)
@@ -2548,7 +2535,6 @@ contains
          next_rx_sdate     =>    crop_inst%next_rx_sdate_patch                   , & ! Inout:  [integer  (:) ]  prescribed sowing date of next growing season this year
          sowing_count      =>    crop_inst%sowing_count                          , & ! Inout:  [integer  (:) ]  number of sowing events this year for this patch
          sowing_reason     =>    crop_inst%sowing_reason_thisyr_patch            , & ! Output:  [real(r8)  (:) ]  reason for each sowing this year for this patch
-         gddmaturity       =>    cnveg_state_inst%gddmaturity_patch            , & ! Output: [real(r8) (:) ]  gdd needed to harvest
          idop              =>    cnveg_state_inst%idop_patch                     , & ! Output: [integer  (:) ]  date of planting
          iyop              =>    cnveg_state_inst%iyop_patch                     , & ! Output: [integer  (:) ]  year of planting
          leafc_xfer        =>    cnveg_carbonstate_inst%leafc_xfer_patch         , & ! Output: [real(r8) (:) ]  (gC/m2)   leaf C transfer
@@ -2622,39 +2608,31 @@ contains
       ! set GDD target
       did_rx_gdds = .false.
       if (use_cropcal_rx_cultivar_gdds .and. crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p)) .ge. 0._r8) then
-         gddmaturity(p) = crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p))
+         call cnveg_state_inst%SetGDDMaturity(p, crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p)), __FILE__, __LINE__)
          did_rx_gdds = .true.
       else if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
-         gddmaturity(p) = hybgdd(ivt(p))
+         call cnveg_state_inst%SetGDDMaturity(p, hybgdd(ivt(p)), __FILE__, __LINE__)
       else
          if (ivt(p) == ntmp_soybean .or. ivt(p) == nirrig_tmp_soybean .or. &
                ivt(p) == ntrp_soybean .or. ivt(p) == nirrig_trp_soybean) then
-            gddmaturity(p) = min(gdd1020(p), hybgdd(ivt(p)))
+            call cnveg_state_inst%SetGDDMaturity(p, min(gdd1020(p), hybgdd(ivt(p))), __FILE__, __LINE__)
          end if
          if (ivt(p) == ntmp_corn .or. ivt(p) == nirrig_tmp_corn .or. &
                ivt(p) == ntrp_corn .or. ivt(p) == nirrig_trp_corn .or. &
                ivt(p) == nsugarcane .or. ivt(p) == nirrig_sugarcane .or. &
                ivt(p) == nmiscanthus .or. ivt(p) == nirrig_miscanthus .or. &
                ivt(p) == nswitchgrass .or. ivt(p) == nirrig_switchgrass) then
-            gddmaturity(p) = max(950._r8, min(gdd820(p)*0.85_r8, hybgdd(ivt(p))))
+            call cnveg_state_inst%SetGDDMaturity(p, max(950._r8, min(gdd820(p)*0.85_r8, hybgdd(ivt(p)))), __FILE__, __LINE__)
             if (do_plant_normal) then
-               gddmaturity(p) = max(950._r8, min(gddmaturity(p)+150._r8, 1850._r8))
+               call cnveg_state_inst%SetGDDMaturity(p, max(950._r8, min(cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)+150._r8, 1850._r8)), __FILE__, __LINE__)
             end if
          end if
          if (ivt(p) == nswheat .or. ivt(p) == nirrig_swheat .or. &
                ivt(p) == ncotton .or. ivt(p) == nirrig_cotton .or. &
                ivt(p) == nrice   .or. ivt(p) == nirrig_rice) then
-            gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
+            call cnveg_state_inst%SetGDDMaturity(p, min(gdd020(p), hybgdd(ivt(p))), __FILE__, __LINE__)
          end if
 
-      endif
-
-      if (use_cropcal_streams .and. gddmaturity(p) < min_gddmaturity) then
-          write(iulog,"(a,i3,a,i3,a,f7.4,a,f7.4)") 'patch ',p,' with ivt ',ivt(p),' has rx gddmaturity',gddmaturity(p),'; using min_gddmaturity instead (',min_gddmaturity,')'
-          gddmaturity(p) = min_gddmaturity
-      endif
-      if (gddmaturity(p) == 0._r8) then
-         call endrun(msg="PlantCrop(): gddmaturity 0")
       endif
 
       ! Initialize allocation coefficients.
@@ -2716,7 +2694,6 @@ contains
 
          hdidx       => cnveg_state_inst%hdidx_patch       , & ! Output: [real(r8) (:) ]  cold hardening index?                             
          cumvd       => cnveg_state_inst%cumvd_patch       , & ! Output: [real(r8) (:) ]  cumulative vernalization d?ependence?             
-         gddmaturity => cnveg_state_inst%gddmaturity_patch , & ! Output: [real(r8) (:) ]  gdd needed to harvest                             
          huigrain    => cnveg_state_inst%huigrain_patch    , & ! Output: [real(r8) (:) ]  heat unit index needed to reach vegetative maturity
 
          vf          => crop_inst%vf_patch                   & ! Output: [real(r8) (:) ]  vernalization factor for cereal
@@ -2809,7 +2786,7 @@ contains
                write (iulog,*)  'crop damaged by cold temperatures at p,c =', p,c
             else if (tlai(p) > 0._r8) then 
                ! slevis: kill if past phase1 by forcing through harvest
-               gddmaturity(p) = 0._r8
+               call cnveg_state_inst%SetGDDMaturity(p, 0._r8, __FILE__, __LINE__)
                huigrain(p)    = 0._r8
                force_harvest = .true.
                write (iulog,*)  '95% of crop killed by cold temperatures at p,c =', p,c

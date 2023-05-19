@@ -336,8 +336,6 @@ contains
          hui              =>  crop_inst%hui_patch                         ,         & ! Input:  [real(r8) (:) ]  patch heat unit index (growing degree-days)    
          croplive         =>  crop_inst%croplive_patch                    ,         & ! Input:  [logical  (:) ]  true if planted and not harvested                  
 
-         gddmaturity      =>  cnveg_state_inst%gddmaturity_patch          ,         & ! Input:  [real(r8) (:) ]  gdd needed to harvest                             
-
          plant_ndemand    =>  cnveg_nitrogenflux_inst%plant_ndemand_patch ,         & ! Input:  [real(r8) (:) ]  N flux required to support initial GPP (gN/m2/s)  
          soyfixn          =>  cnveg_nitrogenflux_inst%soyfixn_patch       ,         & ! Output: [real(r8) (:) ]  nitrogen fixed to each soybean crop               
 
@@ -396,7 +394,7 @@ contains
                ! for soy) 
                ! Ranges below are not firm. Are they lit. based or tuning based?
 
-               GDDfrac = hui(p) / gddmaturity(p)
+               GDDfrac = hui(p) / cnveg_state_inst%GetGDDMaturity(p, __FILE__, __LINE__)
 
                if (GDDfrac <= GDDfracthreshold1) then
                   fxg = 0._r8
