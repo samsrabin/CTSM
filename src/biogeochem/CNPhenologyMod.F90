@@ -2807,9 +2807,10 @@ contains
          if (tkil >= tcrown) then
             if ((0.95_r8 - 0.02_r8 * (tcrown - tkil)**2) >= 0.02_r8) then
                write (iulog,*)  'crop damaged by cold temperatures at p,c =', p,c
-            else if (tlai(p) > 0._r8) then ! slevis: kill if past phase1
-               gddmaturity(p) = 0._r8      !         by forcing through
-               huigrain(p)    = 0._r8      !         harvest
+            else if (tlai(p) > 0._r8) then 
+               ! slevis: kill if past phase1 by forcing through harvest
+               gddmaturity(p) = 0._r8
+               huigrain(p)    = 0._r8
                force_harvest = .true.
                write (iulog,*)  '95% of crop killed by cold temperatures at p,c =', p,c
             end if
