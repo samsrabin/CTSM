@@ -404,6 +404,9 @@ ptch: do fp = 1,num_soilp
 
          ! allocation fluxes
          if (carbon_resp_opt == 1) then
+               if (isnan(cf_veg%cpool_to_leafc_resp_patch(p))) then
+                  write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN cpool_to_leafc_resp_patch p ",p," file ",__FILE__," line ",__LINE__
+               endif
               cf_veg%cpool_to_leafc_patch(p) = cf_veg%cpool_to_leafc_patch(p) - cf_veg%cpool_to_leafc_resp_patch(p)
               cf_veg%cpool_to_leafc_storage_patch(p) = cf_veg%cpool_to_leafc_storage_patch(p) - &
                    cf_veg%cpool_to_leafc_storage_resp_patch(p)

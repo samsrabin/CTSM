@@ -351,6 +351,16 @@ contains
 
          nlc = plant_calloc(p) / c_allometry(p)
 
+         if (plant_calloc(p) == 0._r8 .and. c_allometry(p) == 0._r8) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   0/0 plant_calloc/c_allometry p ",p," file ",__FILE__," line ",__LINE__
+         endif
+         if (isnan(nlc)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN nlc p ",p," file ",__FILE__," line ",__LINE__
+         endif
+         if (isnan(fcur)) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN fcur p ",p," file ",__FILE__," line ",__LINE__
+         endif
+
          cpool_to_leafc(p)          = nlc * fcur
          cpool_to_leafc_storage(p)  = nlc * (1._r8 - fcur)
          cpool_to_frootc(p)         = nlc * f1 * fcur
