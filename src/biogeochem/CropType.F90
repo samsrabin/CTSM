@@ -591,6 +591,11 @@ contains
                 endif
              else
                 this%croplive_patch(p) = .false.
+                if (cnveg_state_inst%gddmaturity_patch(p) < min_gddmaturity) then
+                     g = patch%gridcell(p)
+                     write(iulog,"(a,f8.3,a,f8.3,a,i3,a,f10.6,a,f10.6)") "WARNING: CropType%Restart(): lon ",grc%londeg(g)," lat ",grc%latdeg(g)," itype ", patch%itype(p),": non-live crop gddmaturity ",cnveg_state_inst%gddmaturity_patch(p)," -> min_gddmaturity ",min_gddmaturity
+                     cnveg_state_inst%gddmaturity_patch(p) = min_gddmaturity
+               endif
              end if
           end do
        end if
