@@ -2102,6 +2102,11 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
+
+            if (gddmaturity(p) == 0._r8) then
+               call endrun(msg="CropPhenology(): gddmaturity 0")
+            endif
+
             cphase(p) = cphase_planted
 
             ! call vernalization if winter temperate cereal planted, living, and the
@@ -2640,10 +2645,11 @@ contains
       endif
 
       if (use_cropcal_streams .and. gddmaturity(p) < min_gddmaturity) then
-          if (did_rx_gdds) then
-              write(iulog,*) 'Some patch with ivt ',ivt(p),' has rx gddmaturity',gddmaturity(p),'; using min_gddmaturity instead (',min_gddmaturity,')'
-          endif
+          write(iulog,"(a,i3,a,i3,a,f7.4,a,f7.4)") 'patch ',p,' with ivt ',ivt(p),' has rx gddmaturity',gddmaturity(p),'; using min_gddmaturity instead (',min_gddmaturity,')'
           gddmaturity(p) = min_gddmaturity
+      endif
+      if (gddmaturity(p) == 0._r8) then
+         call endrun(msg="PlantCrop(): gddmaturity 0")
       endif
 
       ! Initialize allocation coefficients.
