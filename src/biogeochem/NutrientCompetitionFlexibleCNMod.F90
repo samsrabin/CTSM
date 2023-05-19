@@ -424,12 +424,22 @@ contains
          end if
 
          if(use_fun)then
+
+            if (isnan(npp_growth(p))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN npp_growth p ",p," file ",__FILE__," line ",__LINE__
+            endif
+
             plant_calloc(p) = npp_growth(p)
 
             ! Assign npp_growth to matrix solution
             if(use_matrixcn)then
             end if
          else
+
+            if (isnan(availc(p))) then
+               write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN availc p ",p," file ",__FILE__," line ",__LINE__
+            endif
+
             plant_calloc(p)  = availc(p)
 
             ! Assign availc to matrix solution
@@ -444,6 +454,13 @@ contains
          ! fcur is the proportion of this day's growth that is displayed now,
          ! the remainder going into storage for display next year through the
          ! transfer pools
+
+         if (isnan(plant_calloc(p))) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN plant_calloc p ",p," file ",__FILE__," line ",__LINE__
+         endif
+         if (isnan(c_allometry(p))) then
+            write(iulog,"(a,i3,a,a,a,i4)") "ssrts   NaN c_allometry p ",p," file ",__FILE__," line ",__LINE__
+         endif
 
          nlc = plant_calloc(p) / c_allometry(p)
 
