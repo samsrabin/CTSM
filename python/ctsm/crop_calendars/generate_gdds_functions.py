@@ -456,35 +456,38 @@ def import_and_process_1yr(
     myVars = [clm_gdd_var]
     if not gddharv_in_h3:
         myVars.append("GDDHARV")
-    pattern = os.path.join(indir, f"*h1.{thisYear-1}-01-01*.nc")
+    pattern = os.path.join(indir, f"*h1*.nc")
+    timeSlice_daily = slice(f"{thisYear-1}-01-01", f"{thisYear-1}-12-31")
     h1_files = glob.glob(pattern)
     if not h1_files:
-        pattern = os.path.join(indir, f"*h1.{thisYear-1}-01-01*.nc.base")
+        pattern = os.path.join(indir, f"*h1*.nc.base")
         h1_files = glob.glob(pattern)
         if not h1_files:
-            error(logger, f"No files found matching pattern '*h1.{thisYear-1}-01-01*.nc(.base)'")
+            error(logger, f"No files found matching pattern '*h1*.nc(.base)'")
     h1_ds = utils.import_ds(
         h1_files,
         myVars=myVars,
         myVegtypes=utils.define_mgdcrop_list(),
         myVars_missing_ok=["GDDHARV"],
+        timeSlice=timeSlice_daily,
     )
     if "GDDHARV" not in h1_ds:
         if not gddharv_in_h3:
             log(logger, "Trying to get GDDHARV from h3 file(s) instead.")
         try:
-            pattern = os.path.join(indir, f"*h3.{thisYear-1}-01-01*.nc")
+            pattern = os.path.join(indir, f"*h3*.nc")
             h3_files = glob.glob(pattern)
             if not h3_files:
-                pattern = os.path.join(indir, f"*h3.{thisYear-1}-01-01*.nc.base")
+                pattern = os.path.join(indir, f"*h3*.nc.base")
                 h3_files = glob.glob(pattern)
                 if not h3_files:
                     error(
                         logger,
-                        f"No files found matching pattern '*h3.{thisYear-1}-01-01*.nc(.base)'",
+                        f"No files found matching pattern '*h3*.nc(.base)'",
                     )
             h3_ds = utils.import_ds(
-                h3_files, myVars=["GDDHARV"], myVegtypes=utils.define_mgdcrop_list()
+                h3_files, myVars=["GDDHARV"], myVegtypes=utils.define_mgdcrop_list(),
+                timeSlice=timeSlice_daily,
             )
             h1_ds["GDDHARV"] = h3_ds["GDDHARV"]
             if not gddharv_in_h3:
