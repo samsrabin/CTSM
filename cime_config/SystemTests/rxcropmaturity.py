@@ -301,7 +301,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             "! (h1) Daily outputs for GDD generation and figure-making",
             "hist_fincl2 = 'HUI', 'GDDACCUM', 'GDDHARV'",
             "hist_nhtfrq(2) = -24",
-            "hist_mfilt(2) = 365",
+            "hist_mfilt(2) = 5",
             "hist_type1d_pertape(2) = 'PFTS'",
             "hist_dov2xy(2) = .false.",
             " ",
