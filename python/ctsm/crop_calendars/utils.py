@@ -832,34 +832,53 @@ def grid_one_variable(this_ds, thisVar, fillValue=None, **kwargs):
     return thisvar_gridded
 
 
+def string_to_datetime(datetime_str, datetime_type):
+    numbers_in_str = re.findall(r"\d+", datetime_str)
+    numbers_in_str = [int(x) for x in numbers_in_str]
+    return datetime_type(*numbers_in_str)
+
+
 # ctsm_pylib can't handle time slicing like Dataset.sel(time=slice("1998-01-01", "2005-12-31")) for some reason. This function tries to fall back to slicing by integers. It should work with both Datasets and DataArrays.
 def safer_timeslice(ds, timeSlice, timeVar="time"):
     try:
         ds = ds.sel({timeVar: timeSlice})
     except:
-        # If the issue might have been slicing using strings, try to fall back to integer slicing
-        if (
-            isinstance(timeSlice.start, str)
-            and isinstance(timeSlice.stop, str)
-            and len(timeSlice.start.split("-")) == 3
-            and timeSlice.start.split("-")[1:] == ["01", "01"]
-            and len(timeSlice.stop.split("-")) == 3
-            and (
-                timeSlice.stop.split("-")[1:] == ["12", "31"]
-                or timeSlice.stop.split("-")[1:] == ["01", "01"]
-            )
-        ):
-            fileyears = np.array([x.year for x in ds.time.values])
-            if len(np.unique(fileyears)) != len(fileyears):
-                print("Could not fall back to integer slicing of years: Time axis not annual")
+        try:
+            # If the issue might have been slicing using strings, try to manually slice
+            datetime_type = type(ds.time.values[0])
+            t0 = string_to_datetime(timeSlice.start, datetime_type)
+            tN = string_to_datetime(timeSlice.stop, datetime_type)
+
+            # This fails with the same error as the original slice attempt
+#            ds = ds.sel({timeVar: slice(t0, tN)})
+            # Try this instead
+            where_in_range = np.where((ds.time >= t0) & (ds.time <= tN))[0]
+            ds = ds.isel(time=where_in_range)
+
+        # If that doesn't work, try this old kludge
+        except:
+            if (
+                isinstance(timeSlice.start, str)
+                and isinstance(timeSlice.stop, str)
+                and len(timeSlice.start.split("-")) == 3
+                and timeSlice.start.split("-")[1:] == ["01", "01"]
+                and len(timeSlice.stop.split("-")) == 3
+                and (
+                    timeSlice.stop.split("-")[1:] == ["12", "31"]
+                    or timeSlice.stop.split("-")[1:] == ["01", "01"]
+                )
+            ):
+                fileyears = np.array([x.year for x in ds.time.values])
+                if len(np.unique(fileyears)) != len(fileyears):
+                    print("Could not fall back to integer slicing of years: Time axis not annual")
+                    raise
+                yStart = int(timeSlice.start.split("-")[0])
+                yStop = int(timeSlice.stop.split("-")[0])
+                where_in_timeSlice = np.where((fileyears >= yStart) & (fileyears <= yStop))[0]
+                ds = ds.isel({timeVar: where_in_timeSlice})
+            else:
+                print(f"Could not fall back to integer slicing for timeSlice {timeSlice}")
                 raise
-            yStart = int(timeSlice.start.split("-")[0])
-            yStop = int(timeSlice.stop.split("-")[0])
-            where_in_timeSlice = np.where((fileyears >= yStart) & (fileyears <= yStop))[0]
-            ds = ds.isel({timeVar: where_in_timeSlice})
-        else:
-            print(f"Could not fall back to integer slicing for timeSlice {timeSlice}")
-            raise
 
     return ds
 
