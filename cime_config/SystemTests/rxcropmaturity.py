@@ -20,6 +20,7 @@ from CIME.SystemTests.system_tests_common import SystemTestsCommon
 from CIME.XML.standard_module_setup import *
 from CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
 import shutil, glob
+from CIME.case import Case
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,8 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Ensure run length is at least 5 years. Minimum to produce one complete growing season (i.e., two complete calendar years) actually 4 years, but that only gets you 1 season usable for GDD generation, so you can't check for season-to-season consistency.
         stop_n = self._case.get_value("STOP_N")
         stop_option = self._case.get_value("STOP_OPTION")
-        stop_n_orig = stop_n
-        stop_option_orig = stop_option
+        self._stop_n_orig = stop_n
+        self._stop_option_orig = stop_option
         if "nsecond" in stop_option:
             stop_n /= 60
             stop_option = "nminutes"
@@ -52,13 +53,13 @@ class RXCROPMATURITY(SystemTestsCommon):
         error_message = None
         if "nyear" not in stop_option:
             error_message = (
-                f"STOP_OPTION ({stop_option_orig}) must be nsecond(s), nminute(s), "
+                f"STOP_OPTION ({self._stop_option_orig}) must be nsecond(s), nminute(s), "
                 + "nhour(s), nday(s), nmonth(s), or nyear(s)"
             )
         elif stop_n < 5:
             error_message = (
                 "RXCROPMATURITY must be run for at least 5 years; you requested "
-                + f"{stop_n_orig} {stop_option_orig[1:]}"
+                + f"{self._stop_n_orig} {self._stop_option_orig[1:]}"
             )
         if error_message is not None:
             logger.error(error_message)
@@ -110,13 +111,6 @@ class RXCROPMATURITY(SystemTestsCommon):
         self._append_to_user_nl_clm([
             "generate_crop_gdds = .true.",
             "use_mxmat = .false.",
-            " ",
-            "! (h2) Daily outputs for GDD generation and figure-making",
-            "hist_fincl3 = 'GDDACCUM', 'GDDHARV'",
-            "hist_nhtfrq(3) = -24",
-            "hist_mfilt(3) = 365",
-            "hist_type1d_pertape(3) = 'PFTS'",
-            "hist_dov2xy(3) = .false.",
         ])
         
         # If flanduse_timeseries is defined, we need to make a static version for this test. This
@@ -134,14 +128,56 @@ class RXCROPMATURITY(SystemTestsCommon):
         #-------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
         #-------------------------------------------------------------------
-        logger.info("RXCROPMATURITY log:  Start GDD-Generating run")
         
+        # How long are the first and second GDD-generating segments?
+        if "nsecond" in self._stop_option_orig:
+            stop_n_0 = 2 * 365 * 24 * 60 * 60
+        elif "nminute" in self._stop_option_orig:
+            stop_n_0 = 2 * 365 * 24 * 60
+        elif "nhour" in self._stop_option_orig:
+            stop_n_0 = 2 * 365 * 24
+        elif "nday" in self._stop_option_orig:
+            stop_n_0 = 2 * 365
+        elif "nyear" in self._stop_option_orig:
+            stop_n_0 = 2
+        elif "nmonth" in self._stop_option_orig:
+            stop_n_0 = 2 * 12
+        else:
+            raise RuntimeError(
+                f"STOP_OPTION ({self._stop_option_orig}) must be nsecond(s), nminute(s), "
+                + "nhour(s), nday(s), nmonth(s), or nyear(s)"
+            )
+        stop_n_1 = self._stop_n_orig - stop_n_0
+
+        logger.info("RXCROPMATURITY log:  Start GDD-Generating run, first 2 years")
+        with Case(self._path_gddgen, read_only=False) as case:
+            case.set_value("STOP_N", stop_n_0)
+            case.set_value("REST_OPTION", self._stop_option_orig)
+        # As per SSP test:
+        # "No history files expected, set suffix=None to avoid compare error"
+        # We *do* expect history files here, but anyway. This works.
+        self._skip_pnl = False
+        self.run_indv(suffix=None, st_archive=False)
+
+        logger.info("RXCROPMATURITY log:  Start GDD-Generating run, remainder")
+        self._append_to_user_nl_clm([
+            " ",
+            "! (h2) Daily outputs for GDD generation and figure-making",
+            "hist_fincl3 = 'GDDACCUM', 'GDDHARV'",
+            "hist_nhtfrq(3) = -24",
+            "hist_mfilt(3) = 365",
+            "hist_type1d_pertape(3) = 'PFTS'",
+            "hist_dov2xy(3) = .false.",
+        ])
+        with Case(self._path_gddgen, read_only=False) as case:
+            case.set_value("STOP_N", stop_n_1)
+            case.set_value("CONTINUE_RUN", True)
         # As per SSP test:
         # "No history files expected, set suffix=None to avoid compare error"
         # We *do* expect history files here, but anyway. This works.
         self._skip_pnl = False
         self.run_indv(suffix=None, st_archive=True)
-        
+
         self._run_generate_gdds(case_gddgen)
         
         #-------------------------------------------------------------------
@@ -291,7 +327,7 @@ class RXCROPMATURITY(SystemTestsCommon):
             "stream_year_last_cropcal = 2000",
             "model_year_align_cropcal = 2000",
             " ",
-            "! (h1) Annual outputs on sowing or harvest axis
+            "! (h1) Annual outputs on sowing or harvest axis",
             "hist_fincl2 = 'GRAINC_TO_FOOD_PERHARV', 'GRAINC_TO_FOOD_ANN', 'SDATES', 'SDATES_PERHARV', 'SYEARS_PERHARV', 'HDATES', 'GDDHARV_PERHARV', 'GDDACCUM_PERHARV', 'HUI_PERHARV', 'SOWING_REASON_PERHARV', 'HARVEST_REASON_PERHARV'",
             "hist_nhtfrq(2) = 17520",
             "hist_mfilt(2) = 999",
