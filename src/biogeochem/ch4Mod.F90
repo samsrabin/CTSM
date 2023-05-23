@@ -3996,26 +3996,102 @@ contains
                           0.5_r8 / dzj * (dp1_zp1(c,j) * (conc_ch4_rel(c,j+1)-conc_ch4_rel(c,j)*k_h_cc(c,j,s)) - &
                           dm1_zm1(c,j) * (conc_ch4_rel(c,j)  -conc_ch4_rel(c,j-1))) + &
                           0.5_r8 * (source(c,j,s) + source_old(c,j,s))
+                     if (j==1 .and. rt(c,j) > 1.e50_r8) then
+                        write(iulog,'(a,a,a,i5)') 'Huge rt, ',__FILE__,' line ',__LINE__
+                        write(iulog,*) '   c                   ',c
+                        write(iulog,*) '   rt                  ',rt(c,j)
+                        write(iulog,*) '   epsilon_t_old       ',epsilon_t_old(c,j,s)
+                        write(iulog,*) '   dtime_ch4           ',dtime_ch4
+                        write(iulog,*) '   conc_ch4_rel(c,j-1) ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j)   ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j+1) ',conc_ch4_rel(c,j+1)
+                        write(iulog,*) '   dzj                 ',dzj
+                        write(iulog,*) '   dp1_zp1             ',dp1_zp1(c,j)
+                        write(iulog,*) '   k_h_cc              ',k_h_cc(c,j,s)
+                        write(iulog,*) '   dm1_zm1             ',dm1_zm1(c,j)
+                        write(iulog,*) '   source              ',source(c,j,s)
+                        write(iulog,*) '   source_old          ',source_old(c,j,s)
+                     endif
                   elseif (j < nlevsoi .and. j == jwt(c)+1) then
                      ! concentration above needs to be mult. by k_h_cc for dm1_zm1 term
                      rt(c,j) = epsilon_t_old(c,j,s) / dtime_ch4 * conc_ch4_rel(c,j) +           &
                           0.5_r8 / dzj * (dp1_zp1(c,j) * (conc_ch4_rel(c,j+1)-conc_ch4_rel(c,j)) - &
                           dm1_zm1(c,j) * (conc_ch4_rel(c,j) -conc_ch4_rel(c,j-1)*k_h_cc(c,j-1,s))) + &
                           0.5_r8 * (source(c,j,s) + source_old(c,j,s))
+                     if (j==1 .and. rt(c,j) > 1.e50_r8) then
+                        write(iulog,'(a,a,a,i5)') 'Huge rt, ',__FILE__,' line ',__LINE__
+                        write(iulog,*) '   c                   ',c
+                        write(iulog,*) '   rt                  ',rt(c,j)
+                        write(iulog,*) '   epsilon_t_old       ',epsilon_t_old(c,j,s)
+                        write(iulog,*) '   dtime_ch4           ',dtime_ch4
+                        write(iulog,*) '   conc_ch4_rel(c,j-1) ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j)   ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j+1) ',conc_ch4_rel(c,j+1)
+                        write(iulog,*) '   dzj                 ',dzj
+                        write(iulog,*) '   dp1_zp1             ',dp1_zp1(c,j)
+                        write(iulog,*) '   k_h_cc              ',k_h_cc(c,j,s)
+                        write(iulog,*) '   dm1_zm1             ',dm1_zm1(c,j)
+                        write(iulog,*) '   source              ',source(c,j,s)
+                        write(iulog,*) '   source_old          ',source_old(c,j,s)
+                     endif
                   elseif (j < nlevsoi) then
                      rt(c,j) = epsilon_t_old(c,j,s) / dtime_ch4 * conc_ch4_rel(c,j) +           &
                           0.5_r8 / dzj * (dp1_zp1(c,j) * (conc_ch4_rel(c,j+1)-conc_ch4_rel(c,j)) - &
                           dm1_zm1(c,j) * (conc_ch4_rel(c,j)  -conc_ch4_rel(c,j-1))) + &
                           0.5_r8 * (source(c,j,s) + source_old(c,j,s))
+                     if (j==1 .and. rt(c,j) > 1.e50_r8) then
+                        write(iulog,'(a,a,a,i5)') 'Huge rt, ',__FILE__,' line ',__LINE__
+                        write(iulog,*) '   c                   ',c
+                        write(iulog,*) '   rt                  ',rt(c,j)
+                        write(iulog,*) '   epsilon_t_old       ',epsilon_t_old(c,j,s)
+                        write(iulog,*) '   dtime_ch4           ',dtime_ch4
+                        write(iulog,*) '   conc_ch4_rel(c,j-1) ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j)   ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j+1) ',conc_ch4_rel(c,j+1)
+                        write(iulog,*) '   dzj                 ',dzj
+                        write(iulog,*) '   dp1_zp1             ',dp1_zp1(c,j)
+                        write(iulog,*) '   dm1_zm1             ',dm1_zm1(c,j)
+                        write(iulog,*) '   source              ',source(c,j,s)
+                        write(iulog,*) '   source_old          ',source_old(c,j,s)
+                     endif
                   else if (j == nlevsoi .and. j== jwt(c)+1) then
                      ! concentration above needs to be mult. by k_h_cc for dm1_zm1 term
                      rt(c,j) = epsilon_t_old(c,j,s) / dtime_ch4 * conc_ch4_rel(c,j) +           &
                           0.5_r8 / dzj * ( - dm1_zm1(c,j) * (conc_ch4_rel(c,j) -conc_ch4_rel(c,j-1)*k_h_cc(c,j-1,s))) + &
                           0.5_r8 * (source(c,j,s) + source_old(c,j,s))
+                     if (j==1 .and. rt(c,j) > 1.e50_r8) then
+                        write(iulog,'(a,a,a,i5)') 'Huge rt, ',__FILE__,' line ',__LINE__
+                        write(iulog,*) '   c                   ',c
+                        write(iulog,*) '   rt                  ',rt(c,j)
+                        write(iulog,*) '   epsilon_t_old       ',epsilon_t_old(c,j,s)
+                        write(iulog,*) '   dtime_ch4           ',dtime_ch4
+                        write(iulog,*) '   conc_ch4_rel(c,j-1) ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j)   ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j+1) ',conc_ch4_rel(c,j+1)
+                        write(iulog,*) '   dzj                 ',dzj
+                        write(iulog,*) '   k_h_cc              ',k_h_cc(c,j,s)
+                        write(iulog,*) '   dm1_zm1             ',dm1_zm1(c,j)
+                        write(iulog,*) '   source              ',source(c,j,s)
+                        write(iulog,*) '   source_old          ',source_old(c,j,s)
+                     endif
                   else  !j==nlevsoi
                      rt(c,j) = epsilon_t_old(c,j,s) / dtime_ch4 * conc_ch4_rel(c,j) +           &
                           0.5_r8 / dzj * ( - dm1_zm1(c,j) * (conc_ch4_rel(c,j)  -conc_ch4_rel(c,j-1))) + &
                           0.5_r8 * (source(c,j,s) + source_old(c,j,s))
+                     if (j==1 .and. rt(c,j) > 1.e50_r8) then
+                        write(iulog,'(a,a,a,i5)') 'Huge rt, ',__FILE__,' line ',__LINE__
+                        write(iulog,*) '   c                   ',c
+                        write(iulog,*) '   rt                  ',rt(c,j)
+                        write(iulog,*) '   epsilon_t_old       ',epsilon_t_old(c,j,s)
+                        write(iulog,*) '   dtime_ch4           ',dtime_ch4
+                        write(iulog,*) '   conc_ch4_rel(c,j-1) ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j)   ',conc_ch4_rel(c,j)
+                        write(iulog,*) '   conc_ch4_rel(c,j+1) ',conc_ch4_rel(c,j+1)
+                        write(iulog,*) '   dzj                 ',dzj
+                        write(iulog,*) '   dm1_zm1             ',dm1_zm1(c,j)
+                        write(iulog,*) '   source              ',source(c,j,s)
+                        write(iulog,*) '   source_old          ',source_old(c,j,s)
+                     endif
                   endif
                   epsilon_t_old(c,j,s) = epsilon_t(c,j,s)
                   source_old(c,j,s) = source(c,j,s)
