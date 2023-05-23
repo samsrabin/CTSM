@@ -355,7 +355,7 @@ contains
     integer          , intent(in) :: filter_soilp(:)    ! filter for soil pfts
     integer          , intent(in) :: num_soilc          ! number of soil columns in filter
     integer          , intent(in) :: filter_soilc(:)    ! filter for soil columns
-    real(r8)         , intent(inout) :: decomp_k(:,:,:) ! Output: [real(r8) (:,:,:) ]  rate constant for decomposition (1./sec)
+    real(r8), dimension(:,:,:), intent(inout) :: decomp_k ! Output: [real(r8) (:,:,:) ]  rate constant for decomposition (1./sec)
     integer          , intent(in) :: i_act_som, i_slo_som, i_pas_som  ! indices for soil organic matter pools
     integer          , intent(in) :: i_cel_lit, i_lig_lit  ! indices for litter pools
     !
