@@ -3678,6 +3678,17 @@ contains
 
             source(c,j,1) = ch4_prod_depth(c,j) - ch4_oxid_depth(c,j) - &
                  ch4_aere_depth(c,j) - ch4_ebul_depth(c,j) ! [mol/m3-total/s]
+
+            if (j==1 .and. source(c,j,1) > 1.e50_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge source, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   c              ',c
+               write(iulog,*) '   source         ',source(c,j,1)
+               write(iulog,*) '   ch4_prod_depth ',ch4_prod_depth(c,j)
+               write(iulog,*) '   ch4_oxid_depth ',ch4_oxid_depth(c,j)
+               write(iulog,*) '   ch4_aere_depth ',ch4_aere_depth(c,j)
+               write(iulog,*) '   ch4_ebul_depth ',ch4_ebul_depth(c,j)
+            end if
+
             ! aerenchyma added to surface flux below
             ! ebul added to soil depth just above WT
             if (source(c,j,1) + conc_ch4(c,j) / dtime < -1.e-12_r8)then 
@@ -3734,6 +3745,15 @@ contains
          c = filter_methc(fc)
          if (jwt(c) /= 0) then
             source(c,jwt(c),1) = source(c,jwt(c),1) + ch4_ebul_total(c)/dz(c,jwt(c))
+
+            if (jwt(c)==1 .and. source(c,jwt(c),1) > 1.e50_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge source, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   c              ',c
+               write(iulog,*) '   source         ',source(c,jwt(c),1)
+               write(iulog,*) '   ch4_ebul_total ',ch4_ebul_total(c)
+               write(iulog,*) '   dz             ',dz(c,jwt(c))
+            end if
+
          endif
       enddo ! fc
 
