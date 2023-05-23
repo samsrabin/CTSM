@@ -4178,6 +4178,9 @@ contains
          else ! errch4 > 1e-8 mol / m^2 / timestep
             write(iulog,*)'CH4 Conservation Error in CH4Mod during diffusion, nstep, c, errch4 (mol /m^2.timestep)', &
                  nstep,c,errch4(c)
+            write(iulog,*)'ch4_surf_aere ',ch4_surf_aere(c)
+            write(iulog,*)'ch4_surf_ebul ',ch4_surf_ebul(c)
+            write(iulog,*)'ch4_surf_diff ',ch4_surf_diff(c)
             g = col%gridcell(c)
             write(iulog,*)'Latdeg,Londeg=',grc%latdeg(g),grc%londeg(g)
             call endrun(subgrid_index=c, subgrid_level=subgrid_level_column, &
