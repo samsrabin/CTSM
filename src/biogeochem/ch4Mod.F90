@@ -3765,6 +3765,13 @@ contains
                   end do
                end if
                conc_ch4_rel(c,j) = conc_ch4(c,j)/epsilon_t(c,j,1)
+               if (j==1 .and. conc_ch4_rel(c,j) > 1.e50_r8) then
+                   write(iulog,'(a,a,a,i5)') 'Huge conc_ch4_rel(c,1), ',__FILE__,' line ',__LINE__
+                   write(iulog,*) 'c            ',c
+                   write(iulog,*) 'conc_ch4_rel ',conc_ch4_rel(c,j)
+                   write(iulog,*) 'conc_ch4     ',conc_ch4(c,j)
+                   write(iulog,*) 'epsilon_t    ',epsilon_t(c,j,1)
+               end if
                conc_o2_rel(c,j)  = conc_o2(c,j) /epsilon_t(c,j,2)
             end if
          end do
