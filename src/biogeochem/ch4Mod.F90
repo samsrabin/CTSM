@@ -4036,6 +4036,17 @@ contains
             do fc = 1, num_methc
                c = filter_methc (fc)
                g = col%gridcell(c)
+
+               if (conc_ch4_rel(c,1) > 1.e50_r8) then
+                  write(iulog,'(a,a,a,i5)') 'Huge conc_ch4_rel, ',__FILE__,' line ',__LINE__
+                  write(iulog,*) '   c                ',c
+                  write(iulog,*) '   conc_ch4_rel     ',conc_ch4_rel(c,1)
+                  write(iulog,*) '   at               ',at(c,1)
+                  write(iulog,*) '   bt               ',bt(c,1)
+                  write(iulog,*) '   ct               ',ct(c,1)
+                  write(iulog,*) '   rt               ',rt(c,1)
+               end if 
+
                if (jwt(c) /= 0) then ! WT not at the surface
                   ch4_surf_diff(c) = dm1_zm1(c,1) * ( (conc_ch4_rel(c,1)+conc_ch4_rel_old(c,1))/2._r8 &
                        - c_atm(g,s)) ! [mol/m2/s]
