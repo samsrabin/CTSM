@@ -887,10 +887,11 @@ contains
                depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_l1(c)
             decomp_k(c,j,i_cel_lit) = k_l2_l3 * t_scalar(c,j) * w_scalar(c,j) * &
                depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_l23(c)
-            if (j==1 .and. decomp_k(c,j,i_cel_lit) > 1.e45_r8) then
+            if (decomp_k(c,j,i_cel_lit) > 1.e45_r8) then
                write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_cel_lit, ',__FILE__,' line ',__LINE__
                write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_cel_lit)
                write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
                write(iulog,*) '   i_cel_lit           ',i_cel_lit
                write(iulog,*) '   k_l2_l3             ',k_l2_l3
                write(iulog,*) '   t_scalar            ',t_scalar(c,j)
@@ -901,10 +902,11 @@ contains
             end if
             decomp_k(c,j,i_lig_lit) = k_l2_l3 * t_scalar(c,j) * w_scalar(c,j) * &
                depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_l23(c)
-            if (j==1 .and. decomp_k(c,j,i_lig_lit) > 1.e45_r8) then
+            if (decomp_k(c,j,i_lig_lit) > 1.e45_r8) then
                write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_lig_lit, ',__FILE__,' line ',__LINE__
                write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_lig_lit)
                write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
                write(iulog,*) '   i_lig_lit           ',i_lig_lit
                write(iulog,*) '   k_l2_l3             ',k_l2_l3
                write(iulog,*) '   t_scalar            ',t_scalar(c,j)
@@ -915,10 +917,11 @@ contains
             end if
             decomp_k(c,j,i_act_som) = k_s1    * t_scalar(c,j) * w_scalar(c,j) * &
                depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_s1(c)
-            if (j==1 .and. decomp_k(c,j,i_act_som) > 1.e45_r8) then
+            if (decomp_k(c,j,i_act_som) > 1.e45_r8) then
                write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_act_som, ',__FILE__,' line ',__LINE__
                write(iulog,*) '   decomp_k ',decomp_k(c,j,i_act_som)
                write(iulog,*) '   c ',c
+               write(iulog,*) '   j ',j
                write(iulog,*) '   i_act_som ',i_act_som
                write(iulog,*) '   k_s1 ',k_s1
                write(iulog,*) '   t_scalar ',t_scalar(c,j)
@@ -929,10 +932,11 @@ contains
             end if
             decomp_k(c,j,i_slo_som) = k_s2    * t_scalar(c,j) * w_scalar(c,j) * &
                depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_s2(c)
-            if (j==1 .and. decomp_k(c,j,i_slo_som) > 1.e45_r8) then
+            if (decomp_k(c,j,i_slo_som) > 1.e45_r8) then
                write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_slo_som, ',__FILE__,' line ',__LINE__
                write(iulog,*) '   decomp_k ',decomp_k(c,j,i_slo_som)
                write(iulog,*) '   c ',c
+               write(iulog,*) '   j ',j
                write(iulog,*) '   i_slo_som ',i_slo_som
                write(iulog,*) '   k_s2 ',k_s2
                write(iulog,*) '   t_scalar ',t_scalar(c,j)
@@ -943,10 +947,11 @@ contains
             end if
             decomp_k(c,j,i_pas_som) = k_s3    * t_scalar(c,j) * w_scalar(c,j) * &
                depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_s3(c)
-            if (j==1 .and. decomp_k(c,j,i_pas_som) > 1.e45_r8) then
+            if (decomp_k(c,j,i_pas_som) > 1.e45_r8) then
                write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_pas_som, ',__FILE__,' line ',__LINE__
                write(iulog,*) '   decomp_k ',decomp_k(c,j,i_pas_som)
                write(iulog,*) '   c ',c
+               write(iulog,*) '   j ',j
                write(iulog,*) '   i_pas_som ',i_pas_som
                write(iulog,*) '   k_s3 ',k_s3
                write(iulog,*) '   t_scalar ',t_scalar(c,j)
@@ -969,34 +974,39 @@ contains
                    call endrun("Do not call tillage without providing idop, num_soilp, and filter_soilp. (Maybe you called with FATES?)")
                end if
                call get_apply_tillage_multipliers(idop, num_soilp, filter_soilp, num_soilc, filter_soilc, decomp_k, i_act_som, i_slo_som, i_pas_som, i_cel_lit, i_lig_lit)
-               if (j==1 .and. decomp_k(c,j,i_cel_lit) > 1.e45_r8) then
+               if (decomp_k(c,j,i_cel_lit) > 1.e45_r8) then
                   write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_cel_lit, ',__FILE__,' line ',__LINE__
                   write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_cel_lit)
                   write(iulog,*) '   c                   ',c
+                  write(iulog,*) '   j                   ',j
                   write(iulog,*) '   i_cel_lit           ',i_cel_lit
                end if
-               if (j==1 .and. decomp_k(c,j,i_lig_lit) > 1.e45_r8) then
+               if (decomp_k(c,j,i_lig_lit) > 1.e45_r8) then
                   write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_lig_lit, ',__FILE__,' line ',__LINE__
                   write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_lig_lit)
                   write(iulog,*) '   c                   ',c
+                  write(iulog,*) '   j                   ',j
                   write(iulog,*) '   i_lig_lit           ',i_lig_lit
                end if
-               if (j==1 .and. decomp_k(c,j,i_act_som) > 1.e45_r8) then
+               if (decomp_k(c,j,i_act_som) > 1.e45_r8) then
                   write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_act_som, ',__FILE__,' line ',__LINE__
                   write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_act_som)
                   write(iulog,*) '   c                   ',c
+                  write(iulog,*) '   j                   ',j
                   write(iulog,*) '   i_act_som           ',i_act_som
                end if
-               if (j==1 .and. decomp_k(c,j,i_slo_som) > 1.e45_r8) then
+               if (decomp_k(c,j,i_slo_som) > 1.e45_r8) then
                   write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_slo_som, ',__FILE__,' line ',__LINE__
                   write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_slo_som)
                   write(iulog,*) '   c                   ',c
+                  write(iulog,*) '   j                   ',j
                   write(iulog,*) '   i_slo_som           ',i_slo_som
                end if
-               if (j==1 .and. decomp_k(c,j,i_pas_som) > 1.e45_r8) then
+               if (decomp_k(c,j,i_pas_som) > 1.e45_r8) then
                   write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_pas_som, ',__FILE__,' line ',__LINE__
                   write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_pas_som)
                   write(iulog,*) '   c                   ',c
+                  write(iulog,*) '   j                   ',j
                   write(iulog,*) '   i_pas_som           ',i_pas_som
                end if
             end if
