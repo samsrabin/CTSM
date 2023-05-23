@@ -188,11 +188,31 @@ contains
                      end if
                   end if
                   decomp_cascade_hr_vr(c,j,k) = rf_decomp_cascade(c,j,k) * p_decomp_cpool_loss(c,j,k)
+
+                  if (j==1 .and. decomp_cascade_hr_vr(c,j,k) > 1.e45_r8) then
+                     write(iulog,'(a,a,a,i5)') 'Huge decomp_cascade_hr_vr, ',__FILE__,' line ',__LINE__
+                     write(iulog,*) '   c                    ',c
+                     write(iulog,*) '   k                    ',k
+                     write(iulog,*) '   decomp_cascade_hr_vr ',decomp_cascade_hr_vr(c,j,k)
+                     write(iulog,*) '   rf_decomp_cascade    ',rf_decomp_cascade(c,j,k)
+                     write(iulog,*) '   p_decomp_cpool_loss  ',p_decomp_cpool_loss(c,j,k)
+                  end if
+
                   decomp_cascade_ctransfer_vr(c,j,k) = (1._r8 - rf_decomp_cascade(c,j,k)) * p_decomp_cpool_loss(c,j,k)
                   if (decomp_method == mimics_decomp) then
                      decomp_cascade_hr_vr(c,j,k) = min( &
                         p_decomp_cpool_loss(c,j,k), &
                         decomp_cascade_hr_vr(c,j,k) + c_overflow_vr(c,j,k))
+
+                     if (j==1 .and. decomp_cascade_hr_vr(c,j,k) > 1.e45_r8) then
+                        write(iulog,'(a,a,a,i5)') 'Huge decomp_cascade_hr_vr, ',__FILE__,' line ',__LINE__
+                        write(iulog,*) '   c                        ',c
+                        write(iulog,*) '   k                        ',k
+                        write(iulog,*) '   decomp_cascade_hr_vr ',decomp_cascade_hr_vr(c,j,k)
+                        write(iulog,*) '   c_overflow_vr        ',c_overflow_vr(c,j,k)
+                        write(iulog,*) '   p_decomp_cpool_loss  ',p_decomp_cpool_loss(c,j,k)
+                     end if
+
                      decomp_cascade_ctransfer_vr(c,j,k) = max(0.0_r8, p_decomp_cpool_loss(c,j,k) - decomp_cascade_hr_vr(c,j,k))
                   end if
                   if (decomp_npools_vr(c,j,cascade_donor_pool(k)) > 0._r8 .and. cascade_receiver_pool(k) /= i_atm) then

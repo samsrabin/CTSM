@@ -864,6 +864,15 @@ contains
              this%decomp_cascade_hr_col(c,k) = &
                   this%decomp_cascade_hr_col(c,k) + &
                   this%decomp_cascade_hr_vr_col(c,j,k) * dzsoi_decomp(j) 
+            
+             if (j==1 .and. this%decomp_cascade_hr_vr_col(c,j,k) * dzsoi_decomp(j) > 1.e45_r8) then
+                  write(iulog,'(a,a,a,i5)') 'Huge decomp_cascade_hr_col increment, ',__FILE__,' line ',__LINE__
+                  write(iulog,*) '   c                        ',c
+                  write(iulog,*) '   k                        ',k
+                  write(iulog,*) '   decomp_cascade_hr_col    ',this%decomp_cascade_hr_col(c,k)
+                  write(iulog,*) '   decomp_cascade_hr_vr_col ',this%decomp_cascade_hr_vr_col(c,j,k)
+                  write(iulog,*) '   dzsoi_decomp             ',dzsoi_decomp(j)
+             end if
 
              this%decomp_cascade_ctransfer_col(c,k) = &
                   this%decomp_cascade_ctransfer_col(c,k) + &
