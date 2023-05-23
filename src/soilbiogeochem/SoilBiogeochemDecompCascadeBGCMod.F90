@@ -11,6 +11,7 @@ module SoilBiogeochemDecompCascadeBGCMod
   use shr_log_mod                        , only : errMsg => shr_log_errMsg
   use clm_varpar                         , only : nlevdecomp, ndecomp_pools_max
   use clm_varpar                         , only : i_litr_min, i_litr_max, i_met_lit, i_cwd, i_cwdl2
+  use clm_varpar                         , only : ndecomp_pools
   use clm_varctl                         , only : iulog, spinup_state, anoxia, use_lch4, use_fates
   use clm_varcon                         , only : zsoi
   use decompMod                          , only : bounds_type
@@ -552,7 +553,7 @@ contains
     real(r8):: Q10                          ! temperature dependence
     real(r8):: froz_q10                     ! separate q10 for frozen soil respiration rates.  default to same as above zero rates
     real(r8):: decomp_depth_efolding        ! (meters) e-folding depth for reduction in decomposition [
-    integer :: c, fc, j, k, l
+    integer :: c, fc, j, k, l, s
     real(r8):: dt                           ! decomposition time step
     real(r8):: catanf                       ! hyperbolic temperature function from CENTURY
     real(r8):: catanf_30                    ! reference rate at 30C
@@ -967,6 +968,16 @@ contains
                   depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_cwd(c)
             end if
 
+            do s = 1,ndecomp_pools
+               if (decomp_k(c,j,s) > 1.e45_r8) then
+                  write(iulog,'(a,a,a,i5)') 'Huge decomp_k ???, ',__FILE__,' line ',__LINE__
+                  write(iulog,*) '   decomp_k ',decomp_k(c,j,s)
+                  write(iulog,*) '   c ',c
+                  write(iulog,*) '   j ',j
+                  write(iulog,*) '   s ',s
+               end if
+            end do
+
             ! Tillage
             if (get_do_tillage()) then
                ! TODO: Throw error during namelist build if tillage is called with FATES
@@ -1010,6 +1021,16 @@ contains
                   write(iulog,*) '   i_pas_som           ',i_pas_som
                end if
             end if
+
+            do s = 1,ndecomp_pools
+               if (decomp_k(c,j,s) > 1.e45_r8) then
+                  write(iulog,'(a,a,a,i5)') 'Huge decomp_k ???, ',__FILE__,' line ',__LINE__
+                  write(iulog,*) '   decomp_k ',decomp_k(c,j,s)
+                  write(iulog,*) '   c ',c
+                  write(iulog,*) '   j ',j
+                  write(iulog,*) '   s ',s
+               end if
+            end do
 
             ! Above into soil matrix
             if(use_soil_matrixcn)then
