@@ -181,6 +181,17 @@ contains
                   p_decomp_cpool_loss(c,j,k) = decomp_cpools_vr(c,j,cascade_donor_pool(k)) &
                        * decomp_k(c,j,cascade_donor_pool(k))  * pathfrac_decomp_cascade(c,j,k)
 
+                  if (j==1 .and. p_decomp_cpool_loss(c,j,k) > 1.e45_r8) then
+                     write(iulog,'(a,a,a,i5)') 'Huge p_decomp_cpool_loss, ',__FILE__,' line ',__LINE__
+                     write(iulog,*) '   c                    ',c
+                     write(iulog,*) '   k                    ',k
+                     write(iulog,*) '   cascade_donor_pool      ',cascade_donor_pool(k)
+                     write(iulog,*) '   p_decomp_cpool_loss     ',p_decomp_cpool_loss(c,j,k)
+                     write(iulog,*) '   decomp_cpools_vr        ',decomp_cpools_vr(c,j,cascade_donor_pool(k))
+                     write(iulog,*) '   decomp_k     ',decomp_k(c,j,cascade_donor_pool(k))
+                     write(iulog,*) '   pathfrac_decomp_cascade ',pathfrac_decomp_cascade(c,j,k)
+                  end if
+
                   if ( .not. floating_cn_ratio_decomp_pools(cascade_receiver_pool(k)) ) then  !! not transition of cwd to litter
 
                      if (cascade_receiver_pool(k) /= i_atm ) then  ! not 100% respiration

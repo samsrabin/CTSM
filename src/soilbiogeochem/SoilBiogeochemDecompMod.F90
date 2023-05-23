@@ -176,6 +176,15 @@ contains
                if (decomp_cpools_vr(c,j,cascade_donor_pool(k)) > 0._r8) then
                   if ( pmnf_decomp_cascade(c,j,k) > 0._r8 ) then
                      p_decomp_cpool_loss(c,j,k) = p_decomp_cpool_loss(c,j,k) * fpi_vr(c,j)
+
+                     if (j==1 .and. p_decomp_cpool_loss(c,j,k) > 1.e45_r8) then
+                        write(iulog,'(a,a,a,i5)') 'Huge p_decomp_cpool_loss, ',__FILE__,' line ',__LINE__
+                        write(iulog,*) '   c                    ',c
+                        write(iulog,*) '   k                    ',k
+                        write(iulog,*) '   p_decomp_cpool_loss  ',p_decomp_cpool_loss(c,j,k)
+                        write(iulog,*) '   fpi_vr               ',fpi_vr(c,j)
+                     end if
+
                      pmnf_decomp_cascade(c,j,k) = pmnf_decomp_cascade(c,j,k) * fpi_vr(c,j)
                      if (use_soil_matrixcn)then ! correct only when one transfer from each litter pool
                      end if
