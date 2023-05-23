@@ -15,6 +15,7 @@ module SoilBiogeochemCarbonFluxType
   use LandunitType                       , only : lun
   use SparseMatrixMultiplyMod            , only : sparse_matrix_type, diag_matrix_type, vector_type
   use clm_varctl                         , only : use_fates
+  use clm_varctl                         , only : iulog
   
   ! 
   ! !PUBLIC TYPES:
@@ -915,6 +916,13 @@ contains
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                   this%somhr_col(c) = this%somhr_col(c) + this%decomp_cascade_hr_col(c,k)
+                  if (this%decomp_cascade_hr_col(c,k) > 1.e45_r8) then
+                     write(iulog,'(a,a,a,i5)') 'Huge decomp_cascade_hr_col, ',__FILE__,' line ',__LINE__
+                     write(iulog,*) '   c                     ',c
+                     write(iulog,*) '   k                     ',k
+                     write(iulog,*) '   decomp_cascade_hr_col ',this%decomp_cascade_hr_col(c,k)
+                     write(iulog,*) '   somhr_col             ',this%somhr_col(c)
+                  end if
                end do
             end if
          end do
