@@ -2547,6 +2547,16 @@ contains
                if (use_cn .or. use_fates) then
                   ! Use soil heterotrophic respiration (based on Wania)
                   base_decomp = (somhr(c)+lithr(c)) / catomw
+
+                  if (j==1 .and. base_decomp > 1.e50_r8) then
+                     write(iulog,'(a,a,a,i5)') 'Huge base_decomp, ',__FILE__,' line ',__LINE__
+                     write(iulog,*) '   c           ',c
+                     write(iulog,*) '   base_decomp ',base_decomp
+                     write(iulog,*) '   somhr       ',somhr(c)
+                     write(iulog,*) '   lithr       ',lithr(c)
+                     write(iulog,*) '   catomw      ',catomw
+                  end if
+
                   ! Convert from gC to molC
                   ! Multiply base_decomp by factor accounting for lower carbon stock in seasonally inundated areas than
                   ! if it were inundated all year.
@@ -2572,11 +2582,31 @@ contains
                ! For sensitivity studies
                base_decomp = base_decomp * cnscalefactor
 
+               if (j==1 .and. base_decomp > 1.e50_r8) then
+                  write(iulog,'(a,a,a,i5)') 'Huge base_decomp, ',__FILE__,' line ',__LINE__
+                  write(iulog,*) '   c                ',c
+                  write(iulog,*) '   base_decomp      ',base_decomp
+                  write(iulog,*) '   cnscalefactor    ',cnscalefactor
+               end if
+
             else !lake
 
                base_decomp = lake_decomp_fact * lake_soilc(c,j) * dz(c,j) * &
                     q10lake**( (t_soisno(c,j)-q10lakebase)/10._r8) / catomw
                ! convert from g C to mol C
+
+               if (j==1 .and. base_decomp > 1.e50_r8) then
+                  write(iulog,'(a,a,a,i5)') 'Huge base_decomp, ',__FILE__,' line ',__LINE__
+                  write(iulog,*) '   c                ',c
+                  write(iulog,*) '   base_decomp      ',base_decomp
+                  write(iulog,*) '   lake_decomp_fact ',lake_decomp_fact
+                  write(iulog,*) '   lake_soilc       ',lake_soilc(c,j)
+                  write(iulog,*) '   q10lake          ',q10lake
+                  write(iulog,*) '   q10lakebase      ',q10lakebase
+                  write(iulog,*) '   catomw           ',catomw
+                  write(iulog,*) '   dz               ',dz(c,j)
+                  write(iulog,*) '   t_soisno         ',t_soisno(c,j)
+               end if
             end if
 
             ! For all landunits, prevent production or oxygen consumption when soil is at or below freezing.
