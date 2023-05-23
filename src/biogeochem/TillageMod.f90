@@ -375,6 +375,26 @@ contains
            decomp_k(c,j,i_act_som) = decomp_k(c,j,i_act_som) * tillage_mults(c,i_act_som)
            decomp_k(c,j,i_slo_som) = decomp_k(c,j,i_slo_som) * tillage_mults(c,i_slo_som)
            decomp_k(c,j,i_pas_som) = decomp_k(c,j,i_pas_som) * tillage_mults(c,i_pas_som)
+           if (tillage_mults(c,i_cel_lit) > 4._r8) then
+               write(iulog,'(a,i2,a)') 'Big tillage_mults i_cel_lit (',i_cel_lit,')'
+               write(iulog,*) '   tillage_mults ',tillage_mults(c,i_cel_lit)
+           end if
+           if (tillage_mults(c,i_lig_lit) > 4._r8) then
+               write(iulog,'(a,i2,a)') 'Big tillage_mults i_lig_lit (',i_lig_lit,')'
+               write(iulog,*) '   tillage_mults ',tillage_mults(c,i_lig_lit)
+           end if
+           if (tillage_mults(c,i_act_som) > 4._r8) then
+               write(iulog,'(a,i2,a)') 'Big tillage_mults i_act_som (',i_act_som,')'
+               write(iulog,*) '   tillage_mults ',tillage_mults(c,i_act_som)
+           end if
+           if (tillage_mults(c,i_slo_som) > 4._r8) then
+               write(iulog,'(a,i2,a)') 'Big tillage_mults i_slo_som (',i_slo_som,')'
+               write(iulog,*) '   tillage_mults ',tillage_mults(c,i_slo_som)
+           end if
+           if (tillage_mults(c,i_pas_som) > 4._r8) then
+               write(iulog,'(a,i2,a)') 'Big tillage_mults i_pas_som (',i_pas_som,')'
+               write(iulog,*) '   tillage_mults ',tillage_mults(c,i_pas_som)
+           end if
         end do
     end do
 
