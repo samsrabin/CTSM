@@ -2696,10 +2696,35 @@ contains
                ! partition decomposition to layer
                ! turn into per volume-total by dz
                ch4_prod_depth(c,j) = f_ch4_adj * base_decomp * partition_z / dz (c,j)! [mol/m3-total/s]
+
+               if (j==1 .and. ch4_prod_depth(c,j) > 1.e50_r8) then
+                  write(iulog,'(a,a,a,i5)') 'Huge ch4_prod_depth, ',__FILE__,' line ',__LINE__
+                  write(iulog,*) '   c              ',c
+                  write(iulog,*) '   ch4_prod_depth ',ch4_prod_depth(c,j)
+                  write(iulog,*) '   f_ch4_adj      ',f_ch4_adj
+                  write(iulog,*) '   base_decomp    ',base_decomp
+                  write(iulog,*) '   partition_z    ',partition_z
+                  write(iulog,*) '   dz             ',dz(c,j)
+               end if
+
             else ! Above the WT
+
                if (anoxicmicrosites) then
                   ch4_prod_depth(c,j) = f_ch4_adj * base_decomp * partition_z / dz (c,j) &
                        / (1._r8 + oxinhib*conc_o2(c,j))
+
+                  if (j==1 .and. ch4_prod_depth(c,j) > 1.e50_r8) then
+                     write(iulog,'(a,a,a,i5)') 'Huge ch4_prod_depth, ',__FILE__,' line ',__LINE__
+                     write(iulog,*) '   c              ',c
+                     write(iulog,*) '   ch4_prod_depth ',ch4_prod_depth(c,j)
+                     write(iulog,*) '   f_ch4_adj      ',f_ch4_adj
+                     write(iulog,*) '   base_decomp    ',base_decomp
+                     write(iulog,*) '   partition_z    ',partition_z
+                     write(iulog,*) '   dz             ',dz(c,j)
+                     write(iulog,*) '   oxinhib        ',oxinhib
+                     write(iulog,*) '   conc_o2        ',conc_o2(c,j)
+                  end if
+
                else
                   ch4_prod_depth(c,j) = 0._r8 ! [mol/m3 total/s]
                endif ! anoxicmicrosites
