@@ -4032,12 +4032,30 @@ contains
                if (jwt(c) /= 0) then ! WT not at the surface
                   ch4_surf_diff(c) = dm1_zm1(c,1) * ( (conc_ch4_rel(c,1)+conc_ch4_rel_old(c,1))/2._r8 &
                        - c_atm(g,s)) ! [mol/m2/s]
+                  if (ch4_surf_diff(c) > 1.e50_r8) then
+                      write(iulog,'(a,a,a,i5)') 'Huge ch4_surf_diff, ',__FILE__,' line ',__LINE__
+                      write(iulog,*) '   c                ',c
+                      write(iulog,*) '   ch4_surf_diff    ',ch4_surf_diff(c)
+                      write(iulog,*) '   dm1_zm1          ',dm1_zm1(c,1)
+                      write(iulog,*) '   conc_ch4_rel     ',conc_ch4_rel(c,1)
+                      write(iulog,*) '   conc_ch4_rel_old ',conc_ch4_rel_old(c,1)
+                      write(iulog,*) '   c_atm            ', c_atm(g,s)
+                  end if
                   ch4_surf_ebul(c) = 0._r8 ! all the ebullition has already come out in the soil column (added to source)
                   ! Try adding directly to atm. to prevent destabilization of diffusion
                   !ch4_surf_ebul(c) = ch4_ebul_total(c) ! [mol/m2/s]
                else ! WT at the surface; i.e., jwt(c)==0
                   ch4_surf_diff(c) = dm1_zm1(c,1) * ( (conc_ch4_rel(c,1)+conc_ch4_rel_old(c,1))/2._r8 &
                        - c_atm(g,s)*k_h_cc(c,0,s)) ! [mol/m2/s]
+                  if (ch4_surf_diff(c) > 1.e50_r8) then
+                      write(iulog,'(a,a,a,i5)') 'Huge ch4_surf_diff, ',__FILE__,' line ',__LINE__
+                      write(iulog,*) '   c                ',c
+                      write(iulog,*) '   ch4_surf_diff    ',ch4_surf_diff(c)
+                      write(iulog,*) '   dm1_zm1          ',dm1_zm1(c,1)
+                      write(iulog,*) '   conc_ch4_rel     ',conc_ch4_rel(c,1)
+                      write(iulog,*) '   conc_ch4_rel_old ',conc_ch4_rel_old(c,1)
+                      write(iulog,*) '   c_atm            ', c_atm(g,s)
+                  end if
                   ! atmospheric concentration gets mult. by k_h_cc as above
                   ch4_surf_ebul(c) = ch4_ebul_total(c) ! [mol/m2/s]
                endif
@@ -4067,6 +4085,13 @@ contains
                      conc_ch4_rel(c,j) = 0._r8
                      ! Subtract deficit
                      ch4_surf_diff(c) = ch4_surf_diff(c) - deficit/dtime_ch4
+                     if (ch4_surf_diff(c) > 1.e50_r8) then
+                         write(iulog,'(a,a,a,i5)') 'Huge ch4_surf_diff, ',__FILE__,' line ',__LINE__
+                         write(iulog,*) '   c             ',c
+                         write(iulog,*) '   ch4_surf_diff ',ch4_surf_diff(c)
+                         write(iulog,*) '   deficit       ',deficit
+                         write(iulog,*) '   dtime_ch4     ',dtime_ch4
+                     end if
                   end if
                enddo
             enddo
