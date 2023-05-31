@@ -1245,7 +1245,24 @@ contains
             ! also updating pathfrac terms that vary with time
             term_1 = vmax_l1_m1 * m1_conc / (km_l1_m1 + m1_conc)
             term_2 = vmax_l1_m2 * m2_conc / (km_l1_m2 + m2_conc)
+            write(iulog,'(a,a,a,i5)') 'Setting decomp_k B, ',__FILE__,' line ',__LINE__
             decomp_k(c,j,i_met_lit) = (term_1 + term_2) * w_d_o_scalars
+            if (decomp_k(c,j,i_met_lit) > 1.e45_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_met_lit, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_met_lit)
+               write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
+               write(iulog,*) '   i_met_lit           ',i_met_lit
+               write(iulog,*) '   term_1              ',term_1
+               write(iulog,*) '   vmax_l1_m1          ',vmax_l1_m1
+               write(iulog,*) '   m1_conc             ',m1_conc
+               write(iulog,*) '   km_l1_m1            ',km_l1_m1
+               write(iulog,*) '   term_2              ',term_2
+               write(iulog,*) '   vmax_l1_m2          ',vmax_l1_m2
+               write(iulog,*) '   m2_conc             ',m2_conc
+               write(iulog,*) '   km_l1_m2            ',km_l1_m2
+               write(iulog,*) '   w_d_o_scalars       ',w_d_o_scalars
+            end if
             if (term_1 + term_2 /= 0._r8) then
                pathfrac_decomp_cascade(c,j,i_l1m1) = term_1 / (term_1 + term_2)
                pathfrac_decomp_cascade(c,j,i_l1m2) = term_2 / (term_1 + term_2)
@@ -1257,6 +1274,22 @@ contains
             term_1 = vmax_l2_m1 * m1_conc / (km_l2_m1 + m1_conc)
             term_2 = vmax_l2_m2 * m2_conc / (km_l2_m2 + m2_conc)
             decomp_k(c,j,i_str_lit) = (term_1 + term_2) * w_d_o_scalars
+            if (decomp_k(c,j,i_str_lit) > 1.e45_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_str_lit, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_str_lit)
+               write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
+               write(iulog,*) '   i_str_lit           ',i_str_lit
+               write(iulog,*) '   term_1              ',term_1
+               write(iulog,*) '   vmax_l2_m1          ',vmax_l2_m1
+               write(iulog,*) '   m1_conc             ',m1_conc
+               write(iulog,*) '   km_l2_m1            ',km_l2_m1
+               write(iulog,*) '   term_2              ',term_2
+               write(iulog,*) '   vmax_l2_m2          ',vmax_l2_m2
+               write(iulog,*) '   m2_conc             ',m2_conc
+               write(iulog,*) '   km_l2_m2            ',km_l2_m2
+               write(iulog,*) '   w_d_o_scalars       ',w_d_o_scalars
+            end if
             if (term_1 + term_2 /= 0._r8) then
                pathfrac_decomp_cascade(c,j,i_l2m1) = term_1 / (term_1 + term_2)
                pathfrac_decomp_cascade(c,j,i_l2m2) = term_2 / (term_1 + term_2)
@@ -1268,6 +1301,22 @@ contains
             term_1 = vmax_s1_m1 * m1_conc / (km_s1_m1 + m1_conc)
             term_2 = vmax_s1_m2 * m2_conc / (km_s1_m2 + m2_conc)
             decomp_k(c,j,i_avl_som) = (term_1 + term_2) * w_d_o_scalars
+            if (decomp_k(c,j,i_avl_som) > 1.e45_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_avl_som, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_avl_som)
+               write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
+               write(iulog,*) '   i_avl_som           ',i_avl_som
+               write(iulog,*) '   term_1              ',term_1
+               write(iulog,*) '   vmax_s1_m1          ',vmax_s1_m1
+               write(iulog,*) '   m1_conc             ',m1_conc
+               write(iulog,*) '   km_s1_m1            ',km_s1_m1
+               write(iulog,*) '   term_2              ',term_2
+               write(iulog,*) '   vmax_s1_m2          ',vmax_s1_m2
+               write(iulog,*) '   m2_conc             ',m2_conc
+               write(iulog,*) '   km_s1_m2            ',km_s1_m2
+               write(iulog,*) '   w_d_o_scalars       ',w_d_o_scalars
+            end if
             if (term_1 + term_2 /= 0._r8) then
                pathfrac_decomp_cascade(c,j,i_s1m1) = term_1 / (term_1 + term_2)
                pathfrac_decomp_cascade(c,j,i_s1m2) = term_2 / (term_1 + term_2)
@@ -1277,20 +1326,67 @@ contains
             end if
 
             decomp_k(c,j,i_phys_som) = desorption * depth_scalar(c,j)
+            if (decomp_k(c,j,i_phys_som) > 1.e45_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_phys_som, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_phys_som)
+               write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
+               write(iulog,*) '   i_phys_som          ',i_phys_som
+               write(iulog,*) '   desorption          ',desorption
+               write(iulog,*) '   depth_scalar        ',depth_scalar(c,j)
+            end if
 
             term_1 = vmax_l2_m1 * m1_conc / (mimics_ko_r * km_l2_m1 + m1_conc)
             term_2 = vmax_l2_m2 * m2_conc / (mimics_ko_k * km_l2_m2 + m2_conc)
             ! The right hand side is OXIDAT in the testbed (line 1145)
             decomp_k(c,j,i_chem_som) = (term_1 + term_2) * w_d_o_scalars
+            if (decomp_k(c,j,i_chem_som) > 1.e45_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_chem_som, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_chem_som)
+               write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
+               write(iulog,*) '   i_chem_som           ',i_chem_som
+               write(iulog,*) '   term_1              ',term_1
+               write(iulog,*) '   vmax_l2_m1          ',vmax_l2_m1
+               write(iulog,*) '   m1_conc             ',m1_conc
+               write(iulog,*) '   mimics_ko_r         ',mimics_ko_r
+               write(iulog,*) '   km_l2_m1            ',km_l2_m1
+               write(iulog,*) '   term_2              ',term_2
+               write(iulog,*) '   vmax_l2_m2          ',vmax_l2_m2
+               write(iulog,*) '   m2_conc             ',m2_conc
+               write(iulog,*) '   mimics_ko_k         ',mimics_ko_k
+               write(iulog,*) '   km_l2_m2            ',km_l2_m2
+               write(iulog,*) '   w_d_o_scalars       ',w_d_o_scalars
+            end if
 
             decomp_k(c,j,i_cop_mic) = tau_m1 * &
                    m1_conc**(mimics_densdep - 1.0_r8) * w_d_o_scalars
+            decomp_k(c,j,i_cop_mic) = desorption * depth_scalar(c,j)
+            if (decomp_k(c,j,i_cop_mic) > 1.e45_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_cop_mic, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_cop_mic)
+               write(iulog,*) '   c                   ',c
+               write(iulog,*) '   j                   ',j
+               write(iulog,*) '   i_cop_mic           ',i_cop_mic
+               write(iulog,*) '   desorption          ',desorption
+               write(iulog,*) '   depth_scalar        ',depth_scalar(c,j)
+            end if
             favl = min(1.0_r8, max(0.0_r8, 1.0_r8 - fphys_m1(c,j) - fchem_m1))
             pathfrac_decomp_cascade(c,j,i_m1s1) = favl
             pathfrac_decomp_cascade(c,j,i_m1s2) = fchem_m1
 
             decomp_k(c,j,i_oli_mic) = tau_m2 * &
                    m2_conc**(mimics_densdep - 1.0_r8) * w_d_o_scalars
+            if (decomp_k(c,j,i_oli_mic) > 1.e45_r8) then
+               write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_oli_mic, ',__FILE__,' line ',__LINE__
+               write(iulog,*) '   decomp_k         ',decomp_k(c,j,i_oli_mic)
+               write(iulog,*) '   c                ',c
+               write(iulog,*) '   j                ',j
+               write(iulog,*) '   tau_m2           ',tau_m2
+               write(iulog,*) '   m2_conc          ',m2_conc
+               write(iulog,*) '   mimics_densdep   ',mimics_densdep
+               write(iulog,*) '   w_d_o_scalars    ',w_d_o_scalars
+            end if
             favl = min(1.0_r8, max(0.0_r8, 1.0_r8 - fphys_m2(c,j) - fchem_m2))
             pathfrac_decomp_cascade(c,j,i_m2s1) = favl
             pathfrac_decomp_cascade(c,j,i_m2s2) = fchem_m2
