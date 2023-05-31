@@ -369,12 +369,52 @@ contains
     do j = 1,5
         do fc = 1,num_soilc
            c = filter_soilc(fc)
+           if (decomp_k(c,j,i_cel_lit) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge before-tillage decomp_k i_cel_lit (',i_cel_lit,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_cel_lit)
+           end if
+           if (decomp_k(c,j,i_lig_lit) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge before-tillage decomp_k i_lig_lit (',i_lig_lit,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_lig_lit)
+           end if
+           if (decomp_k(c,j,i_act_som) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge before-tillage decomp_k i_act_som (',i_act_som,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_act_som)
+           end if
+           if (decomp_k(c,j,i_slo_som) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge before-tillage decomp_k i_slo_som (',i_slo_som,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_slo_som)
+           end if
+           if (decomp_k(c,j,i_pas_som) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge before-tillage decomp_k i_pas_som (',i_pas_som,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_pas_som)
+           end if
            ! TODO: Loop through ALL pools, not just the ones that currently have non-1 values
            decomp_k(c,j,i_cel_lit) = decomp_k(c,j,i_cel_lit) * tillage_mults(c,i_cel_lit)
            decomp_k(c,j,i_lig_lit) = decomp_k(c,j,i_lig_lit) * tillage_mults(c,i_lig_lit) 
            decomp_k(c,j,i_act_som) = decomp_k(c,j,i_act_som) * tillage_mults(c,i_act_som)
            decomp_k(c,j,i_slo_som) = decomp_k(c,j,i_slo_som) * tillage_mults(c,i_slo_som)
            decomp_k(c,j,i_pas_som) = decomp_k(c,j,i_pas_som) * tillage_mults(c,i_pas_som)
+           if (decomp_k(c,j,i_cel_lit) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge after-tillage decomp_k i_cel_lit (',i_cel_lit,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_cel_lit)
+           end if
+           if (decomp_k(c,j,i_lig_lit) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge after-tillage decomp_k i_lig_lit (',i_lig_lit,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_lig_lit)
+           end if
+           if (decomp_k(c,j,i_act_som) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge after-tillage decomp_k i_act_som (',i_act_som,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_act_som)
+           end if
+           if (decomp_k(c,j,i_slo_som) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge after-tillage decomp_k i_slo_som (',i_slo_som,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_slo_som)
+           end if
+           if (decomp_k(c,j,i_pas_som) > 1.e45_r8) then
+               write(iulog,'(a,i2,a)') 'Huge after-tillage decomp_k i_pas_som (',i_pas_som,')'
+               write(iulog,*) '   decomp_k ',decomp_k(c,j,i_pas_som)
+           end if
            if (tillage_mults(c,i_cel_lit) > 4._r8) then
                write(iulog,'(a,i2,a)') 'Big tillage_mults i_cel_lit (',i_cel_lit,')'
                write(iulog,*) '   tillage_mults ',tillage_mults(c,i_cel_lit)
