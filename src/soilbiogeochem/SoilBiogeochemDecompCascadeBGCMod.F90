@@ -998,7 +998,7 @@ contains
                if (.not. (present(idop) .and. present(num_soilp) .and. present(filter_soilp))) then
                    call endrun("Do not call tillage without providing idop, num_soilp, and filter_soilp. (Maybe you called with FATES?)")
                end if
-               call get_apply_tillage_multipliers(idop, num_soilp, filter_soilp, num_soilc, filter_soilc, decomp_k, i_act_som, i_slo_som, i_pas_som, i_cel_lit, i_lig_lit)
+               call get_apply_tillage_multipliers(idop, num_soilp, filter_soilp, c, decomp_k, i_act_som, i_slo_som, i_pas_som, i_cel_lit, i_lig_lit)
                if (decomp_k(c,j,i_cel_lit) > 1.e45_r8) then
                   write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_cel_lit, ',__FILE__,' line ',__LINE__
                   write(iulog,*) '   decomp_k            ',decomp_k(c,j,i_cel_lit)
