@@ -1245,7 +1245,6 @@ contains
             ! also updating pathfrac terms that vary with time
             term_1 = vmax_l1_m1 * m1_conc / (km_l1_m1 + m1_conc)
             term_2 = vmax_l1_m2 * m2_conc / (km_l1_m2 + m2_conc)
-            write(iulog,'(a,a,a,i5)') 'Setting decomp_k B, ',__FILE__,' line ',__LINE__
             decomp_k(c,j,i_met_lit) = (term_1 + term_2) * w_d_o_scalars
             if (decomp_k(c,j,i_met_lit) > 1.e45_r8) then
                write(iulog,'(a,a,a,i5)') 'Huge decomp_k i_met_lit, ',__FILE__,' line ',__LINE__

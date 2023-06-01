@@ -884,7 +884,6 @@ contains
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
-            write(iulog,'(a,a,a,i5)') 'Setting decomp_k A, ',__FILE__,' line ',__LINE__
             decomp_k(c,j,i_met_lit) = k_l1    * t_scalar(c,j) * w_scalar(c,j) * &
                depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_l1(c)
             if (decomp_k(c,j,i_met_lit) > 1.e45_r8) then
