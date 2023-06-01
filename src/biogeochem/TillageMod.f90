@@ -143,6 +143,8 @@ contains
     integer :: day                  ! julian day
     integer :: idpp                 ! days past planting
     real(r8) dayspyr                ! days per year
+    ! Troubleshooting
+    integer :: nfound
     !-----------------------------------------------------------------------
         
     !get info from externals
@@ -150,10 +152,17 @@ contains
     dayspyr = get_curr_days_per_year()               !Add by MWG for IDPP-based routine
 
     ! TODO: There's probably a more efficient way to cycle through the patches on a given column
+    nfound = 0
     do fp = 1,num_soilp
         p = filter_soilp(fp)
         if (patch%column(p) /= c) then
             cycle
+        end if
+        if (patch%itype(p) >= npcropmin) then
+            nfound = nfound + 1
+        end if
+        if (nfound > 1) then
+            call endrun(msg="> 1 crop patch found for this column")
         end if
 
         g = patch%gridcell(p)
@@ -249,6 +258,8 @@ contains
     integer :: day                  ! julian day
     integer :: idpp                 ! days past planting
     real(r8) dayspyr                ! days per year
+    ! Troubleshooting
+    integer :: nfound
     !-----------------------------------------------------------------------
     
     !get info from externals
@@ -256,10 +267,17 @@ contains
     dayspyr = get_curr_days_per_year()               !Add by MWG for IDPP-based routine
 
     ! TODO: There's probably a more efficient way to cycle through the patches on a given column
+    nfound = 0
     do fp = 1,num_soilp
         p = filter_soilp(fp)
         if (patch%column(p) /= c) then
             cycle
+        end if
+        if (patch%itype(p) >= npcropmin) then
+            nfound = nfound + 1
+        end if
+        if (nfound > 1) then
+            call endrun(msg="> 1 crop patch found for this column")
         end if
 
         g = patch%gridcell(p)
