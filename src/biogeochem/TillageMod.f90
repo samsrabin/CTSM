@@ -133,7 +133,6 @@ contains
     !
     ! !LOCAL VARIABLES:
     !
-    integer :: fp, g             ! Indices
     integer :: day                  ! julian day
     integer :: idpp                 ! days past planting
     real(r8) dayspyr                ! days per year
@@ -142,8 +141,6 @@ contains
     !get info from externals
     day = get_curr_calday()
     dayspyr = get_curr_days_per_year()               !Add by MWG for IDPP-based routine
-
-    g = patch%gridcell(p)
 
     ! days past planting may determine harvest/tillage
     ! SSR: Unused!
@@ -204,7 +201,6 @@ contains
     !
     ! !LOCAL VARIABLES:
     !
-    integer :: fp, g             ! Indices
     integer :: day                  ! julian day
     integer :: idpp                 ! days past planting
     real(r8) dayspyr                ! days per year
@@ -213,8 +209,6 @@ contains
     !get info from externals
     day = get_curr_calday()
     dayspyr = get_curr_days_per_year()               !Add by MWG for IDPP-based routine
-
-    g = patch%gridcell(p)
 
     ! days past planting may determine harvest/tillage
     if (day >= idop(p)) then
