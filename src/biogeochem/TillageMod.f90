@@ -47,6 +47,7 @@ contains
     !
     ! !USES:
     use spmdMod        , only : masterproc
+    use fileutils      , only : getavu, relavu
     use controlMod     , only : NLFilename
     use clm_nlUtilsMod , only : find_nlgroup_name
     use shr_mpi_mod    , only : shr_mpi_bcast
@@ -75,6 +76,7 @@ contains
 
     ! Read tillage namelist
     if (masterproc) then
+        nu_nml = getavu()
         open(newunit=nu_nml, file=trim(NLFilename), status='old', iostat=nml_error )
         call find_nlgroup_name(nu_nml, 'tillage_inparm', status=nml_error)
         if (nml_error == 0) then
@@ -86,6 +88,7 @@ contains
            call endrun(subname // ':: ERROR finding tillage namelist')
         end if
         close(nu_nml)
+        call relavu(nu_nml)
      endif
      call shr_mpi_bcast(do_tillage_low, mpicom)
      call shr_mpi_bcast(do_tillage_high , mpicom)
