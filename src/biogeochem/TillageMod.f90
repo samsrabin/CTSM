@@ -54,6 +54,7 @@ contains
     use decompMod      , only : bounds_type
     !
     ! !ARGUMENTS
+    implicit none
     ! SSR: Not sure why this is necessary, but without it, CTSM stalls out
     !      (although it seems to successfully complete this subroutine).
     type(bounds_type), intent(in) :: bounds
