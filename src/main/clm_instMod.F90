@@ -392,7 +392,7 @@ contains
        end if
 
        ! Initialize tillage
-       call tillage_init(bounds)
+       call tillage_init()
 
        ! Initalize soilbiogeochem carbon types
 

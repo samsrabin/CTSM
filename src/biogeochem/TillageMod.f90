@@ -39,7 +39,7 @@ module TillageMod
 contains
 !==============================================================================
 
-  subroutine tillage_init(bounds)
+  subroutine tillage_init()
     !
     ! Read namelist parameters and allocate variables related to tillage
     !
@@ -48,13 +48,10 @@ contains
     use controlMod     , only : NLFilename
     use clm_nlUtilsMod , only : find_nlgroup_name
     use shr_mpi_mod    , only : shr_mpi_bcast
-    use decompMod      , only : bounds_type
     !
     ! !ARGUMENTS
-    type(bounds_type), intent(in) :: bounds
     !
     ! !LOCAL VARIABLES
-    integer                :: begp, endp   ! indices for allocating patch dimension
     integer                :: nu_nml       ! unit for namelist file
     integer                :: nml_error    ! namelist i/o error flag
     integer                :: mpicom       ! MPI communicator
@@ -106,8 +103,6 @@ contains
 
      ! Allocate variables
      if (get_do_tillage()) then
-        begp = bounds%begp
-        endp = bounds%endp
         allocate(tillage_mults(ndecomp_pools)) ; tillage_mults(:) = 1.0_r8
      end if
 
