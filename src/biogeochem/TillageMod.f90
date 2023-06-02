@@ -109,8 +109,8 @@ contains
 
      ! Allocate tillage multipliers
      if (get_do_tillage()) then
-        allocate(tillage_mults(ndecomp_pools)); tillage_mults(:) = 1.0_r8
-        allocate(tillage_mults_allphases(ndecomp_pools, nphases)); tillage_mults_allphases(:,:) = 1.0_r8
+        allocate(tillage_mults(1:ndecomp_pools)); tillage_mults(:) = 1.0_r8
+        allocate(tillage_mults_allphases(1:ndecomp_pools, 1:nphases)); tillage_mults_allphases(:,:) = 1.0_r8
      end if
 
   end subroutine tillage_init
