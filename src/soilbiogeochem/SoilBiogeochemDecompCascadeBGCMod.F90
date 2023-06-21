@@ -923,17 +923,15 @@ contains
 
       ! SSR troubleshooting
       decomp_k_pretill = decomp_k
-      do j = 1,nlevdecomp
-         do fc = 1,num_soilc
-            c = filter_soilc(fc)
-            ! Tillage
-            if (get_do_tillage()) then
-               if (.not. present(idop)) then
-                   call endrun("Do not call tillage without providing idop.")
-               end if
-               call get_apply_tillage_multipliers(idop, c, decomp_k, i_act_som, i_slo_som, i_pas_som, i_cel_lit, i_lig_lit)
+      do fc = 1,num_soilc
+         c = filter_soilc(fc)
+         ! Tillage
+         if (get_do_tillage()) then
+            if (.not. present(idop)) then
+                  call endrun("Do not call tillage without providing idop.")
             end if
-         end do
+            call get_apply_tillage_multipliers(idop, c, decomp_k, i_act_som, i_slo_som, i_pas_som, i_cel_lit, i_lig_lit)
+         end if
       end do
       max_tillage_factor_act_som = 0.0_r8
       max_tillage_factor_slo_som = 0.0_r8
