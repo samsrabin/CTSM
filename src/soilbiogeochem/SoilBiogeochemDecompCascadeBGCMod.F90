@@ -959,11 +959,11 @@ contains
          end do
       end do
       write (iulog,*) 'SSRTS'
+      write (iulog,*) '   max_tillage_factor_cel_lit ',max_tillage_factor_cel_lit
+      write (iulog,*) '   max_tillage_factor_lig_lit ',max_tillage_factor_lig_lit
       write (iulog,*) '   max_tillage_factor_act_som ',max_tillage_factor_act_som
       write (iulog,*) '   max_tillage_factor_slo_som ',max_tillage_factor_slo_som
       write (iulog,*) '   max_tillage_factor_pas_som ',max_tillage_factor_pas_som
-      write (iulog,*) '   max_tillage_factor_cel_lit ',max_tillage_factor_cel_lit
-      write (iulog,*) '   max_tillage_factor_lig_lit ',max_tillage_factor_lig_lit
 
       pathfrac_decomp_cascade(bounds%begc:bounds%endc,1:nlevdecomp,i_l1s1) = 1.0_r8
       pathfrac_decomp_cascade(bounds%begc:bounds%endc,1:nlevdecomp,i_l2s1) = 1.0_r8
