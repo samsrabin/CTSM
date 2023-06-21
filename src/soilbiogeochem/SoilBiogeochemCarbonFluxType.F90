@@ -40,6 +40,7 @@ module SoilBiogeochemCarbonFluxType
      real(r8), pointer :: rf_decomp_cascade_col                     (:,:,:) ! (frac) respired fraction in decomposition step
      real(r8), pointer :: pathfrac_decomp_cascade_col               (:,:,:) ! (frac) what fraction of C passes from donor to receiver pool through a given transition
      real(r8), pointer :: decomp_k_col                              (:,:,:) ! rate coefficient for decomposition (1./sec)
+     real(r8), pointer :: decomp_k_pretill_col                      (:,:,:) ! rate coefficient for decomposition (1./sec)
      real(r8), pointer :: hr_vr_col                                 (:,:)   !  (gC/m3/s) total vertically-resolved het. resp. from decomposing C pools 
      real(r8), pointer :: o_scalar_col                              (:,:)   !  fraction by which decomposition is limited by anoxia
      real(r8), pointer :: w_scalar_col                              (:,:)   !  fraction by which decomposition is limited by moisture availability
@@ -149,6 +150,9 @@ contains
 
      allocate(this%decomp_k_col(begc:endc,1:nlevdecomp_full,1:ndecomp_pools))
      this%decomp_k_col(:,:,:)= spval
+
+     allocate(this%decomp_k_pretill_col(begc:endc,1:nlevdecomp_full,1:ndecomp_pools))
+     this%decomp_k_pretill_col(:,:,:)= spval
 
      allocate(this%decomp_cpools_leached_col(begc:endc,1:ndecomp_pools))              
      this%decomp_cpools_leached_col(:,:)= nan
@@ -780,6 +784,7 @@ contains
              this%decomp_cpools_transport_tendency_col(i,j,k) = value_column
              this%decomp_cpools_sourcesink_col(i,j,k)         = value_column  
              this%decomp_k_col(i,j,k)                         = value_column
+             this%decomp_k_pretill_col(i,j,k)                 = value_column
           end do
        end do
     end do

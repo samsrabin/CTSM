@@ -570,6 +570,11 @@ contains
     real(r8):: spinup_geogterm_s1(bounds%begc:bounds%endc) ! geographically-varying spinup term for s1
     real(r8):: spinup_geogterm_s2(bounds%begc:bounds%endc) ! geographically-varying spinup term for s2
     real(r8):: spinup_geogterm_s3(bounds%begc:bounds%endc) ! geographically-varying spinup term for s3
+    real(r8):: max_tillage_factor_act_som ! SSR troubleshooting
+    real(r8):: max_tillage_factor_slo_som ! SSR troubleshooting
+    real(r8):: max_tillage_factor_pas_som ! SSR troubleshooting
+    real(r8):: max_tillage_factor_cel_lit ! SSR troubleshooting
+    real(r8):: max_tillage_factor_lig_lit ! SSR troubleshooting
 
     !-----------------------------------------------------------------------
 
@@ -594,6 +599,7 @@ contains
          w_scalar       => soilbiogeochem_carbonflux_inst%w_scalar_col , & ! Output: [real(r8) (:,:)   ]  soil water scalar for decomp                           
          o_scalar       => soilbiogeochem_carbonflux_inst%o_scalar_col , & ! Output: [real(r8) (:,:)   ]  fraction by which decomposition is limited by anoxia   
          decomp_k       => soilbiogeochem_carbonflux_inst%decomp_k_col , & ! Output: [real(r8) (:,:,:) ]  rate constant for decomposition (1./sec)
+         decomp_k_pretill => soilbiogeochem_carbonflux_inst%decomp_k_pretill_col , & ! Output: [real(r8) (:,:,:) ]  rate constant for decomposition (1./sec)
          spinup_factor  => decomp_cascade_con%spinup_factor              & ! Input:  [real(r8) (:)     ]  factor for AD spinup associated with each pool           
          )
 
@@ -905,14 +911,6 @@ contains
                   depth_scalar(c,j) * o_scalar(c,j) * spinup_geogterm_cwd(c)
             end if
 
-            ! Tillage
-            if (get_do_tillage()) then
-               if (.not. present(idop)) then
-                   call endrun("Do not call tillage without providing idop.")
-               end if
-               call get_apply_tillage_multipliers(idop, c, decomp_k, i_act_som, i_slo_som, i_pas_som, i_cel_lit, i_lig_lit)
-            end if
-
             ! Above into soil matrix
             if(use_soil_matrixcn)then
                ! same for cwd but only if fates is not enabled; fates handles CWD
@@ -922,6 +920,53 @@ contains
             end if !use_soil_matrixcn
          end do
       end do
+
+      ! SSR troubleshooting
+      decomp_k_pretill = decomp_k
+      do j = 1,nlevdecomp
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
+            ! Tillage
+            if (get_do_tillage()) then
+               if (.not. present(idop)) then
+                   call endrun("Do not call tillage without providing idop.")
+               end if
+               call get_apply_tillage_multipliers(idop, c, decomp_k, i_act_som, i_slo_som, i_pas_som, i_cel_lit, i_lig_lit)
+            end if
+         end do
+      end do
+      max_tillage_factor_act_som = 0.0_r8
+      max_tillage_factor_slo_som = 0.0_r8
+      max_tillage_factor_pas_som = 0.0_r8
+      max_tillage_factor_cel_lit = 0.0_r8
+      max_tillage_factor_lig_lit = 0.0_r8
+      do j = 1,nlevdecomp
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
+            if (decomp_k_pretill(c,j,i_act_som) > 0.0_r8) then
+               max_tillage_factor_act_som = max(max_tillage_factor_act_som, decomp_k(c,j,i_act_som) / decomp_k_pretill(c,j,i_act_som))
+            end if
+            if (decomp_k_pretill(c,j,i_slo_som) > 0.0_r8) then
+               max_tillage_factor_slo_som = max(max_tillage_factor_slo_som, decomp_k(c,j,i_slo_som) / decomp_k_pretill(c,j,i_slo_som))
+            end if
+            if (decomp_k_pretill(c,j,i_pas_som) > 0.0_r8) then
+               max_tillage_factor_pas_som = max(max_tillage_factor_pas_som, decomp_k(c,j,i_pas_som) / decomp_k_pretill(c,j,i_pas_som))
+            end if
+            if (decomp_k_pretill(c,j,i_cel_lit) > 0.0_r8) then
+               max_tillage_factor_cel_lit = max(max_tillage_factor_cel_lit, decomp_k(c,j,i_cel_lit) / decomp_k_pretill(c,j,i_cel_lit))
+            end if
+            if (decomp_k_pretill(c,j,i_lig_lit) > 0.0_r8) then
+               max_tillage_factor_lig_lit = max(max_tillage_factor_lig_lit, decomp_k(c,j,i_lig_lit) / decomp_k_pretill(c,j,i_lig_lit))
+            end if
+         end do
+      end do
+      write (iulog,*) 'SSRTS'
+      write (iulog,*) '   max_tillage_factor_act_som ',max_tillage_factor_act_som
+      write (iulog,*) '   max_tillage_factor_slo_som ',max_tillage_factor_slo_som
+      write (iulog,*) '   max_tillage_factor_pas_som ',max_tillage_factor_pas_som
+      write (iulog,*) '   max_tillage_factor_cel_lit ',max_tillage_factor_cel_lit
+      write (iulog,*) '   max_tillage_factor_lig_lit ',max_tillage_factor_lig_lit
+
       pathfrac_decomp_cascade(bounds%begc:bounds%endc,1:nlevdecomp,i_l1s1) = 1.0_r8
       pathfrac_decomp_cascade(bounds%begc:bounds%endc,1:nlevdecomp,i_l2s1) = 1.0_r8
       pathfrac_decomp_cascade(bounds%begc:bounds%endc,1:nlevdecomp,i_l3s2) = 1.0_r8
