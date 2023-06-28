@@ -18,6 +18,7 @@ module cropcalStreamMod
   use perf_mod         , only : t_startf, t_stopf
   use spmdMod          , only : masterproc, mpicom, iam
   use pftconMod        , only : npcropmin
+  use CNPhenologyMod  , only : generate_crop_gdds
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -40,8 +41,6 @@ module cropcalStreamMod
 
   character(len=*), parameter :: sourcefile = &
        __FILE__
-
-  logical, parameter :: generate_crop_gdds = .false.
 
 !==============================================================================
 contains

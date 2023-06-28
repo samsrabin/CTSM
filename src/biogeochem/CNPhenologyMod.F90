@@ -135,6 +135,10 @@ module CNPhenologyMod
 
   real(r8), private :: initial_seed_at_planting        = 3._r8   ! Initial seed at planting
 
+  real(r8)         :: min_gddmaturity = 1._r8     ! Weird things can happen if gddmaturity is tiny
+  logical,  public :: generate_crop_gdds = .false. ! If true, harvest the day before next sowing
+  logical,  public :: use_mxmat = .true.           ! If true, ignore crop maximum growing season length
+
   ! Constants for seasonal decidious leaf onset and offset
   logical,  private :: onset_thresh_depends_on_veg     = .false. ! If onset threshold depends on vegetation type
   integer,  public, parameter :: critical_daylight_constant           = 1
@@ -144,6 +148,14 @@ module CNPhenologyMod
   integer,  private :: critical_daylight_method = critical_daylight_constant
   ! For determining leaf offset latitude that's considered high latitude (see Eitel 2019)
   real(r8), parameter :: critical_offset_high_lat         = 65._r8     ! Start of what's considered high latitude (degrees)
+
+  real(r8), parameter :: HARVEST_REASON_MATURE = 1._r8
+  real(r8), parameter :: HARVEST_REASON_MAXSEASLENGTH = 2._r8
+  real(r8), parameter :: HARVEST_REASON_SOWNBADDEC31 = 3._r8
+  real(r8), parameter :: HARVEST_REASON_SOWTODAY = 4._r8
+  real(r8), parameter :: HARVEST_REASON_SOWTOMORROW = 5._r8
+  real(r8), parameter :: HARVEST_REASON_IDOPTOMORROW = 6._r8
+  real(r8), parameter :: HARVEST_REASON_VERNFREEZEKILL = 7._r8
 
   character(len=*), parameter, private :: sourcefile = &
        __FILE__
@@ -176,7 +188,8 @@ contains
     character(len=*), parameter :: nmlname = 'cnphenology'
     !-----------------------------------------------------------------------
     namelist /cnphenology/ initial_seed_at_planting, onset_thresh_depends_on_veg, &
-                           min_critical_dayl_method
+                           min_critical_dayl_method, generate_crop_gdds, &
+                           use_mxmat
 
     ! Initialize options to default values, in case they are not specified in
     ! the namelist
@@ -200,6 +213,8 @@ contains
     call shr_mpi_bcast (initial_seed_at_planting,    mpicom)
     call shr_mpi_bcast (onset_thresh_depends_on_veg, mpicom)
     call shr_mpi_bcast (min_critical_dayl_method,     mpicom)
+    call shr_mpi_bcast (generate_crop_gdds,          mpicom)
+    call shr_mpi_bcast (use_mxmat,                   mpicom)
 
     if (      min_critical_dayl_method == "DependsOnLat"       )then
        critical_daylight_method = critical_daylight_depends_on_lat
@@ -425,7 +440,7 @@ contains
     !
     ! !USES:
     use clm_time_manager, only: get_step_size_real
-    use clm_varctl      , only: use_crop
+    use clm_varctl      , only: use_crop, use_cropcal_rx_sdates
     use clm_varcon      , only: secspday
     !
     ! !ARGUMENTS:
@@ -1709,6 +1724,7 @@ contains
     ! !USES:
     use clm_time_manager , only : get_prev_calday, get_curr_days_per_year, is_beg_curr_year
     use clm_time_manager , only : get_average_days_per_year
+    use clm_time_manager , only : get_prev_date
     use pftconMod        , only : ntmp_corn, nswheat, nwwheat, ntmp_soybean
     use pftconMod        , only : nirrig_tmp_corn, nirrig_swheat, nirrig_wwheat, nirrig_tmp_soybean
     use pftconMod        , only : ntrp_corn, nsugarcane, ntrp_soybean, ncotton, nrice
@@ -1720,6 +1736,7 @@ contains
     use clm_varctl       , only : use_fertilizer 
     use clm_varctl       , only : use_c13, use_c14
     use clm_varcon       , only : c13ratio, c14ratio
+    use clm_varctl       , only : use_cropcal_rx_sdates, use_cropcal_rx_cultivar_gdds, use_cropcal_streams
     !
     ! !ARGUMENTS:
     integer                        , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
@@ -1743,19 +1760,38 @@ contains
     integer g         ! gridcell indices
     integer h         ! hemisphere indices
     integer s         ! growing season indices
+    integer k         ! grain pool indices
     integer idpp      ! number of days past planting
+    integer mxmat     ! maximum growing season length
+    integer kyr       ! current year
+    integer kmo       ! month of year  (1, ..., 12)
+    integer kda       ! day of month   (1, ..., 31)
+    integer mcsec     ! seconds of day (0, ..., seconds/day)
+    real(r8) harvest_reason
     real(r8) dayspyr  ! days per year in this year
     real(r8) avg_dayspyr ! average number of days per year
     real(r8) crmcorn  ! comparitive relative maturity for corn
     real(r8) ndays_on ! number of days to fertilize
+    logical is_in_sowing_window ! is the crop in its sowing window?
+    logical is_end_sowing_window ! is it the last day of the crop's sowing window?
+    logical sowing_gdd_requirement_met ! has the gridcell historically been warm enough to support the crop?
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
     logical do_plant_lastchance ! if not the above, what about relaxed rules for the last day of the planting window?
+    logical do_plant_prescribed ! is today the prescribed sowing date?
+    logical do_plant  ! are we planting in this time step for any reason?
+    logical did_plant ! did we plant the crop in this time step?
+    logical allow_unprescribed_planting ! should crop be allowed to be planted according to sowing window rules?
+    logical do_harvest    ! Are harvest conditions satisfied?
+    logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
+    logical did_plant_prescribed_today    ! Was the crop sown today?
+    logical will_plant_prescribed_tomorrow ! Is tomorrow a prescribed sowing day?
+    logical vernalization_forces_harvest ! Was the crop killed by freezing during vernalization?
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
          ivt               =>    patch%itype                                     , & ! Input:  [integer  (:) ]  patch vegetation type                                
          
-         leaf_long         =>    pftcon%leaf_long                              , & ! Input:  leaf longevity (yrs)                              
+         leaf_long         =>    pftcon%leaf_long                                , & ! Input:  leaf longevity (yrs)                              
          leafcn            =>    pftcon%leafcn                                 , & ! Input:  leaf C:N (gC/gN)                                  
          manunitro         =>    pftcon%manunitro                              , & ! Input:  max manure to be applied in total (kgN/m2)
          mxmat             =>    pftcon%mxmat                                  , & ! Input:  
@@ -1780,12 +1816,14 @@ contains
          harvdate          =>    crop_inst%harvdate_patch                      , & ! Output: [integer  (:) ]  harvest date                                       
          croplive          =>    crop_inst%croplive_patch                      , & ! Output: [logical  (:) ]  Flag, true if planted, not harvested               
          vf                =>    crop_inst%vf_patch                            , & ! Output: [real(r8) (:) ]  vernalization factor                              
+         next_rx_sdate     =>    crop_inst%next_rx_sdate_patch                 , & ! Inout:  [integer  (:) ]  prescribed sowing date of next growing season this year
          sowing_count      =>    crop_inst%sowing_count                        , & ! Inout:  [integer  (:) ]  number of sowing events this year for this patch
          harvest_count     =>    crop_inst%harvest_count                       , & ! Inout:  [integer  (:) ]  number of harvest events this year for this patch
          peaklai           =>    cnveg_state_inst%peaklai_patch                , & ! Output: [integer  (:) ]  1: max allowed lai; 0: not at max
          tlai              =>    canopystate_inst%tlai_patch                   , & ! Input:  [real(r8) (:) ]  one-sided leaf area index, no burying by snow     
          
-         idop              =>    cnveg_state_inst%idop_patch                   , & ! Output: [integer  (:) ]  date of planting                                   
+         idop              =>    cnveg_state_inst%idop_patch                   , & ! Output: [integer  (:) ]  date of planting (day of year)
+         iyop              =>    cnveg_state_inst%iyop_patch                   , & ! Output: [integer  (:) ]  year of planting (day of year)
          gddmaturity       =>    cnveg_state_inst%gddmaturity_patch            , & ! Output: [real(r8) (:) ]  gdd needed to harvest                             
          huileaf           =>    cnveg_state_inst%huileaf_patch                , & ! Output: [real(r8) (:) ]  heat unit index needed from planting to leaf emergence
          huigrain          =>    cnveg_state_inst%huigrain_patch               , & ! Output: [real(r8) (:) ]  same to reach vegetative maturity                 
@@ -1814,6 +1852,7 @@ contains
       dayspyr = get_curr_days_per_year()
       avg_dayspyr = get_average_days_per_year()
       jday    = get_prev_calday()
+      call get_prev_date(kyr, kmo, kda, mcsec)
 
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
@@ -1848,10 +1887,30 @@ contains
             harvest_count(p) = 0
             do s = 1, mxsowings
                crop_inst%sdates_thisyr_patch(p,s) = -1._r8
+               crop_inst%sowing_reason_thisyr_patch(p,s) = -1._r8
             end do
             do s = 1, mxharvests
+               crop_inst%sdates_perharv_patch(p,s) = -1._r8
+               crop_inst%syears_perharv_patch(p,s) = -1._r8
                crop_inst%hdates_thisyr_patch(p,s) = -1._r8
+               cnveg_state_inst%gddmaturity_thisyr(p,s) = -1._r8
+               crop_inst%gddaccum_thisyr_patch(p,s) = -1._r8
+               crop_inst%hui_thisyr_patch(p,s) = -1._r8
+               crop_inst%sowing_reason_perharv_patch = -1._r8
+               crop_inst%harvest_reason_thisyr_patch(p,s) = -1._r8
+               do k = repr_grain_min, repr_grain_max
+                  cnveg_carbonflux_inst%repr_grainc_to_food_perharv_patch(p,s,k) = 0._r8
+               end do
             end do
+            do k = repr_grain_min, repr_grain_max
+               cnveg_carbonflux_inst%repr_grainc_to_food_thisyr_patch(p,k) = 0._r8
+            end do
+            next_rx_sdate(p) = crop_inst%rx_sdates_thisyr_patch(p,1)
+         end if
+
+         ! Get next sowing date
+         if (sowing_count(p) < mxsowings) then
+             next_rx_sdate(p) = crop_inst%rx_sdates_thisyr_patch(p,sowing_count(p)+1)
          end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
@@ -1886,7 +1945,7 @@ contains
 
             ! winter temperate cereal : use gdd0 as a limit to plant winter cereal
 
-            if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
+               if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
 
                ! Are all the normal requirements for planting met?
                do_plant_normal = a5tmin(p)   /= spval                  .and. &
@@ -1939,9 +1998,9 @@ contains
                if (do_plant_normal .or. do_plant_lastchance) then
 
                   call PlantCrop(p, leafcn(ivt(p)), jday, crop_inst, cnveg_state_inst, &
-                                 cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
-                                 cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+                              cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
+                              cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
+                              c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
 
                   ! go a specified amount of time before/after
                   ! climatological date
@@ -1966,9 +2025,9 @@ contains
                      gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
                   end if
 
-               else
-                  gddmaturity(p) = 0._r8
-               end if
+            else
+               gddmaturity(p) = 0._r8
+            end if
             end if ! crop patch distinction
 
             ! crop phenology (gdd thresholds) controlled by gdd needed for
@@ -2125,9 +2184,9 @@ contains
                ! changes to the offset subroutine below
 
             else if (hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
-               if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
-               harvest_count(p) = harvest_count(p) + 1
-               crop_inst%hdates_thisyr_patch(p, harvest_count(p)) = real(jday, r8)
+                  if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
+                  harvest_count(p) = harvest_count(p) + 1
+                  crop_inst%hdates_thisyr_patch(p, harvest_count(p)) = real(jday, r8)
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
@@ -2142,6 +2201,7 @@ contains
                   crop_seedc_to_leaf(p) = crop_seedc_to_leaf(p) - leafc_xfer(p)/dt
                   crop_seedn_to_leaf(p) = crop_seedn_to_leaf(p) - leafn_xfer(p)/dt
                   leafc_xfer(p) = 0._r8
+
                   leafn_xfer(p) = leafc_xfer(p) / leafcn(ivt(p))
                   if (use_c13) then
                      c13_cnveg_carbonstate_inst%leafc_xfer_patch(p) = 0._r8
@@ -2359,7 +2419,7 @@ contains
          croplive          =>    crop_inst%croplive_patch                        , & ! Output: [logical  (:) ]  Flag, true if planted, not harvested
          harvdate          =>    crop_inst%harvdate_patch                        , & ! Output: [integer  (:) ]  harvest date
          sowing_count      =>    crop_inst%sowing_count                          , & ! Inout:  [integer  (:) ]  number of sowing events this year for this patch
-         idop              =>    cnveg_state_inst%idop_patch                     , & ! Output: [integer  (:) ]  date of planting                                   
+         idop              =>    cnveg_state_inst%idop_patch                     , & ! Output: [integer  (:) ]  date of planting
          leafc_xfer        =>    cnveg_carbonstate_inst%leafc_xfer_patch         , & ! Output: [real(r8) (:) ]  (gC/m2)   leaf C transfer
          leafn_xfer        =>    cnveg_nitrogenstate_inst%leafn_xfer_patch       , & ! Output: [real(r8) (:) ]  (gN/m2)   leaf N transfer
          crop_seedc_to_leaf =>   cnveg_carbonflux_inst%crop_seedc_to_leaf_patch  , & ! Output: [real(r8) (:) ]  (gC/m2/s) seed source to leaf
