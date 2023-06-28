@@ -1927,6 +1927,51 @@ contains
              crop_inst%sdates_thisyr_patch(p,1) = real(idop(p), r8)
          end if
 
+         ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
+         is_in_sowing_window = jday >= minplantjday(ivt(p),h) .and. jday <= maxplantjday(ivt(p),h)
+         is_end_sowing_window = jday == maxplantjday(ivt(p),h)
+         !
+         ! Only allow sowing according to normal "window" rules if not using prescribed
+         ! sowing dates at all, or if this cell had no values in the prescribed sowing
+         ! date file.
+         allow_unprescribed_planting = (.not. use_cropcal_rx_sdates) .or. crop_inst%rx_sdates_thisyr_patch(p,1)<0
+         if (sowing_count(p) == mxsowings) then
+            do_plant_normal = .false.
+            do_plant_lastchance = .false.
+         else if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
+            ! winter temperate cereal : use gdd0 as a limit to plant winter cereal
+            sowing_gdd_requirement_met = gdd020(p) /= spval .and. gdd020(p) >= gddmin(ivt(p))
+            ! Are all the normal requirements for planting met?
+            do_plant_normal = allow_unprescribed_planting           .and. &
+                              a5tmin(p)   /= spval                  .and. &
+                              a5tmin(p)   <= minplanttemp(ivt(p))   .and. &
+                              is_in_sowing_window                   .and. &
+                              sowing_gdd_requirement_met
+            ! If not, but it's the last day of the planting window, what about relaxed rules?
+            do_plant_lastchance = allow_unprescribed_planting           .and. &
+                                  (.not. do_plant_normal)               .and. &
+                                  is_end_sowing_window                  .and. &
+                                  sowing_gdd_requirement_met
+         else ! not winter cereal... slevis: added distinction between NH and SH
+            ! slevis: The idea is that jday will equal idop sooner or later in the year
+            !         while the gdd part is either true or false for the year.
+            ! Are all the normal requirements for planting met?
+            do_plant_normal = allow_unprescribed_planting               .and. &
+                              t10(p) /= spval .and. a10tmin(p) /= spval .and. &
+                              t10(p)     > planttemp(ivt(p))            .and. &
+                              a10tmin(p) > minplanttemp(ivt(p))         .and. &
+                              is_in_sowing_window                       .and. &
+                              gdd820(p)  /= spval                       .and. &
+                              gdd820(p)  >= gddmin(ivt(p))
+            ! If not, but it's the last day of the planting window, what about relaxed rules?
+            do_plant_lastchance = allow_unprescribed_planting    .and. &
+                                  (.not. do_plant_normal)        .and. &
+                                  is_end_sowing_window           .and. &
+                                  gdd820(p) > 0._r8 .and. &
+                                  gdd820(p) /= spval
+         end if
+         do_plant = do_plant_prescribed .or. do_plant_normal .or. do_plant_lastchance
+         did_plant = .false.
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
          if ( (.not. croplive(p)) .and. sowing_count(p) == 0 ) then
@@ -1946,71 +1991,25 @@ contains
             !         According to Chris Kucharik, the dataset of
             !         xinpdate was generated from a previous model run at 0.5 deg resolution
 
-            ! winter temperate cereal : use gdd0 as a limit to plant winter cereal
+            if (do_plant) then
 
                if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
-
-               ! Are all the normal requirements for planting met?
-               do_plant_normal = a5tmin(p)   /= spval                  .and. &
-                                 a5tmin(p)   <= minplanttemp(ivt(p))   .and. &
-                                 jday        >= minplantjday(ivt(p),h) .and. &
-                                 jday        <= maxplantjday(ivt(p),h) .and. &
-                                 (gdd020(p)  /= spval                  .and. &
-                                 gdd020(p)   >= gddmin(ivt(p)))
-               ! If not, but it's the last day of the planting window, what about relaxed rules?
-               do_plant_lastchance = (.not. do_plant_normal)               .and. &
-                                     jday       ==  maxplantjday(ivt(p),h) .and. &
-                                     gdd020(p)  /= spval                   .and. &
-                                     gdd020(p)  >= gddmin(ivt(p))
-
-               if (do_plant_normal .or. do_plant_lastchance) then
-
                   cumvd(p)       = 0._r8
                   hdidx(p)       = 0._r8
                   vf(p)          = 0._r8
-                  
-                  call PlantCrop(p, leafcn(ivt(p)), jday, kyr, do_plant_normal, &
-                                 do_plant_lastchance, do_plant_prescribed, &
-                                 temperature_inst, crop_inst, cnveg_state_inst, &
-                                 cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
-                                 cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
-                                 c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
-
-               else
-                  gddmaturity(p) = 0._r8
                end if
 
-            else ! not winter cereal... slevis: added distinction between NH and SH
-               ! slevis: The idea is that jday will equal idop sooner or later in the year
-               !         while the gdd part is either true or false for the year.
-
-               ! Are all the normal requirements for planting met?
-               do_plant_normal = t10(p) /= spval .and. a10tmin(p) /= spval .and. &
-                                 t10(p)     > planttemp(ivt(p))            .and. &
-                                 a10tmin(p) > minplanttemp(ivt(p))         .and. &
-                                 jday       >= minplantjday(ivt(p),h)      .and. &
-                                 jday       <= maxplantjday(ivt(p),h)      .and. &
-                                 gdd820(p)  /= spval                       .and. &
-                                 gdd820(p)  >= gddmin(ivt(p))
-               ! If not, but it's the last day of the planting window, what about relaxed rules?
-               do_plant_lastchance = (.not. do_plant_normal) .and. &
-                                     jday == maxplantjday(ivt(p),h) .and. &
-                                     gdd820(p) > 0._r8 .and. &
-                                     gdd820(p) /= spval
-
-               if (do_plant_normal .or. do_plant_lastchance) then
-
-                  call PlantCrop(p, leafcn(ivt(p)), jday, kyr, do_plant_normal, &
-                              do_plant_lastchance, do_plant_prescribed, &
+               call PlantCrop(p, leafcn(ivt(p)), jday, kyr, do_plant_normal, &
+                              do_plant_lastchance, do_plant_prescribed,  &
                               temperature_inst, crop_inst, cnveg_state_inst, &
                               cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
                               cnveg_carbonflux_inst, cnveg_nitrogenflux_inst, &
                               c13_cnveg_carbonstate_inst, c14_cnveg_carbonstate_inst)
+               did_plant = .true.
 
             else
                gddmaturity(p) = 0._r8
             end if
-            end if ! crop patch distinction
 
             ! crop phenology (gdd thresholds) controlled by gdd needed for
             ! maturity (physiological) which is based on the average gdd
