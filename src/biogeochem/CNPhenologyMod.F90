@@ -2148,12 +2148,7 @@ contains
                 mxmat = 999
             end if
 
-            if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
-                ! BACKWARDS_COMPATIBILITY(ssr, 2022-02-03): To get rid of crops incorrectly planted in last time step of Dec. 31. That was fixed in commit dadbc62 ("Call CropPhenology regardless of doalb"), but this handles restart files with the old behavior. fake_harvest ensures that outputs aren't polluted.
-                do_harvest = .true.
-                fake_harvest = .true.
-                harvest_reason = HARVEST_REASON_SOWNBADDEC31
-            else if (do_plant .and. .not. did_plant) then
+            if (do_plant .and. .not. did_plant) then
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
                 harvest_reason = HARVEST_REASON_SOWTODAY
