@@ -1843,14 +1843,14 @@ contains
          ! Second condition ensures everything is correctly set when resuming from a run with old code
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
-         if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr_patch(p,1) == spval ) then
+         if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr(p,1) == spval ) then
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
-               crop_inst%sdates_thisyr_patch(p,s) = -1._r8
+               crop_inst%sdates_thisyr(p,s) = -1._r8
             end do
             do s = 1, mxharvests
-               crop_inst%hdates_thisyr_patch(p,s) = -1._r8
+               crop_inst%hdates_thisyr(p,s) = -1._r8
             end do
          end if
 
@@ -1862,7 +1862,7 @@ contains
          ! jday = get_calday()). See CTSM issue #1623.
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
              sowing_count(p) = 1
-             crop_inst%sdates_thisyr_patch(p,1) = real(idop(p), r8)
+             crop_inst%sdates_thisyr(p,1) = real(idop(p), r8)
          end if
 
 
@@ -2127,7 +2127,7 @@ contains
             else if (hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
                if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
                harvest_count(p) = harvest_count(p) + 1
-               crop_inst%hdates_thisyr_patch(p, harvest_count(p)) = real(jday, r8)
+               crop_inst%hdates_thisyr(p, harvest_count(p)) = real(jday, r8)
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
@@ -2372,7 +2372,7 @@ contains
       idop(p)      = jday
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
-      crop_inst%sdates_thisyr_patch(p,sowing_count(p)) = jday
+      crop_inst%sdates_thisyr(p,sowing_count(p)) = jday
 
       leafc_xfer(p)  = initial_seed_at_planting
       leafn_xfer(p) = leafc_xfer(p) / leafcn_in ! with onset
