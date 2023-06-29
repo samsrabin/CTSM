@@ -14,7 +14,7 @@ module clm_driver
   use CNSharedParamsMod      , only : use_matrixcn
   use clm_varctl             , only : use_crop, irrigate, ndep_from_cpl
   use clm_varctl             , only : use_soil_moisture_streams
-  use clm_time_manager       , only : get_nstep, is_beg_curr_day, is_beg_curr_year
+  use clm_time_manager       , only : get_nstep, is_beg_curr_day
   use clm_time_manager       , only : get_prev_date, is_first_step
   use clm_varpar             , only : nlevsno, nlevgrnd
   use clm_varorb             , only : obliqr
