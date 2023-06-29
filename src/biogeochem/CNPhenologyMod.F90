@@ -2148,11 +2148,7 @@ contains
                 mxmat = 999
             end if
 
-            if (do_plant .and. .not. did_plant) then
-                ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
-                do_harvest = .true.
-                harvest_reason = HARVEST_REASON_SOWTODAY
-            else if (vernalization_forces_harvest) then
+            if (vernalization_forces_harvest) then
                do_harvest = .true.
                harvest_reason = HARVEST_REASON_VERNFREEZEKILL
             else
