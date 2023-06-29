@@ -2152,52 +2152,6 @@ contains
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
                 harvest_reason = HARVEST_REASON_SOWTODAY
-
-            ! If generate_crop_gdds and this patch has prescribed sowing inputs
-            else if (generate_crop_gdds .and. crop_inst%rx_sdates_thisyr_patch(p,1) .gt. 0) then
-               if (next_rx_sdate(p) >= 0) then
-                  ! Harvest the day before the next sowing date this year.
-                  do_harvest = jday == next_rx_sdate(p) - 1
-
-                  ! ... unless that will lead to growing season length 365 (or 366,
-                  ! if last year was a leap year). This would result in idop==jday,
-                  ! which would invoke the "manually setting sowing_count and 
-                  ! sdates_thisyr" code. This would lead to crops never getting
-                  ! harvested. Instead, always harvest the day before idop.
-                  if ((.not. do_harvest) .and. \
-                      (idop(p) > 1 .and. jday == idop(p) - 1) .or. \
-                      (idop(p) == 1 .and. jday == dayspyr)) then
-                      do_harvest = .true.
-                      if (do_harvest) then
-                          harvest_reason = HARVEST_REASON_IDOPTOMORROW
-                      end if
-                  else if (do_harvest) then
-                      harvest_reason = HARVEST_REASON_SOWTOMORROW
-                  end if
-
-               else
-                  ! If this patch has already had all its plantings for the year, don't harvest
-                  ! until some time next year.
-                  do_harvest = .false.
-
-                  ! ... unless first sowing next year happens Jan. 1.
-                  ! WARNING: This implementation assumes that sowing dates don't change over time!
-                  ! In order to avoid this, you'd have to read this year's AND next year's prescribed
-                  ! sowing dates.
-                  if (crop_inst%rx_sdates_thisyr_patch(p,1) == 1) then
-                      do_harvest = jday == dayspyr
-                  end if
-
-                  if (do_harvest) then
-                      harvest_reason = HARVEST_REASON_SOWTOMORROW
-                  end if
-
-               endif
-
-            else if (did_plant_prescribed_today) then
-               ! Do not harvest on the day this growing season began;
-               ! would create challenges for postprocessing.
-               do_harvest = .false.
             else if (vernalization_forces_harvest) then
                do_harvest = .true.
                harvest_reason = HARVEST_REASON_VERNFREEZEKILL
