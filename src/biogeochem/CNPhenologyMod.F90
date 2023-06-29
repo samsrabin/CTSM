@@ -1762,6 +1762,7 @@ contains
     integer s         ! growing season indices
     integer k         ! grain pool indices
     integer idpp      ! number of days past planting
+    integer mxmat     ! maximum growing season length
     integer kyr       ! current year
     integer kmo       ! month of year  (1, ..., 12)
     integer kda       ! day of month   (1, ..., 31)
@@ -1793,11 +1794,9 @@ contains
          leaf_long         =>    pftcon%leaf_long                                , & ! Input:  leaf longevity (yrs)                              
          leafcn            =>    pftcon%leafcn                                 , & ! Input:  leaf C:N (gC/gN)                                  
          manunitro         =>    pftcon%manunitro                              , & ! Input:  max manure to be applied in total (kgN/m2)
-         mxmat             =>    pftcon%mxmat                                  , & ! Input:  
          minplanttemp      =>    pftcon%minplanttemp                           , & ! Input:  
          planttemp         =>    pftcon%planttemp                              , & ! Input:  
          gddmin            =>    pftcon%gddmin                                 , & ! Input:  
-         hybgdd            =>    pftcon%hybgdd                                 , & ! Input:  
          lfemerg           =>    pftcon%lfemerg                                , & ! Input:  
          grnfill           =>    pftcon%grnfill                               , & ! Input:  
 
@@ -1807,7 +1806,6 @@ contains
          a10tmin           =>    temperature_inst%t_a10min_patch               , & ! Input:  [real(r8) (:) ]  10-day running mean of min 2-m temperature        
          gdd020            =>    temperature_inst%gdd020_patch                 , & ! Input:  [real(r8) (:) ]  20 yr mean of gdd0                                
          gdd820            =>    temperature_inst%gdd820_patch                 , & ! Input:  [real(r8) (:) ]  20 yr mean of gdd8                                
-         gdd1020           =>    temperature_inst%gdd1020_patch                , & ! Input:  [real(r8) (:) ]  20 yr mean of gdd10                               
 
          fertnitro         =>    crop_inst%fertnitro_patch                     , & ! Input:  [real(r8) (:) ]  fertilizer nitrogen
          hui               =>    crop_inst%hui_patch                           , & ! Input:  [real(r8) (:) ]  crop patch heat unit index (growing degree-days); set to 0 at sowing and accumulated until harvest
@@ -1870,6 +1868,9 @@ contains
          bglfr(p) = 0._r8 ! this value changes later in a crop's life cycle
          bgtr(p)  = 0._r8
          lgsf(p)  = 0._r8
+
+         ! Should never be saved as zero, but including this so it's initialized just in case
+         harvest_reason = 0._r8
 
          ! ---------------------------------
          ! from AgroIBIS subroutine planting
@@ -2111,7 +2112,7 @@ contains
                (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat)) then
                call vernalization(p, &
                     canopystate_inst, temperature_inst, waterdiagnosticbulk_inst, cnveg_state_inst, &
-                    crop_inst)
+                    crop_inst, vernalization_forces_harvest)
             end if
 
             ! days past planting may determine harvest
@@ -2134,13 +2135,111 @@ contains
                hui(p) = max(hui(p),huigrain(p))
             endif
 
+            do_harvest = .false.
+            fake_harvest = .false.
+            did_plant_prescribed_today = .false.
+            if (use_cropcal_rx_sdates .and. sowing_count(p) > 0) then
+                did_plant_prescribed_today = crop_inst%sdates_thisyr_patch(p,sowing_count(p)) == real(jday, r8)
+            end if
+
+            ! Optionally ignore maximum growing season length
+            mxmat = pftcon%mxmat(ivt(p))
+            if (.not. use_mxmat) then
+                mxmat = 999
+            end if
+
+            if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
+                ! BACKWARDS_COMPATIBILITY(ssr, 2022-02-03): To get rid of crops incorrectly planted in last time step of Dec. 31. That was fixed in commit dadbc62 ("Call CropPhenology regardless of doalb"), but this handles restart files with the old behavior. fake_harvest ensures that outputs aren't polluted.
+                do_harvest = .true.
+                fake_harvest = .true.
+                harvest_reason = HARVEST_REASON_SOWNBADDEC31
+            else if (do_plant .and. .not. did_plant) then
+                ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
+                do_harvest = .true.
+                harvest_reason = HARVEST_REASON_SOWTODAY
+
+            ! If generate_crop_gdds and this patch has prescribed sowing inputs
+            else if (generate_crop_gdds .and. crop_inst%rx_sdates_thisyr_patch(p,1) .gt. 0) then
+               if (next_rx_sdate(p) >= 0) then
+                  ! Harvest the day before the next sowing date this year.
+                  do_harvest = jday == next_rx_sdate(p) - 1
+
+                  ! ... unless that will lead to growing season length 365 (or 366,
+                  ! if last year was a leap year). This would result in idop==jday,
+                  ! which would invoke the "manually setting sowing_count and 
+                  ! sdates_thisyr" code. This would lead to crops never getting
+                  ! harvested. Instead, always harvest the day before idop.
+                  if ((.not. do_harvest) .and. \
+                      (idop(p) > 1 .and. jday == idop(p) - 1) .or. \
+                      (idop(p) == 1 .and. jday == dayspyr)) then
+                      do_harvest = .true.
+                      if (do_harvest) then
+                          harvest_reason = HARVEST_REASON_IDOPTOMORROW
+                      end if
+                  else if (do_harvest) then
+                      harvest_reason = HARVEST_REASON_SOWTOMORROW
+                  end if
+
+               else
+                  ! If this patch has already had all its plantings for the year, don't harvest
+                  ! until some time next year.
+                  do_harvest = .false.
+
+                  ! ... unless first sowing next year happens Jan. 1.
+                  ! WARNING: This implementation assumes that sowing dates don't change over time!
+                  ! In order to avoid this, you'd have to read this year's AND next year's prescribed
+                  ! sowing dates.
+                  if (crop_inst%rx_sdates_thisyr_patch(p,1) == 1) then
+                      do_harvest = jday == dayspyr
+                  end if
+
+                  if (do_harvest) then
+                      harvest_reason = HARVEST_REASON_SOWTOMORROW
+                  end if
+
+               endif
+
+            else if (did_plant_prescribed_today) then
+               ! Do not harvest on the day this growing season began;
+               ! would create challenges for postprocessing.
+               do_harvest = .false.
+            else if (vernalization_forces_harvest) then
+               do_harvest = .true.
+               harvest_reason = HARVEST_REASON_VERNFREEZEKILL
+            else
+               ! Original harvest rule
+               do_harvest = hui(p) >= gddmaturity(p) .or. idpp >= mxmat
+
+               ! Always harvest the day before the next prescribed sowing, if still alive.
+               ! WARNING: This implementation assumes that sowing dates don't change over time!
+               ! In order to avoid this, you'd have to read this year's AND next year's prescribed
+               ! sowing dates.
+               ! WARNING: This implementation assumes that all patches use prescribed sowing dates.
+               if (use_cropcal_rx_sdates) then
+                  will_plant_prescribed_tomorrow = (jday == next_rx_sdate(p) - 1) .or. \
+                                              (crop_inst%sdates_thisyr_patch(p,1) == 1 .and. \
+                                               jday == dayspyr)
+               else
+                  will_plant_prescribed_tomorrow = .false.
+               end if
+               do_harvest = do_harvest .or. will_plant_prescribed_tomorrow
+
+               if (hui(p) >= gddmaturity(p)) then
+                   harvest_reason = HARVEST_REASON_MATURE
+               else if (idpp >= mxmat) then
+                   harvest_reason = HARVEST_REASON_MAXSEASLENGTH
+               else if (will_plant_prescribed_tomorrow) then
+                   harvest_reason = HARVEST_REASON_SOWTOMORROW
+               end if
+            endif
+
             ! The following conditionals are similar to those in CropPhase. However, they
             ! differ slightly because here we are potentially setting a new crop phase,
             ! whereas CropPhase is just designed to get the current, already-determined
             ! phase. However, despite these differences: if you make changes to the
             ! following conditionals, you should also check to see if you should make
             ! similar changes in CropPhase.
-            if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat(ivt(p))) then
+            if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
                cphase(p) = cphase_leafemerge
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
@@ -2166,10 +2265,23 @@ contains
                ! the onset_counter would change from dt and you'd need to make
                ! changes to the offset subroutine below
 
-            else if (hui(p) >= gddmaturity(p) .or. idpp >= mxmat(ivt(p))) then
+            else if (do_harvest) then
+               ! Don't update these if you're just harvesting because of incorrect Dec.
+               ! 31 planting
+               if (.not. fake_harvest) then
                   if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
                   harvest_count(p) = harvest_count(p) + 1
+                  crop_inst%sdates_perharv_patch(p, harvest_count(p)) = real(idop(p), r8)
+                  crop_inst%syears_perharv_patch(p, harvest_count(p)) = real(iyop(p), r8)
                   crop_inst%hdates_thisyr_patch(p, harvest_count(p)) = real(jday, r8)
+                  cnveg_state_inst%gddmaturity_thisyr(p,harvest_count(p)) = gddmaturity(p)
+                  crop_inst%gddaccum_thisyr_patch(p, harvest_count(p)) = crop_inst%gddaccum_patch(p)
+                  crop_inst%hui_thisyr_patch(p, harvest_count(p)) = hui(p)
+                  crop_inst%sowing_reason_perharv_patch(p, harvest_count(p)) = real(crop_inst%sowing_reason_patch(p), r8)
+                  crop_inst%sowing_reason_patch(p) = -1
+                  crop_inst%harvest_reason_thisyr_patch(p, harvest_count(p)) = harvest_reason
+               endif
+
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
@@ -2553,7 +2665,8 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine vernalization(p, &
-       canopystate_inst, temperature_inst, waterdiagnosticbulk_inst, cnveg_state_inst, crop_inst)
+       canopystate_inst, temperature_inst, waterdiagnosticbulk_inst, cnveg_state_inst, crop_inst, &
+       force_harvest)
     !
     ! !DESCRIPTION:
     !
@@ -2572,6 +2685,7 @@ contains
     type(waterdiagnosticbulk_type)  , intent(in)    :: waterdiagnosticbulk_inst
     type(cnveg_state_type) , intent(inout) :: cnveg_state_inst
     type(crop_type)        , intent(inout) :: crop_inst
+    logical                , intent(inout) :: force_harvest ! "harvest" forced if freeze-killed
     !
     ! LOCAL VARAIBLES:
     real(r8) tcrown                     ! ?
@@ -2591,8 +2705,6 @@ contains
 
          hdidx       => cnveg_state_inst%hdidx_patch       , & ! Output: [real(r8) (:) ]  cold hardening index?                             
          cumvd       => cnveg_state_inst%cumvd_patch       , & ! Output: [real(r8) (:) ]  cumulative vernalization d?ependence?             
-         gddmaturity => cnveg_state_inst%gddmaturity_patch , & ! Output: [real(r8) (:) ]  gdd needed to harvest                             
-         huigrain    => cnveg_state_inst%huigrain_patch    , & ! Output: [real(r8) (:) ]  heat unit index needed to reach vegetative maturity
 
          vf          => crop_inst%vf_patch                   & ! Output: [real(r8) (:) ]  vernalization factor for cereal
          )
@@ -2682,9 +2794,14 @@ contains
          if (tkil >= tcrown) then
             if ((0.95_r8 - 0.02_r8 * (tcrown - tkil)**2) >= 0.02_r8) then
                write (iulog,*)  'crop damaged by cold temperatures at p,c =', p,c
-            else if (tlai(p) > 0._r8) then ! slevis: kill if past phase1
-               gddmaturity(p) = 0._r8      !         by forcing through
-               huigrain(p)    = 0._r8      !         harvest
+            else if (tlai(p) > 0._r8) then
+               ! slevis: kill if past phase1 by forcing through harvest
+               ! srabin: do this with force_harvest instead of setting
+               !         gddmaturity = huigrain = 0, since gddmaturity==0 can
+               !         lead to 0/0 when the crop isn't actually harvested based
+               !         on "maturity." This can occur when generate_crop_gdds
+               !         is true.
+               force_harvest = .true.
                write (iulog,*)  '95% of crop killed by cold temperatures at p,c =', p,c
             end if
          end if
