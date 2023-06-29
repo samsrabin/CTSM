@@ -1665,11 +1665,6 @@ use_crop=".true.">lnd/clm2/surfdata_map/ctsm5.1.dev052/landuse.timeseries_mpasa1
 <lai_mapalgo  hgrid="1x1_asphaltjungleNJ" >nn</lai_mapalgo>
 <lai_mapalgo  hgrid="5x5_amazon"          >nn</lai_mapalgo>
 
-<!-- crop calendar streams namelist defaults -->
-<stream_year_first_cropcal  >1850</stream_year_first_cropcal>
-<stream_year_last_cropcal   >2100</stream_year_last_cropcal>
-<model_year_align_cropcal   >1850</model_year_align_cropcal>
-
 <!-- lightning streams namelist defaults -->
 
 <light_res    use_cn=".false."                     >none</light_res>

@@ -1695,11 +1695,6 @@ sub process_namelist_inline_logic {
   ##################################
   setup_logic_lai_streams($opts,  $nl_flags, $definition, $defaults, $nl);
 
-  ##################################
-  # namelist group: cropcal_streams  #
-  ##################################
-  setup_logic_cropcal_streams($opts,  $nl_flags, $definition, $defaults, $nl);
-
   ##########################################
   # namelist group: soil_moisture_streams  #
   ##########################################
@@ -3925,28 +3920,6 @@ sub setup_logic_lai_streams {
 
 #-------------------------------------------------------------------------------
 
-sub setup_logic_cropcal_streams {
-  my ($opts, $nl_flags, $definition, $defaults, $nl) = @_;
-
-  # Set first and last stream years
-  add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'stream_year_first_cropcal',
-              'sim_year'=>$nl_flags->{'sim_year'},
-              'sim_year_range'=>$nl_flags->{'sim_year_range'});
-  add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'stream_year_last_cropcal',
-              'sim_year'=>$nl_flags->{'sim_year'},
-              'sim_year_range'=>$nl_flags->{'sim_year_range'});
-
-  # Set align year, if first and last years are different
-  if ( $nl->get_value('stream_year_first_cropcal') !=
-      $nl->get_value('stream_year_last_cropcal') ) {
-    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl,
-                'model_year_align_cropcal', 'sim_year'=>$nl_flags->{'sim_year'},
-                'sim_year_range'=>$nl_flags->{'sim_year_range'});
-  }
-}
-
-#-------------------------------------------------------------------------------
-
 sub setup_logic_soilwater_movement {
   my ($opts, $nl_flags, $definition, $defaults, $nl) = @_;
 
@@ -4324,7 +4297,6 @@ sub write_output_files {
   my @groups;
   @groups = qw(clm_inparm ndepdyn_nml popd_streams urbantv_streams light_streams
                soil_moisture_streams lai_streams atm2lnd_inparm lnd2atm_inparm clm_canopyhydrology_inparm cnphenology
-               cropcal_streams
                clm_soilhydrology_inparm dynamic_subgrid cnvegcarbonstate
                finidat_consistency_checks dynpft_consistency_checks
                clm_initinterp_inparm century_soilbgcdecompcascade
