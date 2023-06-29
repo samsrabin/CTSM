@@ -2149,15 +2149,15 @@ contains
                 mxmat = 999
             end if
 
-            if (jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
+            if (use_cropcal_streams .and. jday == 1 .and. croplive(p) .and. idop(p) == 1 .and. sowing_count(p) == 0) then
                 ! BACKWARDS_COMPATIBILITY(ssr, 2022-02-03): To get rid of crops incorrectly planted in last time step of Dec. 31. That was fixed in commit dadbc62 ("Call CropPhenology regardless of doalb"), but this handles restart files with the old behavior. fake_harvest ensures that outputs aren't polluted.
                 do_harvest = .true.
                 fake_harvest = .true.
                 harvest_reason = HARVEST_REASON_SOWNBADDEC31
-               else if (use_cropcal_streams .and. do_plant .and. .not. did_plant) then
-                   ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
-                   do_harvest = .true.
-                   harvest_reason = HARVEST_REASON_SOWTODAY
+            else if (use_cropcal_streams .and. do_plant .and. .not. did_plant) then
+                ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
+                do_harvest = .true.
+                harvest_reason = HARVEST_REASON_SOWTODAY
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             else if (generate_crop_gdds .and. crop_inst%rx_sdates_thisyr_patch(p,1) .gt. 0) then
