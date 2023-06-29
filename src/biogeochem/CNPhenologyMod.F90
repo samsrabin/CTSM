@@ -2154,6 +2154,10 @@ contains
                 do_harvest = .true.
                 fake_harvest = .true.
                 harvest_reason = HARVEST_REASON_SOWNBADDEC31
+               else if (use_cropcal_streams .and. do_plant .and. .not. did_plant) then
+                   ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
+                   do_harvest = .true.
+                   harvest_reason = HARVEST_REASON_SOWTODAY
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             else if (generate_crop_gdds .and. crop_inst%rx_sdates_thisyr_patch(p,1) .gt. 0) then
