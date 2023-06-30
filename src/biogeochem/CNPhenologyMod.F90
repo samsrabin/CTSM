@@ -2978,7 +2978,6 @@ contains
     real(r8) :: cropseedn_deficit_remaining  ! remaining amount of crop seed N deficit that still needs to be restored (gN/m2) (positive, in contrast to the negative cropseedn_deficit)
     real(r8) :: cropseedc_deficit_to_restore ! amount of crop seed C deficit that will be restored from this grain pool (gC/m2)
     real(r8) :: cropseedn_deficit_to_restore ! amount of crop seed N deficit that will be restored from this grain pool (gN/m2)
-    real(r8) :: repr_grainc_to_food_thispool ! amount added to / subtracted from repr_grainc_to_food for the pool in question (gC/m2/s)
     !-----------------------------------------------------------------------
 
     associate(                                                                           & 
@@ -3096,15 +3095,14 @@ contains
                      repr_grainn_to_seed(p,k) = t1 * cropseedn_deficit_to_restore
 
                      ! Send the remaining grain to the food product pool
-                     repr_grainc_to_food_thispool = cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)
                      repr_grainc_to_food(p,k) = t1 * reproductivec(p,k) &
-                          + repr_grainc_to_food_thispool
-                     if (reproductivec(p,k) + repr_grainc_to_food_thispool * dt .gt. 0) then
+                          + cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)
+                     if (reproductivec(p,k) + (cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)) * dt .gt. 0) then
                          if (h .le. 0) then
                              call endrun(msg="CNOffsetLitterfall(): Invalid harvest_count")
                          end if
                          repr_grainc_to_food_perharv(p,h,k) = reproductivec(p,k) &
-                             + repr_grainc_to_food_thispool * dt
+                             + (cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)) * dt
                          repr_grainc_to_food_thisyr(p,k) = repr_grainc_to_food_thisyr(p,k) &
                              + repr_grainc_to_food_perharv(p,h,k)
                      end if
