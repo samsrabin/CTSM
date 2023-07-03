@@ -3040,6 +3040,8 @@ contains
 
       ! The litterfall transfer rate starts at 0.0 and increases linearly
       ! over time, with displayed growth going to 0.0 on the last day of litterfall
+
+      repr_grainc_to_food_thispool = 0.0_r8
       
       do fp = 1,num_soilp
          p = filter_soilp(fp)
