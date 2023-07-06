@@ -2821,7 +2821,7 @@ contains
 
                      ! Send the remaining grain to the food product pool
                      repr_grainc_to_food(p,k) = t1 * reproductivec(p,k) &
-                          + cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k)
+                          + (cpool_to_reproductivec(p,k) - repr_grainc_to_seed(p,k))
                      repr_grainn_to_food(p,k) = t1 * reproductiven(p,k) &
                           + npool_to_reproductiven(p,k) - repr_grainn_to_seed(p,k)
                   end do
