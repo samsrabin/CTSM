@@ -309,6 +309,8 @@ dataroot="/fs/cgd/csm"
 export TOOLSSLIBS=""
 echo_arg="-e"
 
+export pio_iotype=2
+
 EOF
 ##^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ writing to batch script ^^^^^^^^^^^^^^^^^^^
     ;;
