@@ -181,34 +181,41 @@ class RXCROPMATURITY(SystemTestsCommon):
         # Eventually, I want to remove these hard-coded resolutions so that this test can generate
         # its own sowing and harvest date files at whatever resolution is requested.
         lnd_grid = self._case.get_value("LND_GRID")
-        input_data_root = self._case.get_value("DIN_LOC_ROOT")
-        processed_crop_dates_dir = f"{input_data_root}/lnd/clm2/cropdata/calendars/processed"
+        #input_data_root = self._case.get_value("DIN_LOC_ROOT")
+        #processed_crop_dates_dir = f"{input_data_root}/lnd/clm2/cropdata/calendars/processed"
+        processed_crop_dates_dir = "/glade/work/samrabin/crop_dates/minimal_crop_dates"
         if lnd_grid == "10x15":
             self._sdatefile = os.path.join(
                 processed_crop_dates_dir,
-                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.nc",
+                #"sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.nc",
+                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230721_165017.nc",
             )
             self._hdatefile = os.path.join(
                 processed_crop_dates_dir,
-                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.nc",
+                #"hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230330_165301.nc",
+                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230721_165017.nc",
             )
         elif lnd_grid == "1.9x2.5":
             self._sdatefile = os.path.join(
                 processed_crop_dates_dir,
-                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.nc",
+                #"sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.nc",
+                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230721_165209.nc",
             )
             self._hdatefile = os.path.join(
                 processed_crop_dates_dir,
-                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.nc",
+                #"hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230102_175625.nc",
+                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f19_g17.2000-2000.20230721_165209.nc",
             )
         elif lnd_grid == "0.9x1.25":
             self._sdatefile = os.path.join(
                 processed_crop_dates_dir,
-                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f09_g17.2000-2000.20230520_134417.nc",
+                #"sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f09_g17.2000-2000.20230520_134417.nc",
+                "sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f09_g17.2000-2000.20230721_165402.nc",
             )
             self._hdatefile = os.path.join(
                 processed_crop_dates_dir,
-                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f09_g17.2000-2000.20230520_134418.nc",
+                #"hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f09_g17.2000-2000.20230520_134418.nc",
+                "hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f09_g17.2000-2000.20230721_165402.nc",
             )
         else:
             error_message = "ERROR: RXCROPMATURITY currently only supports 0.9x1.25, 1.9x2.5, and 10x15 resolutions"
