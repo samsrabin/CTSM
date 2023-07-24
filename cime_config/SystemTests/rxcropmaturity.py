@@ -191,7 +191,8 @@ class RXCROPMATURITY(SystemTestsCommon):
                 #"minimal_crop_dates/sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230721_165017.nc",
                 #"minimal_sdate_file/sdates.min0.nc",
                 #"sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230721_144617.nc",
-                "minimal_crop_dates/sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230724_134327.nc",
+                #"minimal_crop_dates/sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230724_134327.nc",
+                "minimal_crop_dates/sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230724_163056.nc",
             )
             self._hdatefile = os.path.join(
                 processed_crop_dates_dir,
@@ -199,7 +200,8 @@ class RXCROPMATURITY(SystemTestsCommon):
                 #"minimal_crop_dates/hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230721_165017.nc",
                 #"minimal_sdate_file/hdates.min0.nc",
                 #"hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230721_144617.nc",
-                "minimal_crop_dates/hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230724_134327.nc",
+                #"minimal_crop_dates/hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230724_134327.nc",
+                "minimal_crop_dates/hdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-f10_f10_mg37.2000-2000.20230724_163056.nc",
             )
         elif lnd_grid == "1.9x2.5":
             self._sdatefile = os.path.join(
