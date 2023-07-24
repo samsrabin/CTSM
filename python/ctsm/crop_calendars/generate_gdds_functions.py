@@ -306,6 +306,10 @@ def import_and_process_1yr(
         unique_hdates = np.unique(
             dates_incl_ds.HDATES.isel(mxharvests=0, patch=skip_patches_for_isel_sdatelt1).values
         )
+        [print(f"{v}: {dates_incl_ds[v].dims}") for v in dates_incl_ds]
+        unique_cfts = np.unique(
+            dates_incl_ds.patches1d_itype_veg_str.isel(patch=skip_patches_for_isel_sdatelt1).values
+        )
         if incorrectly_daily and list(unique_hdates) == [364]:
             log(
                 logger,
@@ -323,7 +327,7 @@ def import_and_process_1yr(
         else:
             error(
                 logger,
-                f"{len(skip_patches_for_isel_sdatelt1)} patches have SDATE < 1. Unique affected hdates: {unique_hdates}",
+                f"{len(skip_patches_for_isel_sdatelt1)} patches have SDATE < 1.\nUnique affected hdates: {unique_hdates}\nUnique affected vegtypes: {unique_cfts}",
             )
 
     # Some patches can have -1 harvest date?? Hopefully just an artifact of me incorrectly saving SDATES/HDATES daily. Can also happen if patch wasn't active last year
