@@ -168,6 +168,9 @@ def main(input_directory, output_directory, author, file_specifier, first_year,
     #########################
 
     for thiscrop_clm in crop_dict:
+        
+        if thiscrop_clm is not "temperate_corn":
+            continue
 
         # Which crop are we on?
         c = list(crop_dict.keys()).index(thiscrop_clm) + 1

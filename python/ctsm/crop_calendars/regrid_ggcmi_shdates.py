@@ -66,6 +66,10 @@ def main(regrid_resolution, regrid_template_file_in, regrid_input_directory, reg
     input_files = glob.glob("*nc4")
     input_files.sort()
     for f in input_files:
+        
+        if "mai_rf" not in f:
+            continue
+        
         print(f[0:6])
         f2 = os.path.join(regrid_output_directory, f)
         f3 = f2.replace(".nc4", f"_nninterp-{regrid_resolution}.nc4")
