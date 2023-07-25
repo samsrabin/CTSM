@@ -20,6 +20,9 @@ module cropcalStreamMod
   use pftconMod        , only : npcropmin
   use CNPhenologyMod  , only : generate_crop_gdds
   !
+  ! TROUBLESHOOTING
+  use pftconmod, only : nmiscanthus
+  !
   ! !PUBLIC TYPES:
   implicit none
   private
@@ -309,10 +312,19 @@ contains
           ! Note that the size of dataptr1d includes ocean points so it will be around 3x larger than lsize
           ! So an explicit loop is required here
           do g = 1,lsize
+
+             if (n == nmiscanthus) then
+               write(iulog, *) 'miscanthus sdate read as ',dataptr1d_sdate(g)
+             end if
    
              ! If read-in value is invalid, allow_unprescribed_planting in CropPhenology()
              if (dataptr1d_sdate(g) <= 0 .or. dataptr1d_sdate(g) > 365) then
                 dataptr1d_sdate(g) = -1
+             end if
+
+             if (n == nmiscanthus) then
+               write(iulog, *) 'miscanthus sdate saved as',dataptr1d_sdate(g)
+               call ESMF_Finalize(endflag=ESMF_END_ABORT)
              end if
    
             dataptr2d_sdate(g,n) = dataptr1d_sdate(g)
