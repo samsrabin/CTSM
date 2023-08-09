@@ -904,6 +904,7 @@ contains
     use abortutils      , only : endrun
     use ncdio_pio       , only : file_desc_t, ncd_double, ncd_int
     use restUtilMod
+    use pftconMod       , only : npcropmin, npcropmax
     !
     ! !ARGUMENTS:
     class(temperature_type) :: this
@@ -914,7 +915,7 @@ contains
     logical          , intent(in)    :: is_prog_buildtemp    ! Prognostic building temp is being used
     !
     ! !LOCAL VARIABLES:
-    integer :: j,c       ! indices
+    integer :: j,c,p     ! indices
     logical :: readvar   ! determine if variable is on initial file
     !-----------------------------------------------------------------------
 
@@ -1057,6 +1058,14 @@ contains
        call restartvar(ncid=ncid, flag=flag,  varname='gdd020', xtype=ncd_double,  &
             dim1name='pft', long_name='20 year average of growing degree-days base 0C from planting', units='ddays', &
             interpinic_flag='interp', readvar=readvar, data=this%gdd020_patch)
+
+       do p = bounds%begp, bounds%endp
+          if (patch%itype(p) >= npcropmin .and. patch%itype(p) <= npcropmax) then
+               this%gdd020_orig_patch = 0._r8
+               this%gdd820_orig_patch = 0._r8
+               this%gdd1020_orig_patch = 0._r8
+          end if
+       end do
     end if
 
     if(use_luna)then

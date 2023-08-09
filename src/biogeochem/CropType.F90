@@ -566,6 +566,13 @@ contains
           end if
        end if
 
+       ! SSR testing
+       do p = bounds%begp, bounds%endp
+         if (patch%itype(p) >= npcropmin .and. patch%itype(p) <= npcropmax) then
+            this%nyrs_crop_active_patch(p) = 0._r8
+         end if
+       end do
+
        allocate(temp1d(bounds%begp:bounds%endp))
        if (flag == 'write') then
           do p= bounds%begp,bounds%endp
