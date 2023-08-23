@@ -94,6 +94,9 @@ module TemperatureType
      real(r8), pointer :: gdd020_patch            (:)   ! patch 20-year average of gdd0                     (ddays)
      real(r8), pointer :: gdd820_patch            (:)   ! patch 20-year average of gdd8                     (ddays)
      real(r8), pointer :: gdd1020_patch           (:)   ! patch 20-year average of gdd10                    (ddays)
+     real(r8), pointer :: gdd020_orig_patch       (:)   ! patch 20-year average of gdd0 (original calc)     (ddays)
+     real(r8), pointer :: gdd820_orig_patch       (:)   ! patch 20-year average of gdd8 (original calc)     (ddays)
+     real(r8), pointer :: gdd1020_orig_patch      (:)   ! patch 20-year average of gdd10 (original calc)    (ddays)
 
      ! Heat content
      real(r8), pointer :: beta_col                 (:)   ! coefficient of convective velocity [-]
@@ -262,6 +265,9 @@ contains
     allocate(this%gdd020_patch             (begp:endp))                      ; this%gdd020_patch             (:)   = spval
     allocate(this%gdd820_patch             (begp:endp))                      ; this%gdd820_patch             (:)   = spval
     allocate(this%gdd1020_patch            (begp:endp))                      ; this%gdd1020_patch            (:)   = spval
+    allocate(this%gdd020_orig_patch        (begp:endp))                      ; this%gdd020_orig_patch        (:)   = spval
+    allocate(this%gdd820_orig_patch        (begp:endp))                      ; this%gdd820_orig_patch        (:)   = spval
+    allocate(this%gdd1020_orig_patch       (begp:endp))                      ; this%gdd1020_orig_patch       (:)   = spval
 
     ! Heat content
     allocate(this%beta_col                 (begc:endc))                      ; this%beta_col                 (:)   = nan
@@ -623,6 +629,21 @@ contains
        call hist_addfld1d (fname='GDD1020', units='ddays', &
             avgflag='A', long_name='Twenty year average of growing degree days base 10C from planting', &
             ptr_patch=this%gdd1020_patch, default='inactive')
+
+       this%gdd020_orig_patch(begp:endp) = spval
+       call hist_addfld1d (fname='GDD020_ORIG', units='ddays', &
+            avgflag='A', long_name='Twenty year average of growing degree days base  0C from planting; original calc', &
+            ptr_patch=this%gdd020_orig_patch, default='inactive')
+
+       this%gdd820_orig_patch(begp:endp) = spval
+       call hist_addfld1d (fname='GDD820_ORIG', units='ddays', &
+            avgflag='A', long_name='Twenty year average of growing degree days base  8C from planting; original calc', &
+            ptr_patch=this%gdd820_orig_patch, default='inactive')
+
+       this%gdd1020_orig_patch(begp:endp) = spval
+       call hist_addfld1d (fname='GDD1020_ORIG', units='ddays', &
+            avgflag='A', long_name='Twenty year average of growing degree days base 10C from planting; original calc', &
+            ptr_patch=this%gdd1020_orig_patch, default='inactive')
 
     end if
     if(use_luna)then

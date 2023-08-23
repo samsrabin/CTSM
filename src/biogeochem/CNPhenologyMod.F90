@@ -559,6 +559,9 @@ contains
     real(r8), parameter :: max_nyears   = 20.0_r8 ! maximum number of years to average for gdd
     real(r8) :: weight_previous ! how much to weight previous years
     real(r8) :: weight_thisyear ! how much to weight this year
+    ! Testing
+    real(r8), parameter :: yravg   = 20.0_r8      ! length of years to average for gdd
+    real(r8), parameter :: yravgm1 = yravg-1.0_r8 ! minus 1 of above
     !-----------------------------------------------------------------------
 
     associate(                                                & 
@@ -571,6 +574,10 @@ contains
          gdd020         => temperature_inst%gdd020_patch  ,   & ! Output: [real(r8) (:) ]  20-yr mean of gdd0 (ddays)                        
          gdd820         => temperature_inst%gdd820_patch  ,   & ! Output: [real(r8) (:) ]  20-yr mean of gdd8 (ddays)                        
          gdd1020        => temperature_inst%gdd1020_patch ,   & ! Output: [real(r8) (:) ]  20-yr mean of gdd10 (ddays)                       
+         ! Testing
+         gdd020_orig    => temperature_inst%gdd020_orig_patch, & ! Output: [real(r8) (:) ]  20-yr mean of gdd0 (ddays), original calc
+         gdd820_orig    => temperature_inst%gdd820_orig_patch, & ! Output: [real(r8) (:) ]  20-yr mean of gdd8 (ddays), original calc
+         gdd1020_orig   => temperature_inst%gdd1020_orig_patch, & ! Output: [real(r8) (:) ]  20-yr mean of gdd10 (ddays), original calc
          
          tempavg_t2m    => cnveg_state_inst%tempavg_t2m_patch & ! Output: [real(r8) (:) ]  temp. avg 2m air temperature (K)                  
          )
@@ -606,12 +613,18 @@ contains
             gdd020(p)  = 0._r8                             ! set gdd..20 variables to 0
             gdd820(p)  = 0._r8                             ! and crops will not be planted
             gdd1020(p) = 0._r8
+            gdd020_orig(p)  = 0._r8                        ! set gdd..20 variables to 0
+            gdd820_orig(p)  = 0._r8                        ! and crops will not be planted
+            gdd1020_orig(p) = 0._r8
          end if
          if (kmo == 1 .and. kda == 1 .and. mcsec == 0) then        ! <-- END of EVERY YR:
             if (nyrs_crop_active(p) == 1) then                     ! <-- END of YR 1
                gdd020(p)  = gdd0(p)                                ! <-- END of YR 1
                gdd820(p)  = gdd8(p)                                ! <-- END of YR 1
                gdd1020(p) = gdd10(p)                               ! <-- END of YR 1
+               gdd020_orig(p)  = gdd0(p)                           ! <-- END of YR 1
+               gdd820_orig(p)  = gdd8(p)                           ! <-- END of YR 1
+               gdd1020_orig(p) = gdd10(p)                          ! <-- END of YR 1
             end if                                                 ! <-- END of YR 1
             weight_thisyear = 1._r8 / min(real(nyrs_crop_active(p), r8), max_nyears)
             weight_previous = 1._r8 - weight_thisyear
@@ -619,6 +632,11 @@ contains
             gdd020(p)  = weight_previous * gdd020(p)  + weight_thisyear * gdd0(p)
             gdd820(p)  = weight_previous * gdd820(p)  + weight_thisyear * gdd8(p)
             gdd1020(p) = weight_previous * gdd1020(p) + weight_thisyear * gdd10(p)
+
+            ! Testing
+            gdd020_orig(p)  = (yravgm1* gdd020_orig(p)  + gdd0(p))  / yravg  ! gdd..20 must be long term avgs
+            gdd820_orig(p)  = (yravgm1* gdd820_orig(p)  + gdd8(p))  / yravg  ! so ignore results for yrs 1 & 2
+            gdd1020_orig(p) = (yravgm1* gdd1020_orig(p) + gdd10(p)) / yravg 
          end if
       end do
 
