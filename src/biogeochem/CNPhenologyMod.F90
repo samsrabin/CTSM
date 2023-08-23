@@ -556,8 +556,9 @@ contains
     integer  :: kmo     ! month of year  (1, ..., 12)
     integer  :: kda     ! day of month   (1, ..., 31)
     integer  :: mcsec   ! seconds of day (0, ..., seconds/day)
-    real(r8), parameter :: yravg   = 20.0_r8      ! length of years to average for gdd
-    real(r8), parameter :: yravgm1 = yravg-1.0_r8 ! minus 1 of above
+    real(r8), parameter :: max_nyears   = 20.0_r8 ! maximum number of years to average for gdd
+    real(r8) :: weight_previous ! how much to weight previous years
+    real(r8) :: weight_thisyear ! how much to weight this year
     !-----------------------------------------------------------------------
 
     associate(                                                & 
@@ -612,9 +613,12 @@ contains
                gdd820(p)  = gdd8(p)                                ! <-- END of YR 1
                gdd1020(p) = gdd10(p)                               ! <-- END of YR 1
             end if                                                 ! <-- END of YR 1
-            gdd020(p)  = (yravgm1* gdd020(p)  + gdd0(p))  / yravg  ! gdd..20 must be long term avgs
-            gdd820(p)  = (yravgm1* gdd820(p)  + gdd8(p))  / yravg  ! so ignore results for yrs 1 & 2
-            gdd1020(p) = (yravgm1* gdd1020(p) + gdd10(p)) / yravg 
+            weight_thisyear = 1._r8 / min(real(nyrs_crop_active(p), r8), max_nyears)
+            weight_previous = 1._r8 - weight_thisyear
+
+            gdd020(p)  = weight_previous * gdd020(p)  + weight_thisyear * gdd0(p)
+            gdd820(p)  = weight_previous * gdd820(p)  + weight_thisyear * gdd8(p)
+            gdd1020(p) = weight_previous * gdd1020(p) + weight_thisyear * gdd10(p)
          end if
       end do
 
