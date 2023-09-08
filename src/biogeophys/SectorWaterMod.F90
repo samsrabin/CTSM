@@ -856,7 +856,7 @@ module SectorWaterMod
 
           deallocate(mon_dom_withd, mon_dom_cons, mon_liv_withd, mon_liv_cons, mon_elec_withd, mon_elec_cons, mon_mfc_withd, mon_mfc_cons, mon_min_withd, mon_min_cons)
 
-     endsubroutine ReadSectorWaterData
+     end subroutine ReadSectorWaterData
 
      subroutine CalcSectorWaterNeeded(this, bounds, volr, rof_prognostic)
 
