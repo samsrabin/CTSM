@@ -494,7 +494,7 @@ contains
          input=water_inst%waterlnd2atmbulk_inst%qirrig_grc, minus=.true., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     
-        ! domestic withdrawal flux to be removed from main channel storage (negative)
+    ! domestic withdrawal flux to be removed from main channel storage (negative)
     call state_setexport(exportState, 'l2c_fb_rof', 'Flrl_dom_withd', bounds, &
          input=water_inst%waterlnd2atmbulk_inst%qdom_withd_grc, minus=.true., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
