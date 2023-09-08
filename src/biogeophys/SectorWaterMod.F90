@@ -796,43 +796,43 @@ module SectorWaterMod
 
           call ncd_io(ncid=ncid, varname='withd_dom', flag='read', data=mon_dom_withd, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: withd_dom NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: withd_dom NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='cons_dom', flag='read', data=mon_dom_cons, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: cons_dom NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: cons_dom NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='withd_liv', flag='read', data=mon_liv_withd, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: withd_liv NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: withd_liv NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='cons_liv', flag='read', data=mon_liv_cons, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: cons_liv NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: cons_liv NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='withd_elec', flag='read', data=mon_elec_withd, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: withd_elec NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: withd_elec NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='cons_elec', flag='read', data=mon_elec_cons, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: cons_elec NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: cons_elec NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='withd_mfc', flag='read', data=mon_mfc_withd, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: withd_mfc NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: withd_mfc NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='cons_mfc', flag='read', data=mon_mfc_cons, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: cons_mfc NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: cons_mfc NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='withd_min', flag='read', data=mon_min_withd, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: withd_min NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: withd_min NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_io(ncid=ncid, varname='cons_min', flag='read', data=mon_min_cons, &
                     dim1name=nameg, nt=mon, readvar=readvar)
-          if (.not. readvar) call endrun(msg=' ERROR: cons_min NOT on surfdata file'//errMsg(sourcefile, __LINE__))
+          if (.not. readvar) call endrun(msg=' ERROR: cons_min NOT on sector water file'//errMsg(sourcefile, __LINE__))
 
           call ncd_pio_closefile(ncid)
 
