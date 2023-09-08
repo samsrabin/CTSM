@@ -2,6 +2,7 @@ module SectorWaterMod
 
     #include "shr_assert.h"
     use shr_kind_mod     , only : r8 => shr_kind_r8
+    use shr_const_mod    , only : SHR_CONST_CDAY ! Number of seconds in day; real(r8)
     use decompMod        , only : bounds_type
     use shr_log_mod      , only : errMsg => shr_log_errMsg
     use abortutils       , only : endrun
@@ -931,7 +932,7 @@ module SectorWaterMod
           dayspm  = dayspyr/12._r8
           first_read = 1
 
-          flux_transform_from_monthly_to_second = (1._r8/dayspm)/86400._r8
+          flux_transform_from_monthly_to_second = (1._r8/dayspm)/SHR_CONST_CDAY
 
 
           ! For the first month of the simulation we need to read the data at the beginning of the month
@@ -1077,7 +1078,7 @@ module SectorWaterMod
                ! Total actual sectoral withdrawal volume will be used to constrain how much water is available for irrigation taking into acount VOLR capacity (if limit on abstractions is active)
                this%sectorwater_total_actual_withd(g) =  (this%dom_withd_actual_grc(g) + this%liv_withd_actual_grc(g) + &
                                                           this%elec_withd_actual_grc(g) + this%mfc_withd_actual_grc(g) + &
-                                                          this%min_withd_actual_grc(g)) * mm_to_m3_over_km2 * grc%area(g) * 86400._r8
+                                                          this%min_withd_actual_grc(g)) * mm_to_m3_over_km2 * grc%area(g) * SHR_CONST_CDAY
           end do
 
      end subroutine CalcSectorWaterNeeded
@@ -1160,39 +1161,39 @@ module SectorWaterMod
                ! It would make sense to use such an algorithm under the condition that volr does not change much during a day for a given gridcell
                ! But if this is not the case we maybe underestimate the amount of water available for usage.
                ! If this would be done once a day, then no problem, but we do it at each time step
-               if (dom_demand(g) * 86400.0 > max_demand_supported_by_volr) then
+               if (dom_demand(g) * SHR_CONST_CDAY > max_demand_supported_by_volr) then
                     ! inadequate river storage, adjust demand
-                    dom_demand_limited_ratio_grc(g)  = max_demand_supported_by_volr / (dom_demand(g) * 86400.0)
+                    dom_demand_limited_ratio_grc(g)  = max_demand_supported_by_volr / (dom_demand(g) * SHR_CONST_CDAY)
                     liv_demand_limited_ratio_grc(g)  = 0._r8
                     elec_demand_limited_ratio_grc(g) = 0._r8
                     mfc_demand_limited_ratio_grc(g)  = 0._r8
                     min_demand_limited_ratio_grc(g)  = 0._r8
 
-               else if (liv_demand(g) * 86400.0 > (max_demand_supported_by_volr - (dom_demand(g) * 86400.0))) then
+               else if (liv_demand(g) * SHR_CONST_CDAY > (max_demand_supported_by_volr - (dom_demand(g) * SHR_CONST_CDAY))) then
                     dom_demand_limited_ratio_grc(g)  = 1._r8
-                    liv_demand_limited_ratio_grc(g)  = (max_demand_supported_by_volr - (dom_demand(g) * 86400.0)) / (liv_demand(g) * 86400.0)
+                    liv_demand_limited_ratio_grc(g)  = (max_demand_supported_by_volr - (dom_demand(g) * SHR_CONST_CDAY)) / (liv_demand(g) * SHR_CONST_CDAY)
                     elec_demand_limited_ratio_grc(g) = 0._r8
                     mfc_demand_limited_ratio_grc(g)  = 0._r8
                     min_demand_limited_ratio_grc(g)  = 0._r8
-               else if (elec_demand(g) * 86400.0 > (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g))* 86400.0 )) then
+               else if (elec_demand(g) * SHR_CONST_CDAY > (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g))* SHR_CONST_CDAY )) then
                     dom_demand_limited_ratio_grc(g)  = 1._r8
                     liv_demand_limited_ratio_grc(g)  = 1._r8
-                    elec_demand_limited_ratio_grc(g) = (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g))* 86400.0)  / (elec_demand(g) * 86400.0)
+                    elec_demand_limited_ratio_grc(g) = (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g))* SHR_CONST_CDAY)  / (elec_demand(g) * SHR_CONST_CDAY)
                     mfc_demand_limited_ratio_grc(g)  = 0._r8
                     min_demand_limited_ratio_grc(g)  = 0._r8
-               else if (mfc_demand(g) * 86400.0 > (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g)) * 86400.0)) then
+               else if (mfc_demand(g) * SHR_CONST_CDAY > (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g)) * SHR_CONST_CDAY)) then
                     dom_demand_limited_ratio_grc(g)  = 1._r8
                     liv_demand_limited_ratio_grc(g)  = 1._r8
                     elec_demand_limited_ratio_grc(g) = 1._r8
-                    mfc_demand_limited_ratio_grc(g)  = (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g)) * 86400.0) / (mfc_demand(g) * 86400.0)
+                    mfc_demand_limited_ratio_grc(g)  = (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g)) * SHR_CONST_CDAY) / (mfc_demand(g) * SHR_CONST_CDAY)
                     min_demand_limited_ratio_grc(g)  = 0._r8
 
-               else if (min_demand(g) * 86400.0 > (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g) + mfc_demand(g)) * 86400.0)) then
+               else if (min_demand(g) * SHR_CONST_CDAY > (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g) + mfc_demand(g)) * SHR_CONST_CDAY)) then
                     dom_demand_limited_ratio_grc(g)  = 1._r8
                     liv_demand_limited_ratio_grc(g)  = 1._r8
                     elec_demand_limited_ratio_grc(g) = 1._r8
                     mfc_demand_limited_ratio_grc(g)  = 1._r8
-                    min_demand_limited_ratio_grc(g)  = (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g) + mfc_demand(g)) * 86400.0)  / (min_demand(g) * 86400.0)
+                    min_demand_limited_ratio_grc(g)  = (max_demand_supported_by_volr - (dom_demand(g) + liv_demand(g) + elec_demand(g) + mfc_demand(g)) * SHR_CONST_CDAY)  / (min_demand(g) * SHR_CONST_CDAY)
 
                else
                     dom_demand_limited_ratio_grc(g)  = 1._r8
