@@ -493,7 +493,7 @@ contains
     call state_setexport(exportState, 'l2c_fb_rof', 'Flrl_irrig', bounds, &
          input=water_inst%waterlnd2atmbulk_inst%qirrig_grc, minus=.true., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    
+
     ! domestic withdrawal flux to be removed from main channel storage (negative)
     call state_setexport(exportState, 'l2c_fb_rof', 'Flrl_dom_withd', bounds, &
          input=water_inst%waterlnd2atmbulk_inst%qdom_withd_grc, minus=.true., rc=rc)
@@ -543,7 +543,7 @@ contains
     call state_setexport(exportState, 'l2c_fb_rof', 'Flrl_min_rf', bounds, &
          input=water_inst%waterlnd2atmbulk_inst%qmin_rf_grc, minus=.false., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    
+
   end subroutine export_fields
 
   !===============================================================================
