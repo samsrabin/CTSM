@@ -788,7 +788,7 @@ module SectorWaterMod
           ! Assign current line to path_current_year_input_data
           current_year_input_data = current_line
           ! Close the input .txt file
-          Close(10)
+          close(10)
 
           ! Determine necessary indices
           call getfil(current_year_input_data, locfn, 0)
