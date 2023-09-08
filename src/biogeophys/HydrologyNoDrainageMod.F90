@@ -110,9 +110,6 @@ contains
       end do
 
       ! Update the qflx_sectorwater_col field corresponding to total sectoral consumption (except irrigation)
-      ! Here I am not sure if it is needed to have loop over all tracers (it seems that the tracers mechanism is not maintained anymore)
-      ! So I could in principle just use associate : w => water_inst%bulk_and_tracers(1) which correspond to bulk water.
-      ! To stay in aggreement with the legacy code, I am looping over the tracers.
       do i = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
          associate(w => water_inst%bulk_and_tracers(i))
 

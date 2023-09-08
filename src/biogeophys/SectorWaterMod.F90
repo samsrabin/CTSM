@@ -882,7 +882,7 @@ module SectorWaterMod
           integer :: day     ! day of month (1, ..., 31) for nstep+1
           integer :: sec     ! seconds into current date for nstep+1
 
-          integer :: first_read ! variable to do first read, in future I may prefer to make a subroutine is_beg_curr_month to avoid exception for first reading
+          integer :: first_read ! variable to do first read
 
           real(r8) :: dayspyr                                    ! days per year
           real(r8) :: dayspm                                     ! days per month
@@ -1160,7 +1160,6 @@ module SectorWaterMod
                ! It would make sense to use such an algorithm under the condition that volr does not change much during a day for a given gridcell
                ! But if this is not the case we maybe underestimate the amount of water available for usage.
                ! If this would be done once a day, then no problem, but we do it at each time step
-               ! This means that volr get
                if (dom_demand(g) * 86400.0 > max_demand_supported_by_volr) then
                     ! inadequate river storage, adjust demand
                     dom_demand_limited_ratio_grc(g)  = max_demand_supported_by_volr / (dom_demand(g) * 86400.0)
