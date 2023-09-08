@@ -40,7 +40,7 @@ Module HydrologyNoDrainageMod
   save
   !
   ! !PUBLIC MEMBER FUNCTIONS:
-  public  :: CalcAndWithdrawSectorWaterFluxes ! Calculates sectorwal water withdrawal, consumption and return flow fluxes; update the fields which are sent to the routing model through the coupler;
+  public  :: CalcAndWithdrawSectorWaterFluxes ! Calculates sectoral water withdrawal, consumption and return flow fluxes; update the fields which are sent to the routing model through the coupler;
   public  :: CalcAndWithdrawIrrigationFluxes  ! Calculates irrigation withdrawal fluxes and withdraws from groundwater
   public  :: HandleNewSnow                    ! Handle new snow falling on the ground
   public  :: HydrologyNoDrainage              ! Calculates soil/snow hydrology without drainage
@@ -52,7 +52,7 @@ contains
    subroutine CalcAndWithdrawSectorWaterFluxes(bounds, soilhydrology_inst, sectorwater_inst, water_inst, volr, rof_prognostic)
       !
       ! !DESCRIPTION:
-      ! Calculates sectorwal water withdrawal, consumption and return flow fluxes;
+      ! Calculates sectoral water withdrawal, consumption and return flow fluxes;
       ! Updates the fields which are sent to the routing model through the coupler;
       !
       ! !USES:

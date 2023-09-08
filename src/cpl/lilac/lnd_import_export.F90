@@ -504,7 +504,7 @@ contains
          input=water_inst%waterlnd2atmbulk_inst%qdom_rf_grc, minus=.false., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    ! livestock wihtdrawal flux to be removed from main channel storage (negative)
+    ! livestock withdrawal flux to be removed from main channel storage (negative)
     call state_setexport(exportState, 'l2c_fb_rof', 'Flrl_liv_withd', bounds, &
          input=water_inst%waterlnd2atmbulk_inst%qliv_withd_grc, minus=.true., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
