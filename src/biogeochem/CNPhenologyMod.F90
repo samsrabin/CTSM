@@ -2983,7 +2983,7 @@ contains
     use pftconMod        , only : nmiscanthus, nirrig_miscanthus, nswitchgrass, nirrig_switchgrass
     
     use CNSharedParamsMod, only : use_fun
-    use clm_varctl       , only : CNratio_floating    
+    use clm_varctl       , only : CNratio_floating, crop_residue_removal_frac
     !
     ! !ARGUMENTS:
     integer                       , intent(in)    :: num_soilp       ! number of soil patches in filter
@@ -3008,6 +3008,9 @@ contains
     real(r8) :: cropseedc_deficit_to_restore ! amount of crop seed C deficit that will be restored from this grain pool (gC/m2)
     real(r8) :: cropseedn_deficit_to_restore ! amount of crop seed N deficit that will be restored from this grain pool (gN/m2)
     real(r8) :: repr_grainc_to_food_thispool ! amount added to / subtracted from repr_grainc_to_food for the pool in question (gC/m2/s)
+    real(r8) :: leafc_remaining, livestemc_remaining
+    real(r8) :: leafn_remaining, livestemn_remaining
+    real(r8) :: removedresidue_fraction
     !-----------------------------------------------------------------------
 
     associate(                                                                           & 
@@ -3052,6 +3055,8 @@ contains
          repr_structurec_to_litter   => cnveg_carbonflux_inst%repr_structurec_to_litter_patch,   & ! Output: [real(r8) (:,:) ] reproductive structure C to litter (gC/m2/s)
          leafc_to_biofuelc     =>    cnveg_carbonflux_inst%leafc_to_biofuelc_patch     , & ! Output: [real(r8) (:) ]  leaf C to biofuel C (gC/m2/s)
          livestemc_to_biofuelc =>    cnveg_carbonflux_inst%livestemc_to_biofuelc_patch , & ! Output: [real(r8) (:) ]  livestem C to biofuel C (gC/m2/s)
+         leafc_to_removedresiduec     => cnveg_carbonflux_inst%leafc_to_removedresiduec_patch     , & ! Output: [real(r8) (:) ]  leaf C to removed residue C (gC/m2/s)
+         livestemc_to_removedresiduec => cnveg_carbonflux_inst%livestemc_to_removedresiduec_patch , & ! Output: [real(r8) (:) ]  livestem C to removed residue C (gC/m2/s)
          leafn                 =>    cnveg_nitrogenstate_inst%leafn_patch              , & ! Input:  [real(r8) (:) ]  (gN/m2) leaf N      
          frootn                =>    cnveg_nitrogenstate_inst%frootn_patch             , & ! Input:  [real(r8) (:) ]  (gN/m2) fine root N                        
 
@@ -3062,6 +3067,8 @@ contains
          repr_structuren_to_litter   => cnveg_nitrogenflux_inst%repr_structuren_to_litter_patch,   & ! Output: [real(r8) (:,:) ] reproductive structure N to litter (gN/m2/s)
          leafn_to_biofueln     =>    cnveg_nitrogenflux_inst%leafn_to_biofueln_patch   , & ! Output: [real(r8) (:) ]  leaf N to biofuel N (gN/m2/s)
          livestemn_to_biofueln =>    cnveg_nitrogenflux_inst%livestemn_to_biofueln_patch, & ! Output: [real(r8) (:) ]  livestem N to biofuel N (gN/m2/s)     
+         leafn_to_removedresiduen     => cnveg_nitrogenflux_inst%leafn_to_removedresiduen_patch    , & ! Output: [real(r8) (:) ]  leaf N to removed residue N (gN/m2/s)
+         livestemn_to_removedresiduen => cnveg_nitrogenflux_inst%livestemn_to_removedresiduen_patch, & ! Output: [real(r8) (:) ]  livestem N to removed residue N (gN/m2/s)     
          leafn_to_litter       =>    cnveg_nitrogenflux_inst%leafn_to_litter_patch     , & ! Output: [real(r8) (:) ]  leaf N litterfall (gN/m2/s)                       
          leafn_to_retransn     =>    cnveg_nitrogenflux_inst%leafn_to_retransn_patch   , & ! Input: [real(r8) (:) ]  leaf N to retranslocated N pool (gN/m2/s)         
          free_retransn_to_npool=>    cnveg_nitrogenflux_inst%free_retransn_to_npool_patch  , & ! Input: [real(r8) (:) ] free leaf N to retranslocated N pool (gN/m2/s)          
@@ -3074,7 +3081,7 @@ contains
 
       ! The litterfall transfer rate starts at 0.0 and increases linearly
       ! over time, with displayed growth going to 0.0 on the last day of litterfall
-      
+
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -3085,9 +3092,6 @@ contains
                t1 = 1.0_r8 / dt
                frootc_to_litter(p) = t1 * frootc(p) + cpool_to_frootc(p)
                
-               ! biofuel_harvfrac is only non-zero for prognostic crops.
-               leafc_to_litter(p)  = t1 * leafc(p)*(1._r8-biofuel_harvfrac(ivt(p)))  + cpool_to_leafc(p)
-
                ! leafc_litter and frootc_to_litter for matrix
                if (use_matrixcn) then
                else
@@ -3152,13 +3156,34 @@ contains
                   ! Cut a certain fraction (i.e., biofuel_harvfrac(ivt(p))) (e.g., biofuel_harvfrac(ivt(p)=70% for bioenergy crops) of leaf C
                   ! and move this fration of leaf C to biofuel C, rather than move it to litter
                   leafc_to_biofuelc(p) = t1 * leafc(p) * biofuel_harvfrac(ivt(p))
+                  leafc_remaining = leafc(p)*(1._r8-biofuel_harvfrac(ivt(p)))
                   leafn_to_biofueln(p) = t1 * leafn(p) * biofuel_harvfrac(ivt(p))
+                  leafn_remaining = leafn(p)*(1._r8-biofuel_harvfrac(ivt(p)))
 
                   ! Cut a certain fraction (i.e., biofuel_harvfrac(ivt(p))) (e.g., biofuel_harvfrac(ivt(p)=70% for bioenergy crops) of livestem C
                   ! and move this fration of leaf C to biofuel C, rather than move it to litter
-                  livestemc_to_litter(p)   = t1 * livestemc(p)*(1._r8-biofuel_harvfrac(ivt(p)))  + cpool_to_livestemc(p)
                   livestemc_to_biofuelc(p) = t1 * livestemc(p) * biofuel_harvfrac(ivt(p))
                   livestemn_to_biofueln(p) = t1 * livestemn(p) * biofuel_harvfrac(ivt(p))
+                  livestemc_remaining = livestemc(p)*(1._r8-biofuel_harvfrac(ivt(p)))
+                  livestemn_remaining = livestemn(p)*(1._r8-biofuel_harvfrac(ivt(p)))
+
+                  ! Remove residues
+                  leafc_to_removedresiduec(p) = t1 * leafc_remaining * crop_residue_removal_frac
+                  leafn_to_removedresiduen(p) = t1 * leafn_remaining * crop_residue_removal_frac
+                  livestemc_to_removedresiduec(p) = t1 * livestemc_remaining * crop_residue_removal_frac
+                  livestemn_to_removedresiduen(p) = t1 * livestemn_remaining * crop_residue_removal_frac
+                  leafc_remaining     = leafc_remaining     * (1._r8 - crop_residue_removal_frac)
+                  leafn_remaining     = leafn_remaining     * (1._r8 - crop_residue_removal_frac)
+                  livestemc_remaining = livestemc_remaining * (1._r8 - crop_residue_removal_frac)
+                  livestemn_remaining = livestemn_remaining * (1._r8 - crop_residue_removal_frac)
+                  
+                  leafc_to_litter(p)  = t1 * leafc_remaining  + cpool_to_leafc(p)
+                  livestemc_to_litter(p)   = t1 * livestemc_remaining  + cpool_to_livestemc(p)
+                  livestemn_to_litter(p)   = t1 * livestemn_remaining
+                  ! Sam Rabin 2023-09-11:
+                  ! leafn_to_litter is calculated below based on leafc_to_litter (updated above)
+                  ! as well as leaf C:N ratio (unaffected by biofuel harvest). It thus does not
+                  ! need to be updated here.
 
                   ! Matrix for grain, livestem to litter and biofuel
                   if(use_matrixcn)then
@@ -3294,18 +3319,6 @@ contains
                      ! Matrix update for frootn to litter
                   end if
                endif    
-            end if
-
-            if (ivt(p) >= npcropmin) then
-               ! NOTE(slevis, 2014-12) results in -ve livestemn and -ve totpftn
-               !X! livestemn_to_litter(p) = livestemc_to_litter(p) / livewdcn(ivt(p))
-               ! NOTE(slevis, 2014-12) Beth Drewniak suggested this instead
-               livestemn_to_litter(p) = livestemn(p) / dt * (1._r8 - biofuel_harvfrac(ivt(p)))
-
-               ! Matrix update for livestemn to litter
-               if(use_matrixcn)then
-               else
-               end if
             end if
 
             ! save the current litterfall fluxes
@@ -3650,10 +3663,14 @@ ptch: do fp = 1,num_soilp
           p = filter_soilp(fp)
           cnveg_carbonflux_inst%crop_harvestc_to_cropprodc_patch(p) = &
                cnveg_carbonflux_inst%leafc_to_biofuelc_patch(p) + &
-               cnveg_carbonflux_inst%livestemc_to_biofuelc_patch(p)
+               cnveg_carbonflux_inst%livestemc_to_biofuelc_patch(p) + &
+               cnveg_carbonflux_inst%leafc_to_removedresiduec_patch(p) + &
+               cnveg_carbonflux_inst%livestemc_to_removedresiduec_patch(p)
           cnveg_nitrogenflux_inst%crop_harvestn_to_cropprodn_patch(p) = &
                cnveg_nitrogenflux_inst%leafn_to_biofueln_patch(p) + &
-               cnveg_nitrogenflux_inst%livestemn_to_biofueln_patch(p)
+               cnveg_nitrogenflux_inst%livestemn_to_biofueln_patch(p) + &
+               cnveg_nitrogenflux_inst%leafn_to_removedresiduen_patch(p) + &
+               cnveg_nitrogenflux_inst%livestemn_to_removedresiduen_patch(p)
        end do
 
        if (use_grainproduct) then
