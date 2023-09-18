@@ -1892,6 +1892,8 @@ contains
             harvest_count(p) = 0
             do s = 1, mxsowings
                crop_inst%sdates_thisyr_patch(p,s) = -1._r8
+               crop_inst%swindow_starts_thisyr_patch(p,s) = -1._r8
+               crop_inst%swindow_ends_thisyr_patch  (p,s) = -1._r8
                crop_inst%sowing_reason_thisyr_patch(p,s) = -1._r8
             end do
             do s = 1, mxharvests
@@ -1952,6 +1954,10 @@ contains
          end if
          is_in_sowing_window  = is_doy_in_interval(sowing_window_startdate, sowing_window_enddate, jday)
          is_end_sowing_window = jday == sowing_window_enddate
+         !
+         ! Save these diagnostic variables
+         crop_inst%swindow_starts_thisyr_patch(p,sowing_count(p)+1) = sowing_window_startdate
+         crop_inst%swindow_ends_thisyr_patch  (p,sowing_count(p)+1) = sowing_window_enddate
          !
          ! Only allow sowing according to normal "window" rules if not using prescribed
          ! sowing windows at all, or if this cell had no values in either of the
