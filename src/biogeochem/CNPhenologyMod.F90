@@ -1916,10 +1916,19 @@ contains
             next_rx_swindow_end  (p) = crop_inst%rx_swindow_ends_thisyr_patch  (p,1)
          end if
 
-         ! Get dates of next prescribed sowing window (if any)
+         ! Get dates of next prescribed sowing window (if any).
+         ! This can probably be converted to a recursive subroutine.
          if (sowing_count(p) < mxsowings) then
              next_rx_swindow_start(p) = crop_inst%rx_swindow_starts_thisyr_patch(p,sowing_count(p)+1)
              next_rx_swindow_end  (p) = crop_inst%rx_swindow_ends_thisyr_patch  (p,sowing_count(p)+1)
+             ! Handle a missed sowing window
+             if (next_rx_swindow_start(p) < next_rx_swindow_end(p) .and. jday > next_rx_swindow_end(p)) then
+                 sowing_count(p) = sowing_count(p) + 1
+                 if (sowing_count(p) < mxsowings) then
+                     next_rx_swindow_start(p) = crop_inst%rx_swindow_starts_thisyr_patch(p,sowing_count(p)+1)
+                     next_rx_swindow_end  (p) = crop_inst%rx_swindow_ends_thisyr_patch  (p,sowing_count(p)+1)
+                 end if
+               end if
          end if
 
          ! CropType->InitAllocate() initializes next_rx_swindow_start to -1. It's only changed from that, by cropCalStreamMod->cropcal_interp(), when use_cropcal_rx_swindows is true. So if not using prescribed sowing windows, this boolean will always be false, because jday can never be -1.
