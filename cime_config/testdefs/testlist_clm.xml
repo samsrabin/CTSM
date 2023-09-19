@@ -79,7 +79,7 @@
       <option name="wallclock">00:60:00</option>
     </options>
   </test>
-  <test name="ERI_D_Ld9" grid="T31_g37" compset="I2000Clm50Sp" testmods="clm/SNICARFRC">
+  <test name="ERI_D_Ld9" grid="f10_f10_mg37" compset="I2000Clm50Sp" testmods="clm/SNICARFRC">
     <machines>
       <machine name="cheyenne" compiler="intel" category="aux_clm"/>
     </machines>
@@ -151,7 +151,7 @@
       <option name="wallclock">00:40:00</option>
     </options>
   </test>
-  <test name="ERI_D_Ld9_P48x1" grid="T31_g37" compset="I2000Clm50Sp" testmods="clm/reduceOutput">
+  <test name="ERI_D_Ld9_P48x1" grid="f10_f10_mg37" compset="I2000Clm50Sp" testmods="clm/reduceOutput">
     <machines>
       <machine name="izumi" compiler="nag" category="aux_clm"/>
     </machines>
@@ -2475,6 +2475,23 @@
           <option name="comment">Can use this test to determine if there are significant throughput changes, at least for this common and important configuration. Note that this deliberately doesn't have any testmods in order to (1) avoid doing history output (because the timing of output can be very variable, and mixing output timing with other aspects of model time can be confusing), and (2) generally keep the test replicating a production configuration as closely as possible (so, for example, we do NOT set BFBFLAG=TRUE for this test).</option>
           <!-- standard throughput tolerance is 25%, but for this PFS test we want a stricter tolerance -->
           <option name="tput_tolerance">0.1</option>
+        </options>
+      </machine>
+    </machines>
+  </test>
+
+  <test name="MKSURFDATAESMF_P144x1" grid="f10_f10_mg37" compset="I1850Clm50BgcCrop">
+    <machines>
+      <machine name="cheyenne" compiler="intel" category="aux_clm">
+        <options>
+          <option name="wallclock">00:40:00</option>
+          <option name="comment">Smoke test that first runs the mksurfdata_esmf tool and then ensures that the CTSM does not fail using the just-generated fsurdat file. Global BGC CROP case.</option>
+        </options>
+      </machine>
+      <machine name="cheyenne" compiler="intel" category="clm_pymods">
+        <options>
+          <option name="wallclock">00:40:00</option>
+          <option name="comment">This test invokes python code, so it should be run whenever changing python code (in addition to being run as part of aux_clm).</option>
         </options>
       </machine>
     </machines>
