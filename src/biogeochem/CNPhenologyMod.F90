@@ -1964,9 +1964,11 @@ contains
          is_in_sowing_window  = is_doy_in_interval(sowing_window_startdate, sowing_window_enddate, jday)
          is_end_sowing_window = jday == sowing_window_enddate
          !
-         ! Save these diagnostic variables
-         crop_inst%swindow_starts_thisyr_patch(p,sowing_count(p)+1) = sowing_window_startdate
-         crop_inst%swindow_ends_thisyr_patch  (p,sowing_count(p)+1) = sowing_window_enddate
+         ! Save these diagnostic variables only on the first day of the window to ensure that windows spanning the new year aren't double-counted.
+         if (jday == sowing_window_startdate) then
+             crop_inst%swindow_starts_thisyr_patch(p,sowing_count(p)+1) = sowing_window_startdate
+             crop_inst%swindow_ends_thisyr_patch  (p,sowing_count(p)+1) = sowing_window_enddate
+         end if
          !
          ! Only allow sowing according to normal "window" rules if not using prescribed
          ! sowing windows at all, or if this cell had no values in either of the
