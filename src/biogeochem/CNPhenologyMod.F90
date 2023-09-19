@@ -1726,7 +1726,7 @@ contains
     use clm_time_manager , only : get_prev_calday, get_curr_days_per_year, is_beg_curr_year
     use clm_time_manager , only : get_average_days_per_year
     use clm_time_manager , only : get_prev_date
-    use clm_time_manager , only : is_doy_in_interval
+    use clm_time_manager , only : is_doy_in_interval, is_end_curr_day
     use pftconMod        , only : ntmp_corn, nswheat, nwwheat, ntmp_soybean
     use pftconMod        , only : nirrig_tmp_corn, nirrig_swheat, nirrig_wwheat, nirrig_tmp_soybean
     use pftconMod        , only : ntrp_corn, nsugarcane, ntrp_soybean, ncotton, nrice
@@ -1962,6 +1962,9 @@ contains
              sowing_window_enddate   = maxplantjday(ivt(p),h)
          end if
          is_in_sowing_window  = is_doy_in_interval(sowing_window_startdate, sowing_window_enddate, jday)
+         if (crop_inst%sown_in_this_window(p) .and. .not. is_in_sowing_window) then
+            crop_inst%sown_in_this_window(p) = .false.
+         end if
          is_end_sowing_window = jday == sowing_window_enddate
          !
          ! Save these diagnostic variables only on the first day of the window to ensure that windows spanning the new year aren't double-counted.
@@ -2199,8 +2202,8 @@ contains
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             else if (generate_crop_gdds .and. crop_inst%rx_swindow_starts_thisyr_patch(p,1) .gt. 0) then
-               if (next_rx_swindow_start(p) >= 0) then
-                  ! Harvest the day before the start of the next sowing window this year.
+               if (next_rx_swindow_start(p) >= 0 .and. is_end_curr_day()) then
+                  ! Harvest the timestep before the start of the next sowing window this year.
                   do_harvest = jday == next_rx_swindow_start(p) - 1
 
                   ! ... unless that will lead to growing season length 365 (or 366,
@@ -2229,7 +2232,7 @@ contains
                   ! In order to avoid this, you'd have to read this year's AND next year's prescribed
                   ! sowing window start dates.
                   if (crop_inst%rx_swindow_starts_thisyr_patch(p,1) == 1) then
-                      do_harvest = jday == dayspyr
+                      do_harvest = jday == dayspyr .and. is_end_curr_day()
                   end if
 
                   if (do_harvest) then
@@ -2257,7 +2260,8 @@ contains
                if (use_cropcal_rx_swindows) then
                   will_plant_prescribed_tomorrow = (jday == next_rx_swindow_start(p) - 1) .or. &
                                               (crop_inst%sdates_thisyr_patch(p,1) == 1 .and. &
-                                               jday == dayspyr)
+                                               jday == dayspyr .and. &
+                                               is_end_curr_day())
                else
                   will_plant_prescribed_tomorrow = .false.
                end if
@@ -2323,6 +2327,12 @@ contains
 
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
+
+               ! Avoid situation where a crop could be stuck with sown_in_this_window true when moving from one sowing window to another with no days in between.
+               if (harvest_reason == HARVEST_REASON_SOWTOMORROW .or. harvest_reason == HARVEST_REASON_IDOPTOMORROW) then
+                   crop_inst%sown_in_this_window(p) = .false.
+               end if
+
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
@@ -2600,6 +2610,7 @@ contains
       ! impose limit on growing season length needed
       ! for crop maturity - for cold weather constraints
       croplive(p)  = .true.
+      crop_inst%sown_in_this_window(p) = .true.
       idop(p)      = jday
       iyop(p)      = kyr
       harvdate(p)  = NOT_Harvested
