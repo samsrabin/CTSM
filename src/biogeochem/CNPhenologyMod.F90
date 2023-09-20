@@ -1963,6 +1963,7 @@ contains
          end if
          is_in_sowing_window  = is_doy_in_interval(sowing_window_startdate, sowing_window_enddate, jday)
          if (crop_inst%sown_in_this_window(p) .and. .not. is_in_sowing_window) then
+            ! Probably unnecessary since it's set to false in last timestep of sowing window at the end of CropPhenology()
             crop_inst%sown_in_this_window(p) = .false.
          end if
          is_end_sowing_window = jday == sowing_window_enddate
@@ -2202,8 +2203,8 @@ contains
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             else if (generate_crop_gdds .and. crop_inst%rx_swindow_starts_thisyr_patch(p,1) .gt. 0) then
-               if (next_rx_swindow_start(p) >= 0 .and. is_end_curr_day()) then
-                  ! Harvest the timestep before the start of the next sowing window this year.
+               if (next_rx_swindow_start(p) >= 0) then
+                  ! Harvest the day before the start of the next sowing window this year.
                   do_harvest = jday == next_rx_swindow_start(p) - 1
 
                   ! ... unless that will lead to growing season length 365 (or 366,
@@ -2232,7 +2233,7 @@ contains
                   ! In order to avoid this, you'd have to read this year's AND next year's prescribed
                   ! sowing window start dates.
                   if (crop_inst%rx_swindow_starts_thisyr_patch(p,1) == 1) then
-                      do_harvest = jday == dayspyr .and. is_end_curr_day()
+                      do_harvest = jday == dayspyr
                   end if
 
                   if (do_harvest) then
@@ -2260,8 +2261,7 @@ contains
                if (use_cropcal_rx_swindows) then
                   will_plant_prescribed_tomorrow = (jday == next_rx_swindow_start(p) - 1) .or. &
                                               (crop_inst%sdates_thisyr_patch(p,1) == 1 .and. &
-                                               jday == dayspyr .and. &
-                                               is_end_curr_day())
+                                               jday == dayspyr)
                else
                   will_plant_prescribed_tomorrow = .false.
                end if
@@ -2327,12 +2327,6 @@ contains
 
                croplive(p) = .false.     ! no re-entry in greater if-block
                cphase(p) = cphase_harvest
-
-               ! Avoid situation where a crop could be stuck with sown_in_this_window true when moving from one sowing window to another with no days in between.
-               if (harvest_reason == HARVEST_REASON_SOWTOMORROW .or. harvest_reason == HARVEST_REASON_IDOPTOMORROW) then
-                   crop_inst%sown_in_this_window(p) = .false.
-               end if
-
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
@@ -2394,6 +2388,11 @@ contains
                c14_cnveg_carbonstate_inst%leafc_xfer_patch(p) = 0._r8
             endif
          end if ! croplive
+
+         ! At the end of the sowing window, AFTER we've done everything crop-related, set this to false
+         if (is_end_sowing_window .and. is_end_curr_day()) then
+            crop_inst%sown_in_this_window(p) = .false.
+         end if
 
       end do ! prognostic crops loop
 
