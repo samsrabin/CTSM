@@ -2252,7 +2252,7 @@ contains
                ! Original harvest rule
                do_harvest = hui(p) >= gddmaturity(p) .or. idpp >= mxmat
 
-               ! Always harvest the day before the next prescribed sowing window starts, if still alive.
+               ! Always harvest the timestep before the next prescribed sowing window starts, if still alive.
                ! WARNING: This implementation assumes that sowing windows don't change over time!
                ! In order to avoid this, you'd have to read this year's AND next year's prescribed
                ! sowing windows.
@@ -2260,8 +2260,8 @@ contains
                if (use_cropcal_rx_swindows) then
                   will_plant_prescribed_tomorrow = (jday == next_rx_swindow_start(p) - 1) .or. &
                                               (crop_inst%sdates_thisyr_patch(p,1) == 1 .and. &
-                                               jday == dayspyr .and. &
-                                               is_end_curr_day())
+                                               jday == dayspyr)
+                  will_plant_prescribed_tomorrow = will_plant_prescribed_tomorrow .and. is_end_curr_day()
                else
                   will_plant_prescribed_tomorrow = .false.
                end if
