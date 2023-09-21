@@ -1918,6 +1918,7 @@ contains
 
          ! Get dates of next prescribed sowing window (if any).
          ! This can probably be converted to a recursive subroutine.
+         ! TODO: Rework this to not rely on sowing count, because if you missed a sowing window it's not "sowing count"
          if (sowing_count(p) < mxsowings) then
              next_rx_swindow_start(p) = crop_inst%rx_swindow_starts_thisyr_patch(p,sowing_count(p)+1)
              next_rx_swindow_end  (p) = crop_inst%rx_swindow_ends_thisyr_patch  (p,sowing_count(p)+1)
@@ -1949,6 +1950,7 @@ contains
          end if
 
          ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
+         ! TODO: Rework this to not rely on sowing count, because if you missed a sowing window it's not "sowing count"
          if (use_cropcal_rx_swindows) then
              if (sowing_count(p) < mxsowings) then
                  sowing_window_startdate = crop_inst%rx_swindow_starts_thisyr_patch(p,sowing_count(p)+1)
@@ -1969,7 +1971,8 @@ contains
          is_end_sowing_window = jday == sowing_window_enddate
          !
          ! Save these diagnostic variables only on the first day of the window to ensure that windows spanning the new year aren't double-counted.
-         if (jday == sowing_window_startdate) then
+         ! TODO: Rework this to not rely on sowing count, because if you missed a sowing window it's not "sowing count"
+         if (jday == sowing_window_startdate .and. sowing_count(p) < mxsowings) then
              crop_inst%swindow_starts_thisyr_patch(p,sowing_count(p)+1) = sowing_window_startdate
              crop_inst%swindow_ends_thisyr_patch  (p,sowing_count(p)+1) = sowing_window_enddate
          end if
