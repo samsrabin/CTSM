@@ -1713,6 +1713,31 @@ contains
 
   end subroutine CNStressDecidPhenology
 
+   ! SSR troubleshooting
+  function ssrts_verbose(lon, lat, ivt, i)
+   ! !ARGUMENTS:
+   real(r8), intent(in) :: lon
+   real(r8), intent(in) :: lat
+   integer , intent(in) :: ivt
+   integer , intent(inout) :: i
+   ! !LOCALS:
+   integer,  parameter :: n = 4
+   real(r8), parameter, dimension(n) :: lons = (/77.5_r8, 77.5_r8, 265._r8,  265._r8/)
+   real(r8), parameter, dimension(n) :: lats = (/18._r8,  18._r8,  19.89_r8, 19.89_r8/)
+   integer , parameter, dimension(n) :: ivts = (/61,      67,      61,       67/)
+   real(r8), parameter :: tol = 0.1_r8
+   ! !RETURN
+   logical :: ssrts_verbose
+
+   ssrts_verbose = .false.
+   do i = 1, n
+      if (abs(lon - lons(i)) < tol .and. abs(lat - lats(i)) < tol .and. ivt == ivts(i)) then
+         ssrts_verbose = .true.
+         exit
+      end if
+   end do
+  end function ssrts_verbose
+
 
   !-----------------------------------------------------------------------
   subroutine get_swindow(jday, rx_starts, rx_ends, param_start, param_end, w, start_w, end_w, sowing_window_starts_tomorrow)
@@ -1890,6 +1915,11 @@ contains
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical did_plant_prescribed_today    ! Was the crop sown today?
     logical vernalization_forces_harvest ! Was the crop killed by freezing during vernalization?
+    ! SSR troubleshooting
+    logical verbose
+    character(len = 28) :: prefix
+    character(len = 14) :: now
+    integer verbose_i
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1966,6 +1996,12 @@ contains
          g = patch%gridcell(p)
          h = inhemi(p)
 
+         ! SSR troubleshooting
+         verbose = ssrts_verbose(grc%londeg(g), grc%latdeg(g), ivt(p), verbose_i)
+         if (verbose) then
+            write(prefix, "(A6,I1,A1,A17,A1)") "ssrts ",verbose_i," ",now," "
+         end if
+
          ! background litterfall and transfer rates; long growing season factor
 
          bglfr(p) = 0._r8 ! this value changes later in a crop's life cycle
@@ -1986,6 +2022,9 @@ contains
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr_patch(p,1) == spval ) then
+            if (verbose) then
+               write(iulog, *) prefix,"Beginning-of-year restart"
+            end if
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -2014,12 +2053,29 @@ contains
 
          ! Get dates of current or next sowing window.
          call get_swindow(jday, crop_inst%rx_swindow_starts_thisyr_patch(p,:), crop_inst%rx_swindow_ends_thisyr_patch(p,:), minplantjday(ivt(p),h), maxplantjday(ivt(p),h), w, sowing_window_startdate, sowing_window_enddate, sowing_window_starts_tomorrow)
+         if (verbose) then
+            write(iulog, *) prefix,"=GET_SWINDOW()============================"
+            write(iulog, *) prefix,"                         jday ",jday
+            write(iulog, *) prefix,"            rx_swindow_starts ",crop_inst%rx_swindow_starts_thisyr_patch(p,:)
+            write(iulog, *) prefix,"              rx_swindow_ends ",crop_inst%rx_swindow_ends_thisyr_patch(p,:)
+            write(iulog, *) prefix,"                 minplantjday ",minplantjday(ivt(p),h)
+            write(iulog, *) prefix,"                 maxplantjday ",maxplantjday(ivt(p),h)
+            write(iulog, *) prefix,"                            w ",w
+            write(iulog, *) prefix,"      sowing_window_startdate ",sowing_window_startdate
+            write(iulog, *) prefix,"      sowing_window_startdate ",sowing_window_startdate
+            write(iulog, *) prefix,"        sowing_window_enddate ",sowing_window_enddate
+            write(iulog, *) prefix,"sowing_window_starts_tomorrow ",sowing_window_starts_tomorrow
+            write(iulog, *) prefix,"=========================================="
+         end if
 
          ! We only want to plant on a specific day if the prescribed sowing window starts AND ends on the same day. Also make sure we haven't planted yet today.
          ! TODO: Change last condition to `maxval(crop_inst%sdates_perharv_patch(p,:)) /= jday`
          do_plant_prescribed = sowing_window_startdate == jday .and. &
                                sowing_window_enddate   == jday .and. &
                                sowing_count (p) < mxsowings
+         if (verbose .and. do_plant_prescribed) then
+            write(iulog, *) prefix,"do_plant_prescribed"
+         end if
 
          ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)
          ! When resuming from a run with old code, may need to manually set these.
@@ -2029,6 +2085,9 @@ contains
          ! jday = get_calday()). See CTSM issue #1623.
          ! Once removed, can also remove the "Instead, always harvest the day before idop" bit.
          if (croplive(p) .and. idop(p) <= jday .and. sowing_count(p) == 0) then
+             if (verbose) then
+               write(iulog, *) prefix, "BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-18)"
+             end if
              sowing_count(p) = 1
              crop_inst%sdates_thisyr_patch(p,1) = real(idop(p), r8)
          end if
@@ -2036,11 +2095,18 @@ contains
          ! Are we currently in a sowing window?
          ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
          is_in_sowing_window  = is_doy_in_interval(sowing_window_startdate, sowing_window_enddate, jday)
+         if (verbose) then
+            write(iulog, *) prefix,"is_doy_in_interval ",is_in_sowing_window
+         end if
          if (crop_inst%sown_in_this_window(p) .and. .not. is_in_sowing_window) then
             ! TODO: Test whether this is necessary, since it's set to false in last timestep of sowing window at the end of CropPhenology().
             crop_inst%sown_in_this_window(p) = .false.
          end if
          is_end_sowing_window = jday == sowing_window_enddate
+         if (verbose) then
+            write(iulog, *) prefix,"is_in_sowing_window ",is_in_sowing_window
+            write(iulog, *) prefix,"is_end_sowing_window ",is_end_sowing_window
+         end if
          !
          ! Save these diagnostic variables only on the first day of the window to ensure that windows spanning the new year aren't double-counted.
          ! TODO: Change this to the LAST day of the window, to ensure the same ordering as required for rx sowing window input files.
@@ -2054,7 +2120,13 @@ contains
          ! prescribed sowing window files. (Note that if either sowing window start was
          ! or end was missing a value, they are both set to negative values.)
          allow_unprescribed_planting = (.not. use_cropcal_rx_swindows) .or. crop_inst%rx_swindow_starts_thisyr_patch(p,1)<0
+         if (verbose) then
+            write(iulog, *) prefix,"allow_unprescribed_planting ",allow_unprescribed_planting
+         end if
          if (sowing_count(p) == mxsowings) then
+            if (verbose) then
+               write(iulog, *) prefix,"sowing_count(p) == mxsowings"
+            end if
             do_plant_normal = .false.
             do_plant_lastchance = .false.
          else if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
@@ -2092,6 +2164,14 @@ contains
          do_plant = do_plant_prescribed .or. do_plant_normal .or. do_plant_lastchance
          do_plant = do_plant .and. .not. crop_inst%sown_in_this_window(p)
          did_plant = .false.
+
+         if (verbose) then
+            write(iulog, *) prefix,"do_plant_normal ",do_plant_normal
+            write(iulog, *) prefix,"do_plant_lastchance ",do_plant_lastchance
+            write(iulog, *) prefix,"sown_in_this_window ",crop_inst%sown_in_this_window(p)
+            write(iulog, *) prefix,"do_plant ",do_plant
+            write(iulog, *) prefix,"croplive ",croplive(p)
+         end if
 
          ! Once outputs can handle >1 planting per year, remove 2nd condition.
          if ( (.not. croplive(p)) .and. sowing_count(p) == 0 ) then
@@ -2280,6 +2360,7 @@ contains
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             ! TODO: Shouldn't this also apply to paramfile sowing windows?
             else if (generate_crop_gdds .and. crop_inst%rx_swindow_starts_thisyr_patch(p,1) .gt. 0) then
+               ! I think this will ALWAYS be true. Try removing if-else and just using the "if" code. For safety, add a check that sowing_window_startdate < 0.
                if (sowing_window_startdate >= 0) then
                   ! Harvest the day before the start of the next sowing window.
                   do_harvest = sowing_window_starts_tomorrow
@@ -2319,10 +2400,12 @@ contains
 
                endif
 
+            ! TODO: Why should this only apply for prescribed plantings?
             else if (did_plant_prescribed_today) then
                ! Do not harvest on the day this growing season began;
                ! would create challenges for postprocessing.
                do_harvest = .false.
+
             else if (vernalization_forces_harvest) then
                do_harvest = .true.
                harvest_reason = HARVEST_REASON_VERNFREEZEKILL
