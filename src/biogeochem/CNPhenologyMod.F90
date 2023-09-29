@@ -1721,10 +1721,10 @@ contains
    integer , intent(in) :: ivt
    integer , intent(inout) :: i
    ! !LOCALS:
-   integer,  parameter :: n = 4
-   real(r8), parameter, dimension(n) :: lons = (/77.5_r8, 77.5_r8, 265._r8,  265._r8/)
-   real(r8), parameter, dimension(n) :: lats = (/18._r8,  18._r8,  19.89_r8, 19.89_r8/)
-   integer , parameter, dimension(n) :: ivts = (/61,      67,      61,       67/)
+   integer,  parameter :: n = 3
+   real(r8), parameter, dimension(n) :: lons = (/37.5_r8, 110._r8,  262.5_r8/)
+   real(r8), parameter, dimension(n) :: lats = (/6.63_r8, 33.16_r8, 18._r8  /)
+   integer , parameter, dimension(n) :: ivts = (/67,      67,       67/)
    real(r8), parameter :: tol = 0.1_r8
    ! !RETURN
    logical :: ssrts_verbose
