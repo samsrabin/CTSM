@@ -1984,6 +1984,9 @@ contains
       jday    = get_prev_calday()
       call get_prev_date(kyr, kmo, kda, mcsec)
 
+      ! SSR troubleshooting
+      write(now,"(I4,A1,I3,A1,I5)") kyr,"-",jday," ",mcsec
+
       if (use_fertilizer) then
        ndays_on = 20._r8 ! number of days to fertilize
       else
@@ -2116,10 +2119,8 @@ contains
          end if
          !
          ! Only allow sowing according to normal "window" rules if not using prescribed
-         ! sowing windows at all, or if this cell had no values in either of the
-         ! prescribed sowing window files. (Note that if either sowing window start was
-         ! or end was missing a value, they are both set to negative values.)
-         allow_unprescribed_planting = (.not. use_cropcal_rx_swindows) .or. crop_inst%rx_swindow_starts_thisyr_patch(p,1)<0
+         ! sowing dates.
+         allow_unprescribed_planting = sowing_window_startdate /= sowing_window_enddate
          if (verbose) then
             write(iulog, *) prefix,"allow_unprescribed_planting ",allow_unprescribed_planting
          end if
