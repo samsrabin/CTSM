@@ -1896,6 +1896,7 @@ contains
     real(r8) ndays_on ! number of days to fertilize
     logical has_rx_sowing_date ! does the crop have a single sowing date instead of a window?
     logical is_in_sowing_window ! is the crop in its sowing window?
+    logical idop_in_sowing_window ! is the current crop's day of planting within the current sowing window?
     logical is_end_sowing_window ! is it the last day of the crop's sowing window?
     logical sowing_gdd_requirement_met ! has the gridcell historically been warm enough to support the crop?
     logical do_plant_normal ! are the normal planting rules defined and satisfied?
@@ -2096,10 +2097,11 @@ contains
          ! Are we currently in a sowing window?
          ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
          is_in_sowing_window  = is_doy_in_interval(sowing_window_startdate, sowing_window_enddate, jday)
+         idop_in_sowing_window  = is_doy_in_interval(sowing_window_startdate, sowing_window_enddate, idop(p))
          if (verbose) then
             write(iulog, *) prefix,"is_doy_in_interval ",is_in_sowing_window
          end if
-         if (crop_inst%sown_in_this_window(p) .and. .not. is_in_sowing_window) then
+         if (crop_inst%sown_in_this_window(p) .and. (.not. is_in_sowing_window .or. .not. idop_in_sowing_window)) then
             ! Although sown_in_this_window is set to false in last timestep of sowing window at the end of CropPhenology(), this extra check may be necessary if sowing windows change.
             crop_inst%sown_in_this_window(p) = .false.
          end if
