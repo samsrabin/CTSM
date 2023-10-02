@@ -1721,7 +1721,7 @@ contains
    integer , intent(in) :: ivt
    integer , intent(inout) :: i
    ! !LOCALS:
-   integer,  parameter :: n = 3
+   integer,  parameter :: n = 4
    real(r8), parameter, dimension(n) :: lons = (/40._r8,  40._r8,  40._r8,  42.5_r8/)
    real(r8), parameter, dimension(n) :: lats = (/0.95_r8, 0.95_r8, 2.84_r8, 2.84_r8/)
    integer , parameter, dimension(n) :: ivts = (/62,      68,      68,      68/)
@@ -2061,7 +2061,6 @@ contains
             write(iulog, *) prefix,"      sowing_window_startdate ",sowing_window_startdate
             write(iulog, *) prefix,"      sowing_window_startdate ",sowing_window_startdate
             write(iulog, *) prefix,"        sowing_window_enddate ",sowing_window_enddate
-            write(iulog, *) prefix,"sowing_window_starts_tomorrow ",sowing_window_starts_tomorrow
             write(iulog, *) prefix,"=========================================="
          end if
          
