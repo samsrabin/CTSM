@@ -1740,7 +1740,7 @@ contains
 
 
   !-----------------------------------------------------------------------
-  subroutine get_swindow(jday, rx_starts, rx_ends, param_start, param_end, w, start_w, end_w, sowing_window_starts_tomorrow)
+  subroutine get_swindow(jday, rx_starts, rx_ends, param_start, param_end, w, start_w, end_w)
     ! !DESCRIPTION:
     ! Determine when the "next" sowing window is. This is either the sowing window we are
     ! currently in or, if not in a sowing window, the next one that will occur.
@@ -1753,7 +1753,6 @@ contains
     integer,                          intent(in)    :: param_start, param_end ! Sowing window start and end dates from parameter file
     integer,                          intent(out)   :: w ! Index of "next" sowing window
     integer,                          intent(out)   :: start_w, end_w ! Start and end dates of "next" sowing window
-    logical,                          intent(out)   :: sowing_window_starts_tomorrow
     !
     ! !LOCAL VARIABLES
     integer :: next_swindow_start
@@ -1775,17 +1774,13 @@ contains
         w = 1
         start_w = param_start
         end_w   = param_end
+        return
 
     ! Otherwise, if today is after the latest sowing window end date, use the first sowing window. This works only if sowing windows that span the new year are located at index w = 1.
     else if (jday > maxval(rx_ends)) then
         w = 1
         start_w = rx_starts(w)
         end_w   = rx_ends(w)
-    end if
-
-    ! If we already got sowing window dates, do this and exit.
-    if (w > 0) then
-        sowing_window_starts_tomorrow = start_w == jday_tomorrow
         return
     end if
 
@@ -1829,9 +1824,6 @@ contains
     else
         next_swindow_start = start_w
     end if
-
-    ! Does the NEXT sowing window start tomorrow?
-    sowing_window_starts_tomorrow = next_swindow_start == jday_tomorrow
 
   end subroutine get_swindow
 
@@ -1897,7 +1889,6 @@ contains
     integer mcsec     ! seconds of day (0, ..., seconds/day)
     integer sowing_window_startdate ! date (day of year) of first day of sowing window
     integer sowing_window_enddate   ! date (day of year) of last  day of sowing window
-    logical sowing_window_starts_tomorrow ! Is tomorrow the start of a sowing window?
     real(r8) harvest_reason
     real(r8) dayspyr  ! days per year in this year
     real(r8) avg_dayspyr ! average number of days per year
@@ -2058,7 +2049,7 @@ contains
          end if
 
          ! Get dates of current or next sowing window.
-         call get_swindow(jday, crop_inst%rx_swindow_starts_thisyr_patch(p,:), crop_inst%rx_swindow_ends_thisyr_patch(p,:), minplantjday(ivt(p),h), maxplantjday(ivt(p),h), w, sowing_window_startdate, sowing_window_enddate, sowing_window_starts_tomorrow)
+         call get_swindow(jday, crop_inst%rx_swindow_starts_thisyr_patch(p,:), crop_inst%rx_swindow_ends_thisyr_patch(p,:), minplantjday(ivt(p),h), maxplantjday(ivt(p),h), w, sowing_window_startdate, sowing_window_enddate)
          if (verbose) then
             write(iulog, *) prefix,"=GET_SWINDOW()============================"
             write(iulog, *) prefix,"                         jday ",jday
@@ -2073,15 +2064,14 @@ contains
             write(iulog, *) prefix,"sowing_window_starts_tomorrow ",sowing_window_starts_tomorrow
             write(iulog, *) prefix,"=========================================="
          end if
-
+         
          ! We only want to plant on a specific day if the prescribed sowing window starts AND ends on the same day. Also make sure we haven't planted yet today.
-         ! TODO: Change last condition to `maxval(crop_inst%sdates_perharv_patch(p,:)) /= jday`
          ! TODO: ¿Allow use of NON-prescribed sowing with one-day-long windows?
          has_rx_sowing_date = sowing_window_startdate == sowing_window_enddate
          do_plant_prescribed = has_rx_sowing_date .and. &
                                sowing_window_startdate == jday .and. &
                                sowing_count (p) < mxsowings
-         do_plant_prescribed_tomorrow = \
+         do_plant_prescribed_tomorrow = &
              has_rx_sowing_date .and. &
              sowing_window_startdate == get_doy_tomorrow(jday) .and. &
              sowing_count (p) < mxsowings
@@ -2111,7 +2101,7 @@ contains
             write(iulog, *) prefix,"is_doy_in_interval ",is_in_sowing_window
          end if
          if (crop_inst%sown_in_this_window(p) .and. .not. is_in_sowing_window) then
-            ! TODO: Test whether this is necessary, since it's set to false in last timestep of sowing window at the end of CropPhenology().
+            ! Although sown_in_this_window is set to false in last timestep of sowing window at the end of CropPhenology(), this extra check may be necessary if sowing windows change.
             crop_inst%sown_in_this_window(p) = .false.
          end if
          is_end_sowing_window = jday == sowing_window_enddate
@@ -2121,8 +2111,7 @@ contains
          end if
          !
          ! Save these diagnostic variables only on the first day of the window to ensure that windows spanning the new year aren't double-counted.
-         ! TODO: Change this to the LAST day of the window, to ensure the same ordering as required for rx sowing window input files.
-         if (jday == sowing_window_startdate) then
+         if (jday == sowing_window_enddate) then
              crop_inst%swindow_starts_thisyr_patch(p,w) = sowing_window_startdate
              crop_inst%swindow_ends_thisyr_patch  (p,w) = sowing_window_enddate
          end if
@@ -2368,47 +2357,23 @@ contains
                 harvest_reason = HARVEST_REASON_SOWTODAY
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
-            ! TODO: Shouldn't this also apply to paramfile sowing windows?
             else if (generate_crop_gdds .and. crop_inst%rx_swindow_starts_thisyr_patch(p,1) .gt. 0) then
-               ! I think this will ALWAYS be true. Try removing if-else and just using the "if" code. For safety, add a check that sowing_window_startdate < 0.
-               if (sowing_window_startdate >= 0) then
-                  ! Harvest the day before the start of the next sowing window.
-                  do_harvest = do_plant_prescribed_tomorrow
+               ! Harvest the day before the next prescribed sowing.
+               do_harvest = do_plant_prescribed_tomorrow
 
-                  ! ... unless that will lead to growing season length 365 (or 366,
-                  ! if last year was a leap year). This would result in idop==jday,
-                  ! which would invoke the "manually setting sowing_count and 
-                  ! sdates_thisyr" code. This would lead to crops never getting
-                  ! harvested. Instead, always harvest the day before idop.
-                  if ((.not. do_harvest) .and. &
-                      (idop(p) > 1 .and. jday == idop(p) - 1) .or. &
-                      (idop(p) == 1 .and. jday == dayspyr)) then
-                      do_harvest = .true.
-                      if (do_harvest) then
-                          harvest_reason = HARVEST_REASON_IDOPTOMORROW
-                      end if
-                  else if (do_harvest) then
-                      harvest_reason = HARVEST_REASON_SOWTOMORROW
-                  end if
-
-               else
-                  ! If this patch has already had all its plantings for the year, don't harvest
-                  ! until some time next year.
-                  do_harvest = .false.
-
-                  ! ... unless first sowing next year happens Jan. 1.
-                  ! WARNING: This implementation assumes that sowing windows don't change over time!
-                  ! In order to avoid this, you'd have to read this year's AND next year's prescribed
-                  ! sowing window start dates.
-                  if (crop_inst%rx_swindow_starts_thisyr_patch(p,1) == 1) then
-                      do_harvest = jday == dayspyr
-                  end if
-
-                  if (do_harvest) then
-                      harvest_reason = HARVEST_REASON_SOWTOMORROW
-                  end if
-
-               endif
+               ! ... unless that will lead to growing season length 365 (or 366,
+               ! if last year was a leap year). This would result in idop==jday,
+               ! which would invoke the "manually setting sowing_count and
+               ! sdates_thisyr" code. This would lead to crops never getting
+               ! harvested. Instead, always harvest the day before idop.
+               if ((.not. do_harvest) .and. &
+                   (idop(p) > 1 .and. jday == idop(p) - 1) .or. &
+                   (idop(p) == 1 .and. jday == dayspyr)) then
+                   do_harvest = .true.
+                   harvest_reason = HARVEST_REASON_IDOPTOMORROW
+               else if (do_harvest) then
+                   harvest_reason = HARVEST_REASON_SOWTOMORROW
+               end if
 
             ! TODO: Why should this only apply for prescribed plantings?
             else if (did_plant_prescribed_today) then

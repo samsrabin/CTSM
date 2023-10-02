@@ -15,6 +15,7 @@ module cropcalStreamMod
   use clm_varctl       , only : iulog
   use clm_varctl       , only : use_cropcal_rx_swindows, use_cropcal_rx_cultivar_gdds, use_cropcal_streams
   use clm_varpar       , only : mxpft
+  use clm_varpar       , only : mxsowings
   use perf_mod         , only : t_startf, t_stopf
   use spmdMod          , only : masterproc, mpicom, iam
   use pftconMod        , only : npcropmin
@@ -323,6 +324,11 @@ contains
     real(r8), pointer :: dataptr2d_cultivar_gdds(:,:)
     !-----------------------------------------------------------------------
 
+    associate( &
+         starts => crop_inst%rx_swindow_starts_thisyr_patch, &
+         ends   => crop_inst%rx_swindow_ends_thisyr_patch    &
+         )
+
     SHR_ASSERT_FL( (lbound(g_to_ig,1) <= bounds%begg ), sourcefile, __LINE__)
     SHR_ASSERT_FL( (ubound(g_to_ig,1) >= bounds%endg ), sourcefile, __LINE__)
 
@@ -371,18 +377,18 @@ contains
              n = ivt - npcropmin + 1
              ! vegetated pft
              ig = g_to_ig(patch%gridcell(p))
-             crop_inst%rx_swindow_starts_thisyr_patch(p,1) = dataptr2d_swindow_start(ig,n)
-             crop_inst%rx_swindow_ends_thisyr_patch  (p,1) = dataptr2d_swindow_end  (ig,n)
+             starts(p,1) = dataptr2d_swindow_start(ig,n)
+             ends(p,1)   = dataptr2d_swindow_end  (ig,n)
    
              ! Sanity check: Should only read in valid values
-             if (crop_inst%rx_swindow_starts_thisyr_patch(p,1) > 365) then
+             if (starts(p,1) > 365) then
                  write(iulog,'(a,i0,a,i0)') 'cropcal_interp(): Crop patch (ivt ',ivt,') has dataptr2d prescribed sowing window start date ',&
-                                            crop_inst%rx_swindow_starts_thisyr_patch(p,1)
+                                            starts(p,1)
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
              end if
-             if (crop_inst%rx_swindow_ends_thisyr_patch(p,1) > 365) then
+             if (ends(p,1) > 365) then
                  write(iulog,'(a,i0,a,i0)') 'cropcal_interp(): Crop patch (ivt ',ivt,') has dataptr2d prescribed sowing window end date ',&
-                                            crop_inst%rx_swindow_ends_thisyr_patch(p,1)
+                                            ends(p,1)
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
              end if
          else
@@ -391,9 +397,20 @@ contains
           endif
        end do
 
-       ! TODO: Ensure that, if mxsowings > 1, sowing windows are ordered such that ENDS are monotonically increasing. This is necessary because of how get_swindow() works.
+       ! Ensure that, if mxsowings > 1, sowing windows are ordered such that ENDS are monotonically increasing. This is necessary because of how get_swindow() works.
+       if (mxsowings > 1) then
+           if (any(ends(:,2:mxsowings) <= ends(:,1:mxsowings-1) .and. &
+                   ends(:,2:mxsowings) >= 1)) then
+               write(iulog, *) 'Sowing window inputs must be ordered such that end dates are monotonically increasing.'
+               call ESMF_Finalize(endflag=ESMF_END_ABORT)
+           end if
+       end if
 
-       ! TODO: Fail if a sowing window start date is prescribed without an end date (or vice versa)
+       ! Fail if a sowing window start date is prescribed without an end date (or vice versa)
+       if (any((starts >= 1 .and. ends < 1) .or. (starts < 1 .and. ends >= 1))) then
+           write(iulog, *) 'Every prescribed sowing window start date must have a corresponding end date.'
+           call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       end if
 
     end if ! use_cropcal_rx_swindows
     deallocate(dataptr2d_swindow_start)
@@ -460,6 +477,8 @@ contains
    end if ! use_cropcal_rx_cultivar_gdds
 
    deallocate(dataptr2d_cultivar_gdds)
+
+   end associate
 
   end subroutine cropcal_interp
 
