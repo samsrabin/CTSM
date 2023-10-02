@@ -59,6 +59,7 @@ module CNPhenologyMod
   public :: SeasonalDecidOnset        ! Logical function to determine is seasonal decidious onset should be triggered
   public :: SeasonalCriticalDaylength ! Critical day length needed for Seasonal decidious offset
   public :: get_swindow
+  public :: was_sown_in_this_window
 
   ! !PRIVITE MEMBER FIUNCTIONS:
   private :: CNPhenologyClimate             ! Get climatological everages to figure out triggers for Phenology
@@ -1829,6 +1830,22 @@ contains
 
 
   !-----------------------------------------------------------------------
+  function was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, is_in_sowing_window, idop_in_sowing_window) result(sown_in_this_window)
+    ! !DESCRIPTION:
+    ! Determine whether the crop was sown in the current sowing window. Although sown_in_this_window is set to false in last timestep of sowing window at the end of CropPhenology(), these extra checks may be necessary if sowing windows change.
+    !
+    ! !ARGUMENTS:
+    integer, intent(in)    :: sowing_window_startdate, sowing_window_enddate, jday
+    logical, intent(in)    :: is_in_sowing_window, idop_in_sowing_window
+    ! !RESULT:
+    logical                :: sown_in_this_window
+
+    sown_in_this_window = is_in_sowing_window .and. idop_in_sowing_window
+
+  end function was_sown_in_this_window
+
+
+  !-----------------------------------------------------------------------
   subroutine CropPhenology(num_pcropp, filter_pcropp                     , &
        waterdiagnosticbulk_inst, temperature_inst, crop_inst, canopystate_inst, cnveg_state_inst , &
        cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,&
@@ -2101,10 +2118,7 @@ contains
          if (verbose) then
             write(iulog, *) prefix,"is_doy_in_interval ",is_in_sowing_window
          end if
-         if (crop_inst%sown_in_this_window(p) .and. (.not. is_in_sowing_window .or. .not. idop_in_sowing_window)) then
-            ! Although sown_in_this_window is set to false in last timestep of sowing window at the end of CropPhenology(), this extra check may be necessary if sowing windows change.
-            crop_inst%sown_in_this_window(p) = .false.
-         end if
+         crop_inst%sown_in_this_window(p) = was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, is_in_sowing_window, idop_in_sowing_window)
          is_end_sowing_window = jday == sowing_window_enddate
          if (verbose) then
             write(iulog, *) prefix,"is_in_sowing_window ",is_in_sowing_window

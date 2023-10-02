@@ -375,4 +375,29 @@ contains
     @assertEqual(45, end_w)
   end subroutine test_get_swindow_endstart
 
+  @Test
+  subroutine test_was_sown_in_this_window_startend(this)
+    class(TestCNPhenology), intent(inout) :: this
+    integer, parameter :: sowing_window_startdate = 84
+    integer, parameter :: sowing_window_enddate   = 205
+    integer :: jday
+    logical :: is_in_sowing_window, idop_in_sowing_window
+
+    is_in_sowing_window = .true.
+    idop_in_sowing_window = .true.
+    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, is_in_sowing_window, idop_in_sowing_window))
+
+    is_in_sowing_window = .true.
+    idop_in_sowing_window = .false.
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, is_in_sowing_window, idop_in_sowing_window))
+
+    is_in_sowing_window = .false.
+    idop_in_sowing_window = .true.
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, is_in_sowing_window, idop_in_sowing_window))
+
+    is_in_sowing_window = .false.
+    idop_in_sowing_window = .false.
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, is_in_sowing_window, idop_in_sowing_window))
+  end subroutine test_was_sown_in_this_window_startend
+
 end module test_CNPhenology
