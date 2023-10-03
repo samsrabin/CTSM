@@ -436,21 +436,23 @@ module CNVegCarbonFluxType
 contains
    
   !------------------------------------------------------------------------
-  subroutine Init(this, bounds, carbon_type, dribble_crophrv_xsmrpool_2atm)
+  subroutine Init(this, bounds, carbon_type, dribble_crophrv_xsmrpool_2atm,alloc_full_veg)
 
     class(cnveg_carbonflux_type) :: this
     type(bounds_type), intent(in) :: bounds  
     character(len=3) , intent(in) :: carbon_type ! one of ['c12', c13','c14']
     logical          , intent(in) :: dribble_crophrv_xsmrpool_2atm
+    logical          , intent(in) :: alloc_full_veg
 
     this%dribble_crophrv_xsmrpool_2atm = dribble_crophrv_xsmrpool_2atm
-    call this%InitAllocate ( bounds, carbon_type)
-    if(use_matrixcn)then
-       call this%InitTransfer ()
+    call this%InitAllocate ( bounds, carbon_type,alloc_full_veg)
+    if(alloc_full_veg)then
+       if(use_matrixcn)then
+          call this%InitTransfer ()
+       end if
+       call this%InitHistory ( bounds, carbon_type )
+       call this%InitCold (bounds )
     end if
-    call this%InitHistory ( bounds, carbon_type )
-    call this%InitCold (bounds )
-
   end subroutine Init
 
   subroutine InitTransfer (this)
@@ -463,12 +465,13 @@ contains
   end subroutine InitTransfer 
     
   !------------------------------------------------------------------------
-  subroutine InitAllocate(this, bounds, carbon_type)
+  subroutine InitAllocate(this, bounds, carbon_type, alloc_full_veg)
     !
     ! !ARGUMENTS:
     class (cnveg_carbonflux_type) :: this 
     type(bounds_type), intent(in) :: bounds 
     character(len=*) , intent(in) :: carbon_type ! one of ['c12', c13','c14']
+    logical          , intent(in) :: alloc_full_veg
     !
     ! !LOCAL VARIABLES:
     integer           :: begp,endp
@@ -478,9 +481,15 @@ contains
     character(len=:), allocatable :: carbon_type_suffix
     !------------------------------------------------------------------------
 
-    begp = bounds%begp; endp = bounds%endp
-    begc = bounds%begc; endc = bounds%endc
-    begg = bounds%begg; endg = bounds%endg
+    if(alloc_full_veg)then
+       begp = bounds%begp; endp = bounds%endp
+       begc = bounds%begc; endc = bounds%endc
+       begg = bounds%begg; endg = bounds%endg
+    else
+       begp = 0; endp = 0
+       begc = 0; endc = 0
+       begg = 0; endg = 0
+    end if
 
     allocate(this%m_leafc_to_litter_patch                   (begp:endp)) ; this%m_leafc_to_litter_patch                   (:) = nan
     allocate(this%m_frootc_to_litter_patch                  (begp:endp)) ; this%m_frootc_to_litter_patch                  (:) = nan
@@ -2972,7 +2981,7 @@ contains
        do k = 1, ndecomp_pools
           if ( decomp_cascade_con%is_litter(k) .or. decomp_cascade_con%is_cwd(k) ) then
              data1dptr => this%m_decomp_cpools_to_fire_col(:,k)
-             fieldname = 'M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'C_TO_FIRE'
+             fieldname = 'M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'_C_TO_FIRE'
              longname =  trim(decomp_cascade_con%decomp_pool_name_long(k))//' C fire loss'
              call hist_addfld1d (fname=fieldname, units='gC/m^2/s',  &
                   avgflag='A', long_name=longname, &
@@ -2980,7 +2989,7 @@ contains
 
              if ( nlevdecomp_full > 1 ) then
                 data2dptr => this%m_decomp_cpools_to_fire_vr_col(:,:,k)
-                fieldname = 'M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'C_TO_FIRE'//trim(vr_suffix)
+                fieldname = 'M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'_C_TO_FIRE'//trim(vr_suffix)
                 longname =  trim(decomp_cascade_con%decomp_pool_name_long(k))//' C fire loss'
                 call hist_addfld_decomp (fname=fieldname, units='gC/m^3/s', type2d='levdcmp', &
                      avgflag='A', long_name=longname, &
@@ -3181,7 +3190,7 @@ contains
        do k = 1, ndecomp_pools
           if ( decomp_cascade_con%is_litter(k) .or. decomp_cascade_con%is_cwd(k) ) then
              data1dptr => this%m_decomp_cpools_to_fire_col(:,k)
-             fieldname = 'C13_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'C_TO_FIRE'
+             fieldname = 'C13_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'_C_TO_FIRE'
              longname =  'C13 '//trim(decomp_cascade_con%decomp_pool_name_long(k))//' C fire loss'
              call hist_addfld1d (fname=fieldname, units='gC13/m^2',  &
                   avgflag='A', long_name=longname, &
@@ -3189,7 +3198,7 @@ contains
 
              if ( nlevdecomp_full > 1 ) then
                 data2dptr => this%m_decomp_cpools_to_fire_vr_col(:,:,k)
-                fieldname = 'C13_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'C_TO_FIRE'//trim(vr_suffix)
+                fieldname = 'C13_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'_C_TO_FIRE'//trim(vr_suffix)
                 longname =  'C13 '//trim(decomp_cascade_con%decomp_pool_name_long(k))//' C fire loss'
                 call hist_addfld_decomp (fname=fieldname, units='gC13/m^3',  type2d='levdcmp', &
                      avgflag='A', long_name=longname, &
@@ -3341,7 +3350,7 @@ contains
        do k = 1, ndecomp_pools
           if ( decomp_cascade_con%is_litter(k) .or. decomp_cascade_con%is_cwd(k) ) then
              data1dptr => this%m_decomp_cpools_to_fire_col(:,k)
-             fieldname = 'C14_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'C_TO_FIRE'
+             fieldname = 'C14_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'_C_TO_FIRE'
              longname =  'C14 '//trim(decomp_cascade_con%decomp_pool_name_long(k))//' C fire loss'
              call hist_addfld1d (fname=fieldname, units='gC14/m^2',  &
                   avgflag='A', long_name=longname, &
@@ -3349,7 +3358,7 @@ contains
 
              if ( nlevdecomp_full > 1 ) then
                 data2dptr => this%m_decomp_cpools_to_fire_vr_col(:,:,k)
-                fieldname = 'C14_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'C_TO_FIRE'//trim(vr_suffix)
+                fieldname = 'C14_M_'//trim(decomp_cascade_con%decomp_pool_name_history(k))//'_C_TO_FIRE'//trim(vr_suffix)
                 longname =  'C14 '//trim(decomp_cascade_con%decomp_pool_name_long(k))//' C fire loss'
                 call hist_addfld_decomp (fname=fieldname, units='gC14/m^3',  type2d='levdcmp', &
                      avgflag='A', long_name=longname, &
