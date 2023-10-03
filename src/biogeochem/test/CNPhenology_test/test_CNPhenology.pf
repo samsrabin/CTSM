@@ -386,27 +386,29 @@ contains
     jday = 100
 
     idop = 90
-    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .false.))
 
     idop = 100
-    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .false.))
 
     idop = 101
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
 
     idop = 120
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
 
     idop = 360
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
 
     jday = 300
 
     idop = 90
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
 
     idop = 360
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
   end subroutine test_was_sown_in_this_window_startend
 
   @Test
@@ -420,27 +422,31 @@ contains
     jday = 300
 
     idop = 60
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
 
     idop = 205
-    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .false.))
 
     idop = 300
-    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .false.))
 
     idop = 301
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
 
     jday = 70
 
     idop = 60
-    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .false.))
 
     idop = 75
-    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
 
     idop = 301
-    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop))
+    @assertTrue(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .true.))
+    @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .false.))
 
   end subroutine test_was_sown_in_this_window_endstart
 
