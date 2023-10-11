@@ -2581,22 +2581,22 @@ contains
       else
          if (ivt(p) == ntmp_soybean .or. ivt(p) == nirrig_tmp_soybean .or. &
                ivt(p) == ntrp_soybean .or. ivt(p) == nirrig_trp_soybean) then
-            gddmaturity(p) = min(gdd1020(p), hybgdd(ivt(p)))
+            gddmaturity(p) = gdd1020(p)
          end if
          if (ivt(p) == ntmp_corn .or. ivt(p) == nirrig_tmp_corn .or. &
                ivt(p) == ntrp_corn .or. ivt(p) == nirrig_trp_corn .or. &
                ivt(p) == nsugarcane .or. ivt(p) == nirrig_sugarcane .or. &
                ivt(p) == nmiscanthus .or. ivt(p) == nirrig_miscanthus .or. &
                ivt(p) == nswitchgrass .or. ivt(p) == nirrig_switchgrass) then
-            gddmaturity(p) = max(950._r8, min(gdd820(p)*0.85_r8, hybgdd(ivt(p))))
+            gddmaturity(p) = max(950._r8, gdd820(p)*0.85_r8)
             if (do_plant_normal) then
-               gddmaturity(p) = max(950._r8, min(gddmaturity(p)+150._r8, 1850._r8))
+               gddmaturity(p) = max(950._r8, gddmaturity(p)+150._r8)
             end if
          end if
          if (ivt(p) == nswheat .or. ivt(p) == nirrig_swheat .or. &
                ivt(p) == ncotton .or. ivt(p) == nirrig_cotton .or. &
                ivt(p) == nrice   .or. ivt(p) == nirrig_rice) then
-            gddmaturity(p) = min(gdd020(p), hybgdd(ivt(p)))
+            gddmaturity(p) = gdd020(p)
          end if
 
       endif
