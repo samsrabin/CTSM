@@ -613,7 +613,7 @@ contains
                gdd820(p)  = gdd8(p)                                ! <-- END of YR 1
                gdd1020(p) = gdd10(p)                               ! <-- END of YR 1
             end if                                                 ! <-- END of YR 1
-            weight_thisyear = 1._r8 / min(nyrs_crop_active, max_nyears)
+            weight_thisyear = 1._r8 / min(real(nyrs_crop_active(p), r8), max_nyears)
             weight_previous = 1._r8 - weight_thisyear
 
             gdd020(p)  = weight_previous * gdd020(p)  + weight_thisyear * gdd0(p)
