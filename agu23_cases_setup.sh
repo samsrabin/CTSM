@@ -120,6 +120,21 @@ anomaly_forcing = 'Anomaly.Forcing.Precip','Anomaly.Forcing.Temperature','Anomal
 EOT
 }
 
+# Function: Save script to submit restart run
+function save_submit_script {
+    script="ssr_submit.sh"
+    touch "${script}"
+    chmod +x "${script}"
+    cat <<EOT >> "${script}"
+#!/bin/bash
+set -e
+./check_input_data
+./xmlchange GET_REFCASE=FALSE  # This solves an error in case.submit for some reason??
+./case.submit
+exit 0
+EOT
+}
+
 # 1850-1900
 years="1850-1900"
 casename_1850="${prefix}_${years}"
@@ -174,6 +189,7 @@ append_nldatm_aerondep
 ./check_input_data
 # Start from end of previous run
 set_ref_case "${casename_1850}" 1901
+save_submit_script
 popd
 
 # 2015-2100
@@ -204,5 +220,6 @@ append_nldatm_anoms
 ./check_input_data
 # Start from end of previous run
 set_ref_case "${casename_1901}" 2015
+save_submit_script
 
 exit 0
