@@ -27,21 +27,28 @@ cd /glade/u/home/samrabin/ctsm_agu2023_derecho
 #git checkout 86b4a74e6
 #manage_externals/checkout_externals
 
-# Function to set Ntasks for 1-degree run
-function ntasks_1deg {
-ntasks_atm=36
-ntasks_other=1716
-./xmlchange \
-NTASKS_CPL=${ntasks_other},\
-NTASKS_ATM=${ntasks_atm},\
-NTASKS_LND=${ntasks_other},\
-NTASKS_ICE=${ntasks_other},\
-NTASKS_OCN=${ntasks_other},\
-NTASKS_ROF=${ntasks_other},\
-NTASKS_GLC=${ntasks_other},\
-NTASKS_WAV=${ntasks_other},\
-NTASKS_ESP=1
-./case.setup --reset
+# Function to set Ntasks
+function ntasks {
+if [[ "${res}" != "1x1"* ]]; then
+    if [[ "${res}" == "f09_g17" ]]; then
+        ntasks_atm=36
+        ntasks_other=1716
+    else
+        echo "How many tasks for res ${res}?" &>2
+        exit 1
+    fi
+    ./xmlchange \
+    NTASKS_CPL=${ntasks_other},\
+    NTASKS_ATM=${ntasks_atm},\
+    NTASKS_LND=${ntasks_other},\
+    NTASKS_ICE=${ntasks_other},\
+    NTASKS_OCN=${ntasks_other},\
+    NTASKS_ROF=${ntasks_other},\
+    NTASKS_GLC=${ntasks_other},\
+    NTASKS_WAV=${ntasks_other},\
+    NTASKS_ESP=1
+    ./case.setup --reset
+fi
 }
 
 # Function: Set reference case
@@ -168,7 +175,7 @@ echo " "
 echo " "
 pushd "${casedir}"
 ./case.setup
-ntasks_1deg
+ntasks
 # Run 1850-1900 (51 yrs), repeating 1901-1920 climate
 ./xmlchange RUN_STARTDATE=1850-01-01
 ./xmlchange STOP_N=17,STOP_OPTION=nyears,RESUBMIT=2
@@ -197,7 +204,7 @@ echo " "
 echo " "
 pushd "${casedir}"
 ./case.setup
-ntasks_1deg
+ntasks
 # Run 1901-2014 (114 yrs)
 ./xmlchange RUN_STARTDATE=1901-01-01
 ./xmlchange STOP_N=19,STOP_OPTION=nyears,RESUBMIT=5
@@ -228,7 +235,7 @@ echo " "
 echo " "
 pushd "${casedir}"
 ./case.setup
-ntasks_1deg
+ntasks
 # Run 2015-2100 (84 yrs)
 ./xmlchange RUN_STARTDATE=2015-01-01
 ./xmlchange STOP_N=21,STOP_OPTION=nyears,RESUBMIT=4
