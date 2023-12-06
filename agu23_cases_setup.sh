@@ -139,6 +139,24 @@ exit 0
 EOT
 }
 
+# Function: Specify flanduse_timeseries, if needed
+function flanduse_1x1 {
+    if [[ "${res}" == "1x1"* ]]; then
+        dlr="$(./xmlquery --value DIN_LOC_ROOT)"
+        pattern=${dlr}/lnd/clm2/surfdata_map/landuse.timeseries_${res}*.nc
+        ls -tr ${pattern}
+        fluts_file="$(ls -tr ${pattern} | tail -n 1)"
+        if [[ "${fluts_file}" == "" ]]; then
+            echo "No file found matching ${pattern}" >&2
+            exit 1
+        fi
+        cat <<EOT >> user_nl_clm
+
+flanduse_timeseries = "${fluts_file}"
+EOT
+    fi
+}
+
 # 1850-1900
 years="1850-1900"
 casename_1850="${prefix}_${years}"
@@ -161,6 +179,7 @@ ntasks_1deg
 append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
+flanduse_1x1
 ./preview_namelists
 ./check_input_data
 popd
@@ -189,6 +208,7 @@ ntasks_1deg
 append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
+flanduse_1x1
 ./preview_namelists
 ./check_input_data
 # Start from end of previous run
@@ -220,6 +240,7 @@ append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
 append_nldatm_anoms
+flanduse_1x1
 ./preview_namelists
 ./check_input_data
 # Start from end of previous run
