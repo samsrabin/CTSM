@@ -143,6 +143,7 @@ append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
 ./preview_namelists
+./check_input_data
 popd
 
 # 1901-2014
@@ -170,6 +171,7 @@ append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
 ./preview_namelists
+./check_input_data
 # Start from end of previous run
 set_ref_case "${casename_1850}" 1901
 popd
@@ -199,6 +201,7 @@ append_nlclm_outputsetc
 append_nldatm_aerondep
 append_nldatm_anoms
 ./preview_namelists
+./check_input_data
 # Start from end of previous run
 set_ref_case "${casename_1901}" 2015
 
