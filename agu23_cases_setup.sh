@@ -2,10 +2,21 @@
 set -e
 
 # Experiment info
-prefix=agu2023d_1deg_Toff_Roff
-res=f09_g17
-subcompset=GSWP3v1_CLM51%BGC-CROP_SICE_SOCN_MOSART_CISM2%NOEVOLVE_SWAV
-proj=P93300641
+prefix="$1"      # E.g., agu2023d_1deg_Toff_Roff
+res="$2"         # E.g., f09_g17
+subcompset="$3"  # E.g., GSWP3v1_CLM51%BGC-CROP_SICE_SOCN_MOSART_CISM2%NOEVOLVE_SWAV
+if [[ "${subcompset}" == "" ]]; then
+    echo "agu23_cases_setup.sh requires 3 arguments: prefix, res, subcompset" >&2
+    exit 1
+fi
+proj="$4" # OPTIONAL; e.g., P93300641
+if [[ "${proj}" == "" ]]; then
+    if [[ "$PROJECT" == "" ]]; then
+        echo "\$PROJECT not set; you must provide 4th argument proj" >&2
+        exit 1
+    fi
+    proj="$PROJECT"
+fi
 
 # Set up CESM repo
 cd /glade/u/home/samrabin/ctsm_agu2023_derecho
