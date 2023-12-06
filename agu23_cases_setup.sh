@@ -5,6 +5,10 @@ set -e
 prefix="$1"      # E.g., agu2023d_1deg_Toff_Roff
 res="$2"         # E.g., f09_g17
 subcompset="$3"  # E.g., GSWP3v1_CLM51%BGC-CROP_SICE_SOCN_MOSART_CISM2%NOEVOLVE_SWAV
+if [[ "${prefix}" != "cases_"* || "${prefix}" != *"/"* ]]; then
+    echo "prefix (arg 1) must begin with 'cases_' and have a slash" >&2
+    exit 1
+fi
 if [[ "${subcompset}" == "" ]]; then
     echo "agu23_cases_setup.sh requires 3 arguments: prefix, res, subcompset" >&2
     exit 1
@@ -138,7 +142,7 @@ EOT
 # 1850-1900
 years="1850-1900"
 casename_1850="${prefix}_${years}"
-casedir="$HOME/cases_agu23/${casename_1850}"
+casedir="$HOME/${casename_1850}"
 [[ -d "${casedir}" ]] && rm -rf "${casedir}"
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
@@ -166,7 +170,7 @@ echo " "
 echo " "
 years="1901-2014"
 casename_1901="${prefix}_${years}"
-casedir="$HOME/cases_agu23/${casename_1901}"
+casedir="$HOME/${casename_1901}"
 [[ -d "${casedir}" ]] && rm -rf "${casedir}"
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
@@ -196,7 +200,7 @@ popd
 echo " "
 echo " "
 years="2015-2100"
-casedir="$HOME/cases_agu23/${prefix}_${years}"
+casedir="$HOME/${prefix}_${years}"
 [[ -d "${casedir}" ]] && rm -rf "${casedir}"
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
