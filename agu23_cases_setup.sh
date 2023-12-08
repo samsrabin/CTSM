@@ -4,29 +4,34 @@ set -e
 # CAVEATS
 # 1) Uses default GSWP3, which has something weird about longwave in 2014. Erik suggested I use c200929 instead, but I can't figure it out, and I need to start these runs _now_. But for the future period, I will make sure to use 1994-2013 instead of 1995-2014 so at least 2014 only happens once.
 
-# Hard-coded behaviors
-overwrite=0
-
-# Experiment info
+# Get and check required arguments
 prefix="$1"      # E.g., agu2023d_1deg_Toff_Roff
-res="$2"         # E.g., f09_g17
-subcompset="$3"  # E.g., GSWP3v1_CLM51%BGC-CROP_SICE_SOCN_MOSART_CISM2%NOEVOLVE_SWAV
+shift
+res="$1"         # E.g., f09_g17
+shift
+subcompset="$1"  # E.g., GSWP3v1_CLM51%BGC-CROP_SICE_SOCN_MOSART_CISM2%NOEVOLVE_SWAV
+shift
 if [[ "${prefix}" != "cases_"* || "${prefix}" != *"/"* ]]; then
     echo "prefix (arg 1) must begin with 'cases_' and have a slash" >&2
     exit 1
 fi
 if [[ "${subcompset}" == "" ]]; then
-    echo "agu23_cases_setup.sh requires 3 arguments: prefix, res, subcompset" >&2
+    echo "agu23_cases_setup.sh requires 3 positional arguments: prefix, res, subcompset" >&2
     exit 1
 fi
-proj="$4" # OPTIONAL; e.g., P93300641
-if [[ "${proj}" == "" ]]; then
-    if [[ "$PROJECT" == "" ]]; then
-        echo "\$PROJECT not set; you must provide 4th argument proj" >&2
-        exit 1
-    fi
-    proj="$PROJECT"
+
+proj="$PROJECT"
+if [[ "$1" != "" ]]; then
+    proj="$1"
+    shift
 fi
+if [[ "$proj" == "" ]]; then
+    echo "\$PROJECT not set; you must provide 4th argument proj" >&2
+    exit 1
+fi
+
+# Hard-coded behaviors
+overwrite=0
 
 # Set up CESM repo
 cd /glade/u/home/samrabin/ctsm_agu2023_derecho
