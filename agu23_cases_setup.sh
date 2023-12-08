@@ -123,11 +123,34 @@ presndep.SSP3-7.0:year_align=1850
 EOT
 }
 
-# Function: Append to user_nl_datm: anomalies to use
+# Function: Append to user_nl_datm(_streams): anomalies to use
 function append_nldatm_anoms {
 cat <<EOT >> user_nl_datm
 
-anomaly_forcing = 'Anomaly.Forcing.Precip','Anomaly.Forcing.Temperature','Anomaly.Forcing.Pressure','Anomaly.Forcing.Humidity','Anomaly.Forcing.Uwind','Anomaly.Forcing.Vwind','Anomaly.Forcing.Shortwave','Anomaly.Forcing.Longwave'
+anomaly_forcing = 'Anomaly.Forcing.Temperature'
+EOT
+
+# For some reason, the default setup points to rcp45 anomaly files...
+cat <<EOT >> user_nl_datm_streams
+
+Anomaly.Forcing.Temperature:meshfile = \$DIN_LOC_ROOT/share/meshes/fv0.9x1.25_141008_polemod_ESMFmesh.nc
+! List of Data types to use
+! Remove the variables you do NOT want to include in the Anomaly forcing:
+!     pr is preciptiation
+!     tas is temperature
+!     huss is humidity
+!     uas and vas are U and V winds
+!     rsds is solare
+!     rlds is LW down
+Anomaly.Forcing.Temperature:datavars = pr    Faxa_prec_af, \
+                                       tas   Sa_tbot_af, \
+                                       ps    Sa_pbot_af, \
+                                       huss  Sa_shum_af, \
+                                       uas   Sa_u_af, \
+                                       vas Sa_v_af, \
+                                       rsds  Faxa_swdn_af, \
+                                       rlds  Faxa_lwdn_af
+Anomaly.Forcing.Temperature:datafiles = \$DIN_LOC_ROOT/atm/datm7/anomaly_forcing/CMIP6-SSP3-7.0/af.allvars.CESM.SSP3-7.0.2015-2100_c20220628.nc
 EOT
 }
 
