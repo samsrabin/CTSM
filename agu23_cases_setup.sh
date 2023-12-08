@@ -222,35 +222,6 @@ EOT
     fi
 }
 
-# 1850-1900
-years="1850-1900"
-casename_1850="${prefix}_${years}"
-casedir="$HOME/${casename_1850}"
-[[ -d "${casedir}" ]] && rm -rf "${casedir}"
-cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
-# Initialize case
-echo " "
-echo " "
-pushd "${casedir}"
-./case.setup
-ntasks
-# Run 1850-1900 (51 yrs), repeating 1901-1920 climate
-./xmlchange RUN_STARTDATE=1850-01-01
-./xmlchange STOP_N=17,STOP_OPTION=nyears,RESUBMIT=2
-./xmlchange DATM_YR_START=1901,DATM_YR_END=1920
-# Set expected walltime
-./xmlchange --subgroup case.run JOB_WALLCLOCK_TIME=08:00:00
-# Set up namelists
-append_nlclm_sspcase1850
-append_nlclm_outputsetc
-append_nldatm_aerondep
-append_nldatm_gswp3
-set_crop_mgmt
-flanduse_1x1
-./preview_namelists
-./check_input_data
-popd
-
 # 1901-2014
 echo " "
 echo " "
@@ -279,10 +250,12 @@ append_nldatm_gswp3
 set_crop_mgmt
 flanduse_1x1
 ./preview_namelists
-./check_input_data
 # Start from end of previous run
+mgmt="$(echo ${prefix} | grep -oE "T[a-z]+_R[a-z]+")"
+casename_1850="agu2023derecho_1deg_1850-1900_${mgmt}"
 set_ref_case "${casename_1850}" 1901
-save_submit_script
+#
+./check_input_data
 popd
 
 # 2015-2100
