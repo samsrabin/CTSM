@@ -4,6 +4,15 @@ set -e
 # CAVEATS
 # 1) Uses default GSWP3, which has something weird about longwave in 2014. Erik suggested I use c200929 instead, but I can't figure it out, and I need to start these runs _now_. But for the future period, I will make sure to use 1994-2013 instead of 1995-2014 so at least 2014 only happens once.
 
+#############################################################################################
+# Function-parsing code from https://gist.github.com/neatshell/5283811
+
+script="agu23_cases_setup.sh"
+function usage {
+    echo " "
+    echo -e "usage: $script prefix res subcompset [-o/--overwrite] [-P/--project PROJECT]\n"
+}
+
 # Get and check required arguments
 prefix="$1"      # E.g., agu2023d_1deg_Toff_Roff
 shift
@@ -20,18 +29,53 @@ if [[ "${subcompset}" == "" ]]; then
     exit 1
 fi
 
-proj="$PROJECT"
-if [[ "$1" != "" ]]; then
-    proj="$1"
+# Set defaults
+project="$PROJECT"
+overwrite=0
+
+# Process arguments
+while [ "$1" != "" ];
+do
+    case $1 in
+
+        -o | --overwrite)
+            overwrite=1
+            ;;
+
+        -P | --project) shift
+            if [[ "$1" == "-"* || "$1" == "" ]]; then
+                echo "Flag -p/--project given but missing argument. Specify -p PROJECT_NUMBER" >&2
+                exit 1
+            fi
+            project="$1"
+            ;;
+
+        *)
+           echo "$script: illegal option $1"
+           usage
+           exit 1 # error
+           ;;
+
+    esac
     shift
-fi
-if [[ "$proj" == "" ]]; then
-    echo "\$PROJECT not set; you must provide 4th argument proj" >&2
+done
+
+# Check options
+if [[ "$project" == "" ]]; then
+    echo "\$PROJECT not set; you must provide 4th argument project" >&2
     exit 1
 fi
+#############################################################################################
 
-# Hard-coded behaviors
-overwrite=0
+
+echo prefix $prefix
+echo res $res
+echo subcompset $subcompset
+echo overwrite $overwrite
+echo project $project
+
+
+exit 1
 
 # Set up CESM repo
 cd /glade/u/home/samrabin/ctsm_agu2023_derecho
@@ -247,7 +291,7 @@ years="1850-1900"
 casename_1850="${prefix}_${years}"
 casedir="$HOME/${casename_1850}"
 rm_casedir_or_fail
-cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
+cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
 echo " "
 echo " "
@@ -278,7 +322,7 @@ years="1901-2014"
 casename_1901="${prefix}_${years}"
 casedir="$HOME/${casename_1901}"
 rm_casedir_or_fail
-cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
+cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
 echo " "
 echo " "
@@ -311,7 +355,7 @@ echo " "
 years="2015-2100"
 casedir="$HOME/${prefix}_${years}"
 rm_casedir
-cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
+cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
 echo " "
 echo " "
