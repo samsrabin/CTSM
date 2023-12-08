@@ -281,69 +281,6 @@ function rm_casedir_or_fail {
     fi
 }
 
-# 1850-1900
-years="1850-1900"
-casename_1850="${case_prefix}_${years}"
-casedir="${top_casedir}/${casename_1850}"
-rm_casedir_or_fail
-cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
-# Initialize case
-echo " "
-echo " "
-pushd "${casedir}"
-./case.setup
-ntasks
-# Run 1850-1900 (51 yrs), repeating 1901-1920 climate
-./xmlchange RUN_STARTDATE=1850-01-01
-./xmlchange STOP_N=17,STOP_OPTION=nyears,RESUBMIT=2
-./xmlchange DATM_YR_START=1901,DATM_YR_END=1920
-# Set expected walltime
-./xmlchange --subgroup case.run JOB_WALLCLOCK_TIME=08:00:00
-# Set up namelists
-append_nlclm_sspcase1850
-append_nlclm_outputsetc
-append_nldatm_aerondep
-append_nldatm_gswp3
-set_crop_mgmt
-flanduse_1x1
-./preview_namelists
-./check_input_data
-popd
-
-# 1901-2014
-echo " "
-echo " "
-years="1901-2014"
-casename_1901="${case_prefix}_${years}"
-casedir="${top_casedir}/${casename_1901}"
-rm_casedir_or_fail
-cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
-# Initialize case
-echo " "
-echo " "
-pushd "${casedir}"
-./case.setup
-ntasks
-# Run 1901-2014 (114 yrs)
-./xmlchange RUN_STARTDATE=1901-01-01
-./xmlchange STOP_N=19,STOP_OPTION=nyears,RESUBMIT=5
-./xmlchange DATM_YR_START=1901,DATM_YR_END=2014
-# Set expected walltime
-./xmlchange --subgroup case.run JOB_WALLCLOCK_TIME=08:00:00
-# Set up namelists
-append_nlclm_sspcase1850
-append_nlclm_outputsetc
-append_nldatm_aerondep
-append_nldatm_gswp3
-set_crop_mgmt
-flanduse_1x1
-./preview_namelists
-./check_input_data
-# Start from end of previous run
-set_ref_case "${casename_1850}" 1901
-save_submit_script
-popd
-
 # 2015-2100
 echo " "
 echo " "
@@ -379,6 +316,7 @@ flanduse_1x1
 ./preview_namelists
 ./check_input_data
 # Start from end of previous run
+casename_1901="$(echo ${case_prefix} | grep -oE "[^_]+_T[a-z]+_R[a-z]+")_1901-2014"
 set_ref_case "${casename_1901}" 2015
 save_submit_script
 
