@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# CAVEATS
+# 1) Uses default GSWP3, which has something weird about longwave in 2014. Erik suggested I use c200929 instead, but I can't figure it out, and I need to start these runs _now_. But for the future period, I will make sure to use 1994-2013 instead of 1995-2014 so at least 2014 only happens once.
+
 # Experiment info
 prefix="$1"      # E.g., agu2023d_1deg_Toff_Roff
 res="$2"         # E.g., f09_g17
@@ -123,6 +126,19 @@ presndep.SSP3-7.0:year_align=1850
 EOT
 }
 
+# Function: Append to user_nl_datm_streams: GSWP3 to use
+# c170516 has something wrong with longwave in 2014, so use c200929
+# THIS IS NOT THE RIGHT WAY TO DO THIS, SO IGNORING FOR NOW
+function append_nldatm_gswp3 {
+    echo "NOT using GSWP3 with fixed 2014 longwave (c200929); instead using default (c170516)."
+#cat <<EOT >> user_nl_datm_streams
+#
+#CLMGSWP3v1.Solar:datafiles = \$DIN_LOC_ROOT/atm/datm7/atm_forcing.datm7.GSWP3.0.5d.v1.c200929/Solar/clmforc.GSWP3.c2011.0.5x0.5.Solr.%ym.nc
+#CLMGSWP3v1.Precip:datafiles = \$DIN_LOC_ROOT/atm/datm7/atm_forcing.datm7.GSWP3.0.5d.v1.c200929/Precip/clmforc.GSWP3.c2011.0.5x0.5.Prec.%ym.nc
+#CLMGSWP3v1.TPQW:datafiles = \$DIN_LOC_ROOT/atm/datm7/atm_forcing.datm7.GSWP3.0.5d.v1.c200929/TPQW/clmforc.GSWP3.c2011.0.5x0.5.TPQWL.%ym.nc
+#EOT
+}
+
 # Function: Append to user_nl_datm(_streams): anomalies to use
 function append_nldatm_anoms {
 cat <<EOT >> user_nl_datm
@@ -209,6 +225,7 @@ ntasks
 append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
+append_nldatm_gswp3
 flanduse_1x1
 ./preview_namelists
 ./check_input_data
@@ -238,6 +255,7 @@ ntasks
 append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
+append_nldatm_gswp3
 flanduse_1x1
 ./preview_namelists
 ./check_input_data
@@ -270,9 +288,12 @@ append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
 append_nldatm_anoms
+append_nldatm_gswp3
 flanduse_1x1
 # Cycle over last 20 years
-./xmlchange DATM_YR_START=1995,DATM_YR_END=2014,DATM_YR_ALIGN=1995
+# ACTUALLY SKIP 2014 BECAUSE BAD LONGWAVE
+#./xmlchange DATM_YR_START=1995,DATM_YR_END=2014,DATM_YR_ALIGN=1995
+./xmlchange DATM_YR_START=1994,DATM_YR_END=2013,DATM_YR_ALIGN=1994
 #
 ./preview_namelists
 ./check_input_data
