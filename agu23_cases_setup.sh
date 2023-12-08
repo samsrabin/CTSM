@@ -248,6 +248,9 @@ append_nlclm_outputsetc
 append_nldatm_aerondep
 append_nldatm_anoms
 flanduse_1x1
+# Cycle over last 20 years
+./xmlchange DATM_YR_START=1995,DATM_YR_END=2014,DATM_YR_ALIGN=1995
+#
 ./preview_namelists
 ./check_input_data
 # Start from end of previous run
