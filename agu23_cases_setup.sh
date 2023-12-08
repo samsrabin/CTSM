@@ -349,7 +349,7 @@ echo " "
 echo " "
 years="2015-2100"
 casedir="${top_casedir}/${case_prefix}_${years}"
-rm_casedir
+rm_casedir_or_fail
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
 echo " "
