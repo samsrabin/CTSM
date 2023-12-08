@@ -4,6 +4,9 @@ set -e
 # CAVEATS
 # 1) Uses default GSWP3, which has something weird about longwave in 2014. Erik suggested I use c200929 instead, but I can't figure it out, and I need to start these runs _now_. But for the future period, I will make sure to use 1994-2013 instead of 1995-2014 so at least 2014 only happens once.
 
+# Hard-coded behaviors
+overwrite=0
+
 # Experiment info
 prefix="$1"      # E.g., agu2023d_1deg_Toff_Roff
 res="$2"         # E.g., f09_g17
@@ -222,13 +225,25 @@ EOT
     fi
 }
 
+# Function: Remove existing casedir (or fail)
+function rm_casedir_or_fail {
+    if [[ -d "${casedir}" ]]; then
+        if [[ ${overwrite} -eq 1 ]]; then
+            rm -rf "${casedir}"
+        else
+            echo "casedir ${casedir} already exists. Remove or rename, or set overwrite to 1." >&2
+            exit 1
+        fi
+    fi
+}
+
 # 1901-2014
 echo " "
 echo " "
 years="1901-2014"
 casename_1901="${prefix}_${years}"
 casedir="$HOME/${casename_1901}"
-[[ -d "${casedir}" ]] && rm -rf "${casedir}"
+rm_casedir_or_fail
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
 echo " "
@@ -263,7 +278,7 @@ echo " "
 echo " "
 years="2015-2100"
 casedir="$HOME/${prefix}_${years}"
-[[ -d "${casedir}" ]] && rm -rf "${casedir}"
+rm_casedir
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${proj} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
 echo " "
