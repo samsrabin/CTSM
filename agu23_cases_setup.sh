@@ -170,6 +170,25 @@ Anomaly.Forcing.Temperature:datafiles = \$DIN_LOC_ROOT/atm/datm7/anomaly_forcing
 EOT
 }
 
+# Function: Set crop management
+function set_crop_mgmt {
+    echo -e "\n" >> user_nl_clm
+    if [[ "${prefix}" == *"_Thi"* ]]; then
+        echo "tillage_mode = 'high'" >> user_nl_clm
+    elif [[ "${prefix}" != *"_Toff"* ]]; then
+        echo "ERROR: Unable to parse tillage_mode from prefix ${prefix}" >&2
+        exit 1
+    fi
+    if [[ "${prefix}" == *"_Rhi"* ]]; then
+        echo "crop_residue_removal_frac = 1.0" >> user_nl_clm
+    elif [[ "${prefix}" == *"_Rlo"* ]]; then
+        echo "crop_residue_removal_frac = 0.5" >> user_nl_clm
+    elif [[ "${prefix}" != *"_Roff"* ]]; then
+        echo "ERROR: Unable to parse crop_residue_removal_frac from prefix ${prefix}" >&2
+        exit 1
+    fi
+}
+
 # Function: Save script to submit restart run
 function save_submit_script {
     script="ssr_submit.sh"
@@ -226,6 +245,7 @@ append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
 append_nldatm_gswp3
+set_crop_mgmt
 flanduse_1x1
 ./preview_namelists
 ./check_input_data
@@ -256,6 +276,7 @@ append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
 append_nldatm_gswp3
+set_crop_mgmt
 flanduse_1x1
 ./preview_namelists
 ./check_input_data
@@ -289,6 +310,7 @@ append_nlclm_outputsetc
 append_nldatm_aerondep
 append_nldatm_anoms
 append_nldatm_gswp3
+set_crop_mgmt
 flanduse_1x1
 # Cycle over last 20 years
 # ACTUALLY SKIP 2014 BECAUSE BAD LONGWAVE
