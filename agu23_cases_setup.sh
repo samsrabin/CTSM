@@ -280,4 +280,6 @@ flanduse_1x1
 set_ref_case "${casename_1901}" 2015
 save_submit_script
 
+echo "All done!"
+
 exit 0
