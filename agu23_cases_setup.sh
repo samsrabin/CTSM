@@ -38,15 +38,15 @@ if [[ "${res}" != "1x1"* ]]; then
         exit 1
     fi
     ./xmlchange \
-    NTASKS_CPL=${ntasks_other},\
-    NTASKS_ATM=${ntasks_atm},\
-    NTASKS_LND=${ntasks_other},\
-    NTASKS_ICE=${ntasks_other},\
-    NTASKS_OCN=${ntasks_other},\
-    NTASKS_ROF=${ntasks_other},\
-    NTASKS_GLC=${ntasks_other},\
-    NTASKS_WAV=${ntasks_other},\
-    NTASKS_ESP=1
+NTASKS_CPL=${ntasks_other},\
+NTASKS_ATM=${ntasks_atm},\
+NTASKS_LND=${ntasks_other},\
+NTASKS_ICE=${ntasks_other},\
+NTASKS_OCN=${ntasks_other},\
+NTASKS_ROF=${ntasks_other},\
+NTASKS_GLC=${ntasks_other},\
+NTASKS_WAV=${ntasks_other},\
+NTASKS_ESP=1
     ./case.setup --reset
 fi
 }
