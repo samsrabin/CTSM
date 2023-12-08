@@ -10,22 +10,26 @@ set -e
 script="agu23_cases_setup.sh"
 function usage {
     echo " "
-    echo -e "usage: $script prefix res subcompset [-o/--overwrite] [-P/--project PROJECT]\n"
+    echo -e "usage: $script top_casedir case_prefix res subcompset [-o/--overwrite] [-P/--project PROJECT]\n"
 }
 
 # Get and check required arguments
-prefix="$1"      # E.g., agu2023d_1deg_Toff_Roff
+set +e
+top_casedir="$1" # E.g., $USER/cases
+shift
+case_prefix="$1" # E.g., agu2023d_1deg_Toff_Roff. Case names will be, e.g., ${case_prefix}_1901-2014
 shift
 res="$1"         # E.g., f09_g17
 shift
 subcompset="$1"  # E.g., GSWP3v1_CLM51%BGC-CROP_SICE_SOCN_MOSART_CISM2%NOEVOLVE_SWAV
 shift
-if [[ "${prefix}" != "cases_"* || "${prefix}" != *"/"* ]]; then
-    echo "prefix (arg 1) must begin with 'cases_' and have a slash" >&2
-    exit 1
+set -e
+if [[ ! -d "${top_casedir}" ]]; then
+    mkdir -p "${top_casedir}"
 fi
+prefix_path="${top_casedir}/${case_prefix}"
 if [[ "${subcompset}" == "" ]]; then
-    echo "agu23_cases_setup.sh requires 3 positional arguments: prefix, res, subcompset" >&2
+    usage
     exit 1
 fi
 
@@ -67,15 +71,6 @@ if [[ "$project" == "" ]]; then
 fi
 #############################################################################################
 
-
-echo prefix $prefix
-echo res $res
-echo subcompset $subcompset
-echo overwrite $overwrite
-echo project $project
-
-
-exit 1
 
 # Set up CESM repo
 cd /glade/u/home/samrabin/ctsm_agu2023_derecho
@@ -225,18 +220,18 @@ EOT
 # Function: Set crop management
 function set_crop_mgmt {
     echo -e "\n" >> user_nl_clm
-    if [[ "${prefix}" == *"_Thi"* ]]; then
+    if [[ "${case_prefix}" == *"_Thi"* ]]; then
         echo "tillage_mode = 'high'" >> user_nl_clm
-    elif [[ "${prefix}" != *"_Toff"* ]]; then
-        echo "ERROR: Unable to parse tillage_mode from prefix ${prefix}" >&2
+    elif [[ "${case_prefix}" != *"_Toff"* ]]; then
+        echo "ERROR: Unable to parse tillage_mode from case_prefix ${case_prefix}" >&2
         exit 1
     fi
-    if [[ "${prefix}" == *"_Rhi"* ]]; then
+    if [[ "${case_prefix}" == *"_Rhi"* ]]; then
         echo "crop_residue_removal_frac = 1.0" >> user_nl_clm
-    elif [[ "${prefix}" == *"_Rlo"* ]]; then
+    elif [[ "${case_prefix}" == *"_Rlo"* ]]; then
         echo "crop_residue_removal_frac = 0.5" >> user_nl_clm
-    elif [[ "${prefix}" != *"_Roff"* ]]; then
-        echo "ERROR: Unable to parse crop_residue_removal_frac from prefix ${prefix}" >&2
+    elif [[ "${case_prefix}" != *"_Roff"* ]]; then
+        echo "ERROR: Unable to parse crop_residue_removal_frac from case_prefix ${case_prefix}" >&2
         exit 1
     fi
 }
@@ -288,8 +283,8 @@ function rm_casedir_or_fail {
 
 # 1850-1900
 years="1850-1900"
-casename_1850="${prefix}_${years}"
-casedir="$HOME/${casename_1850}"
+casename_1850="${case_prefix}_${years}"
+casedir="${top_casedir}/${casename_1850}"
 rm_casedir_or_fail
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
@@ -319,8 +314,8 @@ popd
 echo " "
 echo " "
 years="1901-2014"
-casename_1901="${prefix}_${years}"
-casedir="$HOME/${casename_1901}"
+casename_1901="${case_prefix}_${years}"
+casedir="${top_casedir}/${casename_1901}"
 rm_casedir_or_fail
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
@@ -353,7 +348,7 @@ popd
 echo " "
 echo " "
 years="2015-2100"
-casedir="$HOME/${prefix}_${years}"
+casedir="${top_casedir}/${case_prefix}_${years}"
 rm_casedir
 cime/scripts/create_newcase --case ${casedir} --res ${res} --compset SSP370_DATM%${subcompset} --project ${project} --run-unsupported --handle-preexisting-dirs r
 # Initialize case
