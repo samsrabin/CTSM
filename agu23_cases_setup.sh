@@ -304,20 +304,37 @@ pushd "${casedir}"
 ntasks
 # Run 1850-1900 (51 yrs), repeating 1901-1920 climate
 ./xmlchange RUN_STARTDATE=1850-01-01
-./xmlchange STOP_N=17,STOP_OPTION=nyears,RESUBMIT=2
+./xmlchange STOP_N=51,STOP_OPTION=nyears,RESUBMIT=0
 ./xmlchange DATM_YR_START=1901,DATM_YR_END=1920
 # Set expected walltime
 ./xmlchange --subgroup case.run JOB_WALLCLOCK_TIME=08:00:00
 # Set up namelists
 append_nlclm_sspcase1850
 append_nlclm_outputsetc
+cat <<EOT >> user_nl_clm
+
+! Needed because this is a transient run from a non-transient restart
+use_init_interp = .true.
+EOT
 append_nldatm_aerondep
 append_nldatm_gswp3
 set_crop_mgmt
 flanduse_1x1
+if [[ ${case_prefix} == *"startup"* ]]; then
+    ./xmlchange RUN_TYPE=startup
+elif [[ ${case_prefix} == *"hybrid"* ]]; then
+    ./xmlchange RUN_TYPE=hybrid
+else
+    echo "Specify startup or hybrid" >&2
+    exit 1
+fi
+
 ./preview_namelists
 ./check_input_data
 popd
+
+echo stopping
+exit 1
 
 # 1901-2014
 echo " "
