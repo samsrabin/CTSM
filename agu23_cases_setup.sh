@@ -83,6 +83,10 @@ if [[ "${res}" != "1x1"* ]]; then
     if [[ "${res}" == "f09_g17" ]]; then
         ntasks_atm=36
         ntasks_other=1716
+    elif [[ "${res}" == "f10_f10_mg37" ]]; then
+        ntasks_atm=128
+        ntasks_other=128
+        ./xmlchange ROOTPE=128,ROOTPE_ATM=0,PIO_STRIDE=32
     else
         echo "How many tasks for res ${res}?" &>2
         exit 1
@@ -98,6 +102,11 @@ NTASKS_GLC=${ntasks_other},\
 NTASKS_WAV=${ntasks_other},\
 NTASKS_ESP=1
     ./case.setup --reset
+    if [[ "${res}" == "f10_f10_mg37" ]]; then
+        ntasks_atm=128
+        ntasks_other=128
+        ./xmlchange ROOTPE=128,ROOTPE_ATM=0,PIO_STRIDE=32
+    fi
 fi
 }
 
