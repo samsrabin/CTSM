@@ -5,8 +5,8 @@ import numpy as np
 import os
 import subprocess
 
-file_in = "/Users/Shared/CESM_inputdata/lnd/clm2/paramdata/ctsm51_params.c211112.nc"
-file_out = "/Users/sam/Documents/git_repos/CTSM_myfork/ctsm51_params.c211112.tillage.nc"
+file_in = "/Users/Shared/CESM_inputdata/lnd/clm2/paramdata/ctsm51_params.c231117.nc"
+file_out = "/Users/sam/Documents/git_repos/CTSM_myfork/ctsm51_params.c231117.tillage.nc"
 
 # Get git info
 thisDir = os.path.dirname(__file__)
