@@ -305,7 +305,7 @@ ntasks
 # Run 1850-1900 (51 yrs), repeating 1901-1920 climate
 ./xmlchange RUN_STARTDATE=1850-01-01
 ./xmlchange STOP_N=51,STOP_OPTION=nyears,RESUBMIT=0
-./xmlchange DATM_YR_START=1901,DATM_YR_END=1920
+./xmlchange DATM_YR_START=1901,DATM_YR_END=1920,DATM_YR_ALIGN=1910
 # Set expected walltime
 ./xmlchange --subgroup case.run JOB_WALLCLOCK_TIME=08:00:00
 # Set up namelists
