@@ -306,7 +306,7 @@ ntasks
 append_nlclm_sspcase1850
 append_nlclm_outputsetc
 append_nldatm_aerondep
-append_nldatm_anoms
+#append_nldatm_anoms
 append_nldatm_gswp3
 set_crop_mgmt
 flanduse_1x1
