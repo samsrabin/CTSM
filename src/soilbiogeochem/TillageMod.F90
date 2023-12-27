@@ -165,14 +165,14 @@ contains
         write(iulog, *) 'shape(tempr) = ',shape(tempr)
         do p = 1, ndecomp_pools
             do s = 1, ntill_stages_max
-                write(iulog, '(A5,I2,A7,I2,A16,F5.3)') 'pool ',p,' stage ',s,' tillage_mult = ',tempr(tillage_intensity,p,s)
+                write(iulog, '(A5,I2,A7,I2,A16,F5.1)') 'pool ',p,' stage ',s,' tillage_mult = ',tempr(tillage_intensity,p,s)
             end do
         end do
         write(iulog, *) 'shape(tempr(tillage_intensity,1:ndecomp_pools,:)) = ',shape(tempr(tillage_intensity,1:ndecomp_pools,:))
         write(iulog, *) 'shape(tillage_mults_allphases) = ',shape(tillage_mults_allphases)
         do p = 1, ndecomp_pools
             do s = 1, ntill_stages_max
-                write(iulog, '(A5,I2,A7,I2,A16,F5.3)') 'pool ',p,' stage ',s,' tillage_mult = ',tillage_mults_allphases(p,s)
+                write(iulog, '(A5,I2,A7,I2,A16,F5.1)') 'pool ',p,' stage ',s,' tillage_mult = ',tillage_mults_allphases(p,s)
             end do
         end do
         call endrun(msg="Stopping.")
