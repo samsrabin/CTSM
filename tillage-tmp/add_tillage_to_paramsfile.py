@@ -42,6 +42,10 @@ def make_dataarray(np_array, decomp_model, ntill_intensities_max, ndecomp_pools_
             "units": "unitless",
         }
     )
+    
+    # netCDF variable needs dimensions reversed from how they're specified in code
+    da = da.transpose()
+    
     return da
 
 def main(file_in,
