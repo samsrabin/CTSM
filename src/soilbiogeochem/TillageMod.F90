@@ -11,6 +11,7 @@ module TillageMod
   use clm_varpar     , only : ndecomp_pools
   use ColumnType     , only : col
   use PatchType      , only : patch
+  use spmdMod        , only : masterproc
   !
   implicit none
   private
@@ -123,6 +124,9 @@ contains
     real(r8), allocatable :: tempr(:,:,:)   ! temporary to read in constant
     character(len=100) :: tString ! temp. var for reading
     character(len=3)   :: decomp_method_str
+    ! Troubleshooting
+    integer :: p  ! decomp pool
+    integer :: s  ! tillage stage
 
     ! Initialize tillage multipliers as all 1, and exit if not tilling
     allocate(tillage_mults_allphases(ndecomp_pools, ntill_stages_max))
@@ -153,6 +157,15 @@ contains
 
     ! Save
     tillage_mults_allphases = tempr(tillage_intensity,1:ndecomp_pools,:)
+
+    ! Troubleshooting
+    if (masterproc) then
+        do p = 1, ndecomp_pools
+            do s = 1, ntill_stages_max
+                write(iulog, '(A5,I2,A7,I2,A16,F5.3)') 'pool ',p,' stage ',s,' tillage_mult = ',tillage_mults_allphases(p,s)
+            end do
+        end do
+    end if
 
   end subroutine readParams_netcdf
 
@@ -208,6 +221,8 @@ contains
     integer :: idpp                 ! days past planting
     integer :: phase                ! which tillage phase are we in?
     real(r8) dayspyr                ! days per year
+    ! Troubleshooting
+    integer :: p
     !-----------------------------------------------------------------------
         
     ! info from DAYCENT (Melannie Hartman CSU)
@@ -242,6 +257,13 @@ contains
             call endrun(msg='Tillage phase > ntill_stages_max')
         end if
         tillage_mults = tillage_mults_allphases(:, phase)
+
+        ! Troubleshooting
+        if (masterproc) then
+            do p = 1, ndecomp_pools
+                write(iulog, '(A11,I2,A7,I2,A16,F5.3)') 'gtm() pool ',p,' stage ',phase,' tillage_mult = ',tillage_mults(p)
+            end do
+        end if
     end if
     
   end subroutine get_tillage_multipliers

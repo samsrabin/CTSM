@@ -225,6 +225,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine init_decompcascade_bgc(bounds, soilbiogeochem_state_inst, soilstate_inst )
     !
+   use spmdMod        , only : masterproc
     ! !DESCRIPTION:
     !  initialize rate constants and decomposition pathways following the decomposition cascade of the BGC model.
     !  written by C. Koven 
@@ -500,6 +501,15 @@ contains
       end if
  
       if(use_soil_matrixcn) call InitSoilTransfer()
+
+      ! Troubleshooting
+      if (masterproc) then
+         write(iulog, '(A17, I2)') 'i_cel_lit = pool ', i_cel_lit
+         write(iulog, '(A17, I2)') 'i_lig_lit = pool ', i_lig_lit
+         write(iulog, '(A17, I2)') 'i_act_som = pool ', i_act_som
+         write(iulog, '(A17, I2)') 'i_slo_som = pool ', i_slo_som
+         write(iulog, '(A17, I2)') 'i_pas_som = pool ', i_pas_som
+      end if
 
       deallocate(params_inst%bgc_initial_Cstocks)
 
