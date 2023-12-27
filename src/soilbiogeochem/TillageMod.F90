@@ -165,6 +165,7 @@ contains
                 write(iulog, '(A5,I2,A7,I2,A16,F5.3)') 'pool ',p,' stage ',s,' tillage_mult = ',tillage_mults_allphases(p,s)
             end do
         end do
+        call endrun(msg="Stopping.")
     end if
 
   end subroutine readParams_netcdf
