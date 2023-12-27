@@ -150,7 +150,7 @@ module ncdio_pio
   private :: ncd_getiodesc      ! obtain iodesc
   private :: scam_field_offsets ! get offset to proper lat/lon gridcell for SCAM
 
-  integer,parameter,private :: debug = 0            ! local debug level
+  integer,parameter,private :: debug = 2            ! local debug level
 
   integer , parameter  , public  :: max_string_len = 256     ! length of strings
   real(r8), parameter  , public  :: fillvalue = 1.e36_r8     ! fill value for netcdf fields
@@ -1355,6 +1355,10 @@ contains
 
     if (flag == 'read') then
 
+      if (masterproc .and. debug > 1) then
+         write(iulog,*) trim(subname),' ',trim(flag),' ',trim(varname)
+      end if
+
        call ncd_inqvid(ncid, varname, varid, vardesc, readvar=varpresent)
 
        call pio_seterrorhandling(ncid, PIO_BCAST_ERROR)
@@ -1480,6 +1484,10 @@ contains
 
     if (flag == 'read') then
 
+      if (masterproc .and. debug > 1) then
+         write(iulog,*) trim(subname),' ',trim(flag),' ',trim(varname)
+      end if
+
        call ncd_inqvid(ncid, varname, varid, vardesc, readvar=varpresent)
 
        call pio_seterrorhandling(ncid, PIO_BCAST_ERROR)
@@ -1593,6 +1601,10 @@ contains
     count(:) = 0
 
     if (flag == 'read') then
+
+      if (masterproc .and. debug > 1) then
+         write(iulog,*) trim(subname),' ',trim(flag),' ',trim(varname)
+      end if
 
        call ncd_inqvid(ncid, varname, varid, vardesc, readvar=varpresent)
 
