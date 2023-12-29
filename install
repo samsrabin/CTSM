@@ -5,6 +5,38 @@
 #
 set -e
 
+########################
+
+# Function to print usage message
+script="install"
+function usage {
+    echo -e "\nusage: $script [-i/--internal-only]\n"
+}
+
+# Set default arguments
+internal_only=0
+
+# Process arguments
+while [ "$1" != "" ];
+do
+    case $1 in
+
+        # Only checkout CTSM internal submodules
+        -i | -internal-only | --internal-only)
+            internal_only=1
+            ;;
+
+        *)
+            echo "$script: illegal option $1"
+            usage
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+########################
+
 submodules=('src/fates')
 
 for mod in "${submodules[@]}"
@@ -13,7 +45,7 @@ do
     git submodule update --init $mod
 done
 
-if [ $# -gt 0 ]
+if [ ${internal_only} -eq 1 ]
   then
     exit 0
 fi
