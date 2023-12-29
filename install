@@ -31,6 +31,7 @@ do
 done                        
 
 # cism needs special handling
+echo "Initializing components/cism"
 git submodule update --init components/cism
 pushd components/cism
 ./install
