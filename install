@@ -3,6 +3,7 @@
 # if argument -internal-only is supplied then only checkout CTSM internal submodules, otherwise checkout everything needed for
 # CTSM as a top level repository
 #
+set -e
 
 submodules=('src/fates')
 
