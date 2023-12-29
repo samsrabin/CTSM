@@ -66,5 +66,5 @@ done
 echo "Initializing components/cism"
 git submodule update --init components/cism
 pushd components/cism 1>/dev/null
-./install -internal-only
+./install
 popd 1>/dev/null
