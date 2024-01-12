@@ -575,10 +575,8 @@ contains
          zi                =>    col%zi                             , & ! Input:  [real(r8) (:,:) ]  interface level below a "z" level (m)           
          dz                =>    col%dz                             , & ! Input:  [real(r8) (:,:) ]  layer thickness (m)                             
 
-         origflag          =>    soilhydrology_inst%origflag        , & ! Input:  constant
          qcharge           =>    soilhydrology_inst%qcharge_col     , & ! Input:  [real(r8) (:)   ]  aquifer recharge rate (mm/s)                      
          zwt               =>    soilhydrology_inst%zwt_col         , & ! Input:  [real(r8) (:)   ]  water table depth (m)                             
-         fracice           =>    soilhydrology_inst%fracice_col     , & ! Input:  [real(r8) (:,:) ]  fractional impermeability (-)                   
          icefrac           =>    soilhydrology_inst%icefrac_col     , & ! Input:  [real(r8) (:,:) ]  fraction of ice                                 
          hkdepth           =>    soilhydrology_inst%hkdepth_col     , & ! Input:  [real(r8) (:)   ]  decay factor (m)                                  
 
@@ -720,22 +718,13 @@ contains
             c = filter_hydrologyc(fc)
             ! compute hydraulic conductivity based on liquid water content only
 
-            if (origflag == 1) then
-               s1 = 0.5_r8*(h2osoi_vol(c,j) + h2osoi_vol(c,min(nlevsoi, j+1))) / &
-                    (0.5_r8*(watsat(c,j)+watsat(c,min(nlevsoi, j+1))))
-            else
-               s1 = 0.5_r8*(vwc_liq(c,j) + vwc_liq(c,min(nlevsoi, j+1))) / &
-                    (0.5_r8*(watsat(c,j)+watsat(c,min(nlevsoi, j+1))))
-            endif
+            s1 = 0.5_r8*(vwc_liq(c,j) + vwc_liq(c,min(nlevsoi, j+1))) / &
+                 (0.5_r8*(watsat(c,j)+watsat(c,min(nlevsoi, j+1))))
             s1 = min(1._r8, s1)
             s2 = hksat(c,j)*s1**(2._r8*bsw(c,j)+2._r8)
 
-            ! replace fracice with impedance factor, as in zhao 97,99
-            if (origflag == 1) then
-               imped(c,j)=(1._r8-0.5_r8*(fracice(c,j)+fracice(c,min(nlevsoi, j+1))))
-            else
-               imped(c,j)=10._r8**(-params_inst%e_ice*(0.5_r8*(icefrac(c,j)+icefrac(c,min(nlevsoi, j+1)))))
-            endif
+            imped(c,j)=10._r8**(-params_inst%e_ice*(0.5_r8*(icefrac(c,j)+icefrac(c,min(nlevsoi, j+1)))))
+
             hk(c,j) = imped(c,j)*s1*s2
             dhkdw(c,j) = imped(c,j)*(2._r8*bsw(c,j)+3._r8)*s2* &
                  (1._r8/(watsat(c,j)+watsat(c,min(nlevsoi, j+1))))
@@ -751,11 +740,7 @@ contains
 
 
             ! compute matric potential and derivative based on liquid water content only
-            if (origflag == 1) then
-               s_node = max(h2osoi_vol(c,j)/watsat(c,j), 0.01_r8)
-            else
-               s_node = max(vwc_liq(c,j)/watsat(c,j), 0.01_r8)
-            endif
+            s_node = max(vwc_liq(c,j)/watsat(c,j), 0.01_r8)
             s_node = min(1.0_r8, s_node)
 
             !call soil_water_retention_curve%soil_suction(sucsat(c,j), s_node, bsw(c,j), smp(c,j), dsmpds)
@@ -765,11 +750,7 @@ contains
             !do not turn on the line below, which will cause bit to bit error, jyt, 2014 Mar 6
             !dsmpdw(c,j) = dsmpds/watsat(c,j)
 
-            if (origflag == 1) then             
-               dsmpdw(c,j) = -bsw(c,j)*smp(c,j)/(s_node*watsat(c,j))
-            else
-               dsmpdw(c,j) = -bsw(c,j)*smp(c,j)/vwc_liq(c,j)
-            endif
+            dsmpdw(c,j) = -bsw(c,j)*smp(c,j)/vwc_liq(c,j)
 
             smp_l(c,j) = smp(c,j)
             hk_l(c,j) = hk(c,j)
@@ -861,11 +842,7 @@ contains
          else ! water table is below soil column
 
             ! compute aquifer soil moisture as average of layer 10 and saturation
-            if(origflag == 1) then
-               s_node = max(0.5*(1.0_r8+h2osoi_vol(c,j)/watsat(c,j)), 0.01_r8)
-            else
-               s_node = max(0.5*((vwc_zwt(c)+vwc_liq(c,j))/watsat(c,j)), 0.01_r8)
-            endif
+            s_node = max(0.5*((vwc_zwt(c)+vwc_liq(c,j))/watsat(c,j)), 0.01_r8)
             s_node = min(1.0_r8, s_node)
 
             ! compute smp for aquifer layer
