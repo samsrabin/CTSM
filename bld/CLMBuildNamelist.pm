@@ -1576,6 +1576,7 @@ sub process_namelist_inline_logic {
   setup_logic_glacier($opts, $nl_flags, $definition, $defaults, $nl,  $envxml_ref);
   setup_logic_dynamic_plant_nitrogen_alloc($opts, $nl_flags, $definition, $defaults, $nl, $physv);
   setup_logic_luna($opts, $nl_flags, $definition, $defaults, $nl, $physv);
+  setup_logic_hillslope($opts, $nl_flags, $definition, $defaults, $nl);
   setup_logic_o3_veg_stress_method($opts, $nl_flags, $definition, $defaults, $nl,$physv);
   setup_logic_hydrstress($opts,  $nl_flags, $definition, $defaults, $nl);
   setup_logic_dynamic_roots($opts,  $nl_flags, $definition, $defaults, $nl, $physv);
@@ -3436,6 +3437,32 @@ sub setup_logic_luna {
 
 #-------------------------------------------------------------------------------
 
+sub setup_logic_hillslope {
+  #
+  # Hillslope model
+  #
+  my ($opts, $nl_flags, $definition, $defaults, $nl) = @_;
+
+    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'use_hillslope' );
+    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'downscale_hillslope_meteorology' );
+    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'hillslope_head_gradient_method' );
+    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'hillslope_transmissivity_method' );
+    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'hillslope_pft_distribution_method' );
+    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'hillslope_soil_profile_method' );
+    add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'use_hillslope_routing', 'use_hillslope'=>$nl_flags->{'use_hillslope'} );
+  my $use_hillslope = $nl->get_value('use_hillslope');
+  my $use_hillslope_routing = $nl->get_value('use_hillslope_routing');
+   if ( (! &value_is_true($use_hillslope)) && &value_is_true($use_hillslope_routing) ) {
+       $log->fatal_error("Cannot turn on use_hillslope_routing when use_hillslope is off\n" );
+   }
+  my $downscale_hillslope_meteorology = $nl->get_value('use_hillslope_routing');
+   if ( (! &value_is_true($use_hillslope)) && &value_is_true($downscale_hillslope_meteorology) ) {
+      $log->fatal_error("Cannot turn on downscale_hillslope_meteorology when use_hillslope is off\n" );
+   }
+}
+
+#-------------------------------------------------------------------------------
+
 sub setup_logic_hydrstress {
   #
   # Plant hydraulic stress model
@@ -4536,7 +4563,7 @@ sub write_output_files {
                soilhydrology_inparm luna friction_velocity mineral_nitrogen_dynamics
                soilwater_movement_inparm rooting_profile_inparm
                soil_resis_inparm  bgc_shared canopyfluxes_inparm aerosol
-               clmu_inparm clm_soilstate_inparm clm_nitrogen clm_snowhydrology_inparm
+               clmu_inparm clm_soilstate_inparm clm_nitrogen clm_snowhydrology_inparm hillslope_hydrology_inparm hillslope_properties_inparm
                cnprecision_inparm clm_glacier_behavior crop_inparm irrigation_inparm
                surfacealbedo_inparm water_tracers_inparm);
 
