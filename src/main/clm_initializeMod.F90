@@ -177,7 +177,7 @@ contains
     use FATESFireFactoryMod           , only : scalar_lightning
     !
     ! !ARGUMENTS
-    integer, intent(in) :: ni, nj                ! global grid sizes
+    integer, intent(in) :: ni, nj         ! global grid sizes
     !
     ! !LOCAL VARIABLES:
     integer            :: c,g,i,j,k,l,n,p ! indices

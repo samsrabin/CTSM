@@ -428,6 +428,7 @@ contains
     do g = bounds%begg,bounds%endg
        coszen_gcell(g) = shr_orb_cosz (nextsw_cday, grc%lat(g), grc%lon(g), declinp1)
     end do
+
     do c = bounds%begc,bounds%endc
        g = col%gridcell(c)
        coszen_col(c) = coszen_gcell(g)

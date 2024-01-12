@@ -75,6 +75,8 @@ contains
     ! atm_topo is arbitrary for the sake of getting these counts. We don't have a true
     ! atm_topo value at the point of this call, so use 0.
     real(r8), parameter :: atm_topo = 0._r8
+
+
     !------------------------------------------------------------------------------
 
     npatches = 0
@@ -251,7 +253,6 @@ contains
     ncohorts = fates_maxElementsPerSite
     
  end subroutine subgrid_get_info_cohort
-
 
   !-----------------------------------------------------------------------
   subroutine subgrid_get_info_urban_tbd(gi, npatches, ncols, nlunits)

@@ -635,7 +635,6 @@ contains
                   - qflx_ice_runoff_col(c)   &
                   - qflx_snwcp_discarded_liq_col(c) &
                   - qflx_snwcp_discarded_ice_col(c)) * dtime
-
           else
 
              errh2o_col(c) = 0.0_r8
@@ -655,7 +654,7 @@ contains
              ' local indexc= ',indexc,&
              ' global indexc= ',global_index, &
              ' errh2o= ',errh2o_col(indexc)
-         if ((errh2o_max_val > error_thresh) .and. (DAnstep > skip_steps)) then
+           if ((errh2o_max_val > error_thresh) .and. (DAnstep > skip_steps)) then
               
               write(iulog,*)'CTSM is stopping because errh2o > ', error_thresh, ' mm'
               write(iulog,*)'nstep                     = ',nstep
@@ -730,7 +729,6 @@ contains
        ! BUG(rgk, 2021-04-13, ESCOMP/CTSM#1314) Temporarily bypassing gridcell-level check with use_fates_planthydro until issue 1314 is resolved
        
        if (errh2o_max_val > h2o_warning_thresh .and. .not.use_fates_planthydro) then
-
           indexg = maxloc( abs(errh2o_grc(bounds%begg:bounds%endg)), 1 ) + bounds%begg - 1
           write(iulog,*)'WARNING:  grid cell-level water balance error ',&
              ' nstep= ',nstep, &
@@ -805,6 +803,7 @@ contains
                  if (col%itype(c) == icol_road_perv .or. lun%itype(l) == istsoil .or. &
                       lun%itype(l) == istcrop .or. lun%itype(l) == istwet .or. &
                       lun%itype(l) == istice) then
+
                    snow_sources(c) = (qflx_snow_grnd_col(c) - qflx_snow_h2osfc(c) ) &
                           + frac_sno_eff(c) * (qflx_liq_grnd_col(c) &
                           + qflx_soliddew_to_top_layer(c) + qflx_liqdew_to_top_layer(c) ) &
@@ -949,7 +948,6 @@ contains
                write(iulog,*)'CTSM is stopping'
                call endrun(subgrid_index=indexp, subgrid_level=subgrid_level_patch, msg=errmsg(sourcefile, __LINE__))
            end if
-
        end if
        
        ! Longwave radiation energy balance check

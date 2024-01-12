@@ -91,7 +91,7 @@ contains
     real(r8)            , intent(in)    :: thick_roof(bounds%begl:)
     !
     ! LOCAL VARAIBLES:
-    integer               :: c,l,g,i,j,lev     ! indices 
+    integer               :: c,l,g,i,j,lev     ! indices
     type(file_desc_t)     :: ncid              ! netcdf id
     logical               :: readvar 
     integer               :: dimid             ! dimension id
@@ -639,9 +639,9 @@ contains
        end if
     end do
 
-    ! ------------------------------------------------------------------------
+    ! ----------------------------------------------
     ! Set classes of layers
-    ! ------------------------------------------------------------------------
+    ! ----------------------------------------------
 
     do c = bounds%begc, bounds%endc
        l = col%landunit(c)

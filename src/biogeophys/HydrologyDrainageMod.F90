@@ -22,7 +22,7 @@ module HydrologyDrainageMod
   use GlacierSurfaceMassBalanceMod, only : glacier_smb_type
   use TotalWaterAndHeatMod, only : ComputeWaterMassNonLake
   use LandunitType      , only : lun                
-  use ColumnType        , only : col                
+  use ColumnType        , only : col
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -35,6 +35,7 @@ module HydrologyDrainageMod
 contains
 
   !-----------------------------------------------------------------------
+
   subroutine HydrologyDrainage(bounds,               &
        num_nolakec, filter_nolakec,                  &
        num_hydrologyc, filter_hydrologyc,            &
@@ -75,14 +76,15 @@ contains
     type(soilstate_type)     , intent(inout) :: soilstate_inst
     type(waterstatebulk_type)    , intent(inout) :: waterstatebulk_inst
     type(waterdiagnosticbulk_type)    , intent(inout) :: waterdiagnosticbulk_inst
-    type(waterbalance_type)    , intent(inout) :: waterbalancebulk_inst
+    type(waterbalance_type)      , intent(inout) :: waterbalancebulk_inst
     type(waterfluxbulk_type)     , intent(inout) :: waterfluxbulk_inst
-    type(wateratm2lndbulk_type)     , intent(inout) :: wateratm2lndbulk_inst
+    type(wateratm2lndbulk_type)  , intent(inout) :: wateratm2lndbulk_inst
     type(glacier_smb_type)   , intent(in)    :: glacier_smb_inst
     !
     ! !LOCAL VARIABLES:
     integer  :: g,l,c,j,fc                 ! indices
     real(r8) :: dtime                      ! land model time step (sec)
+
     !-----------------------------------------------------------------------
 
     associate(                                                            & ! Input: layer thickness depth (m)  
@@ -174,6 +176,7 @@ contains
 
       ! Determine wetland and land ice hydrology (must be placed here
       ! since need snow updated from CombineSnowLayers)
+
 
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)

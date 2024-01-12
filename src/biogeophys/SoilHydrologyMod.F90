@@ -157,6 +157,8 @@ contains
 
   end subroutine soilhydReadNML
 
+
+
   !-----------------------------------------------------------------------
   subroutine SetSoilWaterFractions(bounds, num_hydrologyc, filter_hydrologyc, &
        soilhydrology_inst, soilstate_inst, waterstatebulk_inst)
@@ -1537,11 +1539,11 @@ contains
      type(soilhydrology_type) , intent(inout) :: soilhydrology_inst
      type(soilstate_type)     , intent(in)    :: soilstate_inst
      type(temperature_type)   , intent(in)    :: temperature_inst
-     type(waterstatebulk_type)    , intent(inout) :: waterstatebulk_inst
-     type(waterfluxbulk_type)     , intent(inout) :: waterfluxbulk_inst
+     type(waterstatebulk_type), intent(inout) :: waterstatebulk_inst
+     type(waterfluxbulk_type) , intent(inout) :: waterfluxbulk_inst
      !
      ! !LOCAL VARIABLES:
-     integer  :: c,j,fc,i                                ! indices
+     integer  :: c,j,fc,i                       ! indices
      real(r8) :: s_y
      integer  :: k,k_frz,k_perch,k_zwt
      real(r8) :: sat_lev
@@ -1574,14 +1576,14 @@ contains
 
           ! define frost table as first frozen layer with unfrozen layer above it
           if(t_soisno(c,1) > tfrz) then 
-             k_frz=nlevsoi
+             k_frz = nlevsoi
           else
-             k_frz=1
+             k_frz = 1
           endif
 
-          do k=2, nlevsoi
+          do k=2,nlevsoi
              if (t_soisno(c,k-1) > tfrz .and. t_soisno(c,k) <= tfrz) then
-                k_frz=k
+                k_frz = k
                 exit
              endif
           enddo
@@ -1635,8 +1637,7 @@ contains
                    b=z(c,k_perch+1)-m*s2
                    zwt_perched(c)=max(0._r8,m*sat_lev+b)
                 endif
-
-             endif !k_frz > k_perch 
+             endif
           endif
        end do
 
@@ -1716,16 +1717,16 @@ contains
           c = filter_hydrologyc(fc)
           k_frost(c) = nbedrock(c)
           k_perch(c) = nbedrock(c)
-          do k = 1, nbedrock(c)
+          do k=1,nbedrock(c)
              if (frost_table(c) >= zi(c,k-1) .and. frost_table(c) < zi(c,k)) then
-                k_frost(c) = k
+                k_frost(c)=k
                 exit
              endif
           enddo
 
-          do k = 1, nbedrock(c)
+          do k=1,nbedrock(c)
              if (zwt_perched(c) >= zi(c,k-1) .and. zwt_perched(c) < zi(c,k)) then
-                k_perch(c) = k
+                k_perch(c)=k
                 exit
              endif
           enddo
@@ -1760,14 +1761,14 @@ contains
           c = filter_hydrologyc(fc)
           
           ! remove drainage from perched saturated layers
-          drainage_tot =  qflx_drain_perched(c) * dtime
-
+          drainage_tot = qflx_drain_perched(c) * dtime
+          ! ignore frozen layer (k_frost)
           do k = k_perch(c), k_frost(c)-1
+
              s_y = watsat(c,k) &
                   * ( 1. - (1.+1.e3*zwt_perched(c)/sucsat(c,k))**(-1./bsw(c,k)))
              s_y=max(s_y,params_inst%aq_sp_yield_min)
-
-             if (k == k_perch(c)) then
+             if (k==k_perch(c)) then
                 drainage_layer=min(drainage_tot,(s_y*(zi(c,k) - zwt_perched(c))*1.e3))
              else
                 drainage_layer=min(drainage_tot,(s_y*(dz(c,k))*1.e3))
@@ -1776,6 +1777,7 @@ contains
              drainage_layer=max(drainage_layer,0._r8)
              drainage_tot = drainage_tot - drainage_layer
              h2osoi_liq(c,k) = h2osoi_liq(c,k) - drainage_layer
+
           enddo
 
           ! if drainage_tot is greater than available water
@@ -1845,7 +1847,7 @@ contains
 
           ! locate water table from bottom up starting at bottom of soil column
           ! sat_lev is an arbitrary saturation level used to determine water table
-          sat_lev=0.9
+          sat_lev = 0.9
           
           k_zwt=nbedrock(c)
           sat_flag=1 !will remain unchanged if all layers at saturation
@@ -2100,7 +2102,7 @@ contains
              c = filter_hydrologyc(fc)
              xsi(c)            = max(h2osoi_liq(c,j)-eff_porosity(c,j)*dzmm(c,j),0._r8)
              h2osoi_liq(c,j)   = min(eff_porosity(c,j)*dzmm(c,j), h2osoi_liq(c,j))
-             h2osoi_liq(c,j-1) = h2osoi_liq(c,j-1) + xsi(c)
+            h2osoi_liq(c,j-1) = h2osoi_liq(c,j-1) + xsi(c)
           end do
        end do
 
@@ -2177,6 +2179,7 @@ contains
 
        end do
 
+
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
 
@@ -2189,6 +2192,7 @@ contains
           qflx_qrgwl(c) = qflx_snwcp_liq(c)
 
        end do
+
 
        ! No drainage for urban columns (except for pervious road as computed above)
 

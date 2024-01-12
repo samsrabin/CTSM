@@ -26,7 +26,7 @@ module WaterFluxType
 
      class(water_info_base_type), pointer :: info
 
-     ! water fluxes are in units or mm/s
+     ! water fluxes are in units of mm/s
 
      real(r8), pointer :: qflx_through_snow_patch  (:)   ! patch canopy throughfall of snow (mm H2O/s)
      real(r8), pointer :: qflx_through_liq_patch  (:)    ! patch canopy throughfal of liquid (rain+irrigation) (mm H2O/s)

@@ -940,7 +940,7 @@ contains
             s_node = max(h2osoi_vol(c,jwt(c)+1)/watsat(c,jwt(c)+1), 0.01_r8)
             s1 = min(1._r8, s_node)
 
-            !scs: this is the expression for unsaturated hk
+            !this is the expression for unsaturated hk
             ka = imped(c,jwt(c)+1)*hksat(c,jwt(c)+1) &
                  *s1**(2._r8*bsw(c,jwt(c)+1)+3._r8)
 
@@ -953,12 +953,12 @@ contains
             smp1 = max(smpmin(c), smp(c,max(1,jwt(c))))
             wh      = smp1 - zq(c,max(1,jwt(c)))
 
-            !scs: original formulation
+            !original formulation
             if(jwt(c) == 0) then
                qcharge(c) = -ka * (wh_zwt-wh)  /((zwt(c)+1.e-3)*1000._r8)
             else
                !             qcharge(c) = -ka * (wh_zwt-wh)/((zwt(c)-z(c,jwt(c)))*1000._r8)
-               !scs: 1/2, assuming flux is at zwt interface, saturation deeper than zwt
+               !1/2, assuming flux is at zwt interface, saturation deeper than zwt
                qcharge(c) = -ka * (wh_zwt-wh)/((zwt(c)-z(c,jwt(c)))*1000._r8*2.0)
             endif
 
@@ -1413,10 +1413,17 @@ contains
 
          end do  ! substep loop
 
-!  save number of adaptive substeps used during time step
+         !  save number of adaptive substeps used during time step
          nsubsteps(c) = nsubstep
 
-! check for negative moisture values
+!!$         ! check for over-saturated layers
+!!$         do j = nlayers,2,-1
+!!$            over_saturation   = max(h2osoi_liq(c,j)-(watsat(c,j)*m_to_mm*dz(c,j)),0._r8)
+!!$            h2osoi_liq(c,j)   = min(watsat(c,j)*m_to_mm*dz(c,j), h2osoi_liq(c,j))
+!!$            h2osoi_liq(c,j-1) = h2osoi_liq(c,j-1) + over_saturation
+!!$         end do
+
+         ! check for negative moisture values
          do j = 2, nlayers
             if(h2osoi_liq(c,j) < -1e-6_r8) then
                write(*,*) 'layer, h2osoi_liq: ', c,j,h2osoi_liq(c,j)
@@ -1494,7 +1501,7 @@ contains
     character(len=32)  :: subname = 'calculate_hydraulic_properties'     ! subroutine name   
     !-----------------------------------------------------------------------
 
-!scs: originally, associate statements selected sections rather than 
+!     originally, associate statements selected sections rather than
 !     entire arrays, but due to pgi bug, removed array section selections
 !     using array sections allowed consistent 1d indexing throughout
     associate(&
@@ -1621,7 +1628,7 @@ contains
     real(r8) :: num, den      ! used in calculating qin, qout
     real(r8) :: dhkds1, dhkds2                                        !temporary variable
     real(r8),parameter :: m_to_mm = 1.e3_r8  !convert meters to mm
-!scs: temporarily use local variables for the following
+    ! temporarily use local variables for the following
     real(r8) :: vwc_liq_ub   ! liquid volumetric water content at upper boundary
     real(r8) :: vwc_liq_lb   ! liquid volumetric water content at lower boundary
     character(len=32)  :: subname = 'calculate_moisture_fluxes_and_derivs'     ! subroutine name   
@@ -1704,12 +1711,11 @@ contains
     dhkds1 = 0.5_r8 * dhkdw(j) / watsat(c,j)   ! derivative w.r.t. volumetric liquid water in the upper layer
     dhkds2 = 0.5_r8 * dhkdw(j) / watsat(c,j+1) ! derivative w.r.t. volumetric liquid water in the lower layer
 
-!scs: this is how zd is done
+    ! this is how zd is done
     if (zdflag == 1) then 
        dhkds1 = dhkdw(j)/(watsat(c,j)+watsat(c,min(nlevsoi, j+1)))
        dhkds2 = dhkds1
     endif
-!scs
 
     ! compute flux at the bottom of the j-th layer
     ! NOTE: hk(j) is hydraulic conductivity at the bottom of the j-th
@@ -1739,12 +1745,11 @@ contains
        !        layer interface w.r.t relative saturation at the interface
        dhkds1 = 0.5_r8 * dhkdw(j) / watsat(c,j)   ! derivative w.r.t. volumetric liquid water in the upper layer
        dhkds2 = 0.5_r8 * dhkdw(j) / watsat(c,j+1) ! derivative w.r.t. volumetric liquid water in the lower layer
-!scs: this is how zd is done
+       ! this is how zd is done
              if (zdflag == 1) then 
                 dhkds1 = dhkdw(j)/(watsat(c,j)+watsat(c,min(nlevsoi, j+1)))
                 dhkds2 = dhkds1
              endif
-!scs
           
        ! compute flux at the bottom of the j-th layer
        ! NOTE: hk(j) is hydraulic conductivity at the bottom of the j-th  layer
@@ -1801,12 +1806,12 @@ contains
              ! condition when the water table is a long way below the soil column
              dhkds1 = dhkdw(j) / watsat(c,j)
 
-!scs: this is how zd is done
+             ! this is how zd is done
              if (zdflag == 1) then 
                 dhkds1 = dhkdw(j)/(watsat(c,j)+watsat(c,min(nlevsoi, j+1)))
                 dhkds2 = dhkds1
              endif
-!scs
+
              ! compute flux
              num    = -smp(j)  ! NOTE: assume saturation at water table depth (smp=0)
              den    = m_to_mm * (zwt(c) - z(c,j))
@@ -1824,7 +1829,7 @@ contains
           
           ! compute the relative saturation at the lower boundary
           s1 = vwc_liq_lb / watsat(c,j)
-!scs: mc's original expression          s1 = (vwc_liq_lb - watres(c,j)) / (watsat(c,j) - watres(c,j))
+          ! mc's original expression          s1 = (vwc_liq_lb - watres(c,j)) / (watsat(c,j) - watres(c,j))
           s1 = min(s1, 1._r8)
           s1 = max(0.01_r8, s1)
           

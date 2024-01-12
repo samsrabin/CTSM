@@ -4164,7 +4164,6 @@ sub setup_logic_soil_resis {
 
   add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, 'soil_resis_method' );
 }
-#-------------------------------------------------------------------------------
 
 sub setup_logic_canopyfluxes {
   #
@@ -4527,6 +4526,7 @@ sub write_output_files {
 
   # CLM component
   my @groups;
+
   @groups = qw(clm_inparm ndepdyn_nml popd_streams urbantv_streams light_streams
                soil_moisture_streams lai_streams atm2lnd_inparm lnd2atm_inparm clm_canopyhydrology_inparm cnphenology
                cropcal_streams

@@ -2486,7 +2486,6 @@ contains
     call ncd_defdim(lnfid, 'scale_type_string_length', scale_type_strlen, dimid)
     call ncd_defdim( lnfid, 'levdcmp', nlevdecomp_full, dimid)
 
-
     if(use_fates)then
        call ncd_defdim(lnfid, 'fates_levscag', nlevsclass * nlevage, dimid)
        call ncd_defdim(lnfid, 'fates_levscagpf', nlevsclass * nlevage * numpft_fates, dimid)
@@ -2727,6 +2726,7 @@ contains
          'lake', &  ! ZLAKE
          'lake'  &  ! DZLAKE
          ]
+
     !-----------------------------------------------------------------------
 
     SHR_ASSERT_ALL_FL((ubound(watsat_col)   == (/bounds%endc, nlevmaxurbgrnd/)), sourcefile, __LINE__)
@@ -4573,7 +4573,6 @@ contains
        max_nflds = max_nFields()
 
        start(1)=1
-
 
        !
        ! Add history namelist data to each history restart tape
