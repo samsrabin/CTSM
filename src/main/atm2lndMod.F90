@@ -18,6 +18,7 @@ module atm2lndMod
   use decompMod      , only : bounds_type, subgrid_level_gridcell, subgrid_level_column
   use atm2lndType    , only : atm2lnd_type
   use TopoMod        , only : topo_type
+  use SurfaceAlbedoType, only : surfalb_type
   use filterColMod   , only : filter_col_type
   use LandunitType   , only : lun                
   use ColumnType     , only : col
@@ -92,7 +93,7 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine downscale_forcings(bounds, &
-       topo_inst, atm2lnd_inst, wateratm2lndbulk_inst, eflx_sh_precip_conversion)
+       topo_inst, atm2lnd_inst, surfalb_inst, wateratm2lndbulk_inst, eflx_sh_precip_conversion)
     !
     ! !DESCRIPTION:
     ! Downscale atmospheric forcing fields from gridcell to column.
@@ -118,6 +119,7 @@ contains
     type(bounds_type)  , intent(in)    :: bounds  
     class(topo_type)   , intent(in)    :: topo_inst
     type(atm2lnd_type) , intent(inout) :: atm2lnd_inst
+    class(surfalb_type)   , intent(in)    :: surfalb_inst
     type(wateratm2lndbulk_type) , intent(inout) :: wateratm2lndbulk_inst
     real(r8)           , intent(out)   :: eflx_sh_precip_conversion(bounds%begc:) ! sensible heat flux from precipitation conversion (W/m**2) [+ to atm]
     !
@@ -144,6 +146,8 @@ contains
 
          ! Gridcell-level metadata:
          forc_topo_g  => atm2lnd_inst%forc_topo_grc                , & ! Input:  [real(r8) (:)]  atmospheric surface height (m)
+         forc_rain_g  => wateratm2lndbulk_inst%forc_rain_not_downscaled_grc , & ! Input:  [real(r8) (:)]  rain rate [mm/s]
+         forc_snow_g  => wateratm2lndbulk_inst%forc_snow_not_downscaled_grc , & ! Input:  [real(r8) (:)]  snow rate [mm/s]
 
          ! Column-level metadata:
          topo_c       => topo_inst%topo_col                        , & ! Input:  [real(r8) (:)] column surface height (m)
@@ -154,13 +158,19 @@ contains
          forc_q_g     => wateratm2lndbulk_inst%forc_q_not_downscaled_grc    , & ! Input:  [real(r8) (:)]  atmospheric specific humidity (kg/kg)   
          forc_pbot_g  => atm2lnd_inst%forc_pbot_not_downscaled_grc , & ! Input:  [real(r8) (:)]  atmospheric pressure (Pa)               
          forc_rho_g   => atm2lnd_inst%forc_rho_not_downscaled_grc  , & ! Input:  [real(r8) (:)]  atmospheric density (kg/m**3)           
-         
+         forc_solad_g => atm2lnd_inst%forc_solad_not_downscaled_grc               , & ! Input:  [real(r8) (:)]  gridcell direct incoming solar radiation
+         forc_solar_g => atm2lnd_inst%forc_solar_not_downscaled_grc, & ! Input:  [real(r8) (:)]  gridcell direct incoming solar radiation
+
          ! Column-level downscaled fields:
+         forc_rain_c  => wateratm2lndbulk_inst%forc_rain_downscaled_col    , & ! Output: [real(r8) (:)]  rain rate [mm/s]
+         forc_snow_c  => wateratm2lndbulk_inst%forc_snow_downscaled_col    , & ! Output: [real(r8) (:)]  snow rate [mm/s]
+         forc_q_c     => wateratm2lndbulk_inst%forc_q_downscaled_col       , & ! Output: [real(r8) (:)]  atmospheric specific humidity (kg/kg)
          forc_t_c     => atm2lnd_inst%forc_t_downscaled_col        , & ! Output: [real(r8) (:)]  atmospheric temperature (Kelvin)        
          forc_th_c    => atm2lnd_inst%forc_th_downscaled_col       , & ! Output: [real(r8) (:)]  atmospheric potential temperature (Kelvin)
-         forc_q_c     => wateratm2lndbulk_inst%forc_q_downscaled_col        , & ! Output: [real(r8) (:)]  atmospheric specific humidity (kg/kg)   
          forc_pbot_c  => atm2lnd_inst%forc_pbot_downscaled_col     , & ! Output: [real(r8) (:)]  atmospheric pressure (Pa)               
-         forc_rho_c   => atm2lnd_inst%forc_rho_downscaled_col        & ! Output: [real(r8) (:)]  atmospheric density (kg/m**3)           
+         forc_rho_c   => atm2lnd_inst%forc_rho_downscaled_col      , & ! Output: [real(r8) (:)]  atmospheric density (kg/m**3)
+         forc_solad_c => atm2lnd_inst%forc_solad_downscaled_col    , & ! Output:  [real(r8) (:)]  column direct incoming solar radiation
+         forc_solar_c => atm2lnd_inst%forc_solar_downscaled_col      & ! Output:  [real(r8) (:)]  column total incoming solar radiation
          )
       
       ! Initialize column forcing (needs to be done for ALL active columns)
@@ -168,11 +178,15 @@ contains
          if (col%active(c)) then
             g = col%gridcell(c)
 
+            forc_rain_c(c)  = forc_rain_g(g)
+            forc_snow_c(c)  = forc_snow_g(g)
             forc_t_c(c)     = forc_t_g(g)
             forc_th_c(c)    = forc_th_g(g)
             forc_q_c(c)     = forc_q_g(g)
             forc_pbot_c(c)  = forc_pbot_g(g)
             forc_rho_c(c)   = forc_rho_g(g)
+            forc_solar_c(c) = forc_solar_g(g)
+            forc_solad_c(c,1:numrad) = forc_solad_g(g,1:numrad)
          end if
       end do
 
@@ -313,10 +327,6 @@ contains
     SHR_ASSERT_ALL_FL((ubound(eflx_sh_precip_conversion) == (/bounds%endc/)), sourcefile, __LINE__)
 
     associate(&
-         ! Gridcell-level non-downscaled fields:
-         forc_rain_g  => wateratm2lndbulk_inst%forc_rain_not_downscaled_grc , & ! Input:  [real(r8) (:)]  rain rate [mm/s]
-         forc_snow_g  => wateratm2lndbulk_inst%forc_snow_not_downscaled_grc , & ! Input:  [real(r8) (:)]  snow rate [mm/s]
-         
          ! Column-level downscaled fields:
          forc_t_c                  => atm2lnd_inst%forc_t_downscaled_col                , & ! Input:  [real(r8) (:)]  atmospheric temperature (Kelvin)        
          forc_rain_c               => wateratm2lndbulk_inst%forc_rain_downscaled_col    , & ! Output: [real(r8) (:)]  rain rate [mm/s]
@@ -329,8 +339,6 @@ contains
     do c = bounds%begc,bounds%endc
        if (col%active(c)) then
           g = col%gridcell(c)
-          forc_rain_c(c)  = forc_rain_g(g)
-          forc_snow_c(c)  = forc_snow_g(g)
           rain_to_snow_conversion_c(c) = 0._r8
           snow_to_rain_conversion_c(c) = 0._r8
           eflx_sh_precip_conversion(c) = 0._r8
