@@ -324,7 +324,7 @@ CONTAINS
             spec_hum   = forc_q(c)
             rain       = forc_rain(c)
             sfc_temp   = forc_t(c)
-            solar_flux = forc_solad(c,1)
+            solar_flux = forc_solad(g,1)
             lat        = grc%latdeg(g)
             lon        = grc%londeg(g)
             clmveg     = patch%itype(pi)
