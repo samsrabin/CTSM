@@ -590,10 +590,10 @@ contains
          avgflag='A', long_name='atmospheric air temperature received from atmosphere (pre-downscaling)', &
          ptr_gcell=this%forc_t_not_downscaled_grc, default='inactive')
 
-    this%forc_solar_downscaled_col(begc:endc) = spval
+    this%forc_solar_not_downscaled_grc(begg:endg) = spval
     call hist_addfld1d (fname='FSDS', units='W/m^2',  &
          avgflag='A', long_name='atmospheric incident solar radiation (downscaled for glacier and hillslope columns)', &
-         ptr_col=this%forc_solar_downscaled_col)
+         ptr_lnd=this%forc_solar_not_downscaled_grc)
 
     this%forc_t_downscaled_col(begc:endc) = spval
     call hist_addfld1d (fname='TBOT', units='K',  &
