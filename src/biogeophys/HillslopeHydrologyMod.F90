@@ -697,13 +697,11 @@ contains
 
     integer               :: c, l, g, i, j
     real(r8)              :: min_hill_dist, max_hill_dist
-    real(r8)              :: m, b           ! linear soil thickness slope/intercept
     real(r8)              :: soil_depth_col
     real(r8)              :: soil_depth_lowland
     real(r8)              :: soil_depth_upland
     real(r8), parameter   :: soil_depth_lowland_default = 8.0
     real(r8), parameter   :: soil_depth_upland_default  = 8.0
-    real(r8), parameter   :: toosmall_distance  = 1e-6
 
     character(len=*), parameter :: subname = 'HillslopeSoilThicknessProfile'
 
@@ -747,34 +745,60 @@ contains
     ! Linear soil thickness profile
     else if (soil_profile_method == soil_profile_linear) then
        do l = bounds%begl,bounds%endl
-          min_hill_dist = minval(col%hill_distance(lun%coli(l):lun%colf(l)))
-          max_hill_dist = maxval(col%hill_distance(lun%coli(l):lun%colf(l)))
-
-          if (abs(max_hill_dist - min_hill_dist) > toosmall_distance) then
-             m = (soil_depth_lowland - soil_depth_upland)/ &
-                  (max_hill_dist - min_hill_dist)
-          else
-             m = 0._r8
-          end if
-          b = soil_depth_upland
-
-          do c =  lun%coli(l), lun%colf(l)
-             if (col%is_hillslope_column(c) .and. col%active(c)) then
-                soil_depth_col = m*(max_hill_dist - col%hill_distance(c)) + b
-
-                do j = 1,nlevsoi
-                   if ((zisoi(j-1) <  soil_depth_col) .and. (zisoi(j) >= soil_depth_col)) then
-                      col%nbedrock(c) = j
-                   end if
-                enddo
-             end if
-          enddo
+          call HillslopeSoilThicknessProfile_linear(l, soil_depth_lowland, soil_depth_upland)
        enddo
     else if (masterproc) then
        call endrun( 'ERROR:: invalid soil_profile_method.'//errmsg(sourcefile, __LINE__) )
     end if
 
   end subroutine HillslopeSoilThicknessProfile
+
+  !------------------------------------------------------------------------
+  subroutine HillslopeSoilThicknessProfile_linear(l, soil_depth_lowland, soil_depth_upland)
+    !
+    ! !DESCRIPTION
+    ! Calculates hillslope soil thickness profile using the "Linear" method
+    !
+    ! !USES:
+    use LandunitType    , only : lun
+    use ColumnType      , only : col
+    use clm_varcon      , only : zisoi
+    use clm_varpar      , only : nlevsoi
+    !
+    ! !ARGUMENTS
+    integer, intent(in) :: l  ! land unit index
+    real(r8), intent(in) :: soil_depth_lowland, soil_depth_upland
+    !
+    ! !LOCAL VARIABLES
+    real(r8)              :: m, b           ! linear soil thickness slope/intercept
+    real(r8), parameter   :: toosmall_distance  = 1e-6
+    integer :: c, j  ! Loop indices
+    real :: min_hill_dist, max_hill_dist
+    real :: soil_depth_col
+
+    min_hill_dist = minval(col%hill_distance(lun%coli(l):lun%colf(l)))
+    max_hill_dist = maxval(col%hill_distance(lun%coli(l):lun%colf(l)))
+
+    if (abs(max_hill_dist - min_hill_dist) > toosmall_distance) then
+       m = (soil_depth_lowland - soil_depth_upland)/ &
+            (max_hill_dist - min_hill_dist)
+    else
+       m = 0._r8
+    end if
+    b = soil_depth_upland
+
+    do c =  lun%coli(l), lun%colf(l)
+       if (col%is_hillslope_column(c) .and. col%active(c)) then
+          soil_depth_col = m*(max_hill_dist - col%hill_distance(c)) + b
+
+          do j = 1,nlevsoi
+             if ((zisoi(j-1) <  soil_depth_col) .and. (zisoi(j) >= soil_depth_col)) then
+                col%nbedrock(c) = j
+             end if
+          enddo
+       end if
+    enddo
+  end subroutine HillslopeSoilThicknessProfile_linear
 
   !------------------------------------------------------------------------
   subroutine HillslopeSetLowlandUplandPfts(bounds,lowland_ivt,upland_ivt)
