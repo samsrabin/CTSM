@@ -896,11 +896,12 @@ contains
     ! !USES:
     use clm_instur, only : ncolumns_hillslope, wt_nat_patch
     use clm_varctl, only : nhillslope,max_columns_hillslope
-    use clm_varpar, only : natpft_size, natpft_lb
+    use clm_varpar, only : natpft_size, natpft_lb, natpft_ub
     use ncdio_pio,  only : ncd_inqdid, ncd_inqdlen
     use pftconMod , only : noveg
     use HillslopeHydrologyMod, only : pft_distribution_method, pft_standard, pft_from_file, pft_uniform_dominant_pft, pft_lowland_dominant_pft, pft_lowland_upland
     use array_utils, only: find_k_max_indices
+    use surfrdUtilsMod, only: collapse_to_dominant
 
     !
     ! !ARGUMENTS:
@@ -916,6 +917,7 @@ contains
     logical  :: readvar                        ! is variable on dataset
     integer,pointer :: arrayl(:)               ! local array (needed because ncd_io expects a pointer)
     character(len=32) :: subname = 'surfrd_hillslope'  ! subroutine name
+    logical, allocatable :: do_not_collapse(:)
     !-----------------------------------------------------------------------
 
     ! number of hillslopes per landunit
@@ -963,19 +965,19 @@ contains
     ! pft_uniform_dominant_pft uses the patch with the
     ! largest weight for all hillslope columns in the gridcell
     else if (pft_distribution_method == pft_uniform_dominant_pft) then
-       allocate(max_indices(1))
+
+       ! If hillslopes will be used in a gridcell, modify wt_nat_patch,
+       ! otherwise use original patch distribution
+       allocate(do_not_collapse(begg:endg))
+       do_not_collapse(begg:endg) = .false.
        do g = begg, endg
-          ! If hillslopes will be used in a gridcell, modify wt_nat_patch,
-          ! otherwise use original patch distribution
-          if(ncolumns_hillslope(g) > 0) then
+          if (ncolumns_hillslope(g) == 0) then
+             do_not_collapse(g) = .true.
+          end if
+       end do
 
-             call find_k_max_indices(wt_nat_patch(g,:),natpft_lb,1,max_indices)
-             wt_nat_patch(g,:) = 0._r8
-             wt_nat_patch(g,max_indices(1)) = 100._r8
-
-          endif
-       enddo
-       deallocate(max_indices)
+       call collapse_to_dominant(wt_nat_patch(begg:endg,:), natpft_lb, natpft_ub, begg, endg, 1, do_not_collapse)
+       deallocate(do_not_collapse)
 
     ! pft_lowland_dominant_pft uses the two patches with the
     ! largest weights for the hillslope columns in the gridcell
