@@ -918,7 +918,7 @@ contains
     integer,pointer :: arrayl(:)               ! local array (needed because ncd_io expects a pointer)
     character(len=32) :: subname = 'surfrd_hillslope'  ! subroutine name
     logical, allocatable :: do_not_collapse(:)
-    real(r8) :: dom_sum, w1, w2
+    real(r8) :: dom_sum, w1, w2, wt_sum
     !-----------------------------------------------------------------------
 
     ! number of hillslopes per landunit
@@ -989,18 +989,19 @@ contains
           if(ncolumns_hillslope(g) > 0) then
 
              call find_k_max_indices(wt_nat_patch(g,:),natpft_lb,2,max_indices)
+             wt_sum = sum(wt_nat_patch(g,:))
              ! check that 2nd index weight is non-zero
              if (wt_nat_patch(g,max_indices(2)) > 0._r8) then
                 w1 = wt_nat_patch(g,max_indices(1))
                 w2 = wt_nat_patch(g,max_indices(2))
                 dom_sum = w1 + w2
                 wt_nat_patch(g,:) = 0._r8
-                wt_nat_patch(g,max_indices(1)) = 100._r8 * w1 / dom_sum
-                wt_nat_patch(g,max_indices(2)) = 100._r8 * w2 / dom_sum
+                wt_nat_patch(g,max_indices(1)) = wt_sum * w1 / dom_sum
+                wt_nat_patch(g,max_indices(2)) = wt_sum * w2 / dom_sum
              else
                 ! if only one pft exists, set its weight to 100 per cent
                 wt_nat_patch(g,:) = 0._r8
-                wt_nat_patch(g,max_indices(1)) = 100._r8
+                wt_nat_patch(g,max_indices(1)) = wt_sum
              endif
 
           endif
