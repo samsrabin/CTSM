@@ -918,6 +918,7 @@ contains
     integer,pointer :: arrayl(:)               ! local array (needed because ncd_io expects a pointer)
     character(len=32) :: subname = 'surfrd_hillslope'  ! subroutine name
     logical, allocatable :: do_not_collapse(:)
+    real(r8) :: dom_sum, w1, w2
     !-----------------------------------------------------------------------
 
     ! number of hillslopes per landunit
@@ -987,18 +988,15 @@ contains
           ! If hillslopes will be used in a gridcell, modify wt_nat_patch, otherwise use original patch distribution
           if(ncolumns_hillslope(g) > 0) then
 
-             ! Preserve the relative weights of the largest and
-             ! next largest weights using arbitrarily chosen values
-             ! (i.e. 1 should be larger than 2) that sum to 100.
-             ! This will minimize memory usage while still allowing
-             ! HillslopeDominantLowlandPft to pick out the two largest patch types.
-
              call find_k_max_indices(wt_nat_patch(g,:),natpft_lb,2,max_indices)
              ! check that 2nd index weight is non-zero
              if (wt_nat_patch(g,max_indices(2)) > 0._r8) then
+                w1 = wt_nat_patch(g,max_indices(1))
+                w2 = wt_nat_patch(g,max_indices(2))
+                dom_sum = w1 + w2
                 wt_nat_patch(g,:) = 0._r8
-                wt_nat_patch(g,max_indices(1)) = 75._r8
-                wt_nat_patch(g,max_indices(2)) = 25._r8
+                wt_nat_patch(g,max_indices(1)) = 100._r8 * w1 / dom_sum
+                wt_nat_patch(g,max_indices(2)) = 100._r8 * w2 / dom_sum
              else
                 ! if only one pft exists, set its weight to 100 per cent
                 wt_nat_patch(g,:) = 0._r8
