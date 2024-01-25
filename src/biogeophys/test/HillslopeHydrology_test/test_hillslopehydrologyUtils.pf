@@ -13,7 +13,6 @@ module test_hillslopehydrologyUtils
   use clm_varcon      , only : ispval
   use clm_varpar      , only : nlevsno, nlevgrnd
   use shr_kind_mod    , only : r8 => shr_kind_r8
-  use TemperatureType , only : temperature_type
   use HillslopeHydrologyUtilsMod, only : HillslopeSoilThicknessProfile_linear
 
   implicit none
@@ -22,33 +21,25 @@ module test_hillslopehydrologyUtils
 
   @TestCase
   type, extends(TestCase) :: TestInit
-     logical, allocatable :: cactive_prior(:)
      integer :: c_new     ! column index of the new column to initialize in some tests
      integer :: l1        ! index of the landunit with landunit type 1
      integer :: l2        ! index of the landunit with landunit type 2
-     type(temperature_type) :: temperature_inst
    contains
      procedure :: setUp
      procedure :: tearDown
-    !  procedure :: init_waterstate
   end type TestInit
 
 contains
 
   subroutine setUp(this)
     ! Set up variables needed for tests: various subgrid type variables, along with
-    ! bounds and this%cactive_prior.
+    ! bounds.
     !
-    ! There is guaranteed to be at least one water tracer.
-    !
-    ! col%active and this%cactive_prior need to be set by specific tests
-    use clm_varcon, only: clm_varcon_init, zisoi, secspday
-    use clm_varpar, only: nlevlak, nlevgrnd, nlevdecomp_full
+    ! col%active etc. need to be set by specific tests
+    use clm_varcon, only: clm_varcon_init, zisoi
+    use clm_varpar, only: nlevgrnd
     class(TestInit), intent(inout) :: this
     real(r8), parameter :: my_zisoi(nlevsoi) = [0.01_r8, 0.02_r8, 2._r8, 4._r8, 6._r8]
-
-    integer :: c, lev
-    integer :: tracer_num
 
     ! Set up subgrid structure
     ! The weights (of both landunits and columns) and column types in the following are
@@ -81,19 +72,12 @@ contains
 
     call unittest_subgrid_setup_end()
 
+    ! These will be enabled by specific tests
     col%active(begc:endc) = .false.
-    allocate(this%cactive_prior(bounds%begc:bounds%endc), source=.false.)
+    col%is_hillslope_column(begc:endc) = .false.
 
-    allocate(this%temperature_inst%t_soisno_col(bounds%begc:bounds%endc, -nlevsno+1:nlevgrnd))
-    do lev = -nlevsno+1, nlevgrnd
-       do c = bounds%begc, bounds%endc
-          this%temperature_inst%t_soisno_col(c, lev) = c*1000 + lev
-       end do
-    end do
-
+    ! Set up ground/soil structure
     nlevgrnd = size(my_zisoi)
-    nlevlak = 10
-    nlevdecomp_full = nlevgrnd
     call clm_varcon_init( is_simple_buildtemp = .true.)
     zisoi(0) = 0._r8
     zisoi(1:nlevgrnd) = my_zisoi(:)
@@ -104,7 +88,6 @@ contains
     ! clean up stuff set up in setup()
     class(TestInit), intent(inout) :: this
 
-    deallocate(this%temperature_inst%t_soisno_col)
     call unittest_subgrid_teardown()
 
   end subroutine tearDown
