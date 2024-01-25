@@ -25,7 +25,7 @@ module HillslopeHydrologyUtilsMod
 contains
 
   !------------------------------------------------------------------------
-  subroutine HillslopeSoilThicknessProfile_linear(bounds, soil_depth_lowland, soil_depth_upland)
+  subroutine HillslopeSoilThicknessProfile_linear(nbedrock, bounds, soil_depth_lowland, soil_depth_upland)
     !
     ! !DESCRIPTION:
     ! Modify soil thickness across hillslope by changing
@@ -38,6 +38,7 @@ contains
     use clm_varcon      , only : zisoi
     !
     ! !ARGUMENTS:
+    integer, pointer, intent(inout) :: nbedrock(:)
     type(bounds_type), intent(in) :: bounds
     real(r8), intent(in) :: soil_depth_lowland, soil_depth_upland
     !
