@@ -918,7 +918,7 @@ contains
     integer,pointer :: arrayl(:)               ! local array (needed because ncd_io expects a pointer)
     character(len=32) :: subname = 'surfrd_hillslope'  ! subroutine name
     logical, allocatable :: do_not_collapse(:)
-    real(r8) :: dom_sum, w1, w2, wt_sum
+    integer :: n_dominant
     !-----------------------------------------------------------------------
 
     ! number of hillslopes per landunit
@@ -963,9 +963,8 @@ contains
           endif
        enddo
 
-    ! pft_uniform_dominant_pft uses the patch with the
-    ! largest weight for all hillslope columns in the gridcell
-    else if (pft_distribution_method == pft_uniform_dominant_pft) then
+    else if (pft_distribution_method == pft_uniform_dominant_pft &
+        .or. pft_distribution_method == pft_lowland_dominant_pft) then
 
        ! If hillslopes will be used in a gridcell, modify wt_nat_patch,
        ! otherwise use original patch distribution
@@ -977,36 +976,20 @@ contains
           end if
        end do
 
-       call collapse_to_dominant(wt_nat_patch(begg:endg,:), natpft_lb, natpft_ub, begg, endg, 1, do_not_collapse)
+       if (pft_distribution_method == pft_uniform_dominant_pft) then
+         ! pft_uniform_dominant_pft uses the patch with the
+         ! largest weight for all hillslope columns in the gridcell
+         n_dominant = 1
+       else if (pft_distribution_method == pft_lowland_dominant_pft) then
+         ! pft_lowland_dominant_pft uses the two patches with the
+         ! largest weights for the hillslope columns in the gridcell
+         n_dominant = 2
+       else
+          call endrun( msg=' ERROR: unrecognized hillslope_pft_distribution_method'//errMsg(sourcefile, __LINE__))
+       end if
+
+       call collapse_to_dominant(wt_nat_patch(begg:endg,:), natpft_lb, natpft_ub, begg, endg, n_dominant, do_not_collapse)
        deallocate(do_not_collapse)
-
-    ! pft_lowland_dominant_pft uses the two patches with the
-    ! largest weights for the hillslope columns in the gridcell
-    else if (pft_distribution_method == pft_lowland_dominant_pft) then
-       allocate(max_indices(2))
-       do g = begg, endg
-          ! If hillslopes will be used in a gridcell, modify wt_nat_patch, otherwise use original patch distribution
-          if(ncolumns_hillslope(g) > 0) then
-
-             call find_k_max_indices(wt_nat_patch(g,:),natpft_lb,2,max_indices)
-             wt_sum = sum(wt_nat_patch(g,:))
-             ! check that 2nd index weight is non-zero
-             if (wt_nat_patch(g,max_indices(2)) > 0._r8) then
-                w1 = wt_nat_patch(g,max_indices(1))
-                w2 = wt_nat_patch(g,max_indices(2))
-                dom_sum = w1 + w2
-                wt_nat_patch(g,:) = 0._r8
-                wt_nat_patch(g,max_indices(1)) = wt_sum * w1 / dom_sum
-                wt_nat_patch(g,max_indices(2)) = wt_sum * w2 / dom_sum
-             else
-                ! if only one pft exists, set its weight to 100 per cent
-                wt_nat_patch(g,:) = 0._r8
-                wt_nat_patch(g,max_indices(1)) = wt_sum
-             endif
-
-          endif
-       enddo
-       deallocate(max_indices)
 
     else if (pft_distribution_method /= pft_standard) then
       call endrun( msg=' ERROR: unrecognized hillslope_pft_distribution_method'//errMsg(sourcefile, __LINE__))
