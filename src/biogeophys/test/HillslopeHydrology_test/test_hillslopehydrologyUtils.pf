@@ -22,6 +22,8 @@ module test_hillslopehydrologyUtils
   real(r8), parameter :: soil_depth_lowland = 8.5_r8
   real(r8), parameter :: soil_depth_upland = 2._r8
 
+  integer, parameter :: nbedrock_dummy_value = 9999
+
   @TestCase
   type, extends(TestCase) :: TestInit
      integer :: c_new     ! column index of the new column to initialize in some tests
@@ -90,6 +92,7 @@ contains
     do c = lun%coli(l), lun%colf(l)
        col%hill_distance(c) = real(c, kind=r8)
     end do
+    col%nbedrock(bounds%begc:bounds%endc) = nbedrock_dummy_value
 
     deallocate(my_zisoi)
 
@@ -109,7 +112,6 @@ contains
   subroutine test_HillslopeSoilThicknessProfile_linear(this)
     class(TestInit), intent(inout) :: this
     integer, allocatable :: nbedrock_expected(:)
-    integer, parameter :: nbedrock_dummy_value = 9999
     integer :: l, c
 
     l = bounds%begl
@@ -117,13 +119,10 @@ contains
     col%active(bounds%begc:bounds%endc) = .true.
     col%is_hillslope_column(bounds%begc:bounds%endc) = .true.
 
-    ! Set up example land units
-    allocate(nbedrock_expected(bounds%begc:bounds%endc))
-    col%nbedrock(bounds%begc:bounds%endc) = nbedrock_dummy_value
-
     ! Get expected values !!!!!!!!!!!!!!!!!!!
     ! Layer 1 soil_depth_col = 8.5
     ! Layer 2 soil_depth_col = 2.0
+    allocate(nbedrock_expected(bounds%begc:bounds%endc))
     nbedrock_expected(lun%coli(l)) = 9999
     nbedrock_expected(lun%coli(l) + 1) = 3
 
@@ -139,7 +138,6 @@ contains
   subroutine test_HillslopeSoilThicknessProfile_linear_inactive(this)
     class(TestInit), intent(inout) :: this
     integer, allocatable :: nbedrock_expected(:)
-    integer, parameter :: nbedrock_dummy_value = 9999
     integer :: l, c
 
     l = bounds%begl
@@ -147,13 +145,10 @@ contains
     col%active(bounds%begc:bounds%endc) = .false.
     col%is_hillslope_column(bounds%begc:bounds%endc) = .true.
 
-    ! Set up example land units
-    allocate(nbedrock_expected(bounds%begc:bounds%endc))
-    col%nbedrock(bounds%begc:bounds%endc) = nbedrock_dummy_value
-
     ! Get expected values !!!!!!!!!!!!!!!!!!!
     ! Layer 1 soil_depth_col = 8.5
     ! Layer 2 soil_depth_col = 2.0, but not active
+    allocate(nbedrock_expected(bounds%begc:bounds%endc))
     nbedrock_expected(lun%coli(l)) = 9999
     nbedrock_expected(lun%coli(l) + 1) = 9999
 
@@ -169,7 +164,6 @@ contains
   subroutine test_HillslopeSoilThicknessProfile_linear_nohillslope(this)
     class(TestInit), intent(inout) :: this
     integer, allocatable :: nbedrock_expected(:)
-    integer, parameter :: nbedrock_dummy_value = 9999
     integer :: l, c
 
     l = bounds%begl
@@ -177,13 +171,10 @@ contains
     col%active(bounds%begc:bounds%endc) = .true.
     col%is_hillslope_column(bounds%begc:bounds%endc) = .false.
 
-    ! Set up example land units
-    allocate(nbedrock_expected(bounds%begc:bounds%endc))
-    col%nbedrock(bounds%begc:bounds%endc) = nbedrock_dummy_value
-
     ! Get expected values !!!!!!!!!!!!!!!!!!!
     ! Layer 1 soil_depth_col = 8.5
     ! Layer 2 soil_depth_col = 2.0, but not is_hillslope_column
+    allocate(nbedrock_expected(bounds%begc:bounds%endc))
     nbedrock_expected(lun%coli(l)) = 9999
     nbedrock_expected(lun%coli(l) + 1) = 9999
 
