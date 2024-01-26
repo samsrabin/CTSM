@@ -25,7 +25,7 @@ module HillslopeHydrologyUtilsMod
 contains
 
   !------------------------------------------------------------------------
-  subroutine HillslopeSoilThicknessProfile_linear(nbedrock, bounds, hill_distance, soil_depth_lowland, soil_depth_upland)
+  subroutine HillslopeSoilThicknessProfile_linear(nbedrock, bounds, soil_depth_lowland, soil_depth_upland)
     !
     ! !DESCRIPTION:
     ! Modify soil thickness across hillslope by changing
@@ -39,7 +39,6 @@ contains
     !
     ! !ARGUMENTS:
     integer, pointer, intent(inout) :: nbedrock(:)
-    real(r8), pointer, intent(in) :: hill_distance(:)
     type(bounds_type), intent(in) :: bounds
     real(r8), intent(in) :: soil_depth_lowland, soil_depth_upland
     !
@@ -51,8 +50,8 @@ contains
     real(r8), parameter :: toosmall_distance  = 1e-6
 
     do l = bounds%begl,bounds%endl
-       min_hill_dist = minval(hill_distance(lun%coli(l):lun%colf(l)))
-       max_hill_dist = maxval(hill_distance(lun%coli(l):lun%colf(l)))
+       min_hill_dist = minval(col%hill_distance(lun%coli(l):lun%colf(l)))
+       max_hill_dist = maxval(col%hill_distance(lun%coli(l):lun%colf(l)))
 
        if (abs(max_hill_dist - min_hill_dist) > toosmall_distance) then
           m = (soil_depth_lowland - soil_depth_upland)/ &
@@ -65,7 +64,7 @@ contains
        do c =  lun%coli(l), lun%colf(l)
           write(iulog, *) 'c = ',c
           if (col%is_hillslope_column(c) .and. col%active(c)) then
-             soil_depth_col = m*(max_hill_dist - hill_distance(c)) + b
+             soil_depth_col = m*(max_hill_dist - col%hill_distance(c)) + b
              do j = 1,nlevsoi
                if ((zisoi(j-1) <  soil_depth_col) .and. (zisoi(j) >= soil_depth_col)) then
                   nbedrock(c) = j

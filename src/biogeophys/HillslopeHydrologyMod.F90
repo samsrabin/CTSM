@@ -746,7 +746,7 @@ contains
        end do
     ! Linear soil thickness profile
     else if (soil_profile_method == soil_profile_linear) then
-       call HillslopeSoilThicknessProfile_linear(col%nbedrock, bounds, col%hill_distance, soil_depth_lowland, soil_depth_upland)
+       call HillslopeSoilThicknessProfile_linear(col%nbedrock, bounds, soil_depth_lowland, soil_depth_upland)
     else if (masterproc) then
        call endrun( 'ERROR:: invalid soil_profile_method.'//errmsg(sourcefile, __LINE__) )
     end if
