@@ -33,6 +33,7 @@ contains
     !
     ! !USES:
     use LandunitType    , only : lun
+    use ColumnType      , only : col
     use clm_varpar      , only : nlevsoi
     use clm_varcon      , only : zisoi
     !
@@ -74,7 +75,7 @@ contains
 
        do c =  lun%coli(l), lun%colf(l)
           write(iulog, *) 'c = ',c
-          if (.true.) then
+          if (col%is_hillslope_column(c) .and. col%active(c)) then
              soil_depth_col = m*(max_hill_dist - hill_distance(c)) + b
              write(iulog, *) 'hill_distance(c) = ',hill_distance(c)
              do j = 1,nlevsoi
