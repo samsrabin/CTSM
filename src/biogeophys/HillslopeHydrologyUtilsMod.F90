@@ -50,17 +50,9 @@ contains
     integer :: c, j, l
     real(r8), parameter :: toosmall_distance  = 1e-6
 
-    write(iulog, *) 'soil_depth_lowland = ',soil_depth_lowland
-    write(iulog, *) 'soil_depth_upland  = ',soil_depth_upland
-
-    write(iulog, *) 'START HillslopeSoilThicknessProfile_linear'
     do l = bounds%begl,bounds%endl
-      write(iulog, *) 'l = ',l
        min_hill_dist = minval(hill_distance(lun%coli(l):lun%colf(l)))
        max_hill_dist = maxval(hill_distance(lun%coli(l):lun%colf(l)))
-
-       write(iulog, *) 'min_hill_dist = ',min_hill_dist
-       write(iulog, *) 'max_hill_dist = ',max_hill_dist
 
        if (abs(max_hill_dist - min_hill_dist) > toosmall_distance) then
           m = (soil_depth_lowland - soil_depth_upland)/ &
@@ -70,27 +62,17 @@ contains
        end if
        b = soil_depth_upland
 
-       write(iulog, *) 'm = ',m
-       write(iulog, *) 'b = ',b
-
        do c =  lun%coli(l), lun%colf(l)
           write(iulog, *) 'c = ',c
           if (col%is_hillslope_column(c) .and. col%active(c)) then
              soil_depth_col = m*(max_hill_dist - hill_distance(c)) + b
-             write(iulog, *) 'hill_distance(c) = ',hill_distance(c)
              do j = 1,nlevsoi
-               write(iulog, *) '   j = ',j
-               write(iulog, *), '      soil_depth_col = ',soil_depth_col
-               write(iulog, *), '      zisoi(j-1) = ',zisoi(j-1)
-               write(iulog, *), '      zisoi(j)   = ',zisoi(j)
                if ((zisoi(j-1) <  soil_depth_col) .and. (zisoi(j) >= soil_depth_col)) then
-                  write(iulog, *) '      SETTING NBEDROCK = ',j
                   nbedrock(c) = j
                end if
              enddo
           end if
        enddo
     enddo
-    write(iulog, *) 'END HillslopeSoilThicknessProfile_linear'
    end subroutine HillslopeSoilThicknessProfile_linear
 end module HillslopeHydrologyUtilsMod

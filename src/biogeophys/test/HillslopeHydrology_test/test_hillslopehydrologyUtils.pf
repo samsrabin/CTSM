@@ -87,7 +87,6 @@ contains
 
     deallocate(my_zisoi)
 
-
   end subroutine setUp
 
   subroutine tearDown(this)
@@ -125,32 +124,9 @@ contains
     nbedrock_expected(lun%coli(l)) = 9999
     nbedrock_expected(lun%coli(l) + 1) = 3
 
-    write(iulog, *) 'soil_depth_lowland = ',soil_depth_lowland
-    write(iulog, *) 'soil_depth_upland  = ',soil_depth_upland
-
-    write(iulog, *) 'lun%coli(l) = ',lun%coli(l)
-    write(iulog, *) 'lun%colf(l) = ',lun%colf(l)
     call HillslopeSoilThicknessProfile_linear(col%nbedrock, bounds, col%hill_distance, soil_depth_lowland, soil_depth_upland)
 
-    write(iulog, *) 'nbedrock looped begc-endc:'
-    do c = bounds%begc, bounds%endc
-      write(iulog, *) '    nbedrock = ',col%nbedrock(c)
-    end do
-    write(iulog, *) 'nbedrock looped lun--coli-colf:'
-    do l = 1,1
-      do c = lun%coli(l), lun%colf(l)
-        write(iulog, *) '    nbedrock = ',col%nbedrock(c)
-      end do
-    end do
-
-    write(iulog, *) 'bounds%begl = ',bounds%begl
-    write(iulog, *) 'bounds%endl = ',bounds%endl
-    write(iulog, *) 'bounds%begc = ',bounds%begc
-    write(iulog, *) 'bounds%endc = ',bounds%endc
     l = bounds%begl
-    write(iulog, *) 'l = ',l
-    ! write(iulog, *) 'coli = ',col%nbedrock(lun%coli(l))
-    ! write(iulog, *) 'colf = ',col%nbedrock(lun%colf(l))
     @assertEqual(nbedrock_expected(lun%coli(l):lun%colf(l)), col%nbedrock(lun%coli(l):lun%colf(l)))
 
     deallocate(nbedrock_expected)
@@ -178,36 +154,13 @@ contains
 
     ! Get expected values !!!!!!!!!!!!!!!!!!!
     ! Layer 1 soil_depth_col = 8.5
-    ! Layer 2 soil_depth_col = 2.0
+    ! Layer 2 soil_depth_col = 2.0, but not active
     nbedrock_expected(lun%coli(l)) = 9999
     nbedrock_expected(lun%coli(l) + 1) = 9999
 
-    write(iulog, *) 'soil_depth_lowland = ',soil_depth_lowland
-    write(iulog, *) 'soil_depth_upland  = ',soil_depth_upland
-
-    write(iulog, *) 'lun%coli(l) = ',lun%coli(l)
-    write(iulog, *) 'lun%colf(l) = ',lun%colf(l)
     call HillslopeSoilThicknessProfile_linear(col%nbedrock, bounds, col%hill_distance, soil_depth_lowland, soil_depth_upland)
 
-    write(iulog, *) 'nbedrock looped begc-endc:'
-    do c = bounds%begc, bounds%endc
-      write(iulog, *) '    nbedrock = ',col%nbedrock(c)
-    end do
-    write(iulog, *) 'nbedrock looped lun--coli-colf:'
-    do l = 1,1
-      do c = lun%coli(l), lun%colf(l)
-        write(iulog, *) '    nbedrock = ',col%nbedrock(c)
-      end do
-    end do
-
-    write(iulog, *) 'bounds%begl = ',bounds%begl
-    write(iulog, *) 'bounds%endl = ',bounds%endl
-    write(iulog, *) 'bounds%begc = ',bounds%begc
-    write(iulog, *) 'bounds%endc = ',bounds%endc
     l = bounds%begl
-    write(iulog, *) 'l = ',l
-    ! write(iulog, *) 'coli = ',col%nbedrock(lun%coli(l))
-    ! write(iulog, *) 'colf = ',col%nbedrock(lun%colf(l))
     @assertEqual(nbedrock_expected(lun%coli(l):lun%colf(l)), col%nbedrock(lun%coli(l):lun%colf(l)))
 
     deallocate(nbedrock_expected)
@@ -227,7 +180,6 @@ contains
     ! Set up example land units
     allocate(nbedrock_expected(bounds%begc:bounds%endc))
     col%nbedrock(bounds%begc:bounds%endc) = nbedrock_dummy_value
-    ! Column 1: Varying hill_distance
     l = bounds%begl
     do c = lun%coli(l), lun%colf(l)
        col%hill_distance(c) = real(c, kind=r8)
@@ -235,36 +187,13 @@ contains
 
     ! Get expected values !!!!!!!!!!!!!!!!!!!
     ! Layer 1 soil_depth_col = 8.5
-    ! Layer 2 soil_depth_col = 2.0
+    ! Layer 2 soil_depth_col = 2.0, but not is_hillslope_column
     nbedrock_expected(lun%coli(l)) = 9999
     nbedrock_expected(lun%coli(l) + 1) = 9999
 
-    write(iulog, *) 'soil_depth_lowland = ',soil_depth_lowland
-    write(iulog, *) 'soil_depth_upland  = ',soil_depth_upland
-
-    write(iulog, *) 'lun%coli(l) = ',lun%coli(l)
-    write(iulog, *) 'lun%colf(l) = ',lun%colf(l)
     call HillslopeSoilThicknessProfile_linear(col%nbedrock, bounds, col%hill_distance, soil_depth_lowland, soil_depth_upland)
 
-    write(iulog, *) 'nbedrock looped begc-endc:'
-    do c = bounds%begc, bounds%endc
-      write(iulog, *) '    nbedrock = ',col%nbedrock(c)
-    end do
-    write(iulog, *) 'nbedrock looped lun--coli-colf:'
-    do l = 1,1
-      do c = lun%coli(l), lun%colf(l)
-        write(iulog, *) '    nbedrock = ',col%nbedrock(c)
-      end do
-    end do
-
-    write(iulog, *) 'bounds%begl = ',bounds%begl
-    write(iulog, *) 'bounds%endl = ',bounds%endl
-    write(iulog, *) 'bounds%begc = ',bounds%begc
-    write(iulog, *) 'bounds%endc = ',bounds%endc
     l = bounds%begl
-    write(iulog, *) 'l = ',l
-    ! write(iulog, *) 'coli = ',col%nbedrock(lun%coli(l))
-    ! write(iulog, *) 'colf = ',col%nbedrock(lun%colf(l))
     @assertEqual(nbedrock_expected(lun%coli(l):lun%colf(l)), col%nbedrock(lun%coli(l):lun%colf(l)))
 
     deallocate(nbedrock_expected)
