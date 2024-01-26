@@ -1,18 +1,14 @@
 module test_hillslopehydrologyUtils
-  
+
   ! Tests of the HillslopeHydrologyUtils module
 
   use funit
   use unittestSubgridMod
-  ! use dynInitColumnsMod
   use ColumnType      , only : col
   use LandunitType    , only : lun
-  use GridcellType    , only : grc
   use landunit_varcon , only : istwet
   use decompMod       , only : bounds_type
-  use clm_varctl      , only : iulog
-  use clm_varcon      , only : ispval
-  use clm_varpar      , only : nlevsno, nlevgrnd
+  use clm_varpar      , only : nlevgrnd
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use HillslopeHydrologyUtilsMod, only : HillslopeSoilThicknessProfile_linear
 
@@ -26,9 +22,6 @@ module test_hillslopehydrologyUtils
 
   @TestCase
   type, extends(TestCase) :: TestInit
-     integer :: c_new     ! column index of the new column to initialize in some tests
-     integer :: l1        ! index of the landunit with landunit type 1
-     integer :: l2        ! index of the landunit with landunit type 2
    contains
      procedure :: setUp
      procedure :: tearDown
@@ -40,7 +33,6 @@ contains
     ! Set up variables needed for tests: various subgrid type variables, along with
     ! bounds.
     !
-    ! col%active etc. need to be set by specific tests
     use clm_varcon, only: clm_varcon_init, zisoi
     use clm_varpar, only: nlevsoi, nlevgrnd
     class(TestInit), intent(inout) :: this
@@ -73,26 +65,13 @@ contains
     call clm_varcon_init( is_simple_buildtemp = .true.)
     zisoi(0) = 0._r8
     zisoi(1:nlevgrnd) = my_zisoi(:)
-
-    do g = bounds%begg, bounds%endg
-      write(iulog, *) 'g = ',g
-      do l = 1,1
-        if (lun%gridcell(l) /= g) then
-          cycle
-        end if
-        write(iulog, *) '   l = ',l
-        do c = lun%coli(l), lun%colf(l)
-          write(iulog, *) '      c = ',c
-        end do
-      end do
-    end do
+    col%nbedrock(bounds%begc:bounds%endc) = nbedrock_dummy_value
 
     ! Set up hill_distance
     l = bounds%begl
     do c = lun%coli(l), lun%colf(l)
        col%hill_distance(c) = real(c, kind=r8)
     end do
-    col%nbedrock(bounds%begc:bounds%endc) = nbedrock_dummy_value
 
     deallocate(my_zisoi)
 
@@ -119,7 +98,7 @@ contains
     col%active(bounds%begc:bounds%endc) = .true.
     col%is_hillslope_column(bounds%begc:bounds%endc) = .true.
 
-    ! Get expected values !!!!!!!!!!!!!!!!!!!
+    ! Get expected values
     ! Layer 1 soil_depth_col = 8.5
     ! Layer 2 soil_depth_col = 2.0
     allocate(nbedrock_expected(bounds%begc:bounds%endc))
@@ -145,7 +124,7 @@ contains
     col%active(bounds%begc:bounds%endc) = .false.
     col%is_hillslope_column(bounds%begc:bounds%endc) = .true.
 
-    ! Get expected values !!!!!!!!!!!!!!!!!!!
+    ! Get expected values
     ! Layer 1 soil_depth_col = 8.5
     ! Layer 2 soil_depth_col = 2.0, but not active
     allocate(nbedrock_expected(bounds%begc:bounds%endc))
@@ -171,7 +150,7 @@ contains
     col%active(bounds%begc:bounds%endc) = .true.
     col%is_hillslope_column(bounds%begc:bounds%endc) = .false.
 
-    ! Get expected values !!!!!!!!!!!!!!!!!!!
+    ! Get expected values
     ! Layer 1 soil_depth_col = 8.5
     ! Layer 2 soil_depth_col = 2.0, but not is_hillslope_column
     allocate(nbedrock_expected(bounds%begc:bounds%endc))
