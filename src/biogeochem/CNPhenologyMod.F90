@@ -1918,7 +1918,7 @@ contains
          )
 
       ! get time info
-      dayspyr = get_curr_days_per_year()
+      dayspyr = get_prev_days_per_year()
       avg_dayspyr = get_average_days_per_year()
       jday    = get_prev_calday()
       call get_prev_date(kyr, kmo, kda, mcsec)
