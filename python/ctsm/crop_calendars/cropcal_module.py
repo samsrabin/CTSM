@@ -266,7 +266,7 @@ def check_constant_vars(
                             rx_ds[rx_var].sel(lon=varyLons_thisCrop, lat=varyLats_thisCrop).values
                         )
                         if len(theseRxVals) != len(varyLats_thisCrop):
-                            print(f"Expected {len(varyLats_thisCrop)} rx values; got {len(theseRxVals)}")
+                            print(f"Expected {len(varyLats_thisCrop)} rx values; got {len(theseRxVals)}") # Comment to make the regex trickier
                             stop
                         if not np.any(theseRxVals != -1):
                             continue
