@@ -50,9 +50,11 @@ def check_and_trim_years(y1, yN, ds_in):
 
     # Check that all desired years are included
     if get_year_from_cftime(ds_in.time.values[0]) > y1:
-        raise RuntimeError(f"Requested y1 is {y1} but first year in outputs is {get_year_from_cftime(ds_in.time.values[0])}")
+        print(f"Requested y1 is {y1} but first year in outputs is {get_year_from_cftime(ds_in.time.values[0])}")
+        stop
     elif get_year_from_cftime(ds_in.time.values[-1]) < y1:
-        raise RuntimeError(f"Requested yN is {yN} but last year in outputs is {get_year_from_cftime(ds_in.time.values[-1])}")
+        print(f"Requested yN is {yN} but last year in outputs is {get_year_from_cftime(ds_in.time.values[-1])}")
+        stop
 
     # Remove years outside range of interest
     ### Include an extra year at the end to finish out final seasons.
@@ -61,7 +63,8 @@ def check_and_trim_years(y1, yN, ds_in):
     # Make sure you have the expected number of timesteps (including extra year)
     Nyears_expected = yN - y1 + 2
     if ds_in.dims["time"] != Nyears_expected:
-        raise RuntimeError(f"Expected {Nyears_expected} timesteps in output but got {ds_in.dims['time']}")
+        print(f"Expected {Nyears_expected} timesteps in output but got {ds_in.dims['time']}")
+        stop
 
     return ds_in
 
@@ -199,7 +202,8 @@ def check_constant_vars(
         elif "time" in this_ds[v].dims:
             time_coord = "time"
         else:
-            raise RuntimeError(f"Which of these is the time coordinate? {this_ds[v].dims}")
+            print(f"Which of these is the time coordinate? {this_ds[v].dims}")
+            stop
         i_time_coord = this_ds[v].dims.index(time_coord)
 
         this_da = this_ds[v]
@@ -262,7 +266,8 @@ def check_constant_vars(
                             rx_ds[rx_var].sel(lon=varyLons_thisCrop, lat=varyLats_thisCrop).values
                         )
                         if len(theseRxVals) != len(varyLats_thisCrop):
-                            raise RuntimeError(f"Expected {len(varyLats_thisCrop)} rx values; got {len(theseRxVals)}")
+                            print(f"Expected {len(varyLats_thisCrop)} rx values; got {len(theseRxVals)}")
+                            stop
                         if not np.any(theseRxVals != -1):
                             continue
                         any_bad_anyCrop = True
@@ -289,9 +294,11 @@ def check_constant_vars(
                                     if rx == -1:
                                         continue
                                 elif Nunique > 1:
-                                    raise RuntimeError(f"How does lon {thisLon} lat {thisLat} {thisCrop} have time-varying {v}?")
+                                    print(f"How does lon {thisLon} lat {thisLat} {thisCrop} have time-varying {v}?")
+                                    stop
                             else:
-                                raise RuntimeError("lon {thisLon} lat {thisLat} {thisCrop} not in rx dataset?")
+                                print("lon {thisLon} lat {thisLat} {thisCrop} not in rx dataset?")
+                                stop
 
                         # Print info (or save to print later)
                         any_bad = True
@@ -335,7 +342,8 @@ def check_constant_vars(
         # Make sure every patch was checked once (or is all-NaN except possibly final season)
         incl_patches = np.sort(incl_patches)
         if not np.array_equal(incl_patches, np.unique(incl_patches)):
-            raise RuntimeError("Patch(es) checked more than once!")
+            print("Patch(es) checked more than once!")
+            stop
         incl_patches = list(incl_patches)
         incl_patches += list(
             np.where(
@@ -351,12 +359,14 @@ def check_constant_vars(
         )
         incl_patches = np.sort(incl_patches)
         if not np.array_equal(incl_patches, np.unique(incl_patches)):
-            raise RuntimeError("Patch(es) checked but also all-NaN??")
+            print("Patch(es) checked but also all-NaN??")
+            stop
         if not np.array_equal(incl_patches, np.arange(this_ds.dims["patch"])):
             for p in np.arange(this_ds.dims["patch"]):
                 if p not in incl_patches:
                     break
-            raise RuntimeError(f"Not all patches checked! E.g., {p}: {this_da.isel(patch=p).values}")
+            print(f"Not all patches checked! E.g., {p}: {this_da.isel(patch=p).values}")
+            stop
 
         if not any_bad:
             if any_bad_before_checking_rx:
@@ -369,7 +379,8 @@ def check_constant_vars(
                 )
 
     if any_bad and throw_error:
-        raise RuntimeError("Stopping due to failed check_constant_vars().")
+        print("Stopping due to failed check_constant_vars().")
+        stop
 
     bad_patches = np.unique(bad_patches)
     return [int(p) for p in bad_patches]
@@ -526,7 +537,8 @@ def check_v0_le_v1(this_ds, vars, msg_txt=" ", both_nan_ok=False, throw_error=Fa
         if throw_error:
             print(msg)
         else:
-            raise RuntimeError(msg)
+            print(msg)
+            stop
 
 
 # Convert time*mxharvests axes to growingseason axis
@@ -546,7 +558,8 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
 
     # Set all non-positive date values to NaN. These are seasons that were never harvested (or never started): "non-seasons."
     if this_ds.HDATES.dims != ("time", "mxharvests", "patch"):
-        raise RuntimeError(f"This code relies on HDATES dims ('time', 'mxharvests', 'patch'), not {this_ds.HDATES.dims}")
+        print(f"This code relies on HDATES dims ('time', 'mxharvests', 'patch'), not {this_ds.HDATES.dims}")
+        stop
     hdates_ymp = this_ds.HDATES.copy().where(this_ds.HDATES > 0).values
     hdates_pym = np.transpose(hdates_ymp.copy(), (2, 0, 1))
     sdates_ymp = this_ds.SDATES_PERHARV.copy().where(this_ds.SDATES_PERHARV > 0).values
@@ -719,7 +732,8 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
             # Save as DataArray to new Dataset, stripping _PERHARV from variable name
             newname = v.replace("_PERHARV", "")
             if newname in this_ds_gs:
-                raise RuntimeError(f"{newname} already in dataset!")
+                print(f"{newname} already in dataset!")
+                stop
             da_pg = xr.DataArray(
                 data=ar_valid_pg,
                 coords=[this_ds_gs.coords["patch"], this_ds_gs.coords["gs"]],
@@ -768,7 +782,8 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
                 sdates_pg2,
                 hdates_pg2,
             )
-        raise RuntimeError(f"Can't convert time*mxharvests axes to growingseason axis: discrepancy of {discrepancy} patch-seasons")
+        print(f"Can't convert time*mxharvests axes to growingseason axis: discrepancy of {discrepancy} patch-seasons")
+        stop
 
     # Preserve units
     for v1 in this_ds_gs:
@@ -845,7 +860,8 @@ def import_max_gs_length(paramfile_dir, my_clm_ver, my_clm_subver):
     pattern = os.path.join(paramfile_dir, f"*{my_clm_ver}_params.{my_clm_subver}.nc")
     paramfile = glob.glob(pattern)
     if len(paramfile) != 1:
-        raise RuntimeError(f"Expected to find 1 match of {pattern}; found {len(paramfile)}")
+        print(f"Expected to find 1 match of {pattern}; found {len(paramfile)}")
+        stop
     paramfile_ds = xr.open_dataset(paramfile[0])
 
     # Import max growing season length (stored in netCDF as nanoseconds!)
@@ -896,7 +912,8 @@ def import_rx_dates(var_prefix, date_inFile, dates_ds, set_neg1_to_nan=True):
         # Set -1 prescribed GDD values to NaN. Only warn the first time.
         if set_neg1_to_nan and var_prefix == "gdd" and v_new != v and np.any(ds[v_new].values < 0):
             if np.any((ds[v_new].values < 0) & (ds[v_new].values != -1)):
-                raise RuntimeError(f"Unexpected negative value in {v}")
+                print(f"Unexpected negative value in {v}")
+                stop
             if not did_warn:
                 print(f"Setting -1 rx GDD values to NaN")
                 did_warn = True
@@ -942,7 +959,8 @@ def import_output(
             all_nonpos = all_nonpos & (this_ds[v].values <= 0)
             all_pos = all_pos & (this_ds[v].values > 0)
     if np.any(np.bitwise_not(all_nan | all_nonpos | all_pos)):
-        raise RuntimeError("Inconsistent missing/present values on mxharvests axis")
+        print("Inconsistent missing/present values on mxharvests axis")
+        stop
 
     # When doing transient runs, it's somehow possible for crops in newly-active patches to be *already alive*. They even have a sowing date (idop)! This will of course not show up in SDATES, but it does show up in SDATES_PERHARV.
     # I could put the SDATES_PERHARV dates into where they "should" be, but instead I'm just going to invalidate those "seasons."
@@ -1068,7 +1086,8 @@ def import_output(
     this_ds_gs["NHARVESTS"] = (this_ds_gs["GDDHARV_PERHARV"] > 0).sum(dim="mxharvests")
     # Get number of harvests that would be missed if only seeing max 1 per calendar year
     if np.any(this_ds_gs["NHARVESTS"] > 2):
-        raise RuntimeError("How to get NHARVEST_DISCREP for NHARVESTS > 2?")
+        print("How to get NHARVEST_DISCREP for NHARVESTS > 2?")
+        stop
     this_ds_gs["NHARVEST_DISCREP"] = (this_ds_gs["NHARVESTS"] == 2).astype(int)
 
     return this_ds_gs
