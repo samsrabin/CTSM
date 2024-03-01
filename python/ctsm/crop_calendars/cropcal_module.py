@@ -50,13 +50,9 @@ def check_and_trim_years(y1, yN, ds_in):
 
     # Check that all desired years are included
     if get_year_from_cftime(ds_in.time.values[0]) > y1:
-        raise RuntimeError(
-            f"Requested y1 is {y1} but first year in outputs is {get_year_from_cftime(ds_in.time.values[0])}"
-        )
+        raise RuntimeError(f"Requested y1 is {y1} but first year in outputs is {get_year_from_cftime(ds_in.time.values[0])}")
     elif get_year_from_cftime(ds_in.time.values[-1]) < y1:
-        raise RuntimeError(
-            f"Requested yN is {yN} but last year in outputs is {get_year_from_cftime(ds_in.time.values[-1])}"
-        )
+        raise RuntimeError(f"Requested yN is {yN} but last year in outputs is {get_year_from_cftime(ds_in.time.values[-1])}")
 
     # Remove years outside range of interest
     ### Include an extra year at the end to finish out final seasons.
@@ -65,9 +61,7 @@ def check_and_trim_years(y1, yN, ds_in):
     # Make sure you have the expected number of timesteps (including extra year)
     Nyears_expected = yN - y1 + 2
     if ds_in.dims["time"] != Nyears_expected:
-        raise RuntimeError(
-            f"Expected {Nyears_expected} timesteps in output but got {ds_in.dims['time']}"
-        )
+        raise RuntimeError(f"Expected {Nyears_expected} timesteps in output but got {ds_in.dims['time']}")
 
     return ds_in
 
@@ -268,9 +262,7 @@ def check_constant_vars(
                             rx_ds[rx_var].sel(lon=varyLons_thisCrop, lat=varyLats_thisCrop).values
                         )
                         if len(theseRxVals) != len(varyLats_thisCrop):
-                            raise RuntimeError(
-                                f"Expected {len(varyLats_thisCrop)} rx values; got {len(theseRxVals)}"
-                            )
+                            raise RuntimeError(f"Expected {len(varyLats_thisCrop)} rx values; got {len(theseRxVals)}")
                         if not np.any(theseRxVals != -1):
                             continue
                         any_bad_anyCrop = True
@@ -297,13 +289,9 @@ def check_constant_vars(
                                     if rx == -1:
                                         continue
                                 elif Nunique > 1:
-                                    raise RuntimeError(
-                                        f"How does lon {thisLon} lat {thisLat} {thisCrop} have time-varying {v}?"
-                                    )
+                                    raise RuntimeError(f"How does lon {thisLon} lat {thisLat} {thisCrop} have time-varying {v}?")
                             else:
-                                raise RuntimeError(
-                                    "lon {thisLon} lat {thisLat} {thisCrop} not in rx dataset?"
-                                )
+                                raise RuntimeError("lon {thisLon} lat {thisLat} {thisCrop} not in rx dataset?")
 
                         # Print info (or save to print later)
                         any_bad = True
@@ -368,9 +356,7 @@ def check_constant_vars(
             for p in np.arange(this_ds.dims["patch"]):
                 if p not in incl_patches:
                     break
-            raise RuntimeError(
-                f"Not all patches checked! E.g., {p}: {this_da.isel(patch=p).values}"
-            )
+            raise RuntimeError(f"Not all patches checked! E.g., {p}: {this_da.isel(patch=p).values}")
 
         if not any_bad:
             if any_bad_before_checking_rx:
@@ -560,9 +546,7 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
 
     # Set all non-positive date values to NaN. These are seasons that were never harvested (or never started): "non-seasons."
     if this_ds.HDATES.dims != ("time", "mxharvests", "patch"):
-        raise RuntimeError(
-            f"This code relies on HDATES dims ('time', 'mxharvests', 'patch'), not {this_ds.HDATES.dims}"
-        )
+        raise RuntimeError(f"This code relies on HDATES dims ('time', 'mxharvests', 'patch'), not {this_ds.HDATES.dims}")
     hdates_ymp = this_ds.HDATES.copy().where(this_ds.HDATES > 0).values
     hdates_pym = np.transpose(hdates_ymp.copy(), (2, 0, 1))
     sdates_ymp = this_ds.SDATES_PERHARV.copy().where(this_ds.SDATES_PERHARV > 0).values
@@ -784,9 +768,7 @@ def convert_axis_time2gs(this_ds, verbose=False, myVars=None, incl_orig=False):
                 sdates_pg2,
                 hdates_pg2,
             )
-        raise RuntimeError(
-            f"Can't convert time*mxharvests axes to growingseason axis: discrepancy of {discrepancy} patch-seasons"
-        )
+        raise RuntimeError(f"Can't convert time*mxharvests axes to growingseason axis: discrepancy of {discrepancy} patch-seasons")
 
     # Preserve units
     for v1 in this_ds_gs:
