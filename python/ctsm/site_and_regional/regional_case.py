@@ -174,8 +174,8 @@ class RegionalCase(BaseCase):
             err_msg = """
             \n
             ERROR: lat1 is bigger than lat2.
-            lat1 points to the westernmost longitude of the region. {}
-            lat2 points to the easternmost longitude of the region. {}
+            lat1 points to the southernmost latitude of the region. {}
+            lat2 points to the northernmost latitude of the region. {}
             Please make sure lat1 is smaller than lat2.
 
             """.format(
