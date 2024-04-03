@@ -76,7 +76,7 @@ def main():
 
     # Choose data files to combine and append
     cfile0 = os.path.join(
-        args.input_dir, f"combined_chunk_ChunkIndex_HAND_4_col_hillslope_geo_params_section_quad_{args.dem_source}.nc"
+        args.input_dir, f"combined_chunk_ChunkIndex_HAND_4_col_hillslope_geo_params_trapezoid_0.9x1.25_Global_{args.dem_source}.nc"
     )
 
     f = netcdf4.Dataset(args.input_file, "r")
@@ -140,57 +140,55 @@ def main():
         else:
             f = netcdf4.Dataset(cfile, "r")
             nhillslope = len(f.dimensions["nhillslope"])
-            chunk_mask = f.variables["chunk_mask"][
-                :,
-            ]
-            h_elev0 = f.variables["hillslope_elevation"][
-                :,
-            ]
-            h_dist0 = f.variables["hillslope_distance"][
-                :,
-            ]
-            h_width0 = f.variables["hillslope_width"][
-                :,
-            ]
-            h_area0 = f.variables["hillslope_area"][
-                :,
-            ]
-            h_slope0 = f.variables["hillslope_slope"][
-                :,
-            ]
-            h_aspect0 = f.variables["hillslope_aspect"][
-                :,
-            ]
+            chunk_mask = f.variables["chunk_mask"][:]
+            try:
+                h_elev0 = f.variables["hillslope_elevation"][:]
+            except KeyError:
+                h_elev0 = f.variables["h_height"][:]
+            try:
+                h_dist0 = f.variables["hillslope_distance"][:]
+            except KeyError:
+                h_dist0 = f.variables["h_length"][:]
+            try:
+                h_width0 = f.variables["hillslope_width"][:]
+            except KeyError:
+                h_width0 = f.variables["h_width"][:]
+            try:
+                h_area0 = f.variables["hillslope_area"][:]
+            except:
+                h_area0 = f.variables["h_area"][:]
+            try:
+                h_slope0 = f.variables["hillslope_slope"][:]
+            except:
+                h_slope0 = f.variables["h_slope"][:]
+            try:
+                h_aspect0 = f.variables["hillslope_aspect"][:]
+            except:
+                h_aspect0 = f.variables["h_aspect"][:]
             if addBedrock:
-                h_bedrock0 = f.variables["hillslope_bedrock_depth"][
-                    :,
-                ]
+                try:
+                    h_bedrock0 = f.variables["hillslope_bedrock_depth"][:]
+                except:
+                    h_bedrock0 = f.variables["h_bedrock"][:]
             if addStream:
-                h_stream_depth0 = f.variables["hillslope_stream_depth"][
-                    :,
-                ]
-                h_stream_width0 = f.variables["hillslope_stream_width"][
-                    :,
-                ]
-                h_stream_slope0 = f.variables["hillslope_stream_slope"][
-                    :,
-                ]
+                try:
+                    h_stream_depth0 = f.variables["h_stream_depth"][:]
+                except:
+                    h_stream_depth0 = f.variables["hillslope_stream_depth"][:]
+                try:
+                    h_stream_width0 = f.variables["hillslope_stream_width"][:]
+                except:
+                    h_stream_width0 = f.variables["h_stream_width"][:]
+                try:
+                    h_stream_slope0 = f.variables["hillslope_stream_slope"][:]
+                except:
+                    h_stream_slope = f.variables["hillslope_stream_slope"][:]
 
-            nhillcolumns0 = f.variables["nhillcolumns"][
-                :,
-            ].astype(int)
-            pct_hillslope0 = f.variables["pct_hillslope"][
-                :,
-            ]
-            hillslope_index0 = f.variables["hillslope_index"][
-                :,
-            ].astype(int)
-            column_index0 = f.variables["column_index"][
-                :,
-            ].astype(int)
-            downhill_column_index0 = f.variables["downhill_column_index"][
-                :,
-            ].astype(int)
+            nhillcolumns0 = f.variables["nhillcolumns"][:].astype(int)
+            pct_hillslope0 = f.variables["pct_hillslope"][:]
+            hillslope_index0 = f.variables["hillslope_index"][:].astype(int)
+            column_index0 = f.variables["column_index"][:].astype(int)
+            downhill_column_index0 = f.variables["downhill_column_index"][:].astype(int)
             f.close()
 
             for i in range(sim):
