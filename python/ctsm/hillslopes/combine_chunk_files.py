@@ -138,7 +138,7 @@ def main():
             if args.verbose:
                 print(f"Skipping; chunk file not found: {cfile}")
             continue
-        
+
         f = netcdf4.Dataset(cfile, "r")
         nhillslope = len(f.dimensions["nhillslope"])
         chunk_mask = f.variables["chunk_mask"][
@@ -252,14 +252,12 @@ def main():
         .decode()
     )
 
-    # copy original file
-    command = ["cp", args.input_file, args.output_file]
-    x = subprocess.call(command, stderr=subprocess.PIPE)
-
-    print("appending file")
-    w = netcdf4.Dataset(args.output_file, "a")
+    print("creating hillslope_file")
+    w = netcdf4.Dataset(args.output_file, "w")
     w.creation_date = timetag
 
+    w.createDimension("lsmlat", sjm)
+    w.createDimension("lsmlon", sim)
     w.createDimension("nhillslope", nhillslope)
     w.createDimension("nmaxhillcol", ncolumns_per_gridcell)
 
