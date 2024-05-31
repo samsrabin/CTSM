@@ -131,6 +131,7 @@ module TemperatureType
      procedure, public  :: InitAccBuffer
      procedure, public  :: InitAccVars
      procedure, public  :: UpdateAccVars
+     procedure, private :: UpdateAccVars_CropGDDs
 
   end type temperature_type
 
@@ -1380,6 +1381,91 @@ contains
 
   end subroutine InitAccVars
 
+  subroutine UpdateAccVars_CropGDDs(this, rbufslp, begp, endp, month, day, secs, dtime, nstep, basetemp_int, gddx_patch)
+    !
+    ! USES
+    use shr_const_mod    , only : SHR_CONST_CDAY, SHR_CONST_TKFRZ
+    use accumulMod       , only : update_accum_field, extract_accum_field, markreset_accum_field
+    use clm_time_manager , only : is_doy_in_interval, get_curr_calday
+    use pftconMod        , only : npcropmin
+    use CropType, only : crop_type
+    !
+    ! !ARGUMENTS
+    class(temperature_type) :: this
+    real(r8), intent(inout), pointer, dimension(:) :: rbufslp  ! temporary single level - pft level
+    integer, intent(in) :: begp, endp
+    integer, intent(in) :: month, day, secs, dtime, nstep
+    integer, intent(in) :: basetemp_int  ! Crop base temperature. Integer to avoid possible float weirdness
+    real(r8), intent(inout), pointer, dimension(:) :: gddx_patch  ! E.g., gdd0_patch
+    !
+    ! !LOCAL VARIABLES
+    real(r8) :: basetemp_r8  ! real(r8) version of basetemp for arithmetic
+    real(r8) :: max_accum    ! Maximum daily accumulation
+    character(8) :: field_name   ! E.g., GDD0
+    character(32) :: format_string
+    integer :: p
+    integer :: ivt  ! vegetation type
+    logical :: in_accumulation_season
+    real(r8) :: lat  ! latitude
+    integer :: gdd20_season_start, gdd20_season_end
+    integer :: jday  ! Julian day of year (1, ..., 366)
+
+    basetemp_r8 = real(basetemp_int, r8)
+
+    ! SSR 2024-06-13: This should probably be _prev_. Keeping it _curr_ for now for consistency with
+    ! parent subroutine UpdateAccVars(), which uses get_curr_date() to get the month/day/etc. values
+    ! that are passed into this subroutine.
+    jday = int(get_curr_calday())
+
+    ! Get maximum daily accumulation
+    if (basetemp_int == 0) then
+       ! SSR 2024-05-31: I'm not sure why this was different for base temp 0, but I'm keeping it as I refactor into UpdateAccVars_CropGDDs()
+       max_accum = 26._r8
+    else
+       max_accum = 30._r8
+    end if
+
+    ! Get field name
+    if (basetemp_int < 10) then
+       format_string = "(A3,I1)"
+    else if (basetemp_int < 100) then
+       format_string = "(A3,I2)"
+    else
+       format_string = "(A3,I3)"
+    end if
+    write(field_name, format_string) "GDD",basetemp_int
+
+    do p = begp,endp
+
+       ! Avoid unnecessary calculations over inactive points
+       ivt = patch%itype(p)
+       if (.not. patch%active(p)) then
+          cycle
+       end if
+
+       ! Is this patch in its gdd20 accumulation season?
+       ! First, check based on latitude. This will be fallback if read-in gdd20 accumulation season is invalid.
+       lat = grc%latdeg(patch%gridcell(p))
+       in_accumulation_season = &
+          ((month > 3 .and. month < 10) .and. lat >= 0._r8) .or. &
+          ((month > 9 .or.  month < 4)  .and. lat <  0._r8)
+
+       if (month==1 .and. day==1 .and. secs==dtime) then
+          call markreset_accum_field(field_name, p)
+       else if (in_accumulation_season) then
+          rbufslp(p) = max(0._r8, min(max_accum, &
+               this%t_ref2m_patch(p)-(SHR_CONST_TKFRZ + basetemp_r8))) * dtime/SHR_CONST_CDAY
+       else
+          rbufslp(p) = 0._r8      ! keeps gdd unchanged outside accumulation season
+       end if
+    end do
+
+    ! Save
+    call update_accum_field  (trim(field_name), rbufslp, nstep)
+    call extract_accum_field (trim(field_name), gddx_patch, nstep)
+
+ end subroutine UpdateAccVars_CropGDDs
+
   !-----------------------------------------------------------------------
   subroutine UpdateAccVars (this, bounds)
     !
@@ -1561,72 +1647,14 @@ contains
 
 
        ! Accumulate and extract GDD0
-
-       ! SSR 2024-06-07: Don't wrap this do-loop in an "if it's not time to reset." Behavior would
-       ! be identical for now, but if "missed update" behavior is fixed (see ESCOMP/CTSM#2585), you
-       ! would end up updating GDD0 with uninitialized values.
-       do p = begp,endp
-          ! Avoid unnecessary calculations over inactive points
-          if (patch%active(p)) then
-             g = patch%gridcell(p)
-             if (month==1 .and. day==1 .and. secs==dtime) then
-                call markreset_accum_field('GDD0', p)  ! reset gdd
-             else if (( month > 3 .and. month < 10 .and. grc%latdeg(g) >= 0._r8) .or. &
-                  ((month > 9 .or.  month < 4) .and. grc%latdeg(g) <  0._r8)     ) then
-                rbufslp(p) = max(0._r8, min(26._r8, this%t_ref2m_patch(p)-SHR_CONST_TKFRZ)) * dtime/SHR_CONST_CDAY
-             else
-                rbufslp(p) = 0._r8      ! keeps gdd unchanged at other times (eg, through Dec in NH)
-             end if
-          end if
-       end do
-       call update_accum_field  ('GDD0', rbufslp, nstep)
-       call extract_accum_field ('GDD0', this%gdd0_patch, nstep)
+       call this%UpdateAccVars_CropGDDs(rbufslp, begp, endp, month, day, secs, dtime, nstep, 0, this%gdd0_patch)
 
        ! Accumulate and extract GDD8
-
-       ! SSR 2024-06-07: Don't wrap this do-loop in an "if it's not time to reset." Behavior would
-       ! be identical for now, but if "missed update" behavior is fixed (see ESCOMP/CTSM#2585), you
-       ! would end up updating GDD8 with uninitialized values.
-       do p = begp,endp
-          ! Avoid unnecessary calculations over inactive points
-          if (patch%active(p)) then
-             g = patch%gridcell(p)
-             if (month==1 .and. day==1 .and. secs==dtime) then
-                call markreset_accum_field('GDD8', p)  ! reset gdd
-             else if (( month > 3 .and. month < 10 .and. grc%latdeg(g) >= 0._r8) .or. &
-                  ((month > 9 .or.  month < 4) .and. grc%latdeg(g) <  0._r8)     ) then
-                rbufslp(p) = max(0._r8, min(30._r8, &
-                     this%t_ref2m_patch(p)-(SHR_CONST_TKFRZ + 8._r8))) * dtime/SHR_CONST_CDAY
-             else
-                rbufslp(p) = 0._r8      ! keeps gdd unchanged at other times (eg, through Dec in NH)
-             end if
-          end if
-       end do
-       call update_accum_field  ('GDD8', rbufslp, nstep)
-       call extract_accum_field ('GDD8', this%gdd8_patch, nstep)
+       call this%UpdateAccVars_CropGDDs(rbufslp, begp, endp, month, day, secs, dtime, nstep, 8, this%gdd8_patch)
 
        ! Accumulate and extract GDD10
+       call this%UpdateAccVars_CropGDDs(rbufslp, begp, endp, month, day, secs, dtime, nstep, 10, this%gdd10_patch)
 
-       ! SSR 2024-06-07: Don't wrap this do-loop in an "if it's not time to reset." Behavior would
-       ! be identical for now, but if "missed update" behavior is fixed (see ESCOMP/CTSM#2585), you
-       ! would end up updating GDD10 with uninitialized values.
-       do p = begp,endp
-          ! Avoid unnecessary calculations over inactive points
-          if (patch%active(p)) then
-             g = patch%gridcell(p)
-             if (month==1 .and. day==1 .and. secs==dtime) then
-                call markreset_accum_field('GDD10', p)  ! reset gdd
-             else if (( month > 3 .and. month < 10 .and. grc%latdeg(g) >= 0._r8) .or. &
-                  ((month > 9 .or.  month < 4) .and. grc%latdeg(g) <  0._r8)     ) then
-                rbufslp(p) = max(0._r8, min(30._r8, &
-                     this%t_ref2m_patch(p)-(SHR_CONST_TKFRZ + 10._r8))) * dtime/SHR_CONST_CDAY
-             else
-                rbufslp(p) = 0._r8      ! keeps gdd unchanged at other times (eg, through Dec in NH)
-             end if
-          end if
-       end do
-       call update_accum_field  ('GDD10', rbufslp, nstep)
-       call extract_accum_field ('GDD10', this%gdd10_patch, nstep)
 
        ! Accumulate and extract running 20-year means
        if (is_end_curr_year()) then
