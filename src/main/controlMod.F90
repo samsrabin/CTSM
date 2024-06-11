@@ -370,7 +370,6 @@ contains
        ! ----------------------------------------------------------------------
        ! Process some namelist variables, and perform consistency checks
        ! ----------------------------------------------------------------------
-       write(iulog, *) 'ssr initialize1: Process some namelist variables, and perform consistency checks'
 
        ! History and restart files (dependent on settings of dtime)
        do i = 1, max_tapes
@@ -380,9 +379,7 @@ contains
        end do
 
        if (use_init_interp) then
-          write(iulog, *) 'ssr initialize1: call apply_use_init_interp'
           call apply_use_init_interp(finidat_interp_dest, finidat, finidat_interp_source)
-          write(iulog, *) 'ssr initialize1: done with apply_use_init_interp'
        end if
 
        if (maxpatch_glc <= 0) then
@@ -557,8 +554,6 @@ contains
     ! ----------------------------------------------------------------------
     ! Read in other namelists for other modules
     ! ----------------------------------------------------------------------
-
-    write(iulog, *) 'ssr initialize1: Read in other namelists for other modules'
     call mpi_bcast (use_init_interp, 1, MPI_LOGICAL, 0, mpicom, ierr)
     if (use_init_interp) then
        call initInterp_readnl( NLFilename )
@@ -567,31 +562,19 @@ contains
     !I call init_hydrology to set up default hydrology sub-module methods.
     !For future version, I suggest to  put the following two calls inside their
     !own modules, which are called from their own initializing methods
-    write(iulog, *) 'ssr initialize1: init_hydrology'
     call init_hydrology( NLFilename )
-
-    write(iulog, *) 'ssr initialize1: soil_resistance_readnl'
     call soil_resistance_readnl ( NLFilename )
-    write(iulog, *) 'ssr initialize1: CanopyFluxesReadNML'
     call CanopyFluxesReadNML    ( NLFilename )
-    write(iulog, *) 'ssr initialize1: CanopyHydrology_readnl'
     call CanopyHydrology_readnl ( NLFilename )
-    write(iulog, *) 'ssr initialize1: SurfaceAlbedo_readnl'
     call SurfaceAlbedo_readnl   ( NLFilename )
-    write(iulog, *) 'ssr initialize1: SnowHydrology_readnl'
     call SnowHydrology_readnl   ( NLFilename )
-    write(iulog, *) 'ssr initialize1: UrbanReadNML'
     call UrbanReadNML           ( NLFilename )
-    write(iulog, *) 'ssr initialize1: HumanIndexReadNML'
     call HumanIndexReadNML      ( NLFilename )
-    write(iulog, *) 'ssr initialize1: LunaReadNML'
     call LunaReadNML            ( NLFilename )
 
     ! ----------------------------------------------------------------------
     ! Broadcast all control information if appropriate
     ! ----------------------------------------------------------------------
-
-    write(iulog, *) 'ssr initialize1: Broadcast all control information if appropriate'
     call control_spmd()
 
     ! ----------------------------------------------------------------------
@@ -620,7 +603,6 @@ contains
     ! ----------------------------------------------------------------------
     ! consistency checks
     ! ----------------------------------------------------------------------
-    write(iulog, *) 'ssr initialize1: consistency checks'
 
     ! Consistency settings for co2 type
     if (co2_type /= 'constant' .and. co2_type /= 'prognostic' .and. co2_type /= 'diagnostic') then
@@ -1276,12 +1258,10 @@ contains
     !-----------------------------------------------------------------------
 
     if (finidat == ' ') then
-       write(iulog, *) 'ssr apply_use_init_interp: point 1'
        write(iulog,*)' WARNING: Setting use_init_interp has no effect if finidat is not also set'
     end if
 
     if (finidat_interp_source /= ' ') then
-       write(iulog, *) 'ssr apply_use_init_interp: point 2'
        call endrun(msg=' ERROR: Cannot set use_init_interp if finidat_interp_source is &
             &already set')
     end if
@@ -1303,40 +1283,29 @@ contains
 
       ! Check that the status file also exists (i.e., that finidat_interp_dest was written successfully)
       call check_missing_initdata_status(finidat_interp_dest)
-
-       write(iulog, *) 'ssr apply_use_init_interp: point 3'
        ! open the input file and check for the name of the input source file
        status = nf90_open(trim(finidat_interp_dest), 0, ncid)
-       write(iulog, *) 'ssr apply_use_init_interp: point 4'
        if (status /= nf90_noerr) call handle_err(status)
-       write(iulog, *) 'ssr apply_use_init_interp: point 5'
        status = nf90_get_att(ncid, NF90_GLOBAL, 'initial_source_file', initial_source_file)
-       write(iulog, *) 'ssr apply_use_init_interp: point 6'
        if (status /= nf90_noerr) call handle_err(status)
-       write(iulog, *) 'ssr apply_use_init_interp: point 7'
        status = nf90_close(ncid)
-       write(iulog, *) 'ssr apply_use_init_interp: point 8'
        if (status /= nf90_noerr) call handle_err(status)
 
        ! If the input source file in finidat_interp_dest does not match the namelist input for mapping
        ! then use the namelist input (i.e. finidat) - otherwise just use the generated file
        if (trim(initial_source_file) /= trim(finidat)) then
-       write(iulog, *) 'ssr apply_use_init_interp: point 9'
           finidat_interp_source = finidat
           finidat = ' '
           write(iulog,'(a)')' interpolating initial dataset using source file '//trim(finidat_interp_source)
        else
-       write(iulog, *) 'ssr apply_use_init_interp: point 10'
           finidat = trim(finidat_interp_dest)
           write(iulog,'(a)')' using interpolated initial dataset file '//trim(finidat)
        end if
     else
-       write(iulog, *) 'ssr apply_use_init_interp: point 11'
        finidat_interp_source = finidat
        finidat = ' '
        write(iulog,'(a)')' interpolating initial dataset using source file '//trim(finidat_interp_source)
     end if
-    write(iulog, *) 'ssr apply_use_init_interp: point 12'
 
   contains
     subroutine handle_err(status)

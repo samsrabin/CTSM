@@ -99,13 +99,9 @@ contains
     endif
 
     call control_init(dtime)
-    write(iulog, *) 'ssr done with control_init'
     call ncd_pio_init()
-    write(iulog, *) 'ssr done with ncd_pio_init'
     call surfrd_get_num_patches(fsurdat, actual_maxsoil_patches, actual_numpft, actual_numcft)
-    write(iulog, *) 'ssr done with surfrd_get_num_patches'
     call surfrd_get_nlevurb(fsurdat, actual_nlevurb)
-    write(iulog, *) 'ssr done with surfrd_get_nlevurb'
 
     ! If fates is on, we override actual_maxsoil_patches. FATES dictates the
     ! number of patches per column.  We still use numcft from the surface
@@ -115,23 +111,15 @@ contains
     end if
 
     call clm_varpar_init(actual_maxsoil_patches, actual_numpft, actual_numcft, actual_nlevurb)
-    write(iulog, *) 'ssr done with clm_varpar_init'
     call decomp_cascade_par_init( NLFilename )
-    write(iulog, *) 'ssr done with decomp_cascade_par_init'
     call clm_varcon_init( IsSimpleBuildTemp() )
-    write(iulog, *) 'ssr done with clm_varcon_init'
     call landunit_varcon_init()
-    write(iulog, *) 'ssr done with landunit_varcon_init'
     if (masterproc) call control_print()
     call dynSubgridControl_init(NLFilename)
-    write(iulog, *) 'ssr done with dynSubgridControl_init'
     call crop_repr_pools_init()
-    write(iulog, *) 'ssr done with crop_repr_pools_init'
     call hillslope_properties_init(NLFilename)
-    write(iulog, *) 'ssr done with hillslope_properties_init'
 
     call t_stopf('clm_init1')
-    write(iulog, *) 'ssr done with initialize1'
 
   end subroutine initialize1
 
@@ -516,51 +504,38 @@ contains
     ! Read restart/initial info
     is_cold_start = .false.
     reset_dynbal_baselines_lake_columns = .false.
-    write(iulog, *) "initialize2 point 01"
     if (nsrest == nsrStartup) then
-       write(iulog, *) "initialize2 point 02"
        if (finidat == ' ') then
-          write(iulog, *) "initialize2 point 03"
           if (finidat_interp_source == ' ') then
-             write(iulog, *) "initialize2 point 04"
              is_cold_start = .true.
              if (masterproc) then
                 write(iulog,'(a)')'Using cold start initial conditions '
              end if
           else
-             write(iulog, *) "initialize2 point 05"
              if (masterproc) then
                 write(iulog,'(a)')'Interpolating initial conditions from '//trim(finidat_interp_source)
                 write(iulog,'(a)')'Creating new initial conditions file '//trim(finidat_interp_dest)
              end if
           end if
        else
-          write(iulog, *) "initialize2 point 06"
           if (trim(finidat) == trim(finidat_interp_dest)) then
-             write(iulog, *) "initialize2 point 07"
              ! Check to see if status file for finidat exists
              call check_missing_initdata_status(finidat_interp_dest)
           end if
-          write(iulog, *) "initialize2 point 09"
           if (masterproc) then
              write(iulog,'(a)')'Reading initial conditions from file '//trim(finidat)
           end if
           call getfil( finidat, fnamer, 0 )
-          write(iulog, *) "initialize2 point 10"
           call restFile_read(bounds_proc, fnamer, glc_behavior, &
                reset_dynbal_baselines_lake_columns = reset_dynbal_baselines_lake_columns)
-          write(iulog, *) "initialize2 point 11"
        end if
     else if ((nsrest == nsrContinue) .or. (nsrest == nsrBranch)) then
-       write(iulog, *) "initialize2 point 12"
        if (masterproc) then
           write(iulog,'(a)')'Reading restart file '//trim(fnamer)
        end if
        call restFile_read(bounds_proc, fnamer, glc_behavior, &
             reset_dynbal_baselines_lake_columns = reset_dynbal_baselines_lake_columns)
-       write(iulog, *) "initialize2 point 13"
     end if
-    write(iulog, *) "initialize2 point 14"
 
     ! If appropriate, create interpolated initial conditions
     if (nsrest == nsrStartup .and. finidat_interp_source /= ' ') then
