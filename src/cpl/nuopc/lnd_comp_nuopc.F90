@@ -409,6 +409,7 @@ contains
     character(len=*),parameter :: subname=trim(modName)//':(InitializeRealize) '
     !-------------------------------------------------------------------------------
 
+    write(iulog, *) 'ssr starting InitializeRealize'
     rc = ESMF_SUCCESS
     call ESMF_LogWrite(subname//' called', ESMF_LOGMSG_INFO)
 
@@ -627,21 +628,28 @@ contains
          hostname_in=hostname, &
          username_in=username)
 
+    write(iulog, *) 'ssr calling initialize1'
     call initialize1(dtime=dtime_sync)
+    write(iulog, *) 'ssr done with initialize1 and exited'
 
     ! ---------------------
     ! Create ctsm decomp and domain info
     ! ---------------------
     if (scol_lon > scol_spval .and. scol_lat > scol_spval) then
+       write(iulog, *) 'ssr call lnd_set_decomp_and_domain_for_single_column'
        call lnd_set_decomp_and_domain_for_single_column(scol_lon, scol_lat, scol_mask, scol_frac)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else
+       write(iulog, *) 'ssr call NUOPC_CompAttributeGet mesh_lnd'
        call NUOPC_CompAttributeGet(gcomp, name='mesh_lnd', value=model_meshfile, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       write(iulog, *) 'ssr call NUOPC_CompAttributeGet mesh_mask'
        call NUOPC_CompAttributeGet(gcomp, name='mesh_mask', value=meshfile_mask, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       write(iulog, *) 'ssr call ESMF_GridCompGet'
        call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       write(iulog, *) 'ssr call lnd_set_decomp_and_domain_from_readmesh'
        call lnd_set_decomp_and_domain_from_readmesh(driver='cmeps', vm=vm, &
             meshfile_lnd=model_meshfile, meshfile_mask=meshfile_mask, mesh_ctsm=mesh, ni=ni, nj=nj, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -650,12 +658,14 @@ contains
     ! ---------------------
     ! Realize the actively coupled fields
     ! ---------------------
+    write(iulog, *) 'ssr call realize_fields'
     call realize_fields(importState, exportState, mesh, flds_scalar_name, flds_scalar_num, rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     ! ---------------------
     ! Finish initializing ctsm
     ! ---------------------
+    write(iulog, *) 'ssr call initialize2'
     call initialize2(ni, nj)
 
     !--------------------------------
