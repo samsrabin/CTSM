@@ -539,18 +539,7 @@ contains
           if (trim(finidat) == trim(finidat_interp_dest)) then
              write(iulog, *) "initialize2 point 07"
              ! Check to see if status file for finidat exists
-             klen = len_trim(finidat_interp_dest) - 3 ! remove the .nc
-             locfn = finidat_interp_dest(1:klen)//'.status'
-             inquire(file=trim(locfn), exist=lexists)
-             if (.not. lexists) then
-                write(iulog, *) "initialize2 point 08"
-                if (masterproc) then
-                   write(iulog,'(a)')' failed to find file '//trim(locfn)
-                   write(iulog,'(a)')' this indicates a problem in creating '//trim(finidat_interp_dest)
-                   write(iulog,'(a)')' remove '//trim(finidat_interp_dest)//' and try again'
-                end if
-                call endrun()
-             end if
+             call check_missing_initdata_status(finidat_interp_dest)
           end if
           write(iulog, *) "initialize2 point 09"
           if (masterproc) then
