@@ -1388,7 +1388,6 @@ contains
     use clm_time_manager , only : get_step_size, get_nstep, is_end_curr_day, get_curr_date, is_end_curr_year
     use accumulMod       , only : update_accum_field, extract_accum_field, markreset_accum_field
     use CNSharedParamsMod, only : upper_soil_layer
-    use pftconMod        , only : npcropmin
     !
     ! !ARGUMENTS:
     class(temperature_type)                :: this
@@ -1568,7 +1567,7 @@ contains
        ! would end up updating GDD0 with uninitialized values.
        do p = begp,endp
           ! Avoid unnecessary calculations over inactive points
-          if (patch%active(p) .and. patch%itype(p) >= npcropmin) then
+          if (patch%active(p)) then
              g = patch%gridcell(p)
              if (month==1 .and. day==1 .and. secs==dtime) then
                 call markreset_accum_field('GDD0', p)  ! reset gdd
@@ -1590,7 +1589,7 @@ contains
        ! would end up updating GDD8 with uninitialized values.
        do p = begp,endp
           ! Avoid unnecessary calculations over inactive points
-          if (patch%active(p) .and. patch%itype(p) >= npcropmin) then
+          if (patch%active(p)) then
              g = patch%gridcell(p)
              if (month==1 .and. day==1 .and. secs==dtime) then
                 call markreset_accum_field('GDD8', p)  ! reset gdd
@@ -1613,7 +1612,7 @@ contains
        ! would end up updating GDD10 with uninitialized values.
        do p = begp,endp
           ! Avoid unnecessary calculations over inactive points
-          if (patch%active(p) .and. patch%itype(p) >= npcropmin) then
+          if (patch%active(p)) then
              g = patch%gridcell(p)
              if (month==1 .and. day==1 .and. secs==dtime) then
                 call markreset_accum_field('GDD10', p)  ! reset gdd
