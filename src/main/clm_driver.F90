@@ -1374,7 +1374,7 @@ contains
 
        call atm2lnd_inst%UpdateAccVars(bounds_proc)
 
-       call temperature_inst%UpdateAccVars(bounds_proc, crop_inst)
+       call temperature_inst%UpdateAccVars(bounds_proc)
 
        call canopystate_inst%UpdateAccVars(bounds_proc)
 
