@@ -8,6 +8,7 @@ module TemperatureType
   use decompMod       , only : bounds_type
   use abortutils      , only : endrun
   use clm_varctl      , only : use_cndv, iulog, use_luna, use_crop, use_biomass_heat_storage
+  use clm_varctl      , only : stream_gdd20_seasons, flush_gdd20
   use clm_varpar      , only : nlevsno, nlevgrnd, nlevlak, nlevurb, nlevmaxurbgrnd
   use clm_varcon      , only : spval, ispval
   use GridcellType    , only : grc
@@ -94,6 +95,7 @@ module TemperatureType
      real(r8), pointer :: gdd020_patch            (:)   ! patch 20-year average of gdd0                     (ddays)
      real(r8), pointer :: gdd820_patch            (:)   ! patch 20-year average of gdd8                     (ddays)
      real(r8), pointer :: gdd1020_patch           (:)   ! patch 20-year average of gdd10                    (ddays)
+     logical           :: flush_gdd20 = .false.         ! whether accumulated GDD20s need to be flushed
 
      ! Heat content
      real(r8), pointer :: beta_col                 (:)   ! coefficient of convective velocity [-]
@@ -881,7 +883,7 @@ contains
     use shr_log_mod     , only : errMsg => shr_log_errMsg
     use spmdMod         , only : masterproc
     use abortutils      , only : endrun
-    use ncdio_pio       , only : file_desc_t, ncd_double, ncd_int
+    use ncdio_pio       , only : file_desc_t, ncd_double, ncd_int, ncd_log
     use restUtilMod
     !
     ! !ARGUMENTS:
@@ -893,8 +895,9 @@ contains
     logical          , intent(in)    :: is_prog_buildtemp    ! Prognostic building temp is being used
     !
     ! !LOCAL VARIABLES:
-    integer :: j,c       ! indices
+    integer :: j,c,p     ! indices
     logical :: readvar   ! determine if variable is on initial file
+    integer :: idata
     !-----------------------------------------------------------------------
 
     call restartvar(ncid=ncid, flag=flag, varname='T_SOISNO', xtype=ncd_double,   &
@@ -1116,6 +1119,26 @@ contains
           if (masterproc) write(iulog,*) "can't find t_floor in initial file..."
           if (masterproc) write(iulog,*) "Initialize t_floor to taf"
           this%t_floor_lun(bounds%begl:bounds%endl) = this%taf_lun(bounds%begl:bounds%endl)
+       end if
+    end if
+
+    if (use_crop .and. stream_gdd20_seasons) then
+       if (flag == 'write') then
+          if (this%flush_gdd20) then
+             idata = 1
+          else
+             idata = 0
+          end if
+       end if
+       call restartvar(ncid=ncid, flag=flag,  varname='flush_gdd20', xtype=ncd_int,  &
+            long_name='Flag indicating that GDD20 values need to be flushed', &
+            units='none', interpinic_flag='copy', readvar=readvar, data=idata)
+       if (flag == 'read') then
+          if (readvar .and. idata == 0) then
+             this%flush_gdd20 = .false.
+          else
+             this%flush_gdd20 = .true.
+          end if
        end if
     end if
 
@@ -1607,6 +1630,15 @@ contains
 
        ! Accumulate and extract running 20-year means
        if (is_end_curr_year()) then
+          ! Flush, if needed
+          if (flush_gdd20 .or. this%flush_gdd20) then
+              write(iulog, *) 'Flushing GDD20 variables'
+              call markreset_accum_field('GDD020')
+              call markreset_accum_field('GDD820')
+              call markreset_accum_field('GDD1020')
+              this%flush_gdd20 = .false.
+              flush_gdd20 = .false.
+          end if
           call update_accum_field  ('GDD020', this%gdd0_patch, nstep)
           call extract_accum_field ('GDD020', this%gdd020_patch, nstep)
           call update_accum_field  ('GDD820', this%gdd8_patch, nstep)
