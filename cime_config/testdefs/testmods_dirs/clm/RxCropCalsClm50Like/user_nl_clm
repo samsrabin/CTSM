@@ -19,3 +19,6 @@ fire_method = 'li2016crufrc'
 cli_scale = 0.033
 lfuel = 105.0
 
+rh_low = 30.0
+pot_hmn_ign_counts_alpha = 0.010
+
