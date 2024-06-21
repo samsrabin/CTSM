@@ -1,0 +1,21 @@
+
+crop_residue_removal_frac = 0.5
+finidat = '/glade/campaign/cesm/cesmdata/inputdata/lnd/clm2/initdata_esmf/ctsm5.2/clmi.I1850Clm60BgcCrop-ciso.1361-01-01.ne30pg3_mg17_c240317.nc'
+paramfile = '/glade/campaign/cesm/cesmdata/inputdata/lnd/clm2/paramdata/ctsm60_params.c240208.nc'
+snicar_snobc_intmix = .true.
+snicar_snw_shape = 'hexagonal_plate'
+snow_thermal_cond_method = 'Sturm1997'
+use_z0m_snowmelt = .true.
+z0param_method = 'Meier2022'
+stream_fldfilename_urbantv = '/glade/campaign/cesm/cesmdata/inputdata/lnd/clm2/urbandata/CTSM52_tbuildmax_OlesonFeddema_2020_0.9x1.25_simyr1849-2106_c200605.nc'
+stream_fldfilename_lightng = '/glade/campaign/cesm/cesmdata/inputdata/atm/datm7/NASA_LIS/clmforc.Li_2016_climo1995-2013.360x720.lnfm_Total_c160825.nc'
+stream_meshfile_lightng = '/glade/campaign/cesm/cesmdata/inputdata/atm/datm7/NASA_LIS/clmforc.Li_2016_climo1995-2013.360x720_ESMFmesh_cdf5_150621.nc'
+min_critical_dayl_method = 'DependsOnLat'
+onset_thresh_depends_on_veg = .true.
+zetamaxstable = 2.0
+use_biomass_heat_storage = .true.
+tillage_mode = 'low'
+fire_method = 'li2021gswpfrc'
+cli_scale = 0.025
+lfuel = 75.d00
+
