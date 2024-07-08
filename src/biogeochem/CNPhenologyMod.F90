@@ -2021,10 +2021,10 @@ contains
          end if
 
          ! Save these diagnostic variables only on the last day of the window to ensure that windows spanning the new year aren't double-counted. Doing this on the last day ensures that outputs are ordered as inputs should be.
-         if (jday == sowing_window_enddate) then
+         ! if (jday == sowing_window_enddate) then
              crop_inst%swindow_starts_thisyr_patch(p,w) = sowing_window_startdate
              crop_inst%swindow_ends_thisyr_patch  (p,w) = sowing_window_enddate
-         end if
+         ! end if
          !
          ! Only allow sowing according to normal "window" rules if not using prescribed
          ! sowing dates.
