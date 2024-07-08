@@ -1699,7 +1699,7 @@ contains
     mxsowings_in = size(rx_starts)
 
     ! If no sowing windows are prescribed, use the values from the parameter file.
-    if (.true.) then
+    if (maxval(rx_starts) < 1) then
         w = 1
         start_w = param_start
         end_w   = param_end
