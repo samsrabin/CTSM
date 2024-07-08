@@ -2670,7 +2670,7 @@ contains
 
       ! set GDD target
       did_rx_gdds = .false.
-      if (.false. .and. crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p)) .ge. 0._r8) then
+      if (use_cropcal_rx_cultivar_gdds .and. crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p)) .ge. 0._r8) then
          gddmaturity(p) = crop_inst%rx_cultivar_gdds_thisyr_patch(p,sowing_count(p))
          did_rx_gdds = .true.
       else if (ivt(p) == nwwheat .or. ivt(p) == nirrig_wwheat) then
