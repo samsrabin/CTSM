@@ -5,3 +5,5 @@
  stream_meshfile_cropcal = '$DIN_LOC_ROOT/share/meshes/360x720_120830_ESMFmesh_c20210507_cdf5.nc'
  stream_year_first_cropcal = 2000
  stream_year_last_cropcal = 2000
+
+hist_nhtfrq(3) = -24
