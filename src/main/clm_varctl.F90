@@ -591,7 +591,7 @@ contains
       if (abs(lat_list(i) - lat_in) < prec .and. &
           abs(lon_list(i) - lon_in) < prec .and. &
           veg_list(i) == veg_in) then
-         write(iulog, '(A,F5.1,A,F5.1,A,I2.2,A,A,F)') 'ssrts lat ',lat_in,'lon ',lon_in,'veg ',veg_in,' ',msg,val
+         write(iulog, '(A,F6.1,A,F6.1,A,I2.2,A,A,F)') 'ssrts lat ',lat_in,' lon ',lon_in,' veg ',veg_in,' ',trim(msg),val
          exit
       end if
     end do
