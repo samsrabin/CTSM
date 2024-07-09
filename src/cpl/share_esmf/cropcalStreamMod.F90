@@ -322,7 +322,7 @@ contains
     integer :: ivt, p, ip, ig
     integer :: nc, fp
     integer :: dayspyr
-    integer           :: n, g, g2
+    integer           :: n, g
     integer           :: lsize
     integer           :: rc
     integer           :: begp, endp
@@ -383,16 +383,15 @@ contains
             dataptr2d_swindow_start(g,n) = dataptr1d_swindow_start(g)
             dataptr2d_swindow_end  (g,n) = dataptr1d_swindow_end  (g)
             ivt = n + npcropmin - 1
-            g2 = bounds%begg + g - 1
             call ssr_printout( &
-                grc%latdeg(g2), &
-                grc%londeg(g2), &
+                grc%latdeg(g), &
+                grc%londeg(g), &
                 ivt, &
                 'cropcal_interp() swin grc start = ', &
                 dataptr1d_swindow_start(g))
              call ssr_printout( &
-                grc%latdeg(g2), &
-                grc%londeg(g2), &
+                grc%latdeg(g), &
+                grc%londeg(g), &
                 ivt, &
                 'cropcal_interp() swin grc end   = ', &
                 dataptr1d_swindow_end(g))
