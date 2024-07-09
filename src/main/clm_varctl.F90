@@ -13,6 +13,7 @@ module clm_varctl
   public :: clm_varctl_set    ! Set variables
   public :: cnallocate_carbon_only_set
   public :: cnallocate_carbon_only
+  public :: ssr_printout
   !
   private
   save
@@ -570,5 +571,31 @@ contains
   logical function CNAllocate_Carbon_only()
     cnallocate_carbon_only = carbon_only
   end function CNAllocate_Carbon_only
+
+  subroutine ssr_printout(lat_in, lon_in, veg_in, msg, val)
+    real(r8), intent(in) :: lat_in, lon_in
+    integer, intent(in) :: veg_in
+    character(len=*), intent(in) :: msg
+    real(r8), intent(in) :: val
+
+    integer :: i
+    real(r8) :: prec = 1.e-6
+    integer, parameter :: n_patches = 9
+    real(r8) :: lat_list(n_patches), lon_list(n_patches)
+    integer :: veg_list(n_patches)
+    lat_list = (/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 /)
+    lon_list = (/ 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0 /)
+    veg_list = (/ 19, 41, 61, 62, 67, 68, 75, 76, 77 /)
+
+    do i = 1, n_patches
+      if (abs(lat_list(i) - lat_in) < prec .and. &
+          abs(lon_list(i) - lon_in) < prec .and. &
+          veg_list(i) == veg_in) then
+         write(iulog, '(A,F5.1,A,F5.1,A,I2.2,A,A,F)') 'ssrts lat ',lat_in,'lon ',lon_in,'veg ',veg_in,' ',msg,val
+         exit
+      end if
+    end do
+
+  end subroutine ssr_printout
 
 end module clm_varctl

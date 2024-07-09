@@ -15,6 +15,7 @@ module cropcalStreamMod
   use abortutils       , only : endrun
   use clm_varctl       , only : iulog
   use clm_varctl       , only : use_cropcal_rx_swindows, use_cropcal_rx_cultivar_gdds, use_cropcal_streams
+  use clm_varctl       , only : ssr_printout
   use clm_varpar       , only : mxpft
   use clm_varpar       , only : mxsowings
   use perf_mod         , only : t_startf, t_stopf
@@ -308,6 +309,7 @@ contains
     use clm_time_manager, only : get_curr_days_per_year
     use pftconMod       , only : pftname
     use dshr_methods_mod , only : dshr_fldbun_getfldptr
+    use GridcellType     , only : grc
     !
     ! !ARGUMENTS:
     implicit none
@@ -394,6 +396,19 @@ contains
              ig = g_to_ig(patch%gridcell(p))
              starts(p,1) = dataptr2d_swindow_start(ig,n)
              ends(p,1)   = dataptr2d_swindow_end  (ig,n)
+
+             call ssr_printout( &
+                grc%latdeg(patch%gridcell(p)), &
+                grc%londeg(patch%gridcell(p)), &
+                patch%itype(p), &
+                'cropcal_interp() swin start = ', &
+                real(starts(p,1), r8))
+             call ssr_printout( &
+                grc%latdeg(patch%gridcell(p)), &
+                grc%londeg(patch%gridcell(p)), &
+                patch%itype(p), &
+                'cropcal_interp() swin end   = ', &
+                real(ends(p,1), r8))
          else
              write(iulog,'(a,i0)') 'cropcal_interp(), prescribed sowing windows: Crop patch has ivt ',ivt
              call ESMF_Finalize(endflag=ESMF_END_ABORT)

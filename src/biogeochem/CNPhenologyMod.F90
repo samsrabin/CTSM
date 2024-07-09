@@ -17,6 +17,7 @@ module CNPhenologyMod
   use clm_varpar                      , only : maxveg, nlevdecomp_full, mxsowings, mxharvests
   use clm_varpar                      , only : i_litr_min, i_litr_max
   use clm_varctl                      , only : iulog, use_cndv
+  use clm_varctl                      , only : ssr_printout
   use CNSharedParamsMod               , only : use_matrixcn
   use clm_varctl                      , only : for_testing_no_crop_seed_replenishment
   use clm_varcon                      , only : tfrz
@@ -1671,7 +1672,7 @@ contains
 
 
   !-----------------------------------------------------------------------
-  subroutine get_swindow(jday, rx_starts, rx_ends, param_start, param_end, w, start_w, end_w)
+  subroutine get_swindow(jday, rx_starts, rx_ends, param_start, param_end, w, start_w, end_w, which)
     ! !DESCRIPTION:
     ! Determine when the "next" sowing window is. This is either the sowing window we are
     ! currently in or, if not in a sowing window, the next one that will occur.
@@ -1684,6 +1685,7 @@ contains
     integer,                          intent(in)    :: param_start, param_end ! Sowing window start and end dates from parameter file
     integer,                          intent(out)   :: w ! Index of "next" sowing window
     integer,                          intent(out)   :: start_w, end_w ! Start and end dates of "next" sowing window
+    integer, intent(out) :: which
     !
     ! !LOCAL VARIABLES
     integer :: jday_tomorrow
@@ -1693,6 +1695,7 @@ contains
     w = -1
     start_w = -1
     end_w   = -1
+    which = 0
 
     ! Get info
     jday_tomorrow = get_doy_tomorrow(jday)
@@ -1703,6 +1706,7 @@ contains
         w = 1
         start_w = param_start
         end_w   = param_end
+        which = 1
         return
 
     ! Otherwise, if today is after the latest sowing window end date, use the first sowing window. This works only if sowing windows that span the new year are located at index w = 1.
@@ -1710,6 +1714,7 @@ contains
         w = 1
         start_w = rx_starts(w)
         end_w   = rx_ends(w)
+        which = 2
         return
     end if
 
@@ -1717,12 +1722,14 @@ contains
     do w = 1, mxsowings_in
       ! If nothing prescribed at this w, stop looking and exit loop. Will trigger "No sowing window found" error, which we do not move here because it's possible that no start or end date is < 1.
         if (min(rx_starts(w), rx_ends(w)) < 1) then
+            which = 3
             exit
         end if
 
         if (jday <= rx_ends(w)) then
             start_w = rx_starts(w)
             end_w   = rx_ends(w)
+            which = 4
             exit
         end if
     end do
@@ -1862,6 +1869,7 @@ contains
     logical fake_harvest  ! Dealing with incorrect Dec. 31 planting
     logical did_plant_prescribed_today    ! Was the crop sown today?
     logical vernalization_forces_harvest ! Was the crop killed by freezing during vernalization?
+    integer which
     !------------------------------------------------------------------------
 
     associate(                                                                   & 
@@ -1991,7 +1999,10 @@ contains
          end if
 
          ! Get dates of current or next sowing window.
-         call get_swindow(jday, crop_inst%rx_swindow_starts_thisyr_patch(p,:), crop_inst%rx_swindow_ends_thisyr_patch(p,:), minplantjday(ivt(p),h), maxplantjday(ivt(p),h), w, sowing_window_startdate, sowing_window_enddate)
+         call get_swindow(jday, crop_inst%rx_swindow_starts_thisyr_patch(p,:), crop_inst%rx_swindow_ends_thisyr_patch(p,:), minplantjday(ivt(p),h), maxplantjday(ivt(p),h), w, sowing_window_startdate, sowing_window_enddate, which)
+         call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'get_swindow() uses block ', real(which, r8))
+         call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() swin start = ', real(sowing_window_startdate, r8))
+         call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() swin end   = ', real(sowing_window_enddate, r8))
 
          ! Are we currently in a sowing window?
          ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
