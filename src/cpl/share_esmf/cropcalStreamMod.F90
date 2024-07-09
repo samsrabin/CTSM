@@ -406,7 +406,7 @@ contains
           if (ivt >= npcropmin) then
              n = ivt - npcropmin + 1
              ! vegetated pft
-             ig = g_to_ig(patch%gridcell(p))
+             ig = patch%gridcell(p) - bounds%begg + 1
              starts(p,1) = dataptr2d_swindow_start(ig,n)
              ends(p,1)   = dataptr2d_swindow_end  (ig,n)
 
