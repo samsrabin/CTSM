@@ -400,7 +400,8 @@ contains
        end do
 
        ! Set sowing window for each gridcell/patch combination
-       do p = begp, endp
+       do fp = 1, num_pcropp
+          p = filter_pcropp(fp)
           ivt = patch%itype(p)
           ! Will skip generic crops
           if (ivt >= npcropmin) then
@@ -422,6 +423,9 @@ contains
                 patch%itype(p), &
                 'cropcal_interp() swin patch end   = ', &
                 real(ends(p,1), r8))
+         else
+             write(iulog,'(a,i0)') 'cropcal_interp(), prescribed sowing windows: Crop patch has ivt ',ivt
+             call ESMF_Finalize(endflag=ESMF_END_ABORT)
           endif
        end do
 
