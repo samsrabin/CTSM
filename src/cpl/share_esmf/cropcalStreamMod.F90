@@ -322,7 +322,7 @@ contains
     integer :: ivt, p, ip, ig
     integer :: nc, fp
     integer :: dayspyr
-    integer           :: n, g
+    integer           :: n, g, g2
     integer           :: lsize
     integer           :: rc
     integer           :: begp, endp
@@ -352,9 +352,9 @@ contains
     dayspyr = get_curr_days_per_year()
 
     ! Read prescribed sowing window start dates from input files
-    allocate(dataptr2d_swindow_start(lsize, ncft))
+    allocate(dataptr2d_swindow_start(bounds%begg:bounds%endg, ncft))
     dataptr2d_swindow_start(:,:) = -1._r8
-    allocate(dataptr2d_swindow_end  (lsize, ncft))
+    allocate(dataptr2d_swindow_end  (bounds%begg:bounds%endg, ncft))
     dataptr2d_swindow_end(:,:) = -1._r8
     if (use_cropcal_rx_swindows) then
        ! Starting with npcropmin will skip generic crops
@@ -380,8 +380,9 @@ contains
                 dataptr1d_swindow_end  (g) = -1
              end if
 
-            dataptr2d_swindow_start(g,n) = dataptr1d_swindow_start(g)
-            dataptr2d_swindow_end  (g,n) = dataptr1d_swindow_end  (g)
+            g2 = bounds%begg + g - 1
+            dataptr2d_swindow_start(g2,n) = dataptr1d_swindow_start(g)
+            dataptr2d_swindow_end  (g2,n) = dataptr1d_swindow_end  (g)
             ivt = n + npcropmin - 1
             call ssr_printout( &
                 grc%latdeg(g), &
