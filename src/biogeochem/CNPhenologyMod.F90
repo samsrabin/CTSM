@@ -1966,6 +1966,7 @@ contains
          ! OR starting a run mid-year without any restart file OR handling a new crop column that just
          ! came into existence (and not at the year boundary for some reason).
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr_patch(p,1) == spval ) then
+            call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() resets to ', -1._r8)
             sowing_count(p) = 0
             harvest_count(p) = 0
             do s = 1, mxsowings
@@ -2103,6 +2104,16 @@ contains
                   cumvd(p)       = 0._r8
                   hdidx(p)       = 0._r8
                   vf(p)          = 0._r8
+               end if
+
+               if (do_plant_normal) then
+                  call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() sow NORMAL ', -999._r8)
+               end if
+               if (do_plant_lastchance) then
+                  call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() sow LASTCHANCE ', -999._r8)
+               end if
+               if (do_plant_prescribed) then
+                  call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() sow PRESCRIBED ', -999._r8)
                end if
 
                call PlantCrop(p, leafcn(ivt(p)), jday, kyr, do_plant_normal, &
@@ -2253,10 +2264,12 @@ contains
                 do_harvest = .true.
                 fake_harvest = .true.
                 harvest_reason = HARVEST_REASON_SOWNBADDEC31
+                call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv SOWNBADDEC31 ', -999._r8)
             else if (use_cropcal_streams .and. do_plant .and. .not. did_plant) then
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
                 harvest_reason = HARVEST_REASON_SOWTODAY
+                call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv SOWTOMDAY ', -999._r8)
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             else if (generate_crop_gdds .and. crop_inst%rx_swindow_starts_thisyr_patch(p,1) .gt. 0) then
@@ -2273,7 +2286,9 @@ contains
                    (idop(p) == 1 .and. jday == dayspyr)) then
                    do_harvest = .true.
                    harvest_reason = HARVEST_REASON_IDOPTOMORROW
+                   call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv IDOPTOMORROW ', -999._r8)
                else if (do_harvest) then
+                   call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv SOWTOMORROW A ', -999._r8)
                    harvest_reason = HARVEST_REASON_SOWTOMORROW
                end if
 
@@ -2284,6 +2299,7 @@ contains
             else if (vernalization_forces_harvest) then
                do_harvest = .true.
                harvest_reason = HARVEST_REASON_VERNFREEZEKILL
+               call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv VERNFREEZEKILL ', -999._r8)
             else
                ! Original harvest rule
                do_harvest = hui(p) >= gddmaturity(p) .or. idpp >= mxmat
@@ -2295,10 +2311,13 @@ contains
                do_harvest = do_harvest .or. do_plant_prescribed_tomorrow
 
                if (hui(p) >= gddmaturity(p)) then
+                   call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv MATURE ', -999._r8)
                    harvest_reason = HARVEST_REASON_MATURE
                else if (idpp >= mxmat) then
+                   call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv MAXSEASLENGTH ', -999._r8)
                    harvest_reason = HARVEST_REASON_MAXSEASLENGTH
                else if (do_plant_prescribed_tomorrow) then
+                   call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv SOWTOMORROW B ', -999._r8)
                    harvest_reason = HARVEST_REASON_SOWTOMORROW
                end if
             endif
@@ -2341,6 +2360,7 @@ contains
                if (.not. fake_harvest) then
                   if (harvdate(p) >= NOT_Harvested) harvdate(p) = jday
                   harvest_count(p) = harvest_count(p) + 1
+                  call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() real harvest ', real(harvest_count(p), r8))
                   crop_inst%sdates_perharv_patch(p, harvest_count(p)) = real(idop(p), r8)
                   crop_inst%syears_perharv_patch(p, harvest_count(p)) = real(iyop(p), r8)
                   crop_inst%hdates_thisyr_patch(p, harvest_count(p)) = real(jday, r8)
@@ -2350,6 +2370,8 @@ contains
                   crop_inst%sowing_reason_perharv_patch(p, harvest_count(p)) = real(crop_inst%sowing_reason_patch(p), r8)
                   crop_inst%sowing_reason_patch(p) = -1 ! "Reason for most recent sowing of this patch." So in the line above we save, and here we reset.
                   crop_inst%harvest_reason_thisyr_patch(p, harvest_count(p)) = harvest_reason
+               else
+                  call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() fake harvest ', -1._r8)
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
