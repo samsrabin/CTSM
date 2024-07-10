@@ -15,7 +15,7 @@ module cropcalStreamMod
   use abortutils       , only : endrun
   use clm_varctl       , only : iulog
   use clm_varctl       , only : use_cropcal_rx_swindows, use_cropcal_rx_cultivar_gdds, use_cropcal_streams
-  use clm_varctl       , only : ssr_printout
+  use clm_time_manager       , only : ssr_printout
   use clm_varpar       , only : mxpft
   use clm_varpar       , only : mxsowings
   use perf_mod         , only : t_startf, t_stopf

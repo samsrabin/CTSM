@@ -66,6 +66,7 @@ module clm_time_manager
         is_restart,               &! return true if this is a restart run
         update_rad_dtime,         &! track radiation interval via nstep
         update_DA_nstep,          &! update the Data Assimulation time step
+        ssr_printout, &
         timemgr_reset              ! reset values to their defaults, and free memory
 
    ! Public methods, but just to support unit testing:
@@ -138,6 +139,32 @@ module clm_time_manager
    !=========================================================================================
 contains
   !=========================================================================================
+
+subroutine ssr_printout(lat_in, lon_in, veg_in, msg, val)
+   real(r8), intent(in) :: lat_in, lon_in
+   integer, intent(in) :: veg_in
+   character(len=*), intent(in) :: msg
+   real(r8), intent(in) :: val
+
+   integer :: i
+   real(r8) :: prec = 1.e-6
+   integer, parameter :: n_patches = 12
+   real(r8) :: lat_list(n_patches), lon_list(n_patches)
+   integer :: veg_list(n_patches)
+   lat_list = (/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -10.0, -10.0, -10.0 /)
+   lon_list = (/ 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 45.0, 135.0, 315.0 /)
+   veg_list = (/ 19, 41, 61, 62, 67, 68, 75, 76, 77, 77, 75, 77 /)
+
+   do i = 1, n_patches
+     if (abs(lat_list(i) - lat_in) < prec .and. &
+         abs(lon_list(i) - lon_in) < prec .and. &
+         veg_list(i) == veg_in) then
+        write(iulog, '(A,F6.1,A,F6.1,A,I2.2,A,A,F)') 'ssrts lat ',lat_in,' lon ',lon_in,' veg ',veg_in,' ',trim (msg),val
+        exit
+     end if
+   end do
+
+ end subroutine ssr_printout
 
   subroutine set_timemgr_init( calendar_in,      start_ymd_in,     start_tod_in, ref_ymd_in,        &
        ref_tod_in, perpetual_run_in, perpetual_ymd_in, dtime_in )

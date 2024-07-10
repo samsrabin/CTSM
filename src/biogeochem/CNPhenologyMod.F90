@@ -17,7 +17,7 @@ module CNPhenologyMod
   use clm_varpar                      , only : maxveg, nlevdecomp_full, mxsowings, mxharvests
   use clm_varpar                      , only : i_litr_min, i_litr_max
   use clm_varctl                      , only : iulog, use_cndv
-  use clm_varctl                      , only : ssr_printout
+  use clm_time_manager                      , only : ssr_printout
   use CNSharedParamsMod               , only : use_matrixcn
   use clm_varctl                      , only : for_testing_no_crop_seed_replenishment
   use clm_varcon                      , only : tfrz
