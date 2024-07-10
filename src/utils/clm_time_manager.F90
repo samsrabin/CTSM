@@ -146,6 +146,8 @@ subroutine ssr_printout(lat_in, lon_in, veg_in, msg, val)
    character(len=*), intent(in) :: msg
    real(r8), intent(in) :: val
 
+   integer :: yr, mon, day, tod
+   character(len=256) :: datestr
    integer :: i
    real(r8) :: prec = 1.e-6
    integer, parameter :: n_patches = 12
@@ -155,11 +157,14 @@ subroutine ssr_printout(lat_in, lon_in, veg_in, msg, val)
    lon_list = (/ 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 45.0, 135.0, 315.0 /)
    veg_list = (/ 19, 41, 61, 62, 67, 68, 75, 76, 77, 77, 75, 77 /)
 
+   call get_prev_date(yr, mon, day, tod)
+   write(datestr, '(I4.4,A,I2.2,A,I2.2,A,I5.5)') yr,'-',mon,'-',day,'@',tod
+
    do i = 1, n_patches
      if (abs(lat_list(i) - lat_in) < prec .and. &
          abs(lon_list(i) - lon_in) < prec .and. &
          veg_list(i) == veg_in) then
-        write(iulog, '(A,F6.1,A,F6.1,A,I2.2,A,A,F)') 'ssrts lat ',lat_in,' lon ',lon_in,' veg ',veg_in,' ',trim (msg),val
+        write(iulog, '(A,A,F6.1,A,F6.1,A,I2.2,A,A,F)') trim(datestr),' ssrts lat ',lat_in,' lon ',lon_in,' veg ',veg_in,' ',trim(msg),val
         exit
      end if
    end do
