@@ -580,12 +580,12 @@ contains
 
     integer :: i
     real(r8) :: prec = 1.e-6
-    integer, parameter :: n_patches = 9
+    integer, parameter :: n_patches = 12
     real(r8) :: lat_list(n_patches), lon_list(n_patches)
     integer :: veg_list(n_patches)
-    lat_list = (/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 /)
-    lon_list = (/ 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0 /)
-    veg_list = (/ 19, 41, 61, 62, 67, 68, 75, 76, 77 /)
+    lat_list = (/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -10.0, -10.0, -10.0 /)
+    lon_list = (/ 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 45.0, 135.0, 315.0 /)
+    veg_list = (/ 19, 41, 61, 62, 67, 68, 75, 76, 77, 77, 75, 77 /)
 
     do i = 1, n_patches
       if (abs(lat_list(i) - lat_in) < prec .and. &
