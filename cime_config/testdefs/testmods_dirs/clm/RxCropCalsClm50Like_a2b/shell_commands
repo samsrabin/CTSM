@@ -1,0 +1,1 @@
+./xmlchange --subgroup case.test JOB_WALLCLOCK_TIME=00:20:00

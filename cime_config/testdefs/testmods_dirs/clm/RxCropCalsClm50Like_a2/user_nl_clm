@@ -1,0 +1,12 @@
+
+!crop_residue_removal_frac = 0.0
+!finidat = '$DIN_LOC_ROOT/lnd/clm2/initdata_esmf/ctsm5.2/clmi.I1850Clm50BgcCrop-ciso.1366-01-01.0.9x1.25_gx1v7_simyr1850_c240223.nc'
+!use_init_interp = .true.
+!paramfile = '$DIN_LOC_ROOT/lnd/clm2/paramdata/clm50_params.c240208.nc'
+!stream_fldfilename_urbantv = '$DIN_LOC_ROOT/lnd/clm2/urbandata/CLM50_tbuildmax_Oleson_2016_0.9x1.25_simyr1849-2106_c160923.nc'
+
+snicar_snobc_intmix = .false.
+snicar_snw_shape = 'sphere'
+snow_thermal_cond_method = 'Jordan1991'
+use_z0m_snowmelt = .false.
+z0param_method = 'ZengWang2007'

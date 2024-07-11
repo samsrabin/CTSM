@@ -1,0 +1,24 @@
+
+crop_residue_removal_frac = 0.0
+finidat = '$DIN_LOC_ROOT/lnd/clm2/initdata_esmf/ctsm5.2/clmi.I1850Clm50BgcCrop-ciso.1366-01-01.0.9x1.25_gx1v7_simyr1850_c240223.nc'
+use_init_interp = .true.
+paramfile = '$DIN_LOC_ROOT/lnd/clm2/paramdata/clm50_params.c240208.nc'
+snicar_snobc_intmix = .false.
+snicar_snw_shape = 'sphere'
+snow_thermal_cond_method = 'Jordan1991'
+use_z0m_snowmelt = .false.
+z0param_method = 'ZengWang2007'
+stream_fldfilename_urbantv = '$DIN_LOC_ROOT/lnd/clm2/urbandata/CLM50_tbuildmax_Oleson_2016_0.9x1.25_simyr1849-2106_c160923.nc'
+!stream_fldfilename_lightng = '$DIN_LOC_ROOT/atm/datm7/NASA_LIS/clmforc.Li_2012_climo1995-2011.T62.lnfm_Total_c140423.nc'
+!stream_meshfile_lightng = '$DIN_LOC_ROOT/atm/datm7/NASA_LIS/clmforc.Li_2012_climo1995-2011.T62_ESMFmesh_cdf5_110621.nc'
+!min_critical_dayl_method = 'Constant'
+!onset_thresh_depends_on_veg = .false.
+!zetamaxstable = 0.5
+!use_biomass_heat_storage = .false.
+!tillage_mode = 'off'
+!cli_scale = 0.033
+!lfuel = 105.0
+!fire_method = 'li2016crufrc'
+!rh_low = 30.0
+!pot_hmn_ign_counts_alpha = 0.010
+

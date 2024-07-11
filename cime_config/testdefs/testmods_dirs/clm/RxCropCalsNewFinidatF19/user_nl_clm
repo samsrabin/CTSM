@@ -1,0 +1,3 @@
+
+finidat = '/glade/derecho/scratch/samrabin/scale-mat-reqs-pr2-ggcmiseas.generate_finidat.f19_f19_mg17/run/scale-mat-reqs-pr2-ggcmiseas.generate_finidat.f19_f19_mg17.clm2.r.1850-01-06-00000.nc'
+use_init_interp = .true.

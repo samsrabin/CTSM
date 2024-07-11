@@ -1,0 +1,4 @@
+
+!finidat = '$DIN_LOC_ROOT/lnd/clm2/initdata_esmf/ctsm5.2/clmi.I1850Clm50BgcCrop-ciso.1366-01-01.0.9x1.25_gx1v7_simyr1850_c240223.nc'
+use_init_interp = .true.
+

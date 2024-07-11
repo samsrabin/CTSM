@@ -1,0 +1,7 @@
+
+!snicar_snobc_intmix = .false.
+!snicar_snw_shape = 'sphere'
+!snow_thermal_cond_method = 'Jordan1991'
+
+use_z0m_snowmelt = .false.
+z0param_method = 'ZengWang2007'
