@@ -2001,9 +2001,6 @@ contains
 
          ! Get dates of current or next sowing window.
          call get_swindow(jday, crop_inst%rx_swindow_starts_thisyr_patch(p,:), crop_inst%rx_swindow_ends_thisyr_patch(p,:), minplantjday(ivt(p),h), maxplantjday(ivt(p),h), w, sowing_window_startdate, sowing_window_enddate, which)
-         call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'get_swindow() uses block ', real(which, r8))
-         call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() swin start = ', real(sowing_window_startdate, r8))
-         call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() swin end   = ', real(sowing_window_enddate, r8))
 
          ! Are we currently in a sowing window?
          ! This is outside the croplive check so that the "harvest if planting conditions were met today" conditional works.
@@ -2269,7 +2266,7 @@ contains
                 ! Today was supposed to be the planting day, but the previous crop still hasn't been harvested.
                 do_harvest = .true.
                 harvest_reason = HARVEST_REASON_SOWTODAY
-                call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv SOWTOMDAY ', -999._r8)
+                call ssr_printout(grc%latdeg(g), grc%londeg(g), patch%itype(p), 'CropPhenology() harv SOWTODAY ', -999._r8)
 
             ! If generate_crop_gdds and this patch has prescribed sowing inputs
             else if (generate_crop_gdds .and. crop_inst%rx_swindow_starts_thisyr_patch(p,1) .gt. 0) then
