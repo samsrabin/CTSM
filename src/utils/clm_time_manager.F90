@@ -150,12 +150,12 @@ subroutine ssr_printout(lat_in, lon_in, veg_in, msg, val)
    character(len=256) :: datestr
    integer :: i
    real(r8) :: prec = 1.e-6
-   integer, parameter :: n_patches = 12
+   integer, parameter :: n_patches = 4
    real(r8) :: lat_list(n_patches), lon_list(n_patches)
    integer :: veg_list(n_patches)
-   lat_list = (/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -10.0, -10.0, -10.0 /)
-   lon_list = (/ 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 45.0, 135.0, 315.0 /)
-   veg_list = (/ 19, 41, 61, 62, 67, 68, 75, 76, 77, 77, 75, 77 /)
+   lat_list = (/ -20.0, -10.0, -10.0, -10.0 /)
+   lon_list = (/ 300.0, 45.0, 135.0, 315.0 /)
+   veg_list = (/ 77, 77, 75, 77 /)
 
    call get_prev_date(yr, mon, day, tod)
    write(datestr, '(I4.4,A,I2.2,A,I2.2,A,I5.5)') yr,'-',mon,'-',day,'@',tod
