@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 66cc4f81b5ec20f54a6d635aee0143138af36158  # FATES_SECONDAREA_(ANTHRO)DIST_AP are actually fine
+fxtag = 1ec6d6eb9bc1e73ed9af6b810edb0aa7e7172a31  # All history vars with age class multiplexed should divide by age class area, not site area.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
