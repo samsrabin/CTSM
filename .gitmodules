@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 1ec6d6eb9bc1e73ed9af6b810edb0aa7e7172a31  # All history vars with age class multiplexed should divide by age class area, not site area.
+fxtag = 103fdc96397b340f2c14a1f5b47bd8dbe479019a  # Ensure that no area denominator is zero.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
