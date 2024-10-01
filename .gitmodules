@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = ce89a23a573a8bcf2e194f9575e3056b74cb969c
+fxtag = 60ec242a470e7f1bdcb7408fb3136b648fea9d18  # refactor-history-baseline: Fix weighting of FATES_NCL, FATES_SCORCH_HEIGHT_PF.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
