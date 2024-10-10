@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = fa87c89ccc7e86ad737b0ff1df662319920f6b7b  # refactor-history-2-dev: Remove mortality component diagnostic outputs.
+fxtag = 1121a34283a631b5463e0c60fd347fe5f18da975  # refactor-history-2-dev2: Revert "Update FATES_VEGC_APPF even if cohort is new."
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
