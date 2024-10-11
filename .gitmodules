@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 1121a34283a631b5463e0c60fd347fe5f18da975  # refactor-history-2-dev2: Revert "Update FATES_VEGC_APPF even if cohort is new."
+fxtag = f0a7f1d6362048fb5e51f8b89771c0bac3d55e94  # refactor-history-2-dev2: Improve comments in update_history_dyn2_ageclass().
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
