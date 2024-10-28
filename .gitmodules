@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = fa87c89ccc7e86ad737b0ff1df662319920f6b7b  # refactor-history-2-dev: Remove mortality component diagnostic outputs.
+fxtag = bcc15e753f58dfb5bf820c934c0d4911578f843a  # refactor-history-2: Rename _area_ vars in FatesHistoryInterfaceMod to _fracarea_.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
