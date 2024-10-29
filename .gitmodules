@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = bcc15e753f58dfb5bf820c934c0d4911578f843a  # refactor-history-2: Rename _area_ vars in FatesHistoryInterfaceMod to _fracarea_.
+fxtag = f54db4969f2a07f8c4cdd9433ab2636a18764ab1  # refactor-history-2: Remove unneeded cohort class index updates.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
