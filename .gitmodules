@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = f54db4969f2a07f8c4cdd9433ab2636a18764ab1  # refactor-history-2: Remove unneeded cohort class index updates.
+fxtag = acb58bbda51dac2cefd7ca123c06469db2cc3f4c  # refactor-history-2: Add prt_vartypes subroutine GetBiomass().
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
