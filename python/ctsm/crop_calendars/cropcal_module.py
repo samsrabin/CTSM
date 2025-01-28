@@ -345,7 +345,7 @@ def import_output(
     my_vars,
     year_1=None,
     year_n=None,
-    my_vegtypes=utils.define_mgdcrop_list(),
+    my_vegtypes=utils.define_mgdcrop_list_withgrasses(),
     sdates_rx_ds=None,
     gdds_rx_ds=None,
     verbose=False,
@@ -425,7 +425,7 @@ def import_output(
     # Check that e.g., GDDACCUM <= HUI
     for var_list in [["GDDACCUM", "HUI"], ["SYEARS", "HYEARS"]]:
         if all(v in this_ds_gs for v in var_list):
-            any_bad = check_v0_le_v1(
+            any_bad = any_bad or check_v0_le_v1(
                 this_ds_gs, var_list, both_nan_ok=True, throw_error=throw_errors
             )
 
@@ -443,10 +443,7 @@ def import_output(
         )
 
     # Convert time axis to integer year, saving original as 'cftime'
-    this_ds_gs = this_ds_gs.assign_coords(
-        {"cftime": this_ds["time_bounds"].isel({"hist_interval": 0})}
-    )
-    this_ds_gs = this_ds_gs.assign_coords({"time": [t.year for t in this_ds_gs["cftime"].values]})
+    this_ds_gs = convert_time_to_int_year(filename, this_ds, this_ds_gs)
 
     # Get number of harvests
     this_ds_gs["NHARVESTS"] = (this_ds_gs["GDDHARV_PERHARV"] > 0).sum(dim="mxharvests")
@@ -456,6 +453,35 @@ def import_output(
     this_ds_gs["NHARVEST_DISCREP"] = (this_ds_gs["NHARVESTS"] == 2).astype(int)
 
     return this_ds_gs, any_bad
+
+
+def convert_time_to_int_year(filename, this_ds, this_ds_gs):
+    """
+    Convert time axis to integer year, saving original as 'cftime'
+    """
+    if "time_bounds" in this_ds:
+        # Always true before PR #2838, when even files with all instantaneous variables got
+        # time_bounds saved. After that PR (and before the segregation of instantaneous and other
+        # variables onto separate files), files with an instantaneous variable first in their list
+        # do not get time_bounds saved.
+        this_ds_gs = this_ds_gs.assign_coords(
+            {"cftime": this_ds["time_bounds"].isel({"hist_interval": 0})}
+        )
+        this_ds_gs = this_ds_gs.assign_coords(
+            {"time": [t.year for t in this_ds_gs["cftime"].values]}
+        )
+    elif this_ds["time"].attrs["long_name"] == "time at end of time step":
+        # This is an "instantaneous file."
+        this_ds_gs = this_ds_gs.assign_coords({"cftime": this_ds["time"]})
+        this_ds_gs = this_ds_gs.assign_coords(
+            {"time": [t.year - 1 for t in this_ds_gs["cftime"].values]}
+        )
+    else:
+        raise RuntimeError(
+            f"{filename} is neither an instantaneous nor a combined/non-instantaneous file."
+        )
+
+    return this_ds_gs
 
 
 def handle_zombie_crops(this_ds):
