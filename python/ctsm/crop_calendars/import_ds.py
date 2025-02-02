@@ -185,7 +185,10 @@ def process_inputs(filelist, my_vars, my_vegtypes, my_vars_missing_ok):
 
     # Make sure lists are actually lists
     if not isinstance(filelist, list):
-        filelist = [filelist]
+        if isinstance(filelist, np.ndarray):
+            filelist = filelist.tolist()
+        else:
+            filelist = [filelist]
     if not isinstance(my_vars_missing_ok, list):
         my_vars_missing_ok = [my_vars_missing_ok]
     return filelist, my_vars, my_vegtypes, my_vars_missing_ok
@@ -263,6 +266,8 @@ def import_ds(
         this_ds = xr.open_dataset(filelist, chunks=chunks)
         this_ds = mfdataset_preproc(this_ds, my_vars, my_vegtypes, time_slice)
         this_ds = this_ds.compute()
+    else:
+        raise TypeError(f"Not able to handle filelist of type {type(filelist)}")
 
     # Warn and/or error about variables that couldn't be imported or derived
     if my_vars:
