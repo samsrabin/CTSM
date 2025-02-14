@@ -74,6 +74,12 @@ module CropType
      real(r8), pointer :: hui_patch               (:)   ! crop patch heat unit index (ddays)
      real(r8), pointer :: gddaccum_patch          (:)   ! patch growing degree-days from planting (air) (ddays)
 
+     ! SSR 2025-02-14: Temporary diagnostic variables used in reparameterizing crops for CLM6
+     logical, pointer :: maxlai_triggered_grainfill_patch (:)  ! Whether max LAI triggered grain fill for the current season
+     ! Reals so that they can be written to history files
+     real(r8), pointer :: maxlai_triggered_grainfill_ann_patch (:)  ! Number of times in calendar year that max LAI triggered grain fill
+     real(r8), pointer :: maxlai_triggered_grainfill_perharv_patch (:,:)  ! Whether a given season (indexed on harvest) had max LAI trigger grain fill
+
    contains
      ! Public routines
      procedure, public  :: Init               ! Initialize the crop type
@@ -254,6 +260,9 @@ contains
     allocate(this%harvest_reason_thisyr_patch(begp:endp,1:mxharvests)) ; this%harvest_reason_thisyr_patch(:,:) = spval
     allocate(this%sowing_count(begp:endp)) ; this%sowing_count(:) = 0
     allocate(this%harvest_count(begp:endp)) ; this%harvest_count(:) = 0
+    allocate(this%maxlai_triggered_grainfill_patch(begp:endp)) ; this%maxlai_triggered_grainfill_patch(:) = .false.
+    allocate(this%maxlai_triggered_grainfill_ann_patch(begp:endp)) ; this%maxlai_triggered_grainfill_ann_patch(:) = spval
+    allocate(this%maxlai_triggered_grainfill_perharv_patch(begp:endp,1:mxharvests)) ; this%maxlai_triggered_grainfill_perharv_patch(:,:) = spval
 
   end subroutine InitAllocate
 
@@ -376,6 +385,15 @@ contains
     call hist_addfld1d (fname='GDD20_SEASON_END', units='day of year', &
          avgflag='I', long_name='End of the GDD20 accumulation season (from input)', &
          ptr_patch=this%gdd20_season_end_patch, default='inactive')
+
+    this%maxlai_triggered_grainfill_ann_patch(begp:endp) = spval
+    call hist_addfld1d (fname='MAXLAIGRAINFILL', units='unitless', &
+         avgflag='I', long_name='Number of times in calendar year that max LAI triggered grain fill', &
+         ptr_patch=this%maxlai_triggered_grainfill_ann_patch, default='inactive')
+    this%maxlai_triggered_grainfill_perharv_patch(begp:endp,:) = spval
+    call hist_addfld2d (fname='MAXLAIGRAINFILL_PERHARV', units='unitless', type2d='mxharvests', &
+         avgflag='I', long_name='Whether a given season (indexed on harvest) had max LAI trigger grain fill', &
+         ptr_patch=this%maxlai_triggered_grainfill_perharv_patch, default='inactive')
 
   end subroutine InitHistory
 

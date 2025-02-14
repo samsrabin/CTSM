@@ -2169,6 +2169,7 @@ contains
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr_patch(p,1) == spval ) then
             sowing_count(p) = 0
             harvest_count(p) = 0
+            crop_inst%maxlai_triggered_grainfill_ann_patch(p) = 0._r8
             do s = 1, mxsowings
                crop_inst%sdates_thisyr_patch(p,s) = -1._r8
                crop_inst%swindow_starts_thisyr_patch(p,s) = -1._r8
@@ -2183,6 +2184,7 @@ contains
                crop_inst%gddaccum_thisyr_patch(p,s) = -1._r8
                crop_inst%hui_thisyr_patch(p,s) = -1._r8
                crop_inst%sowing_reason_perharv_patch(p,s) = -1._r8
+               crop_inst%maxlai_triggered_grainfill_perharv_patch(p,s) = 0._r8
                crop_inst%harvest_reason_thisyr_patch(p,s) = -1._r8
                do k = repr_grain_min, repr_grain_max
                   cnveg_carbonflux_inst%repr_grainc_to_food_perharv_patch(p,s,k) = 0._r8
@@ -2429,8 +2431,9 @@ contains
             ! enter phase 2 onset for one time step:
             ! transfer seed carbon to leaf emergence
 
-            if (peaklai(p) >= 1) then
-               hui(p) = max(hui(p),huigrain(p))
+            if (peaklai(p) >= 1 .and. hui(p) < huigrain(p)) then
+               hui(p) = huigrain(p)
+               crop_inst%maxlai_triggered_grainfill_patch(p) = .true.
             endif
 
             do_harvest = .false.
@@ -2548,6 +2551,11 @@ contains
                   crop_inst%sowing_reason_perharv_patch(p, harvest_count(p)) = real(crop_inst%sowing_reason_patch(p), r8)
                   crop_inst%sowing_reason_patch(p) = -1 ! "Reason for most recent sowing of this patch." So in the line above we save, and here we reset.
                   crop_inst%harvest_reason_thisyr_patch(p, harvest_count(p)) = harvest_reason
+                  if (crop_inst%maxlai_triggered_grainfill_patch(p)) then
+                     crop_inst%maxlai_triggered_grainfill_ann_patch(p) = &
+                          crop_inst%maxlai_triggered_grainfill_ann_patch(p) + 1._r8
+                     crop_inst%maxlai_triggered_grainfill_perharv_patch(p, harvest_count(p)) = 1._r8
+                  end if
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
@@ -2839,6 +2847,7 @@ contains
       iyop(p)      = kyr
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
+      crop_inst%maxlai_triggered_grainfill_patch(p) = .false.
 
       crop_inst%sdates_thisyr_patch(p,sowing_count(p)) = real(jday, r8)
 
