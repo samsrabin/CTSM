@@ -2185,6 +2185,9 @@ contains
                crop_inst%hui_thisyr_patch(p,s) = -1._r8
                crop_inst%sowing_reason_perharv_patch(p,s) = -1._r8
                crop_inst%maxlai_triggered_grainfill_perharv_patch(p,s) = 0._r8
+               crop_inst%cropphase_time_pre_perharv_patch(p,s) = -1._r8
+               crop_inst%cropphase_time_veg_perharv_patch(p,s) = -1._r8
+               crop_inst%cropphase_time_rep_perharv_patch(p,s) = -1._r8
                crop_inst%harvest_reason_thisyr_patch(p,s) = -1._r8
                do k = repr_grain_min, repr_grain_max
                   cnveg_carbonflux_inst%repr_grainc_to_food_perharv_patch(p,s,k) = 0._r8
@@ -2556,6 +2559,12 @@ contains
                           crop_inst%maxlai_triggered_grainfill_ann_patch(p) + 1._r8
                      crop_inst%maxlai_triggered_grainfill_perharv_patch(p, harvest_count(p)) = 1._r8
                   end if
+                  crop_inst%cropphase_time_pre_perharv_patch(p, harvest_count(p)) = &
+                       crop_inst%cropphase_time_pre_patch(p)
+                  crop_inst%cropphase_time_veg_perharv_patch(p, harvest_count(p)) = &
+                       crop_inst%cropphase_time_veg_patch(p)
+                  crop_inst%cropphase_time_rep_perharv_patch(p, harvest_count(p)) = &
+                       crop_inst%cropphase_time_rep_patch(p)
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
@@ -2625,6 +2634,15 @@ contains
          ! At the end of the sowing window, AFTER we've done everything crop-related, set this to false
          if (is_end_sowing_window .and. is_end_curr_day()) then
             crop_inst%sown_in_this_window(p) = .false.
+         end if
+
+         ! Update time spent in crop phase
+         if (cphase(p) == cphase_planted) then
+            crop_inst%cropphase_time_pre_patch = crop_inst%cropphase_time_pre_patch + fracday
+         else if (cphase(p) == cphase_leafemerge) then
+            crop_inst%cropphase_time_veg_patch = crop_inst%cropphase_time_veg_patch + fracday
+         else if (cphase(p) == cphase_grainfill) then
+            crop_inst%cropphase_time_rep_patch = crop_inst%cropphase_time_rep_patch + fracday
          end if
 
       end do ! prognostic crops loop
@@ -2848,6 +2866,9 @@ contains
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
       crop_inst%maxlai_triggered_grainfill_patch(p) = .false.
+      crop_inst%cropphase_time_pre_patch(p) = 0._r8
+      crop_inst%cropphase_time_veg_patch(p) = 0._r8
+      crop_inst%cropphase_time_rep_patch(p) = 0._r8
 
       crop_inst%sdates_thisyr_patch(p,sowing_count(p)) = real(jday, r8)
 
