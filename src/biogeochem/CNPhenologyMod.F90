@@ -146,6 +146,7 @@ module CNPhenologyMod
   real(r8)         :: min_gddmaturity = 1._r8     ! Weird things can happen if gddmaturity is tiny
   logical,  public :: generate_crop_gdds = .false. ! If true, harvest the day before next sowing
   logical,  public :: use_mxmat = .true.           ! If true, ignore crop maximum growing season length
+  logical,  public :: maxlai_triggers_grainfill = .true.   ! If true, crops will enter cphase_grainfill upon reaching maximum LAI
 
   ! For use with adapt_cropcal_rx_cultivar_gdds .true.
   real(r8), parameter :: min_gdd20_baseline = 0._r8  ! If gdd20_baseline_patch is ≤ this, do not consider baseline.
@@ -200,7 +201,7 @@ contains
     !-----------------------------------------------------------------------
     namelist /cnphenology/ initial_seed_at_planting, onset_thresh_depends_on_veg, &
                            min_critical_dayl_method, generate_crop_gdds, &
-                           use_mxmat
+                           use_mxmat, maxlai_triggers_grainfill
 
     ! Initialize options to default values, in case they are not specified in
     ! the namelist
@@ -226,6 +227,7 @@ contains
     call shr_mpi_bcast (min_critical_dayl_method,     mpicom)
     call shr_mpi_bcast (generate_crop_gdds,          mpicom)
     call shr_mpi_bcast (use_mxmat,                   mpicom)
+    call shr_mpi_bcast (maxlai_triggers_grainfill,   mpicom)
 
     if (      min_critical_dayl_method == "DependsOnLat"       )then
        critical_daylight_method = critical_daylight_depends_on_lat
@@ -2434,7 +2436,7 @@ contains
             ! enter phase 2 onset for one time step:
             ! transfer seed carbon to leaf emergence
 
-            if (peaklai(p) >= 1 .and. hui(p) < huigrain(p)) then
+            if (maxlai_triggers_grainfill .and. peaklai(p) >= 1 .and. hui(p) < huigrain(p)) then
                hui(p) = huigrain(p)
                crop_inst%maxlai_triggered_grainfill_patch(p) = .true.
             endif

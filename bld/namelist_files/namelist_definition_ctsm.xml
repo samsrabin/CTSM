@@ -1398,6 +1398,11 @@ Set to .true. in order to override crop harvesting logic and to instead harvest 
 Set to .false. in order to ignore crop PFT parameter for maximum growing season length (mxmat). Must be set to .false. when generate_crop_gdds is .true.
 </entry>
 
+<entry id="maxlai_triggers_grainfill" type="logical" category="physics"
+        group="cnphenology" valid_values="" value=".true.">
+Set to .false. in order to disable behavior where crops enter grain-filling phase upon reaching max LAI
+</entry>
+
 <entry id="min_critical_dayl_method" type="char*25" category="physics"
        group="cnphenology" valid_values="Constant,DependsOnLat,DependsOnVeg,DependsOnLatAndVeg">
 Method for determining what the minimum critical day length for seasonal decidious leaf offset depends on
