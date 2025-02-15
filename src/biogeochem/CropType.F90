@@ -653,6 +653,31 @@ contains
        end if
        deallocate(temp1d)
 
+       allocate(temp1d(bounds%begp:bounds%endp))
+       if (flag == 'write') then
+          do p= bounds%begp,bounds%endp
+             if (this%maxlai_triggered_grainfill_patch(p)) then
+                temp1d(p) = 1
+             else
+                temp1d(p) = 0
+             end if
+          end do
+       end if
+       call restartvar(ncid=ncid, flag=flag,  varname='maxlai_triggered_grainfill_patch', xtype=ncd_log,  &
+            dim1name='pft', &
+            long_name='Whether max LAI triggered grain fill for the current season', &
+            interpinic_flag='interp', readvar=readvar, data=temp1d)
+       if (flag == 'read') then
+          do p= bounds%begp,bounds%endp
+             if (temp1d(p) == 1) then
+                this%maxlai_triggered_grainfill_patch(p) = .true.
+             else
+                this%maxlai_triggered_grainfill_patch(p) = .false.
+             end if
+          end do
+       end if
+       deallocate(temp1d)
+
        call restartvar(ncid=ncid, flag=flag,  varname='harvdate', xtype=ncd_int,  &
             dim1name='pft', long_name='harvest date', units='jday', nvalid_range=(/1,366/), &
             interpinic_flag='interp', readvar=readvar, data=this%harvdate_patch)
@@ -675,6 +700,11 @@ contains
             dim1name='pft', long_name='sowing reason for this patch', &
             units='none', &
             interpinic_flag='interp', readvar=readvar, data=this%sowing_reason_patch)
+
+       call restartvar(ncid=ncid, flag=flag,  varname='maxlai_triggered_grainfill_ann_patch',xtype=ncd_double, &
+            dim1name='pft', long_name='Number of times in calendar year that max LAI triggered grain fill', &
+            units='none', &
+            interpinic_flag='interp', readvar=readvar, data=this%maxlai_triggered_grainfill_ann_patch)
 
        ! Read or write variable(s) with mxsowings dimension
        ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-02) See note in CallRestartvarDimOK()
@@ -753,6 +783,11 @@ contains
                 long_name='reason for each harvest for this patch this year', units='unitless', &
                 scale_by_thickness=.false., &
                 interpinic_flag='interp', readvar=readvar, data=this%harvest_reason_thisyr_patch)
+           call restartvar(ncid=ncid, flag=flag, varname='maxlai_triggered_grainfill_perharv_patch', xtype=ncd_double,  &
+                dim1name='pft', dim2name='mxharvests', switchdim=.true., &
+                long_name='Whether a given season (indexed on harvest) had max LAI trigger grain fill', units='unitless', &
+                scale_by_thickness=.false., &
+                interpinic_flag='interp', readvar=readvar, data=this%maxlai_triggered_grainfill_perharv_patch)
 
            ! Fill variable(s) derived from read-in variable(s)
            if (flag == 'read') then
