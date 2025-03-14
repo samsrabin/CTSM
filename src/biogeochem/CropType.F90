@@ -75,6 +75,7 @@ module CropType
      real(r8), pointer :: gddaccum_patch          (:)   ! patch growing degree-days from planting (air) (ddays)
 
      ! SSR 2025-02-14: Temporary diagnostic variables used in reparameterizing crops for CLM6
+     logical, pointer :: maxlai_triggers_grainfill_patch (:)  ! Whether max LAI can trigger grain fill for the current season
      logical, pointer :: maxlai_triggered_grainfill_patch (:)  ! Whether max LAI triggered grain fill for the current season
      ! Reals so that they can be written to history files
      real(r8), pointer :: maxlai_triggered_grainfill_ann_patch (:)  ! Number of times in calendar year that max LAI triggered grain fill
@@ -268,6 +269,7 @@ contains
     allocate(this%harvest_reason_thisyr_patch(begp:endp,1:mxharvests)) ; this%harvest_reason_thisyr_patch(:,:) = spval
     allocate(this%sowing_count(begp:endp)) ; this%sowing_count(:) = 0
     allocate(this%harvest_count(begp:endp)) ; this%harvest_count(:) = 0
+    allocate(this%maxlai_triggers_grainfill_patch(begp:endp)) ; this%maxlai_triggers_grainfill_patch(:) = .false.
     allocate(this%maxlai_triggered_grainfill_patch(begp:endp)) ; this%maxlai_triggered_grainfill_patch(:) = .false.
     allocate(this%maxlai_triggered_grainfill_ann_patch(begp:endp)) ; this%maxlai_triggered_grainfill_ann_patch(:) = spval
     allocate(this%maxlai_triggered_grainfill_perharv_patch(begp:endp,1:mxharvests)) ; this%maxlai_triggered_grainfill_perharv_patch(:,:) = spval
@@ -675,6 +677,31 @@ contains
                 this%sown_in_this_window(p) = .true.
              else
                 this%sown_in_this_window(p) = .false.
+             end if
+          end do
+       end if
+       deallocate(temp1d)
+
+       allocate(temp1d(bounds%begp:bounds%endp))
+       if (flag == 'write') then
+          do p= bounds%begp,bounds%endp
+             if (this%maxlai_triggers_grainfill_patch(p)) then
+                temp1d(p) = 1
+             else
+                temp1d(p) = 0
+             end if
+          end do
+       end if
+       call restartvar(ncid=ncid, flag=flag,  varname='maxlai_triggers_grainfill_patch', xtype=ncd_log,  &
+            dim1name='pft', &
+            long_name='Whether max LAI can trigger grain fill for the current season', &
+            interpinic_flag='interp', readvar=readvar, data=temp1d)
+       if (flag == 'read') then
+          do p= bounds%begp,bounds%endp
+             if (temp1d(p) == 1) then
+                this%maxlai_triggers_grainfill_patch(p) = .true.
+             else
+                this%maxlai_triggers_grainfill_patch(p) = .false.
              end if
           end do
        end if

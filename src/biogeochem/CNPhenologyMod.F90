@@ -2436,7 +2436,7 @@ contains
             ! enter phase 2 onset for one time step:
             ! transfer seed carbon to leaf emergence
 
-            if (maxlai_triggers_grainfill .and. peaklai(p) >= 1 .and. hui(p) < huigrain(p)) then
+            if (crop_inst%maxlai_triggers_grainfill_patch(p) .and. peaklai(p) >= 1 .and. hui(p) < huigrain(p)) then
                hui(p) = huigrain(p)
                crop_inst%maxlai_triggered_grainfill_patch(p) = .true.
             endif
@@ -2871,6 +2871,7 @@ contains
       crop_inst%cropphase_time_pre_patch(p) = 0._r8
       crop_inst%cropphase_time_veg_patch(p) = 0._r8
       crop_inst%cropphase_time_rep_patch(p) = 0._r8
+      crop_inst%maxlai_triggers_grainfill_patch(p) = maxlai_triggers_grainfill
 
       crop_inst%sdates_thisyr_patch(p,sowing_count(p)) = real(jday, r8)
 
