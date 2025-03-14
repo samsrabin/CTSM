@@ -5,6 +5,7 @@ module test_CNPhenology
   use funit
   use unittestSubgridMod
   use CNPhenologyMod
+  use CropType, only : cphase_not_planted, cphase_planted, cphase_leafemerge, cphase_grainfill, cphase_harvest
   use unittestTimeManagerMod, only : unittest_timemgr_setup, unittest_timemgr_teardown
   use unittestTimeManagerMod, only : unittest_timemgr_set_curr_date
   use unittestSimpleSubgridSetupsMod, only : setup_single_veg_patch, setup_n_veg_patches
@@ -500,5 +501,60 @@ contains
     @assertFalse(was_sown_in_this_window(sowing_window_startdate, sowing_window_enddate, jday, idop, .false.))
 
   end subroutine test_was_sown_in_this_window_sameday
+
+  @Test
+  subroutine test_setcropphase_ok(this)
+    class(TestCNPhenology), intent(inout) :: this
+    real(r8) :: current_phase, new_phase
+
+    ! Going from not planted to planted
+    current_phase = cphase_not_planted
+    new_phase = cphase_planted
+    call SetCropPhase(current_phase, new_phase)
+    @assertEqual(current_phase, new_phase)
+
+    ! Going from planted to vegetative
+    current_phase = cphase_planted
+    new_phase = cphase_leafemerge
+    call SetCropPhase(current_phase, new_phase)
+    @assertEqual(current_phase, new_phase)
+
+    ! Going from vegetative to reproductive
+    current_phase = cphase_leafemerge
+    new_phase = cphase_grainfill
+    call SetCropPhase(current_phase, new_phase)
+    @assertEqual(current_phase, new_phase)
+
+    ! Going from reproductive to harvested
+    current_phase = cphase_grainfill
+    new_phase = cphase_harvest
+    call SetCropPhase(current_phase, new_phase)
+    @assertEqual(current_phase, new_phase)
+    @assertNotEqual(current_phase, new_phase)
+
+    ! Going from harvested to not planted
+    current_phase = cphase_harvest
+    new_phase = cphase_not_planted
+    call SetCropPhase(current_phase, new_phase)
+    @assertEqual(current_phase, new_phase)
+    @assertTrue(.false.)
+    @assertEqual(0, 1)
+
+  end subroutine test_setcropphase_ok
+
+  @Test
+  subroutine test_setcropphase_bad(this)
+    class(TestCNPhenology), intent(inout) :: this
+    real(r8) :: current_phase, new_phase
+
+    ! Going from vegetative to planted
+    current_phase = cphase_leafemerge
+    new_phase = cphase_planted
+    @assertTrue(.false.)
+    call SetCropPhase(current_phase, new_phase)
+    @assertExceptionRaised("abc")
+    @assertTrue(.false.)
+
+  end subroutine test_setcropphase_bad
 
 end module test_CNPhenology

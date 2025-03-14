@@ -35,6 +35,7 @@ module CNPhenologyMod
   use CNVegnitrogenstateType          , only : cnveg_nitrogenstate_type
   use CNVegnitrogenfluxType           , only : cnveg_nitrogenflux_type
   use CropType                        , only : crop_type
+  use CropType                        , only : cphase_not_planted
   use CropType                        , only : cphase_planted, cphase_leafemerge
   use CropType                        , only : cphase_grainfill, cphase_harvest
   use pftconMod                       , only : pftcon
@@ -59,6 +60,7 @@ module CNPhenologyMod
   public :: CNPhenologyreadNML   ! Read namelist
   public :: CNPhenologyInit      ! Initialization
   public :: CNPhenology          ! Update
+  public :: SetCropPhase         ! Set the phase of a crop patch
   public :: CropPhase            ! Get the current phase of each crop patch
   public :: DaysPastPlanting     ! Get how many days it's been since crop was planted
 
@@ -2158,6 +2160,11 @@ contains
          ! Should never be saved as zero, but including this so it's initialized just in case
          harvest_reason = 0._r8
 
+         ! Harvest phase should only last for one timestep
+         if (cphase(p) == cphase_harvest) then
+            call SetCropPhase(cphase(p), cphase_not_planted)
+         end if
+
          ! ---------------------------------
          ! from AgroIBIS subroutine planting
          ! ---------------------------------
@@ -2411,7 +2418,7 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
-            cphase(p) = cphase_planted
+            call SetCropPhase(cphase(p), cphase_planted)
 
             ! call vernalization if winter temperate cereal planted, living, and the
             ! vernalization factor is not 1;
@@ -2516,7 +2523,7 @@ contains
             ! following conditionals, you should also check to see if you should make
             ! similar changes in CropPhase.
             if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
-               cphase(p) = cphase_leafemerge
+               call SetCropPhase(cphase(p), cphase_leafemerge)
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
                   onset_counter(p) = dt
@@ -2570,7 +2577,7 @@ contains
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
-               cphase(p) = cphase_harvest
+               call SetCropPhase(cphase(p), cphase_harvest)
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
@@ -2601,7 +2608,7 @@ contains
                ! Use CN's simple formula at least as a place holder (slevis)
 
             else if (hui(p) >= huigrain(p)) then
-               cphase(p) = cphase_grainfill
+               call SetCropPhase(cphase(p), cphase_grainfill)
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
             end if
 
@@ -2652,6 +2659,25 @@ contains
     end associate
 
   end subroutine CropPhenology
+
+  !-----------------------------------------------------------------------
+  subroutine SetCropPhase(current_phase, new_phase)
+    !
+    ! !DESCRIPTION:
+    ! Set the current phase of a crop patch
+    !
+    !
+    ! ! ARGUMENTS
+    real(r8), intent(inout) :: current_phase
+    real(r8), intent(in)    :: new_phase
+
+    ! Ensure no regression to an earlier phase
+    SHR_ASSERT_ALL_FL(current_phase < new_phase .or. new_phase == cphase_not_planted, sourcefile, __LINE__)
+
+    ! Set new phase
+    current_phase = new_phase
+
+  end subroutine SetCropPhase
 
   !-----------------------------------------------------------------------
   subroutine CropPhase(bounds, num_pcropp, filter_pcropp, &
