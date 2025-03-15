@@ -2672,7 +2672,10 @@ contains
     real(r8), intent(in)    :: new_phase
 
     ! Ensure no regression to an earlier phase
-    SHR_ASSERT_ALL_FL(current_phase < new_phase .or. new_phase == cphase_not_planted, sourcefile, __LINE__)
+    if (new_phase < current_phase .and. new_phase /= cphase_not_planted) then
+       write(iulog, *) 'ERROR: SetCropPhase() trying to go from ',current_phase,' to ',new_phase
+       call endrun(msg="Stopping")
+    end if
 
     ! Set new phase
     current_phase = new_phase
