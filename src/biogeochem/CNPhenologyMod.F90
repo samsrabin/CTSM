@@ -2161,6 +2161,7 @@ contains
          harvest_reason = 0._r8
 
          ! Harvest phase should only last for one timestep
+         ! If changing logic here, also change logic in UpdateCropPhase!
          if (cphase(p) == cphase_harvest) then
             call SetCropPhase(cphase(p), cphase_not_planted)
          end if
@@ -2522,6 +2523,7 @@ contains
             ! following conditionals, you should also check to see if you should make
             ! similar changes in UpdateCropPhase.
             if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
+               ! If changing logic here, also change logic in UpdateCropPhase!
                call SetCropPhase(cphase(p), cphase_leafemerge)
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
@@ -2576,7 +2578,7 @@ contains
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
-               call SetCropPhase(cphase(p), cphase_harvest)
+               call SetCropPhase(cphase(p), cphase_harvest) ! If changing logic here, also change logic in UpdateCropPhase!
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
@@ -2607,6 +2609,7 @@ contains
                ! Use CN's simple formula at least as a place holder (slevis)
 
             else if (hui(p) >= huigrain(p)) then
+               ! If changing logic here, also change logic in UpdateCropPhase!
                call SetCropPhase(cphase(p), cphase_grainfill)
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
             end if
