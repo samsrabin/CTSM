@@ -42,7 +42,7 @@ module CropType
      real(r8), pointer :: fertnitro_patch         (:)   ! patch fertilizer nitrogen
      real(r8), pointer :: gddtsoi_patch           (:)   ! patch growing degree-days from planting (top two soil layers) (ddays)
      real(r8), pointer :: vf_patch                (:)   ! patch vernalization factor for cereal
-     real(r8), pointer :: cphase_patch            (:)   ! phenology phase (see cphase_* constants above for possible values)
+     real(r8), pointer, private :: cphase_patch   (:)   ! phenology phase (see cphase_* constants above for possible values)
      integer , pointer :: sowing_reason_patch     (:)   ! reason for most recent sowing of this patch
      real(r8), pointer :: latbaset_patch          (:)   ! Latitude vary baset for hui (degree C)
      character(len=20) :: baset_mapping
@@ -89,6 +89,10 @@ module CropType
      procedure, public  :: CropUpdateAccVars
 
      procedure, public  :: CropIncrementYear
+
+     procedure, public   :: GetCropPhase
+     procedure, public   :: UpdateCropPhase
+     procedure, public   :: SetCropPhase
 
      ! Private routines
      procedure, private :: InitAllocate
@@ -939,6 +943,106 @@ contains
     end if
 
   end subroutine CropIncrementYear
+
+  !-----------------------------------------------------------------------
+  function GetCropPhase(this, p) result (cphase_thispatch)
+   !
+   ! !DESCRIPTION:
+   ! Increment the crop year, if appropriate
+   !
+   ! This routine should be called every time step
+   !
+   ! !USES:
+   use clm_time_manager , only : get_curr_date, is_first_step
+   !
+   ! !ARGUMENTS:
+   class(crop_type) :: this
+   integer, intent(in) :: p  ! patch index
+   ! ! RESULT
+   real(r8) :: cphase_thispatch
+   !-----------------------------------------------------------------------
+
+   cphase_thispatch = this%cphase_patch(p)
+  end function GetCropPhase
+
+  !-----------------------------------------------------------------------
+  subroutine UpdateCropPhase(this, bounds, num_pcropp, filter_pcropp, &
+   cnveg_state_inst)
+  !
+  ! !DESCRIPTION:
+  ! Get the current phase of each crop patch.
+  !
+  ! The returned values (in cphase_patch) are from the set of cphase_* values defined at the top of this module.
+  !
+  ! This has logic similar to that in CropPhenology. If you make changes here, you
+  ! should also check if similar changes need to be made in CropPhenology.
+  !
+  ! USE
+   use CNVegstateType, only : cnveg_state_type
+  !
+  ! !ARGUMENTS:
+  class(crop_type) :: this
+  type(bounds_type)      , intent(in)    :: bounds
+  integer                , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
+  integer                , intent(in)    :: filter_pcropp(:) ! filter for prognostic crop patches
+  type(cnveg_state_type) , intent(in)    :: cnveg_state_inst
+  !
+  ! !LOCAL VARIABLES:
+  integer :: p, fp
+
+  character(len=*), parameter :: subname = 'UpdateCropPhase'
+  !-----------------------------------------------------------------------
+
+  associate( &
+       croplive =>    this%croplive_patch        , & ! Input: [logical  (:) ]  Flag, true if planted, not harvested
+       hui      =>    this%hui_patch             , & ! Input: [real(r8) (:) ]  gdd since planting (gddplant)
+       leafout  =>    this%gddtsoi_patch         , & ! Input: [real(r8) (:) ]  gdd from top soil layer temperature
+       huileaf  =>    cnveg_state_inst%huileaf_patch  , & ! Input: [real(r8) (:) ]  heat unit index needed from planting to leaf emergence
+       huigrain =>    cnveg_state_inst%huigrain_patch   & ! Input: [real(r8) (:) ]  same to reach vegetative maturity
+       )
+
+  do fp = 1, num_pcropp
+     p = filter_pcropp(fp)
+
+     if (croplive(p)) then
+        if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
+           call this%SetCropPhase(p, cphase_leafemerge)
+        else if (hui(p) >= huigrain(p)) then
+           ! Since we know croplive is true, any hui greater than huigrain implies that
+           ! we're in the grainfill stage: if we were passt gddmaturity then croplive
+           ! would be false.
+           call this%SetCropPhase(p, cphase_grainfill)
+        end if
+     end if
+  end do
+
+  end associate
+
+  end subroutine UpdateCropPhase
+
+    !-----------------------------------------------------------------------
+  subroutine SetCropPhase(this, p, new_phase)
+    !
+    ! !DESCRIPTION:
+    ! Set the current phase of a crop patch
+    !
+    !
+    ! ! ARGUMENTS
+    class(crop_type)      :: this
+    integer, intent(in)   :: p  ! patch index
+    real(r8), intent(in)  :: new_phase
+
+   !  ! Ensure no regression to an earlier phase
+   !  if (new_phase < this%cphase_patch(p) .and. new_phase /=  cphase_not_planted) then
+   !     write(iulog, '(A,I3,A,I3)') 'ERROR: SetCropPhase() trying to go  from ',int(this%cphase_patch(p)),' to ',int(new_phase)
+   !     call endrun(msg="Stopping")
+   !  end if
+
+    ! Set new phase
+    this%cphase_patch(p) = new_phase
+
+   end subroutine SetCropPhase
+
 
   !-----------------------------------------------------------------------
   subroutine checkDates( )

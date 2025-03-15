@@ -59,7 +59,6 @@ module CNPhenologyMod
   public :: CNPhenologyreadNML   ! Read namelist
   public :: CNPhenologyInit      ! Initialization
   public :: CNPhenology          ! Update
-  public :: UpdateCropPhase            ! Get the current phase of each crop patch
   public :: DaysPastPlanting     ! Get how many days it's been since crop was planted
 
   ! !PUBLIC for unit testing
@@ -2125,7 +2124,6 @@ contains
          fert_counter      =>    cnveg_nitrogenflux_inst%fert_counter_patch    , & ! Output: [real(r8) (:) ]  >0 fertilize; <=0 not (seconds)                   
          leafn_xfer        =>    cnveg_nitrogenstate_inst%leafn_xfer_patch     , & ! Output: [real(r8) (:) ]  (gN/m2)   leaf N transfer                           
          crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch, & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
-         cphase            =>    crop_inst%cphase_patch                        , & ! Output: [real(r8) (:)]   phenology phase
          fert              =>    cnveg_nitrogenflux_inst%fert_patch              & ! Output: [real(r8) (:) ]  (gN/m2/s) fertilizer applied each timestep 
          )
 
@@ -2404,7 +2402,7 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
-            cphase(p) = cphase_planted
+            call crop_inst%SetCropPhase(p, cphase_planted)
 
             ! call vernalization if winter temperate cereal planted, living, and the
             ! vernalization factor is not 1;
@@ -2508,7 +2506,7 @@ contains
             ! following conditionals, you should also check to see if you should make
             ! similar changes in UpdateCropPhase.
             if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
-               cphase(p) = cphase_leafemerge
+               call crop_inst%SetCropPhase(p, cphase_leafemerge)
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
                   onset_counter(p) = dt
@@ -2551,7 +2549,7 @@ contains
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
-               cphase(p) = cphase_harvest
+               call crop_inst%SetCropPhase(p, cphase_harvest)
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
@@ -2582,7 +2580,7 @@ contains
                ! Use CN's simple formula at least as a place holder (slevis)
 
             else if (hui(p) >= huigrain(p)) then
-               cphase(p) = cphase_grainfill
+               call crop_inst%SetCropPhase(p, cphase_grainfill)
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
             end if
 
@@ -2624,67 +2622,6 @@ contains
     end associate
 
   end subroutine CropPhenology
-
-  !-----------------------------------------------------------------------
-  subroutine UpdateCropPhase(bounds, num_pcropp, filter_pcropp, &
-       crop_inst, cnveg_state_inst, crop_phase)
-    !
-    ! !DESCRIPTION:
-    ! Get the current phase of each crop patch.
-    !
-    ! The returned values (in crop_phase) are from the set of cphase_* values defined in
-    ! CropType. The returned values in crop_phase are only valid for patches where
-    ! croplive is true; the values are undefined where croplive is false and should not be
-    ! used there!
-    !
-    ! This has logic similar to that in CropPhenology. If you make changes here, you
-    ! should also check if similar changes need to be made in CropPhenology.
-    !
-    ! !ARGUMENTS:
-    type(bounds_type)      , intent(in)    :: bounds
-    integer                , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
-    integer                , intent(in)    :: filter_pcropp(:) ! filter for prognostic crop patches
-    type(crop_type)        , intent(in)    :: crop_inst
-    type(cnveg_state_type) , intent(in)    :: cnveg_state_inst
-    real(r8)               , intent(inout) :: crop_phase(bounds%begp:)
-    !
-    ! !LOCAL VARIABLES:
-    integer :: p, fp
-
-    character(len=*), parameter :: subname = 'UpdateCropPhase'
-    !-----------------------------------------------------------------------
-    SHR_ASSERT_ALL_FL((ubound(crop_phase) == [bounds%endp]), sourcefile, __LINE__)
-
-    associate( &
-         croplive =>    crop_inst%croplive_patch        , & ! Input: [logical  (:) ]  Flag, true if planted, not harvested
-         hui      =>    crop_inst%hui_patch             , & ! Input: [real(r8) (:) ]  gdd since planting (gddplant)
-         leafout  =>    crop_inst%gddtsoi_patch         , & ! Input: [real(r8) (:) ]  gdd from top soil layer temperature
-         huileaf  =>    cnveg_state_inst%huileaf_patch  , & ! Input: [real(r8) (:) ]  heat unit index needed from planting to leaf emergence
-         huigrain =>    cnveg_state_inst%huigrain_patch   & ! Input: [real(r8) (:) ]  same to reach vegetative maturity
-         )
-
-    do fp = 1, num_pcropp
-       p = filter_pcropp(fp)
-
-       if (croplive(p)) then
-          ! Start with cphase_planted, but this might get changed in the later
-          ! conditional blocks.
-          crop_phase(p) = cphase_planted
-          if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
-             crop_phase(p) = cphase_leafemerge
-          else if (hui(p) >= huigrain(p)) then
-             ! Since we know croplive is true, any hui greater than huigrain implies that
-             ! we're in the grainfill stage: if we were passt gddmaturity then croplive
-             ! would be false.
-             crop_phase(p) = cphase_grainfill
-          end if
-       end if
-    end do
-
-    end associate
-
-  end subroutine UpdateCropPhase
-
 
   !-----------------------------------------------------------------------
   subroutine CropPhenologyInit(bounds)
