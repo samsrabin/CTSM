@@ -2673,7 +2673,7 @@ contains
 
     ! Ensure no regression to an earlier phase
     if (new_phase < current_phase .and. new_phase /= cphase_not_planted) then
-       write(iulog, *) 'ERROR: SetCropPhase() trying to go from ',current_phase,' to ',new_phase
+       write(iulog, '(A,I3,A,I3)') 'ERROR: SetCropPhase() trying to go from ',int(current_phase),' to ',int(new_phase)
        call endrun(msg="Stopping")
     end if
 
