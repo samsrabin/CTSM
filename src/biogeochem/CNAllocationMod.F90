@@ -17,7 +17,7 @@ module CNAllocationMod
   use PatchType            , only : patch
   use pftconMod            , only : pftcon, npcropmin
   use CropType             , only : crop_type
-  use CropType             , only : cphase_not_planted, cphase_harvest
+  use CropType             , only : cphase_not_planted
   use CropType             , only : cphase_planted, cphase_leafemerge, cphase_grainfill
   use PhotosynthesisMod    , only : photosyns_type
   use CanopyStateType      , only : canopystate_type

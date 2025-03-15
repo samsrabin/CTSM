@@ -37,7 +37,7 @@ module CNPhenologyMod
   use CropType                        , only : crop_type
   use CropType                        , only : cphase_not_planted
   use CropType                        , only : cphase_planted, cphase_leafemerge
-  use CropType                        , only : cphase_grainfill, cphase_harvest
+  use CropType                        , only : cphase_grainfill
   use pftconMod                       , only : pftcon
   use SoilStateType                   , only : soilstate_type
   use TemperatureType                 , only : temperature_type
@@ -2572,7 +2572,6 @@ contains
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
-               call SetCropPhase(cphase(p), cphase_harvest) ! If changing logic here, also change logic in UpdateCropPhase!
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt

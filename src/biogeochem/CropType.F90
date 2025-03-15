@@ -31,7 +31,6 @@ module CropType
   real(r8), parameter, public :: cphase_planted     = 1._r8
   real(r8), parameter, public :: cphase_leafemerge  = 2._r8
   real(r8), parameter, public :: cphase_grainfill   = 3._r8
-  real(r8), parameter, public :: cphase_harvest     = 4._r8
 
   ! Crop state variables structure
   type, public :: crop_type
