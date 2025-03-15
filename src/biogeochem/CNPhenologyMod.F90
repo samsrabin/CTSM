@@ -61,7 +61,7 @@ module CNPhenologyMod
   public :: CNPhenologyInit      ! Initialization
   public :: CNPhenology          ! Update
   public :: SetCropPhase         ! Set the phase of a crop patch
-  public :: CropPhase            ! Get the current phase of each crop patch
+  public :: UpdateCropPhase            ! Get the current phase of each crop patch
   public :: DaysPastPlanting     ! Get how many days it's been since crop was planted
 
   ! !PUBLIC for unit testing
@@ -2515,12 +2515,12 @@ contains
                end if
             endif
 
-            ! The following conditionals are similar to those in CropPhase. However, they
+            ! The following conditionals are similar to those in UpdateCropPhase. However, they
             ! differ slightly because here we are potentially setting a new crop phase,
-            ! whereas CropPhase is just designed to get the current, already-determined
+            ! whereas UpdateCropPhase is just designed to get the current, already-determined
             ! phase. However, despite these differences: if you make changes to the
             ! following conditionals, you should also check to see if you should make
-            ! similar changes in CropPhase.
+            ! similar changes in UpdateCropPhase.
             if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
                call SetCropPhase(cphase(p), cphase_leafemerge)
                if (abs(onset_counter(p)) > 1.e-6_r8) then
@@ -2682,7 +2682,7 @@ contains
   end subroutine SetCropPhase
 
   !-----------------------------------------------------------------------
-  subroutine CropPhase(bounds, num_pcropp, filter_pcropp, &
+  subroutine UpdateCropPhase(bounds, num_pcropp, filter_pcropp, &
        crop_inst, cnveg_state_inst, crop_phase)
     !
     ! !DESCRIPTION:
@@ -2707,7 +2707,7 @@ contains
     ! !LOCAL VARIABLES:
     integer :: p, fp
 
-    character(len=*), parameter :: subname = 'CropPhase'
+    character(len=*), parameter :: subname = 'UpdateCropPhase'
     !-----------------------------------------------------------------------
     SHR_ASSERT_ALL_FL((ubound(crop_phase) == [bounds%endp]), sourcefile, __LINE__)
 
@@ -2736,7 +2736,7 @@ contains
 
     end associate
 
-  end subroutine CropPhase
+  end subroutine UpdateCropPhase
 
 
   !-----------------------------------------------------------------------

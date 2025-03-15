@@ -18,7 +18,7 @@ module NutrientCompetitionCLM45defaultMod
   use PatchType           , only : patch
   use NutrientCompetitionMethodMod, only : nutrient_competition_method_type
   use CropReprPoolsMod    , only : nrepr
-  use CNPhenologyMod      , only : CropPhase
+  use CNPhenologyMod      , only : UpdateCropPhase
   use CropType            , only : cphase_leafemerge, cphase_grainfill
   use clm_varctl          , only : iulog
   use abortutils          , only : endrun
@@ -611,7 +611,7 @@ contains
       end do
 
       if (call_is_for_pcrop) then
-         call CropPhase(bounds, num_p, filter_p, crop_inst, cnveg_state_inst, &
+         call UpdateCropPhase(bounds, num_p, filter_p, crop_inst, cnveg_state_inst, &
               crop_phase = crop_phase(bounds%begp:bounds%endp))
 
          do fp = 1, num_p
