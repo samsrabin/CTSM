@@ -2689,9 +2689,7 @@ contains
     ! Get the current phase of each crop patch.
     !
     ! The returned values (in crop_phase) are from the set of cphase_* values defined in
-    ! CropType. The returned values in crop_phase are only valid for patches where
-    ! croplive is true; the values are undefined where croplive is false and should not be
-    ! used there!
+    ! CropType.
     !
     ! This has logic similar to that in CropPhenology. If you make changes here, you
     ! should also check if similar changes need to be made in CropPhenology.
