@@ -1570,7 +1570,8 @@ contains
       end do
 
       if (call_is_for_pcrop) then
-         call crop_inst%UpdateCropPhase(bounds, num_p, filter_p, cnveg_state_inst)
+         call crop_inst%GetCropPhaseArray(bounds, num_p, filter_p, cnveg_state_inst, &
+              crop_phase(bounds%begp:bounds%endp))
 
          do fp = 1, num_p
             p = filter_p(fp)

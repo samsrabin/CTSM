@@ -2124,6 +2124,7 @@ contains
          fert_counter      =>    cnveg_nitrogenflux_inst%fert_counter_patch    , & ! Output: [real(r8) (:) ]  >0 fertilize; <=0 not (seconds)                   
          leafn_xfer        =>    cnveg_nitrogenstate_inst%leafn_xfer_patch     , & ! Output: [real(r8) (:) ]  (gN/m2)   leaf N transfer                           
          crop_seedn_to_leaf =>   cnveg_nitrogenflux_inst%crop_seedn_to_leaf_patch, & ! Output: [real(r8) (:) ]  (gN/m2/s) seed source to leaf
+         cphase            =>    crop_inst%cphase_patch                        , & ! Output: [real(r8) (:)]   phenology phase
          fert              =>    cnveg_nitrogenflux_inst%fert_patch              & ! Output: [real(r8) (:) ]  (gN/m2/s) fertilizer applied each timestep 
          )
 
@@ -2402,7 +2403,7 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
-            call crop_inst%SetCropPhase(p, cphase_planted)
+            call crop_inst%SetCropPhase(cphase(p), cphase_planted)
 
             ! call vernalization if winter temperate cereal planted, living, and the
             ! vernalization factor is not 1;
@@ -2499,14 +2500,14 @@ contains
                end if
             endif
 
-            ! The following conditionals are similar to those in UpdateCropPhase. However, they
+            ! The following conditionals are similar to those in GetCropPhaseArray. However, they
             ! differ slightly because here we are potentially setting a new crop phase,
-            ! whereas UpdateCropPhase is just designed to get the current, already-determined
+            ! whereas GetCropPhaseArray is just designed to get the current, already-determined
             ! phase. However, despite these differences: if you make changes to the
             ! following conditionals, you should also check to see if you should make
-            ! similar changes in UpdateCropPhase.
+            ! similar changes in GetCropPhaseArray.
             if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
-               call crop_inst%SetCropPhase(p, cphase_leafemerge)
+               call crop_inst%SetCropPhase(cphase(p), cphase_leafemerge)
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
                   onset_counter(p) = dt
@@ -2549,7 +2550,7 @@ contains
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
-               call crop_inst%SetCropPhase(p, cphase_harvest)
+               call crop_inst%SetCropPhase(cphase(p), cphase_harvest)
                if (tlai(p) > 0._r8) then ! plant had emerged before harvest
                   offset_flag(p) = 1._r8
                   offset_counter(p) = dt
@@ -2580,7 +2581,7 @@ contains
                ! Use CN's simple formula at least as a place holder (slevis)
 
             else if (hui(p) >= huigrain(p)) then
-               call crop_inst%SetCropPhase(p, cphase_grainfill)
+               call crop_inst%SetCropPhase(cphase(p), cphase_grainfill)
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
             end if
 

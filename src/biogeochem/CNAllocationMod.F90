@@ -311,7 +311,8 @@ contains
          arepr                 => cnveg_state_inst%arepr_patch                        & ! Output: [real(r8) (:,:) ]  reproductive allocation coefficient(s)
          )
 
-    call crop_inst%UpdateCropPhase(bounds, num_pcropp, filter_pcropp, cnveg_state_inst)
+    call crop_inst%GetCropPhaseArray(bounds, num_pcropp, filter_pcropp, cnveg_state_inst, &
+         crop_phase(bounds%begp:bounds%endp))
 
     do fp = 1, num_pcropp
        p = filter_pcropp(fp)

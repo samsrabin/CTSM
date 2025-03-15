@@ -42,7 +42,7 @@ module CropType
      real(r8), pointer :: fertnitro_patch         (:)   ! patch fertilizer nitrogen
      real(r8), pointer :: gddtsoi_patch           (:)   ! patch growing degree-days from planting (top two soil layers) (ddays)
      real(r8), pointer :: vf_patch                (:)   ! patch vernalization factor for cereal
-     real(r8), pointer, private :: cphase_patch   (:)   ! phenology phase (see cphase_* constants above for possible values)
+     real(r8), pointer :: cphase_patch            (:)   ! phenology phase (see cphase_* constants above for possible values)
      integer , pointer :: sowing_reason_patch     (:)   ! reason for most recent sowing of this patch
      real(r8), pointer :: latbaset_patch          (:)   ! Latitude vary baset for hui (degree C)
      character(len=20) :: baset_mapping
@@ -90,7 +90,8 @@ module CropType
 
      procedure, public  :: CropIncrementYear
 
-     procedure, public   :: UpdateCropPhase
+     procedure, public   :: GetCropPhaseArray
+     procedure, private  :: UpdateCropPhase
      procedure, public   :: SetCropPhase
 
      ! Private routines
@@ -944,13 +945,14 @@ contains
   end subroutine CropIncrementYear
 
   !-----------------------------------------------------------------------
-  subroutine UpdateCropPhase(this, bounds, num_pcropp, filter_pcropp, &
-   cnveg_state_inst)
+  subroutine GetCropPhaseArray(this, bounds, num_pcropp, filter_pcropp, &
+   cnveg_state_inst, crop_phase_out)
   !
   ! !DESCRIPTION:
-  ! Get the current phase of each crop patch.
+  ! Get the current phase of each crop patch in a new array (crop_phase_out).
+  ! DOES NOT update this%cphase_patch()!
   !
-  ! The returned values (in cphase_patch) are from the set of cphase_* values defined at the top of this module.
+  ! The returned values are from the set of cphase_* values defined at the top of this module.
   !
   ! This has logic similar to that in CropPhenology. If you make changes here, you
   ! should also check if similar changes need to be made in CropPhenology.
@@ -964,62 +966,84 @@ contains
   integer                , intent(in)    :: num_pcropp       ! number of prog crop patches in filter
   integer                , intent(in)    :: filter_pcropp(:) ! filter for prognostic crop patches
   type(cnveg_state_type) , intent(in)    :: cnveg_state_inst
+  real(r8)               , intent(out) :: crop_phase_out(bounds%begp:)
   !
   ! !LOCAL VARIABLES:
   integer :: p, fp
+  real :: crop_phase_1patch
 
-  character(len=*), parameter :: subname = 'UpdateCropPhase'
+  character(len=*), parameter :: subname = 'GetCropPhaseArray'
   !-----------------------------------------------------------------------
+  SHR_ASSERT_ALL_FL((ubound(crop_phase_out) == [bounds%endp]), sourcefile, __LINE__)
 
   associate( &
        croplive =>    this%croplive_patch        , & ! Input: [logical  (:) ]  Flag, true if planted, not harvested
        hui      =>    this%hui_patch             , & ! Input: [real(r8) (:) ]  gdd since planting (gddplant)
        leafout  =>    this%gddtsoi_patch         , & ! Input: [real(r8) (:) ]  gdd from top soil layer temperature
+       cphase   =>    this%cphase_patch          , & ! Input: [real(r8) (:) ]  crop phase
        huileaf  =>    cnveg_state_inst%huileaf_patch  , & ! Input: [real(r8) (:) ]  heat unit index needed from planting to leaf emergence
        huigrain =>    cnveg_state_inst%huigrain_patch   & ! Input: [real(r8) (:) ]  same to reach vegetative maturity
        )
 
   do fp = 1, num_pcropp
      p = filter_pcropp(fp)
-
-     if (croplive(p)) then
-        if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
-           call this%SetCropPhase(p, cphase_leafemerge)
-        else if (hui(p) >= huigrain(p)) then
-           ! Since we know croplive is true, any hui greater than huigrain implies that
-           ! we're in the grainfill stage: if we were passt gddmaturity then croplive
-           ! would be false.
-           call this%SetCropPhase(p, cphase_grainfill)
-        end if
-     end if
+     call this%UpdateCropPhase(croplive(p), leafout(p), hui(p), huileaf(p), huigrain(p), crop_phase_out(p))
   end do
 
   end associate
 
-  end subroutine UpdateCropPhase
+  end subroutine GetCropPhaseArray
 
-    !-----------------------------------------------------------------------
-  subroutine SetCropPhase(this, p, new_phase)
-    !
-    ! !DESCRIPTION:
-    ! Set the current phase of a crop patch
-    !
-    !
-    ! ! ARGUMENTS
-    class(crop_type)      :: this
-    integer, intent(in)   :: p  ! patch index
-    real(r8), intent(in)  :: new_phase
+  !-----------------------------------------------------------------------
+subroutine UpdateCropPhase(this, croplive, leafout, hui, huileaf, huigrain, crop_phase_out)
+  !
+  ! !DESCRIPTION:
+  ! Set the current phase of a crop patch.
+  !
+  ! !ARGUMENTS:
+  class(crop_type) :: this
+  logical, intent(in) :: croplive
+  real(r8), intent(in) :: leafout, hui, huileaf, huigrain
+  real(r8), intent(out) :: crop_phase_out
 
-   !  ! Ensure no regression to an earlier phase
-   !  if (new_phase < this%cphase_patch(p) .and. new_phase /=  cphase_not_planted) then
-   !     write(iulog, '(A,I3,A,I3)') 'ERROR: SetCropPhase() trying to go  from ',int(this%cphase_patch(p)),' to ',int(new_phase)
-   !     call endrun(msg="Stopping")
-   !  end if
+  if (croplive) then
+     call this%SetCropPhase(crop_phase_out, cphase_planted)
+     if (leafout >= huileaf .and. hui < huigrain) then
+        call this%SetCropPhase(crop_phase_out, cphase_leafemerge)
+     else if (hui >= huigrain) then
+        ! Since we know croplive is true, any hui greater than huigrain implies that
+        ! we're in the grainfill stage: if we were passt gddmaturity then croplive
+        ! would be false.
+        call this%SetCropPhase(crop_phase_out, cphase_grainfill)
+     end if
+  end if
 
-    ! Set new phase
-    this%cphase_patch(p) = new_phase
+ end subroutine UpdateCropPhase
 
-   end subroutine SetCropPhase
+ !-----------------------------------------------------------------------
+subroutine SetCropPhase(this, cphase, new_phase)
+ !
+ ! !DESCRIPTION:
+ ! Set the current phase of a crop patch
+ !
+ ! SSR 2025-03-15: This doesn't yet actually need to be a method of crop_type. However, it
+ ! will be useful later when I make cphase_patch private.
+ !
+ ! ! ARGUMENTS
+ class(crop_type)      :: this
+ real(r8), intent(inout)  :: cphase  ! one patch's crop phase
+ real(r8), intent(in)  :: new_phase
+
+!  ! Ensure no regression to an earlier phase
+!  if (new_phase < cphase .and. new_phase /=  cphase_not_planted) then
+!     write(iulog, '(A,I3,A,I3)') 'ERROR: SetCropPhase() trying to go  from ',int(cphase),' to ',int(new_phase)
+!     call endrun(msg="Stopping")
+!  end if
+
+ ! Set new phase
+ cphase = new_phase
+
+end subroutine SetCropPhase
 
 
   !-----------------------------------------------------------------------
