@@ -90,7 +90,6 @@ module CropType
 
      procedure, public  :: CropIncrementYear
 
-     procedure, public   :: GetCropPhase
      procedure, public   :: UpdateCropPhase
      procedure, public   :: SetCropPhase
 
@@ -943,27 +942,6 @@ contains
     end if
 
   end subroutine CropIncrementYear
-
-  !-----------------------------------------------------------------------
-  function GetCropPhase(this, p) result (cphase_thispatch)
-   !
-   ! !DESCRIPTION:
-   ! Increment the crop year, if appropriate
-   !
-   ! This routine should be called every time step
-   !
-   ! !USES:
-   use clm_time_manager , only : get_curr_date, is_first_step
-   !
-   ! !ARGUMENTS:
-   class(crop_type) :: this
-   integer, intent(in) :: p  ! patch index
-   ! ! RESULT
-   real(r8) :: cphase_thispatch
-   !-----------------------------------------------------------------------
-
-   cphase_thispatch = this%cphase_patch(p)
-  end function GetCropPhase
 
   !-----------------------------------------------------------------------
   subroutine UpdateCropPhase(this, bounds, num_pcropp, filter_pcropp, &
