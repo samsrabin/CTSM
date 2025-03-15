@@ -2160,12 +2160,6 @@ contains
          ! Should never be saved as zero, but including this so it's initialized just in case
          harvest_reason = 0._r8
 
-         ! Harvest phase should only last for one timestep
-         ! If changing logic here, also change logic in UpdateCropPhase!
-         if (cphase(p) == cphase_harvest) then
-            call SetCropPhase(cphase(p), cphase_not_planted)
-         end if
-
          ! ---------------------------------
          ! from AgroIBIS subroutine planting
          ! ---------------------------------
@@ -2640,6 +2634,9 @@ contains
             if (use_c14) then
                c14_cnveg_carbonstate_inst%leafc_xfer_patch(p) = 0._r8
             endif
+
+            ! If changing logic here, also change logic in UpdateCropPhase!
+            call SetCropPhase(cphase(p), cphase_not_planted)
          end if ! croplive
 
          ! At the end of the sowing window, AFTER we've done everything crop-related, set this to false
