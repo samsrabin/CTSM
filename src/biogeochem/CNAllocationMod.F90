@@ -24,7 +24,7 @@ module CNAllocationMod
   use CNVegCarbonFluxType  , only : cnveg_carbonflux_type
   use CNVegStateType       , only : cnveg_state_type
   use CropReprPoolsMod     , only : nrepr
-  use CNPhenologyMod       , only : CropPhase
+  use CNPhenologyMod       , only : UpdateCropPhase
   use CNSharedParamsMod    , only : use_fun
   !
   implicit none
@@ -312,7 +312,7 @@ contains
          arepr                 => cnveg_state_inst%arepr_patch                        & ! Output: [real(r8) (:,:) ]  reproductive allocation coefficient(s)
          )
 
-    call CropPhase(bounds, num_pcropp, filter_pcropp, crop_inst, cnveg_state_inst, &
+    call UpdateCropPhase(bounds, num_pcropp, filter_pcropp, crop_inst, cnveg_state_inst, &
          crop_phase = crop_phase(bounds%begp:bounds%endp))
 
     do fp = 1, num_pcropp
