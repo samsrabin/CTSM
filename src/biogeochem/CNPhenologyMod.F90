@@ -2516,7 +2516,7 @@ contains
             ! phase. However, despite these differences: if you make changes to the
             ! following conditionals, you should also check to see if you should make
             ! similar changes in UpdateCropPhase.
-            if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
+            if (cphase(p) < cphase_leafemerge .and. (.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
                ! If changing logic here, also change logic in UpdateCropPhase!
                call SetCropPhase(cphase(p), cphase_leafemerge)
                if (abs(onset_counter(p)) > 1.e-6_r8) then
@@ -2601,7 +2601,7 @@ contains
                ! AgroIBIS uses a complex formula for lai decline.
                ! Use CN's simple formula at least as a place holder (slevis)
 
-            else if (hui(p) >= huigrain(p)) then
+            else if (cphase(p) < cphase_grainfill .and. hui(p) >= huigrain(p)) then
                ! If changing logic here, also change logic in UpdateCropPhase!
                call SetCropPhase(cphase(p), cphase_grainfill)
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
@@ -2634,7 +2634,6 @@ contains
                c14_cnveg_carbonstate_inst%leafc_xfer_patch(p) = 0._r8
             endif
 
-            ! If changing logic here, also change logic in UpdateCropPhase!
             call SetCropPhase(cphase(p), cphase_not_planted)
          end if ! croplive
 
@@ -2720,9 +2719,9 @@ contains
        p = filter_pcropp(fp)
 
        if (croplive(p)) then
-          if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
+          if (crop_phase(p) < cphase_leafemerge .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
              call SetCropPhase(crop_phase(p), cphase_leafemerge)
-          else if (hui(p) >= huigrain(p)) then
+          else if (crop_phase(p) < cphase_grainfill .and. hui(p) >= huigrain(p)) then
              ! Since we know croplive is true, any hui greater than huigrain implies that
              ! we're in the grainfill stage: if we were passt gddmaturity then croplive
              ! would be false.
