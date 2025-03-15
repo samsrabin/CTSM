@@ -2725,12 +2725,12 @@ contains
 
        if (croplive(p)) then
           if (leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p)) then
-             crop_phase(p) = cphase_leafemerge
+             call SetCropPhase(crop_phase(p), cphase_leafemerge)
           else if (hui(p) >= huigrain(p)) then
              ! Since we know croplive is true, any hui greater than huigrain implies that
              ! we're in the grainfill stage: if we were passt gddmaturity then croplive
              ! would be false.
-             crop_phase(p) = cphase_grainfill
+             call SetCropPhase(crop_phase(p), cphase_grainfill)
           end if
        end if
     end do
