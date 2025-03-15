@@ -698,7 +698,7 @@ contains
             interpinic_flag='interp', readvar=readvar, data=temp1d)
        if (flag == 'read') then
           do p= bounds%begp,bounds%endp
-             if (temp1d(p) == 1) then
+             if (temp1d(p) == 1 .or. .not. readvar) then
                 this%maxlai_triggers_grainfill_patch(p) = .true.
              else
                 this%maxlai_triggers_grainfill_patch(p) = .false.
