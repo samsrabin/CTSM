@@ -2727,6 +2727,8 @@ contains
              ! would be false.
              call SetCropPhase(crop_phase(p), cphase_grainfill)
           end if
+       else if (crop_phase(p) /= cphase_not_planted) then
+         call SetCropPhase(crop_phase(p), cphase_not_planted)
        end if
     end do
 
