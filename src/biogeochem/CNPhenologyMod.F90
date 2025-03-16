@@ -145,6 +145,7 @@ module CNPhenologyMod
   real(r8)         :: min_gddmaturity = 1._r8     ! Weird things can happen if gddmaturity is tiny
   logical,  public :: generate_crop_gdds = .false. ! If true, harvest the day before next sowing
   logical,  public :: use_mxmat = .true.           ! If true, ignore crop maximum growing season length
+  logical,  public :: maxlai_triggers_grainfill = .true.   ! If true, crops will enter cphase_grainfill upon reaching maximum LAI
 
   ! For use with adapt_cropcal_rx_cultivar_gdds .true.
   real(r8), parameter :: min_gdd20_baseline = 0._r8  ! If gdd20_baseline_patch is ≤ this, do not consider baseline.
@@ -199,7 +200,7 @@ contains
     !-----------------------------------------------------------------------
     namelist /cnphenology/ initial_seed_at_planting, onset_thresh_depends_on_veg, &
                            min_critical_dayl_method, generate_crop_gdds, &
-                           use_mxmat
+                           use_mxmat, maxlai_triggers_grainfill
 
     ! Initialize options to default values, in case they are not specified in
     ! the namelist
@@ -225,6 +226,7 @@ contains
     call shr_mpi_bcast (min_critical_dayl_method,     mpicom)
     call shr_mpi_bcast (generate_crop_gdds,          mpicom)
     call shr_mpi_bcast (use_mxmat,                   mpicom)
+    call shr_mpi_bcast (maxlai_triggers_grainfill,   mpicom)
 
     if (      min_critical_dayl_method == "DependsOnLat"       )then
        critical_daylight_method = critical_daylight_depends_on_lat
@@ -2168,6 +2170,7 @@ contains
          if ( is_beg_curr_year() .or. crop_inst%sdates_thisyr_patch(p,1) == spval ) then
             sowing_count(p) = 0
             harvest_count(p) = 0
+            crop_inst%maxlai_triggered_grainfill_ann_patch(p) = 0._r8
             do s = 1, mxsowings
                crop_inst%sdates_thisyr_patch(p,s) = -1._r8
                crop_inst%swindow_starts_thisyr_patch(p,s) = -1._r8
@@ -2182,6 +2185,10 @@ contains
                crop_inst%gddaccum_thisyr_patch(p,s) = -1._r8
                crop_inst%hui_thisyr_patch(p,s) = -1._r8
                crop_inst%sowing_reason_perharv_patch(p,s) = -1._r8
+               crop_inst%maxlai_triggered_grainfill_perharv_patch(p,s) = 0._r8
+               crop_inst%cropphase_time_pre_perharv_patch(p,s) = -1._r8
+               crop_inst%cropphase_time_veg_perharv_patch(p,s) = -1._r8
+               crop_inst%cropphase_time_rep_perharv_patch(p,s) = -1._r8
                crop_inst%harvest_reason_thisyr_patch(p,s) = -1._r8
                do k = repr_grain_min, repr_grain_max
                   cnveg_carbonflux_inst%repr_grainc_to_food_perharv_patch(p,s,k) = 0._r8
@@ -2428,8 +2435,9 @@ contains
             ! enter phase 2 onset for one time step:
             ! transfer seed carbon to leaf emergence
 
-            if (peaklai(p) >= 1) then
-               hui(p) = max(hui(p),huigrain(p))
+            if (maxlai_triggers_grainfill .and. peaklai(p) >= 1 .and. hui(p) < huigrain(p)) then
+               hui(p) = huigrain(p)
+               crop_inst%maxlai_triggered_grainfill_patch(p) = .true.
             endif
 
             do_harvest = .false.
@@ -2547,6 +2555,17 @@ contains
                   crop_inst%sowing_reason_perharv_patch(p, harvest_count(p)) = real(crop_inst%sowing_reason_patch(p), r8)
                   crop_inst%sowing_reason_patch(p) = -1 ! "Reason for most recent sowing of this patch." So in the line above we save, and here we reset.
                   crop_inst%harvest_reason_thisyr_patch(p, harvest_count(p)) = harvest_reason
+                  if (crop_inst%maxlai_triggered_grainfill_patch(p)) then
+                     crop_inst%maxlai_triggered_grainfill_ann_patch(p) = &
+                          crop_inst%maxlai_triggered_grainfill_ann_patch(p) + 1._r8
+                     crop_inst%maxlai_triggered_grainfill_perharv_patch(p, harvest_count(p)) = 1._r8
+                  end if
+                  crop_inst%cropphase_time_pre_perharv_patch(p, harvest_count(p)) = &
+                       crop_inst%cropphase_time_pre_patch(p)
+                  crop_inst%cropphase_time_veg_perharv_patch(p, harvest_count(p)) = &
+                       crop_inst%cropphase_time_veg_patch(p)
+                  crop_inst%cropphase_time_rep_perharv_patch(p, harvest_count(p)) = &
+                       crop_inst%cropphase_time_rep_patch(p)
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
@@ -2616,6 +2635,15 @@ contains
          ! At the end of the sowing window, AFTER we've done everything crop-related, set this to false
          if (is_end_sowing_window .and. is_end_curr_day()) then
             crop_inst%sown_in_this_window(p) = .false.
+         end if
+
+         ! Update time spent in crop phase
+         if (cphase(p) == cphase_planted) then
+            crop_inst%cropphase_time_pre_patch = crop_inst%cropphase_time_pre_patch + fracday
+         else if (cphase(p) == cphase_leafemerge) then
+            crop_inst%cropphase_time_veg_patch = crop_inst%cropphase_time_veg_patch + fracday
+         else if (cphase(p) == cphase_grainfill) then
+            crop_inst%cropphase_time_rep_patch = crop_inst%cropphase_time_rep_patch + fracday
          end if
 
       end do ! prognostic crops loop
@@ -2777,6 +2805,10 @@ contains
       iyop(p)      = kyr
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
+      crop_inst%maxlai_triggered_grainfill_patch(p) = .false.
+      crop_inst%cropphase_time_pre_patch(p) = 0._r8
+      crop_inst%cropphase_time_veg_patch(p) = 0._r8
+      crop_inst%cropphase_time_rep_patch(p) = 0._r8
 
       crop_inst%sdates_thisyr_patch(p,sowing_count(p)) = real(jday, r8)
 

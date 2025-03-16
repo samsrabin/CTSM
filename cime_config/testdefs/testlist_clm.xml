@@ -1382,6 +1382,15 @@
       <option name="comment">Repeat ERP_Ly3_P64x2...cropMonthOutput test with matrixcnOn</option>
     </options>
   </test>
+  <test name="ERP_Ly3_P64x2" grid="f10_f10_mg37" compset="IHistClm60BgcCrop" testmods="clm/cropMonthOutput--clm/NoMaxLaiGrainFillTrigger">
+    <machines>
+      <machine name="derecho" compiler="intel" category="aux_clm"/>
+    </machines>
+    <options>
+      <option name="wallclock">01:40:00</option>
+      <option name="comment"  >Repeat ERP_Ly3_P64x2...cropMonthOutput test without max LAI trigering grain fill</option>
+    </options>
+  </test>
   <test name="ERI_D_Ld9" grid="f10_f10_mg37" compset="I1850Clm45Bgc" testmods="clm/default">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_clm"/>

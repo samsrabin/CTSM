@@ -74,6 +74,20 @@ module CropType
      real(r8), pointer :: hui_patch               (:)   ! crop patch heat unit index (ddays)
      real(r8), pointer :: gddaccum_patch          (:)   ! patch growing degree-days from planting (air) (ddays)
 
+     ! SSR 2025-02-14: Temporary diagnostic variables used in reparameterizing crops for CLM6
+     logical, pointer :: maxlai_triggered_grainfill_patch (:)  ! Whether max LAI triggered grain fill for the current season
+     ! Reals so that they can be written to history files
+     real(r8), pointer :: maxlai_triggered_grainfill_ann_patch (:)  ! Number of times in calendar year that max LAI triggered grain fill
+     real(r8), pointer :: maxlai_triggered_grainfill_perharv_patch (:,:)  ! Whether a given season (indexed on harvest) had max LAI trigger grain fill
+
+     ! SSR 2025-02-14: Temporary diagnostic variables used in reparameterizing crops for CLM6
+     real(r8), pointer :: cropphase_time_pre_patch (:)  ! Time (days) spent in cphase_planted ("pre-emergence" phase) for the current season
+     real(r8), pointer :: cropphase_time_veg_patch (:)  ! Time (days) spent in cphase_leafemerge ("vegetative" phase) for the current season
+     real(r8), pointer :: cropphase_time_rep_patch (:)  ! Time (days) spent in cphase_grainfill ("reproductive" phase) for the current season
+     real(r8), pointer :: cropphase_time_pre_perharv_patch (:,:)  ! Time (days) spent in cphase_planted ("pre-emergence" phase) for each season in this calendar year
+     real(r8), pointer :: cropphase_time_veg_perharv_patch (:,:)  ! Time (days) spent in cphase_leafemerge ("vegetative" phase) for each season in this calendar year
+     real(r8), pointer :: cropphase_time_rep_perharv_patch (:,:)  ! Time (days) spent in cphase_grainfill ("reproductive" phase) for each season in this calendar year
+
    contains
      ! Public routines
      procedure, public  :: Init               ! Initialize the crop type
@@ -258,6 +272,15 @@ contains
     allocate(this%harvest_reason_thisyr_patch(begp:endp,1:mxharvests)) ; this%harvest_reason_thisyr_patch(:,:) = spval
     allocate(this%sowing_count(begp:endp)) ; this%sowing_count(:) = 0
     allocate(this%harvest_count(begp:endp)) ; this%harvest_count(:) = 0
+    allocate(this%maxlai_triggered_grainfill_patch(begp:endp)) ; this%maxlai_triggered_grainfill_patch(:) = .false.
+    allocate(this%maxlai_triggered_grainfill_ann_patch(begp:endp)) ; this%maxlai_triggered_grainfill_ann_patch(:) = spval
+    allocate(this%maxlai_triggered_grainfill_perharv_patch(begp:endp,1:mxharvests)) ; this%maxlai_triggered_grainfill_perharv_patch(:,:) = spval
+    allocate(this%cropphase_time_pre_patch(begp:endp)) ; this%cropphase_time_pre_patch(:) = spval
+    allocate(this%cropphase_time_veg_patch(begp:endp)) ; this%cropphase_time_veg_patch(:) = spval
+    allocate(this%cropphase_time_rep_patch(begp:endp)) ; this%cropphase_time_rep_patch(:) = spval
+    allocate(this%cropphase_time_pre_perharv_patch(begp:endp,1:mxharvests)) ; this%cropphase_time_pre_perharv_patch(:,:) = spval
+    allocate(this%cropphase_time_veg_perharv_patch(begp:endp,1:mxharvests)) ; this%cropphase_time_veg_perharv_patch(:,:) = spval
+    allocate(this%cropphase_time_rep_perharv_patch(begp:endp,1:mxharvests)) ; this%cropphase_time_rep_perharv_patch(:,:) = spval
 
   end subroutine InitAllocate
 
@@ -380,6 +403,28 @@ contains
     call hist_addfld1d (fname='GDD20_SEASON_END', units='day of year', &
          avgflag='I', long_name='End of the GDD20 accumulation season (from input)', &
          ptr_patch=this%gdd20_season_end_patch, default='inactive')
+
+    this%maxlai_triggered_grainfill_ann_patch(begp:endp) = spval
+    call hist_addfld1d (fname='MAXLAIGRAINFILL', units='unitless', &
+         avgflag='I', long_name='Number of times in calendar year that max LAI triggered grain fill', &
+         ptr_patch=this%maxlai_triggered_grainfill_ann_patch, default='inactive')
+    this%maxlai_triggered_grainfill_perharv_patch(begp:endp,:) = spval
+    call hist_addfld2d (fname='MAXLAIGRAINFILL_PERHARV', units='unitless', type2d='mxharvests', &
+         avgflag='I', long_name='Whether a given season (indexed on harvest) had max LAI trigger grain fill', &
+         ptr_patch=this%maxlai_triggered_grainfill_perharv_patch, default='inactive')
+
+    this%cropphase_time_pre_perharv_patch(begp:endp,:) = spval
+    call hist_addfld2d (fname='CROPPHASE_TIME_PRE_PERHARV', units='days', type2d='mxharvests', &
+         avgflag='I', long_name='Time spent in cphase_planted ("pre-emergence" phase) for each harvest', &
+         ptr_patch=this%cropphase_time_pre_perharv_patch, default='inactive')
+    this%cropphase_time_veg_perharv_patch(begp:endp,:) = spval
+    call hist_addfld2d (fname='CROPPHASE_TIME_VEG_PERHARV', units='days', type2d='mxharvests', &
+         avgflag='I', long_name='Time spent in cphase_leafemerge ("vegetative" phase) for each harvest', &
+         ptr_patch=this%cropphase_time_veg_perharv_patch, default='inactive')
+    this%cropphase_time_rep_perharv_patch(begp:endp,:) = spval
+    call hist_addfld2d (fname='CROPPHASE_TIME_REP_PERHARV', units='days', type2d='mxharvests', &
+         avgflag='I', long_name='Time spent in cphase_grainfill ("reproductive" phase) for each harvest', &
+         ptr_patch=this%cropphase_time_rep_perharv_patch, default='inactive')
 
   end subroutine InitHistory
 
@@ -639,6 +684,31 @@ contains
        end if
        deallocate(temp1d)
 
+       allocate(temp1d(bounds%begp:bounds%endp))
+       if (flag == 'write') then
+          do p= bounds%begp,bounds%endp
+             if (this%maxlai_triggered_grainfill_patch(p)) then
+                temp1d(p) = 1
+             else
+                temp1d(p) = 0
+             end if
+          end do
+       end if
+       call restartvar(ncid=ncid, flag=flag,  varname='maxlai_triggered_grainfill_patch', xtype=ncd_log,  &
+            dim1name='pft', &
+            long_name='Whether max LAI triggered grain fill for the current season', &
+            interpinic_flag='interp', readvar=readvar, data=temp1d)
+       if (flag == 'read') then
+          do p= bounds%begp,bounds%endp
+             if (temp1d(p) == 1) then
+                this%maxlai_triggered_grainfill_patch(p) = .true.
+             else
+                this%maxlai_triggered_grainfill_patch(p) = .false.
+             end if
+          end do
+       end if
+       deallocate(temp1d)
+
        call restartvar(ncid=ncid, flag=flag,  varname='harvdate', xtype=ncd_int,  &
             dim1name='pft', long_name='harvest date', units='jday', nvalid_range=(/1,366/), &
             interpinic_flag='interp', readvar=readvar, data=this%harvdate_patch)
@@ -661,6 +731,24 @@ contains
             dim1name='pft', long_name='sowing reason for this patch', &
             units='none', &
             interpinic_flag='interp', readvar=readvar, data=this%sowing_reason_patch)
+
+       call restartvar(ncid=ncid, flag=flag,  varname='maxlai_triggered_grainfill_ann_patch',xtype=ncd_double, &
+            dim1name='pft', long_name='Number of times in calendar year that max LAI triggered grain fill', &
+            units='none', &
+            interpinic_flag='interp', readvar=readvar, data=this%maxlai_triggered_grainfill_ann_patch)
+
+       call restartvar(ncid=ncid, flag=flag,  varname='cropphase_time_pre_patch',xtype=ncd_double, &
+            dim1name='pft', long_name='Time spent in cphase_planted ("pre-emergence" phase) for the current season', &
+            units='days', &
+            interpinic_flag='interp', readvar=readvar, data=this%cropphase_time_pre_patch)
+       call restartvar(ncid=ncid, flag=flag,  varname='cropphase_time_veg_patch',xtype=ncd_double, &
+            dim1name='pft', long_name='Time spent in cphase_leafemerge ("vegetative" phase) for the current season', &
+            units='days', &
+            interpinic_flag='interp', readvar=readvar, data=this%cropphase_time_veg_patch)
+       call restartvar(ncid=ncid, flag=flag,  varname='cropphase_time_rep_patch',xtype=ncd_double, &
+            dim1name='pft', long_name='Time spent in cphase_grainfill ("reproductive" phase) for the current season', &
+            units='days', &
+            interpinic_flag='interp', readvar=readvar, data=this%cropphase_time_rep_patch)
 
        ! Read or write variable(s) with mxsowings dimension
        ! BACKWARDS_COMPATIBILITY(wjs/ssr, 2022-02-02) See note in CallRestartvarDimOK()
@@ -739,6 +827,26 @@ contains
                 long_name='reason for each harvest for this patch this year', units='unitless', &
                 scale_by_thickness=.false., &
                 interpinic_flag='interp', readvar=readvar, data=this%harvest_reason_thisyr_patch)
+           call restartvar(ncid=ncid, flag=flag, varname='maxlai_triggered_grainfill_perharv_patch', xtype=ncd_double,  &
+                dim1name='pft', dim2name='mxharvests', switchdim=.true., &
+                long_name='Whether a given season (indexed on harvest) had max LAI trigger grain fill', units='unitless', &
+                scale_by_thickness=.false., &
+                interpinic_flag='interp', readvar=readvar, data=this%maxlai_triggered_grainfill_perharv_patch)
+           call restartvar(ncid=ncid, flag=flag, varname='cropphase_time_pre_perharv_patch', xtype=ncd_double,  &
+                dim1name='pft', dim2name='mxharvests', switchdim=.true., &
+                long_name='Time spent in cphase_planted ("pre-emergence" phase) for each harvest', units='days', &
+                scale_by_thickness=.false., &
+                interpinic_flag='interp', readvar=readvar, data=this%cropphase_time_pre_perharv_patch)
+           call restartvar(ncid=ncid, flag=flag, varname='cropphase_time_veg_perharv_patch', xtype=ncd_double,  &
+                dim1name='pft', dim2name='mxharvests', switchdim=.true., &
+                long_name='Time spent in cphase_leafemerge ("vegetative" phase) for each harvest', units='days', &
+                scale_by_thickness=.false., &
+                interpinic_flag='interp', readvar=readvar, data=this%cropphase_time_veg_perharv_patch)
+           call restartvar(ncid=ncid, flag=flag, varname='cropphase_time_rep_perharv_patch', xtype=ncd_double,  &
+                dim1name='pft', dim2name='mxharvests', switchdim=.true., &
+                long_name='Time spent in cphase_grainfill ("reproductive" phase) for each harvest', units='days', &
+                scale_by_thickness=.false., &
+                interpinic_flag='interp', readvar=readvar, data=this%cropphase_time_rep_perharv_patch)
 
            ! Fill variable(s) derived from read-in variable(s)
            if (flag == 'read') then

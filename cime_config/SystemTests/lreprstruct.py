@@ -53,12 +53,12 @@ class LREPRSTRUCT(SystemTestsCompareTwo):
         user_nl_clm_path = os.path.join(self._get_caseroot(), "user_nl_clm")
         with open(user_nl_clm_path) as f:
             user_nl_clm_text = f.read()
-        for grain_output in re.findall("GRAIN\w*", user_nl_clm_text):
+        for grain_output in re.findall("\WGRAIN\w*", user_nl_clm_text):
             user_nl_clm_text = user_nl_clm_text.replace(
-                grain_output,
-                grain_output.replace("GRAIN", "REPRODUCTIVE1")
+                grain_output[1:],
+                grain_output[1:].replace("GRAIN", "REPRODUCTIVE1")
                 + "', '"
-                + grain_output.replace("GRAIN", "REPRODUCTIVE2"),
+                + grain_output[1:].replace("GRAIN", "REPRODUCTIVE2"),
             )
         with open(user_nl_clm_path, "w") as f:
             f.write(user_nl_clm_text)
