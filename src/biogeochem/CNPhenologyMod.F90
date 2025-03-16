@@ -2410,7 +2410,6 @@ contains
          offset_flag(p) = 0._r8 ! carbon and nitrogen transfers
 
          if (croplive(p)) then
-            call crop_inst%SetCropPhase(cphase(p), cphase_planted)
 
             ! call vernalization if winter temperate cereal planted, living, and the
             ! vernalization factor is not 1;
@@ -2806,6 +2805,7 @@ contains
       harvdate(p)  = NOT_Harvested
       sowing_count(p) = sowing_count(p) + 1
       crop_inst%maxlai_triggered_grainfill_patch(p) = .false.
+      call crop_inst%SetCropPhase(crop_inst%cphase_patch(p), cphase_planted)
       crop_inst%cropphase_time_pre_patch(p) = 0._r8
       crop_inst%cropphase_time_veg_patch(p) = 0._r8
       crop_inst%cropphase_time_rep_patch(p) = 0._r8

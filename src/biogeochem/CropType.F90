@@ -1095,7 +1095,7 @@ contains
 
   do fp = 1, num_pcropp
      p = filter_pcropp(fp)
-     call this%UpdateCropPhase(croplive(p), leafout(p), hui(p), huileaf(p), huigrain(p), crop_phase_out(p))
+     call this%UpdateCropPhase(cphase(p), croplive(p), leafout(p), hui(p), huileaf(p), huigrain(p), crop_phase_out(p))
   end do
 
   end associate
@@ -1103,26 +1103,36 @@ contains
   end subroutine GetCropPhaseArray
 
   !-----------------------------------------------------------------------
-subroutine UpdateCropPhase(this, croplive, leafout, hui, huileaf, huigrain, crop_phase_out)
+subroutine UpdateCropPhase(this, crop_phase_in, croplive, leafout, hui, huileaf, huigrain, crop_phase_out)
   !
   ! !DESCRIPTION:
   ! Set the current phase of a crop patch.
   !
   ! !ARGUMENTS:
   class(crop_type) :: this
+  real(r8), intent(in) :: crop_phase_in
   logical, intent(in) :: croplive
   real(r8), intent(in) :: leafout, hui, huileaf, huigrain
   real(r8), intent(out) :: crop_phase_out
 
   if (croplive) then
-     call this%SetCropPhase(crop_phase_out, cphase_planted)
-     if (leafout >= huileaf .and. hui < huigrain) then
+     if (crop_phase_in == cphase_planted) then
+        call this%SetCropPhase(crop_phase_out, cphase_planted)
+     else if (leafout >= huileaf .and. hui < huigrain) then
         call this%SetCropPhase(crop_phase_out, cphase_leafemerge)
      else if (hui >= huigrain) then
         ! Since we know croplive is true, any hui greater than huigrain implies that
         ! we're in the grainfill stage: if we were passt gddmaturity then croplive
         ! would be false.
         call this%SetCropPhase(crop_phase_out, cphase_grainfill)
+     else
+        write(iulog, *) 'UCPFAIL: Crop is alive but UpdateCropPhase() failed'
+        write(iulog, *) 'UCPFAIL: crop_phase_in: ',crop_phase_in
+        write(iulog, *) 'UCPFAIL: leafout      : ',leafout
+        write(iulog, *) 'UCPFAIL: hui          : ',hui
+        write(iulog, *) 'UCPFAIL: huileaf      : ',huileaf
+        write(iulog, *) 'UCPFAIL: huigrain     : ',huigrain
+        call endrun("UCPFAIL: Stopping")
      end if
   end if
 
