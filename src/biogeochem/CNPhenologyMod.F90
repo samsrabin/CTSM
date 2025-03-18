@@ -2638,11 +2638,11 @@ contains
 
          ! Update time spent in crop phase
          if (cphase(p) == cphase_planted) then
-            crop_inst%cropphase_time_pre_patch = crop_inst%cropphase_time_pre_patch + fracday
+            crop_inst%cropphase_time_pre_patch(p) = crop_inst%cropphase_time_pre_patch(p) + fracday
          else if (cphase(p) == cphase_leafemerge) then
-            crop_inst%cropphase_time_veg_patch = crop_inst%cropphase_time_veg_patch + fracday
+            crop_inst%cropphase_time_veg_patch(p) = crop_inst%cropphase_time_veg_patch(p) + fracday
          else if (cphase(p) == cphase_grainfill) then
-            crop_inst%cropphase_time_rep_patch = crop_inst%cropphase_time_rep_patch + fracday
+            crop_inst%cropphase_time_rep_patch(p) = crop_inst%cropphase_time_rep_patch(p) + fracday
          end if
 
       end do ! prognostic crops loop
