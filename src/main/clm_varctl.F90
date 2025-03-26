@@ -109,6 +109,7 @@ module clm_varctl
 
   character(len=fname_len), public :: finidat    = ' '        ! initial conditions file name
   character(len=fname_len), public :: fsurdat    = ' '        ! surface data file name
+  character(len=fname_len), public :: hillslope_file = ' '    ! hillslope data file name
   character(len=fname_len), public :: paramfile  = ' '        ! ASCII data file with PFT physiological constants
   character(len=fname_len), public :: nrevsn     = ' '        ! restart data file name for branch run
   character(len=fname_len), public :: fsnowoptics  = ' '      ! snow optical properties file name
@@ -277,16 +278,24 @@ module clm_varctl
   logical, public :: do_sno_oc = .false.  ! control to include organic carbon (OC) in snow
 
   !----------------------------------------------------------
-  ! DUST emission method
-  !----------------------------------------------------------
-  character(len=25), public :: dust_emis_method = 'Zender_2003'  ! Dust emisison method to use: Zender_2003 or Leung_2023
-
-  !----------------------------------------------------------
   ! C isotopes
   !----------------------------------------------------------
 
   logical, public :: use_c13 = .false.                  ! true => use C-13 model
   logical, public :: use_c14 = .false.                  ! true => use C-14 model
+  !----------------------------------------------------------
+  ! CN matrix
+  !----------------------------------------------------------  
+  logical, public :: spinup_matrixcn = .false.  !.false.              ! true => use acc spinup
+  logical, public :: hist_wrt_matrixcn_diag = .false.!.false.              ! true => use acc spinup
+  ! SASU 
+  integer, public :: nyr_forcing  = 10   ! length of forcing years for the spin up. eg. if DATM_YR_START=1901;DATM_YR_END=1920, then nyr_forcing = 20
+  integer, public :: nyr_SASU     = 1    ! length of each semi-analytic solution. eg. nyr_SASU=5, analytic solutions will be calculated every five years.
+                                         ! nyr_SASU=1: the fastest SASU, but inaccurate; nyr_SASU=nyr_forcing(eg. 20): the lowest SASU but accurate
+  integer, public :: iloop_avg    = -999 ! The restart file will be based on the average of all analytic solutions within the iloop_avg^th loop. 
+                                         ! eg. if nyr_forcing = 20, iloop_avg = 8, the restart file in yr 160 will be based on analytic solutions from yr 141 to 160.
+                                         ! The number of the analytic solutions within one loop depends on ratio between nyr_forcing and nyr_SASU.
+                                         ! eg. if nyr_forcing = 20, nyr_SASU = 5, number of analytic solutions is 20/5=4
 
   ! BUG(wjs, 2018-10-25, ESCOMP/ctsm#67) There is a bug that causes incorrect values for C
   ! isotopes if running init_interp from a case without C isotopes to a case with C
@@ -394,6 +403,8 @@ module clm_varctl
   logical, public :: use_cropcal_streams = .false.
   logical, public :: use_cropcal_rx_swindows = .false.
   logical, public :: use_cropcal_rx_cultivar_gdds = .false.
+  logical, public :: adapt_cropcal_rx_cultivar_gdds = .false.
+  logical, public :: flush_gdd20 = .false.
 
   !----------------------------------------------------------
   ! biomass heat storage switch
@@ -421,7 +432,7 @@ module clm_varctl
 
 
   !----------------------------------------------------------
-  ! excess ice physics switch
+  ! excess ice physics switch and params
   !----------------------------------------------------------
   logical, public :: use_excess_ice = .false. ! true. => use excess ice physics
 
