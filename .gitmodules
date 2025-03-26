@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = acb58bbda51dac2cefd7ca123c06469db2cc3f4c  # refactor-history-2: Add prt_vartypes subroutine GetBiomass().
+fxtag = a08bbb715a3a417d8abddf5057e90acd405ce17e  # refactor-history-2-dev5: Merge tag 'sci.1.79.3_api.37.0.0' into refactor-history-2-dev
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
@@ -36,7 +36,7 @@ fxDONOTUSEurl = https://github.com/NCAR/fates-release
 [submodule "cism"]
 path = components/cism
 url = https://github.com/ESCOMP/CISM-wrapper
-fxtag = cismwrap_2_2_001
+fxtag = cismwrap_2_2_002
 fxrequired = ToplevelRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESCOMP/CISM-wrapper
@@ -44,7 +44,7 @@ fxDONOTUSEurl = https://github.com/ESCOMP/CISM-wrapper
 [submodule "rtm"]
 path = components/rtm
 url = https://github.com/ESCOMP/RTM
-fxtag = rtm1_0_79
+fxtag = rtm1_0_80
 fxrequired = ToplevelRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESCOMP/RTM
@@ -52,7 +52,7 @@ fxDONOTUSEurl = https://github.com/ESCOMP/RTM
 [submodule "mosart"]
 path = components/mosart
 url = https://github.com/ESCOMP/MOSART
-fxtag = mosart1_0_49
+fxtag = mosart1.1.02
 fxrequired = ToplevelRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESCOMP/MOSART
@@ -67,8 +67,8 @@ fxDONOTUSEurl = https://github.com/ESCOMP/mizuRoute
         
 [submodule "ccs_config"]
 path = ccs_config
-url = https://github.com/samsrabin/ccs_config_cesm.git
-fxtag = 78380b818e74133b0d5379efa4e348844838f6ca
+url = https://github.com/ESMCI/ccs_config_cesm.git
+fxtag = ccs_config_cesm1.0.0
 fxrequired = ToplevelRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESMCI/ccs_config_cesm.git
@@ -84,7 +84,7 @@ fxDONOTUSEurl = https://github.com/ESMCI/cime
 [submodule "cmeps"]
 path = components/cmeps
 url = https://github.com/ESCOMP/CMEPS.git
-fxtag = cmeps0.14.63
+fxtag = cmeps0.14.77
 fxrequired = ToplevelRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESCOMP/CMEPS.git
@@ -92,7 +92,7 @@ fxDONOTUSEurl = https://github.com/ESCOMP/CMEPS.git
 [submodule "cdeps"]
 path = components/cdeps
 url = https://github.com/ESCOMP/CDEPS.git
-fxtag = cdeps1.0.34
+fxtag = cdeps1.0.48
 fxrequired = ToplevelRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESCOMP/CDEPS.git
