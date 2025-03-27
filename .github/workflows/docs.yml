@@ -24,10 +24,10 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
-      - name: Install python 3.x
+      - name: Install python 3.13.2
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: '3.13.2'
       # https://github.com/actions/cache/blob/main/examples.md#python---pip
       - name: Cache pip
         uses: actions/cache@v3
@@ -53,10 +53,10 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
-      - name: Install python 3.x
+      - name: Install python 3.13.2
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: '3.13.2'
       # https://github.com/actions/cache/blob/main/examples.md#python---pip
       - name: Cache pip
         uses: actions/cache@v3
