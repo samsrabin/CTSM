@@ -12,7 +12,6 @@ RUN yum -y update && \
     yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
     yum -y install git sudo && \
     yum -y install python3 pip && \
-    # yum -y install ftp xmlstarlet diffutils  && \
     yum -y install git-lfs latexmk texlive-amscls texlive-anyfontsize texlive-cmap texlive-fancyhdr texlive-fncychap \
                    texlive-dvisvgm texlive-metafont texlive-ec texlive-titlesec texlive-babel-english texlive-tabulary \ 
                    texlive-framed texlive-wrapfig texlive-parskip texlive-upquote texlive-capt-of texlive-needspace \
@@ -39,4 +38,3 @@ ENV SHELL=/bin/bash \
 USER user
 WORKDIR /home/user
 CMD ["/bin/bash", "-l"]
-#ENTRYPOINT ["/bin/bash", "-l"]
