@@ -16,9 +16,13 @@ RUN yum -y install git-lfs
 RUN pip3 install rst2pdf sphinx sphinxcontrib-programoutput
 RUN pip3 install sphinx-rtd-theme
 RUN pip3 install sphinx_mdinclude
+
+# Install blas and devel
 RUN dnf config-manager --set-enabled crb
 RUN dnf -y update
 RUN dnf install -y blas-devel lapack-devel
+
+# Finish up
 RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN echo '/usr/local/lib' > /etc/ld.so.conf.d/local.conf
 RUN ldconfig
