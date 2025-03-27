@@ -9,9 +9,8 @@ RUN apk update
 RUN apk add --no-cache git sudo
 RUN apk add --no-cache git-lfs
 RUN apk add --no-cache make
-RUN pip3 install --break-system-packages rst2pdf sphinx sphinxcontrib-programoutput
-RUN pip3 install --break-system-packages sphinx-rtd-theme
-RUN pip3 install --break-system-packages sphinx_mdinclude
+ADD requirements.txt requirements.txt
+RUN pip3 install --break-system-packages -r requirements.txt
 
 # Add user etc.
 RUN addgroup escomp
