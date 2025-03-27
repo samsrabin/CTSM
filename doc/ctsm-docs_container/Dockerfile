@@ -2,12 +2,11 @@
 # A base linux install + packages for building CTSM documentation #
 ###################################################################
 
-FROM alpine:3.21.3
+FROM python:3.13.2-alpine
 
 # Update the default packages and install some other necessary ones
 RUN apk update
 RUN apk add --no-cache git sudo
-RUN apk add --no-cache python3 py3-pip
 RUN apk add --no-cache git-lfs
 RUN apk add --no-cache make
 RUN pip3 install --break-system-packages rst2pdf sphinx sphinxcontrib-programoutput
