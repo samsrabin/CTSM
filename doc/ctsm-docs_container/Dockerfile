@@ -12,10 +12,7 @@ RUN yum -y update
 RUN yum -y install epel-release
 RUN yum -y install git sudo
 RUN yum -y install python3 pip
-RUN yum -y install git-lfs latexmk texlive-amscls texlive-anyfontsize texlive-cmap texlive-fancyhdr texlive-fncychap \
-                   texlive-dvisvgm texlive-metafont texlive-ec texlive-titlesec texlive-babel-english texlive-tabulary \ 
-                   texlive-framed texlive-wrapfig texlive-parskip texlive-upquote texlive-capt-of texlive-needspace \
-                   texlive-times texlive-makeindex texlive-helvetic texlive-courier texlive-gsftopk texlive-dvips texlive-mfware texlive-dvisvgm
+RUN yum -y install git-lfs
 RUN pip3 install rst2pdf sphinx sphinxcontrib-programoutput
 RUN pip3 install sphinx-rtd-theme
 RUN pip3 install sphinx_mdinclude

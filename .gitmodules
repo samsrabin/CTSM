@@ -124,7 +124,7 @@ fxDONOTUSEurl = https://github.com/NCAR/ParallelIO
 [submodule "doc-builder"]
 path = doc/doc-builder
 url = https://github.com/samsrabin/doc-builder
-fxtag = dfd04d8de0acc4ec374c06c9cd7cf97ec7487e18
+fxtag = 354efe42b910319ae70843c70e23ea7c74867bf9
 fxrequired = ToplevelOptional
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESMCI/doc-builder
