@@ -71,4 +71,5 @@ jobs:
       # Build documentation under ${PWD}/_build
       - name: Build Sphinx docs with doc-builder
         run: |
+          bin/git-fleximod update --optional && \
           cd doc && ./build_docs -b ${PWD}/_build -c
