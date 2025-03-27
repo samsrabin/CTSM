@@ -10,7 +10,7 @@ FROM oraclelinux:9
 
 RUN yum -y update && \
     yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
-    yum -y install vim emacs-nox git subversion which sudo csh make m4 cmake wget file byacc curl-devel zlib-devel && \
+    yum -y install git sudo && \
     yum -y install python3 pip && \
     yum -y install ftp xmlstarlet diffutils  && \
     yum -y install git-lfs latexmk texlive-amscls texlive-anyfontsize texlive-cmap texlive-fancyhdr texlive-fncychap \
