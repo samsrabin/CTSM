@@ -2,14 +2,14 @@
 # A base linux install + packages for building CTSM documentation #
 ###################################################################
 
-FROM oraclelinux:9
+FROM almalinux:9.5
 
 # First, we upate the default packages and install some other necessary ones - while this may give
 # some people updated versions of packages vs. others, these differences should not be numerically
 # important or affect run-time behavior (eg, a newer Bash version, or perl-XML-LibXML version).
 
 RUN yum -y update
-RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+RUN yum -y install epel-release
 RUN yum -y install git sudo
 RUN yum -y install python3 pip
 RUN yum -y install git-lfs latexmk texlive-amscls texlive-anyfontsize texlive-cmap texlive-fancyhdr texlive-fncychap \
@@ -19,7 +19,9 @@ RUN yum -y install git-lfs latexmk texlive-amscls texlive-anyfontsize texlive-cm
 RUN pip3 install rst2pdf sphinx sphinxcontrib-programoutput
 RUN pip3 install sphinx-rtd-theme
 RUN pip3 install sphinx_mdinclude
-RUN dnf --enablerepo=ol9_codeready_builder install -y blas-devel lapack-devel
+RUN dnf config-manager --set-enabled crb
+RUN dnf -y update
+RUN dnf install -y blas-devel lapack-devel
 RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN echo '/usr/local/lib' > /etc/ld.so.conf.d/local.conf
 RUN ldconfig
