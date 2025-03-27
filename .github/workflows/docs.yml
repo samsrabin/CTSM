@@ -33,12 +33,12 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('doc/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('doc/ctsm-docs_container/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Install dependencies
         run: |
-          pip install -r doc/requirements.txt
+          pip install -r doc/ctsm-docs_container/requirements.txt
       # Build documentation under ${PWD}/_build
       - name: Build Sphinx docs with makefile
         run: |
@@ -62,12 +62,12 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('doc/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('doc/ctsm-docs_container/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Install dependencies
         run: |
-          pip install -r doc/requirements.txt
+          pip install -r doc/ctsm-docs_container/requirements.txt
       # Build documentation under ${PWD}/_build
       - name: Build Sphinx docs with doc-builder
         run: |
