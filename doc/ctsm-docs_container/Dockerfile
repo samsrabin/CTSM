@@ -8,22 +8,22 @@ FROM oraclelinux:9
 # some people updated versions of packages vs. others, these differences should not be numerically
 # important or affect run-time behavior (eg, a newer Bash version, or perl-XML-LibXML version).
 
-RUN yum -y update && \
-    yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
-    yum -y install git sudo && \
-    yum -y install python3 pip && \
-    yum -y install git-lfs latexmk texlive-amscls texlive-anyfontsize texlive-cmap texlive-fancyhdr texlive-fncychap \
+RUN yum -y update
+RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+RUN yum -y install git sudo
+RUN yum -y install python3 pip
+RUN yum -y install git-lfs latexmk texlive-amscls texlive-anyfontsize texlive-cmap texlive-fancyhdr texlive-fncychap \
                    texlive-dvisvgm texlive-metafont texlive-ec texlive-titlesec texlive-babel-english texlive-tabulary \ 
                    texlive-framed texlive-wrapfig texlive-parskip texlive-upquote texlive-capt-of texlive-needspace \
-                   texlive-times texlive-makeindex texlive-helvetic texlive-courier texlive-gsftopk texlive-dvips texlive-mfware texlive-dvisvgm && \
-    pip3 install rst2pdf sphinx sphinxcontrib-programoutput && \
-    pip3 install sphinx-rtd-theme && \
-    pip3 install sphinx_mdinclude && \
-    dnf --enablerepo=ol9_codeready_builder install -y blas-devel lapack-devel && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
-    echo '/usr/local/lib' > /etc/ld.so.conf.d/local.conf && \
-    ldconfig && \
-    yum clean all
+                   texlive-times texlive-makeindex texlive-helvetic texlive-courier texlive-gsftopk texlive-dvips texlive-mfware texlive-dvisvgm
+RUN pip3 install rst2pdf sphinx sphinxcontrib-programoutput
+RUN pip3 install sphinx-rtd-theme
+RUN pip3 install sphinx_mdinclude
+RUN dnf --enablerepo=ol9_codeready_builder install -y blas-devel lapack-devel
+RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN echo '/usr/local/lib' > /etc/ld.so.conf.d/local.conf
+RUN ldconfig
+RUN yum clean all
 
 RUN groupadd escomp && \
     useradd -c 'ESCOMP User' -d /home/user -g escomp -m -s /bin/bash user && \
