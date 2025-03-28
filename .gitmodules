@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = cc61cb58609ce79435f831830f783af5d28bad6e  # refactor-history-2-dev5: Merge tag 'sci.1.80.1_api.37.0.0' into refactor-history-2-dev5
+fxtag = c997bc36f7f887531b2b2b471d6ab74604556f58  # refactor-history-2-dev5: Merge fix: Don't update hio_npp_si_age if cohort is new.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
