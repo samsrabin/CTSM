@@ -1,4 +1,455 @@
 ===============================================================
+Tag name: ctsm5.3.022
+Originator(s): glemieux (Gregory Lemieux, LBNL, glemieux@lbl.gov)
+Date: Thu Feb  6 11:22:48 MST 2025
+One-line Summary: Update FATES namelist build to avoid Meier2022
+
+Purpose and description of changes
+----------------------------------
+
+This tag brings in three updates, the primary of which is an update to the namelist
+build to avoid running FATES with roughness method Meier2022 in light of recently
+discovered incompatibility between FATES and this method.  FATES will now used
+ZengWang2007 for all run mode.
+
+The other two updates are fairly minor changes.  One is a B4B change to the order in
+which the use_fates_luh flag is passed to FATES.  The other is an update to history
+outputs for the FatesColdAllVars testmod per a recent FATES-side update.
+
+
+Significant changes to scientifically-supported configurations
+--------------------------------------------------------------
+
+Does this tag change answers significantly for any of the following physics configurations?
+(Details of any changes will be given in the "Answer changes" section below.)
+
+    [Put an [X] in the box for any configuration with significant answer changes.]
+
+[ ] clm6_0
+
+[ ] clm5_0
+
+[ ] ctsm5_0-nwp
+
+[ ] clm4_5
+
+
+Bugs fixed
+----------
+
+  #2932 - 'Meier 2022' z0 parameterization causes errors with FATES
+
+Testing summary:
+----------------
+
+ [PASS means all tests PASS; OK means tests PASS other than expected fails.]
+
+  build-namelist tests (if CLMBuildNamelist.pm has changed):
+
+    derecho - PASS
+
+  regular tests (aux_clm: https://github.com/ESCOMP/CTSM/wiki/System-Testing-Guide#pre-merge-system-testing):
+
+    derecho ----- OK
+    izumi ------- OK
+
+  fates tests: (give name of baseline if different from CTSM tagname, normally fates baselines are fates-<FATES TAG>-<CTSM TAG>)
+    derecho ----- OK
+    izumi ------- OK
+
+If the tag used for baseline comparisons was NOT the previous tag, note that here:
+
+ fates suite tested against fates-sci.1.80.10_api.37.0.0-ctsm5.3.021
+
+Answer changes
+--------------
+
+Changes answers relative to baseline: Yes, only some FATES tests
+
+  The FATES tag has been updated from sci.1.80.4_api.37.0.0 to sci.1.80.11_api.37.0.0,
+  which includes a number of bug fixes some of which result in changes to some baselines.
+  Additional, all tests using Clm60Fates based compsets have DIFFs due to the roughness
+  method update.
+
+Other details
+-------------
+List any git submodules updated (cime, rtm, mosart, cism, fates, etc.):
+  fates: sci.1.80.4_api.37.0.0 -> sci.1.80.11_api.37.0.0
+
+Pull Requests that document the changes (include PR ids):
+(https://github.com/ESCOMP/ctsm/pull)
+  https://github.com/ESCOMP/CTSM/pull/2934
+  https://github.com/ESCOMP/CTSM/pull/2936
+  https://github.com/ESCOMP/CTSM/pull/2898
+  https://github.com/NGEET/FATES/pull/1273
+
+===============================================================
+===============================================================
+Tag name: ctsm5.3.021
+Originator(s): samrabin (Sam Rabin, UCAR/TSS)
+Date: Wed 29 Jan 2025 04:21:40 PM MST
+One-line Summary: Standardize time metadata (release tag for ctsm5.3)
+
+Purpose and description of changes
+----------------------------------
+ Standardizes a dimension name of output variable time_bounds from hist_interval to nbnd.
+ Standardizes attributes for time_bounds, mcdate, mcsec, mdcur, and mscur.
+
+Contributors
+------------
+ Also Bill Sacks and Erik Kluzek.
+
+Significant changes to scientifically-supported configurations
+--------------------------------------------------------------
+
+Does this tag change answers significantly for any of the following physics configurations?
+(Details of any changes will be given in the "Answer changes" section below.)
+
+    [Put an [X] in the box for any configuration with significant answer changes.]
+
+[ ] clm6_0
+
+[ ] clm5_0
+
+[ ] ctsm5_0-nwp
+
+[ ] clm4_5
+
+
+Bugs fixed
+----------
+List of CTSM issues fixed (include CTSM Issue # and description) [one per line]:
+ Resolves #1693
+ Fixes #2923
+ Resolves https://github.com/ESCOMP/MOSART/pull/66
+ Resolves https://github.com/ESCOMP/RTM/pull/35
+
+Notes of particular relevance for users
+---------------------------------------
+Changes to documentation:
+ This is the release tag for ctsm5.3, so it includes the file WhatsNewInCTSM5.3.md.
+
+Notes of particular relevance for developers:
+---------------------------------------------
+Caveats for developers (e.g., code that is duplicated that requires double maintenance):
+ Same or similar changes needed in all three: clm, rtm, mosart.
+
+Testing summary:
+----------------
+
+ [PASS means all tests PASS; OK means tests PASS other than expected fails.]
+
+  build-namelist tests (if CLMBuildNamelist.pm has changed):
+
+    derecho - PASS
+
+  python testing (if python code has changed; see instructions in python/README.md; document testing done):
+
+    derecho - PASS
+
+  regular tests (aux_clm: https://github.com/ESCOMP/CTSM/wiki/System-Testing-Guide#pre-merge-system-testing):
+
+    derecho ----- OK
+    izumi ------- OK
+
+  fates tests
+    derecho ----- OK against baseline fates-sci.1.80.4_api.37.0.0-tmp-241219.n02.ctsm5.3.016
+    izumi ------- OK against baseline fates-sci.1.80.4_api.37.0.0-ctsm5.3.014
+
+  ctsm_sci against baseline ctsm_sci-ctsm5.3.016
+    derecho ---- OK
+
+  rtm tests against baseline rtm1_0_86-ctsm5.3.019
+    derecho ----- PASS
+
+  mosart tests against baseline mosart1.1.08-ctsm5.3.019
+    derecho ----- OK
+    izumi ------- PASS
+
+
+Answer changes
+--------------
+
+Changes answers relative to baseline: No
+ Just new metadata in history.
+
+Other details
+-------------
+List any git submodules updated (cime, rtm, mosart, cism, fates, etc.):
+ mosart1.1.07 to mosart1.1.08
+ ccs_config_cesm1.0.16 to ccs_config_cesm1.0.20 to gain access to f09_t232 grid
+ rtm was already updated to rtm1_0_86 in an earlier tag
+
+Pull Requests that document the changes (include PR ids):
+ https://github.com/ESCOMP/ctsm/pull/2052
+ https://github.com/ESCOMP/MOSART/pull/66
+ https://github.com/ESCOMP/RTM/pull/35
+
+===============================================================
+===============================================================
+Tag name: ctsm5.3.020
+Originator(s): samrabin (Sam Rabin, UCAR/TSS, samrabin@ucar.edu)
+Date: Fri Jan 17 12:21:24 MST 2025
+One-line Summary: Merge b4b-dev
+
+Purpose and description of changes
+----------------------------------
+
+Merging b4b-dev and ctsm5.3.019. Includes some improvements to test list / expected failures.
+
+
+Significant changes to scientifically-supported configurations
+--------------------------------------------------------------
+
+Does this tag change answers significantly for any of the following physics configurations?
+(Details of any changes will be given in the "Answer changes" section below.)
+
+    [Put an [X] in the box for any configuration with significant answer changes.]
+
+[ ] clm6_0
+
+[ ] clm5_0
+
+[ ] ctsm5_0-nwp
+
+[ ] clm4_5
+
+
+Notes of particular relevance for developers:
+---------------------------------------------
+
+Changes to tests or testing:
+- New test suite: Useful for redoing tests that failed due to https://github.com/ESCOMP/CTSM/issues/2916, after having replaced libraries/mpi-serial with a fresh copy.
+
+
+Testing summary:
+----------------
+
+  regular tests (aux_clm: https://github.com/ESCOMP/CTSM/wiki/System-Testing-Guide#pre-merge-system-testing):
+
+    derecho ----- OK
+    izumi ------- OK
+
+
+Other details
+-------------
+List any git submodules updated (cime, rtm, mosart, cism, fates, etc.):
+
+Pull Requests that document the changes (include PR ids):
+- ESCOMP/CTSM#2938: ctsm5.3.020: Merge b4b-dev 2025-01-16 (https://github.com/ESCOMP/CTSM/pull/2938)
+
+===============================================================
+===============================================================
+Tag name: ctsm5.3.019
+Originator(s): olyson (Keith Oleson, UCAR/TSS)
+Date: Tue 14 Jan 2025 02:46:11 PM MST
+One-line Summary: Stop running 0th time step
+
+Purpose and description of changes
+----------------------------------
+ As with the last tag, this is also for consistency with CAM.
+
+Contributors
+------------
+ Also Bill Sacks and, in the final steps, slevis.
+
+Significant changes to scientifically-supported configurations
+--------------------------------------------------------------
+
+Does this tag change answers significantly for any of the following physics configurations?
+(Details of any changes will be given in the "Answer changes" section below.)
+
+    [Put an [X] in the box for any configuration with significant answer changes.]
+
+[ ] clm6_0
+
+[ ] clm5_0
+
+[ ] ctsm5_0-nwp
+
+[ ] clm4_5
+
+
+Bugs fixed
+----------
+List of CTSM issues fixed (include CTSM Issue # and description) [one per line]:
+ Fixes #925
+
+Notes of particular relevance for developers:
+---------------------------------------------
+Caveats for developers (e.g., code that is duplicated that requires double maintenance):
+ Same or similar changes needed separately in clm, in mosart, and in rtm.
+
+Changes to tests or testing:
+ FAIL RXCROPMATURITYSKIPGEN_Ld1097.f10_f10_mg37.IHistClm60BgcCrop.derecho_intel.clm-cropMonthOutput RUN
+ I did not label this failure EXPECTED because the fix is planned for the next tag, ctsm5.3.020.
+
+ I resolved the izumi nag tests that failed to build (due to a bug in rtm and mosart) by introducing the bug-fix manually, as explained here:
+https://github.com/ESCOMP/CTSM/pull/2084#issuecomment-2584164690
+ In ctsm5.3.020 we plan to update to the rtm/mosart tags that include the fix.
+
+Testing summary:
+----------------
+
+ [PASS means all tests PASS; OK means tests PASS other than expected fails.]
+
+  build-namelist tests (if CLMBuildNamelist.pm has changed):
+
+    derecho - PASS
+
+  python testing (if python code has changed; see instructions in python/README.md; document testing done):
+
+    derecho - PASS
+
+  regular tests (aux_clm: https://github.com/ESCOMP/CTSM/wiki/System-Testing-Guide#pre-merge-system-testing):
+
+    derecho ----- OK
+    izumi ------- OK
+
+  mosart
+    derecho ----- OK
+    izumi ------- OK
+
+  rtm
+    derecho ----- OK
+
+If the tag used for baseline comparisons was NOT the previous tag, note that here:
+ I repeated the rtm & mosart test-suites with mosart1.1.04 instead of 06 and rtm1_0_82 instead of 84 (all else the same) and compared against the new baselines mosart1.1.06-ctsm5.3.019 and rtm1_0_84-ctsm5.3.019. These gave b4b identical answers.
+
+Answer changes
+--------------
+
+Changes answers relative to baseline: Yes
+
+  Summarize any changes to answers, i.e.,
+    - what code configurations: All
+    - what platforms/compilers: All
+    - nature of change: larger than roundoff/same climate
+
+ Caveat: We see diffs in mosart and cpl output that will be eliminated in ctsm5.3.020. They are discussed here:
+https://github.com/ESCOMP/CTSM/pull/2838#issuecomment-2477608383
+https://github.com/ESCOMP/MOSART/issues/103#issuecomment-2479679014
+
+Other details
+-------------
+List any git submodules updated (cime, rtm, mosart, cism, fates, etc.):
+ rtm and mosart were already updated in the previous tag (ctsm5.3.018) to include the corresponding rtm and mosart tags
+
+Pull Requests that document the changes (include PR ids):
+ https://github.com/ESCOMP/ctsm/pull/2084
+ https://github.com/ESCOMP/MOSART/pull/67
+ https://github.com/ESCOMP/RTM/pull/37
+
+===============================================================
+===============================================================
+Tag name: ctsm5.3.018
+Originator(s): slevis (Samuel Levis,UCAR/TSS,303-665-1310)
+Date: Fri 10 Jan 2025 05:37:08 PM MST
+One-line Summary: Change history time to be the middle of the time bounds
+
+Purpose and description of changes
+----------------------------------
+ Making the change to be consistent with CAM and to make history output more intuitive.
+
+Significant changes to scientifically-supported configurations
+--------------------------------------------------------------
+
+Does this tag change answers significantly for any of the following physics configurations?
+(Details of any changes will be given in the "Answer changes" section below.)
+
+    [Put an [X] in the box for any configuration with significant answer changes.]
+
+[ ] clm6_0
+
+[ ] clm5_1
+
+[ ] clm5_0
+
+[ ] ctsm5_0-nwp
+
+[ ] clm4_5
+
+
+Bugs fixed
+----------
+List of CTSM issues fixed (include CTSM Issue # and description) [one per line]:
+ Partly addresses issue #1059
+
+Notes of particular relevance for users
+---------------------------------------
+Caveats for users (e.g., need to interpolate initial conditions):
+ The history time variable now equals the middle of the time bounds.
+ Instantaneous history tapes now do not include time bounds.
+ Mixed history tapes do not change the treatment of instantaneous fields or move them to separate tapes, yet.
+
+Notes of particular relevance for developers:
+---------------------------------------------
+Caveats for developers (e.g., code that is duplicated that requires double maintenance):
+ Same changes are needed separately in clm, in mosart, and in rtm.
+
+Changes to tests or testing:
+ This tag introduces changes to the mosart/rtm testlists.
+
+ FAIL RXCROPMATURITYSKIPGEN_Ld1097.f10_f10_mg37.IHistClm60BgcCrop.derecho_intel.clm-cropMonthOutput RUN
+ I did not label this failure EXPECTED because the fix comes in later in this series of "history" tags, in particular ctsm5.3.020.
+
+ I resolved the izumi nag tests that failed to build (due to a bug in rtm and mosart) by introducing the bug-fix manually, as explained here:
+https://github.com/ESCOMP/CTSM/pull/2084#issuecomment-2584164690
+ In the next tag we expect to update to the rtm/mosart tags that include the fix.
+
+Testing summary:
+----------------
+
+ [PASS means all tests PASS; OK means tests PASS other than expected fails.]
+
+  build-namelist tests
+
+    derecho - PASS
+
+  python testing (if python code has changed; see instructions in python/README.md; document testing done):
+
+    derecho - PASS
+
+  regular tests (aux_clm: https://github.com/ESCOMP/CTSM/wiki/System-Testing-Guide#pre-merge-system-testing):
+
+    derecho ----- OK
+    izumi ------- OK
+
+  mosart
+    derecho ----- OK
+    izumi ------- OK
+
+  rtm
+    derecho ----- OK
+
+Answer changes
+--------------
+
+Changes answers relative to baseline: Only time variable, plus read caveat
+
+  Summarize any changes to answers, i.e.,
+    - what code configurations: all
+    - what platforms/compilers: all
+    - nature of change: only the time variable
+
+ Caveat: We see diffs in mosart and cpl output that will be eliminated later in this series of "history" tags, in particular ctsm5.3.020. They are discussed here:
+https://github.com/ESCOMP/CTSM/pull/2838#issuecomment-2477608383
+https://github.com/ESCOMP/MOSART/issues/103#issuecomment-2479679014
+
+Other details
+-------------
+List any git submodules updated (cime, rtm, mosart, cism, fates, etc.):
+ rtm, mosart (see related note in ctsm5.3.019)
+
+Pull Requests that document the changes (include PR ids):
+ https://github.com/ESCOMP/ctsm/pull/2838
+ https://github.com/ESCOMP/MOSART/pull/70
+ https://github.com/ESCOMP/RTM/issues/54
+ https://github.com/ESCOMP/MOSART/pull/106
+ https://github.com/ESCOMP/RTM/pull/39
+
+===============================================================
+===============================================================
 Tag name: ctsm5.3.017
 Originator(s): slevis (Samuel Levis,UCAR/TSS,303-665-1310)
 Date: Thu 09 Jan 2025 11:56:43 AM MST
