@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 92ede42338c32a5aa6e9e3a6b8b1d9b7fab3c295  # refactor-history-baseline-dev5: Merge tag 'sci.1.80.11_api.37.0.0' into refactor-history-baseline-dev5
+fxtag = 57fd52d9865a19835c61a94fd476c56d9059bdd9  # refactor-history-baseline-dev5: Merge tag 'sci.1.81.1_api.38.0.0' into refactor-history-baseline-dev5
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
