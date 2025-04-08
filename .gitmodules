@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 0c44ee93927f499a36da53facb756ef74c8148f5  # refactor-history-baseline-dev5: Rename FATES_SECONDARY_ANTHRODISTAGE_AP to FATES_SECONDARY_ANTHRODIST_AP.
+fxtag = ad6921b55dc1a3a697f668e7e033c2f870de577c  # refactor-history-baseline-dev5: Fix/standardize FATES_SECONDARY_AREA_ANTHRO* names.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
