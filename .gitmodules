@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 4b248568b7ebf4a9f5be188c14f381a48ea63809  # refactor-history-2-dev5: Clean up calls of get_age_class_index().
+fxtag = d8b0429aa560ead37eaa7d38450a46eaabd38939  # refactor-history-2-dev5: Rename some loops to satisfy nag compiler.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NCAR/fates-release
