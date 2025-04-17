@@ -68,4 +68,4 @@ jobs:
         id: build-docs
         continue-on-error: true
         run: |
-          cd doc && conda run -n ctsm_pylib ./build_docs -b ${PWD}/_build -c -d
+          cd doc && ./build_docs -b ${PWD}/_build -c -d
