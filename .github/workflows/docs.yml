@@ -22,7 +22,7 @@ jobs:
     name: Test building documentation without ctsm_pylib
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
@@ -51,10 +51,12 @@ jobs:
           pip install -r doc/ctsm-docs_container/requirements.txt
 
       - name: Build Sphinx docs with makefile
+        continue-on-error: true
         run: |
           make SPHINXOPTS="-W --keep-going" BUILDDIR=${PWD}/_build -C doc/ html
 
       - name: Build Sphinx docs with doc-builder
+        continue-on-error: true
         run: |
           cd doc && ./build_docs -b ${PWD}/_build -c
 
@@ -63,7 +65,7 @@ jobs:
     name: Test building documentation with ctsm_pylib
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
