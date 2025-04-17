@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - 'doc/**'
+      # This Workflow doesn't use this file, but changes in Python version mean this Workflow needs updating
+      - 'python/conda_env_ctsm_py.txt'
 
   pull_request:
     paths:
       - 'doc/**'
+      # This Workflow doesn't use this file, but changes in Python version mean this Workflow needs updating
+      - 'python/conda_env_ctsm_py.txt'
 
   workflow_dispatch:
 
@@ -15,20 +19,27 @@ permissions:
   contents: read
 jobs:
 
-  test-build-makefile:
+  test-build-docs:
     if: ${{ always() }}
-    name: Test building documentation with makefile
+    name: Test building documentation without ctsm_pylib
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
-      - name: Install python 3.13.2
+
+      - name: Checkout externals, including doc-builder
+        run: |
+          bin/git-fleximod update --optional
+      
+      - name: Install python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.13.2'
-      # https://github.com/actions/cache/blob/main/examples.md#python---pip
+          python-version: '3.13.2'  # needs to be coordinated with version in python/conda_env_ctsm_py.txt
+
+      # Set up for installing Python requirements
+      # Based on  https://github.com/actions/cache/blob/main/examples.md#python---pip
       - name: Cache pip
         uses: actions/cache@v3
         with:
@@ -36,40 +47,15 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('doc/ctsm-docs_container/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      - name: Install dependencies
+
+      - name: Install Python requirements
         run: |
           pip install -r doc/ctsm-docs_container/requirements.txt
-      # Build documentation under ${PWD}/_build
+
       - name: Build Sphinx docs with makefile
         run: |
           make SPHINXOPTS="-W --keep-going" BUILDDIR=${PWD}/_build -C doc/ html
 
-  test-doc-builder:
-    if: ${{ always() }}
-    name: Test building documentation with doc-builder
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          lfs: true
-      - name: Install python 3.13.2
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.13.2'
-      # https://github.com/actions/cache/blob/main/examples.md#python---pip
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('doc/ctsm-docs_container/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Install dependencies
-        run: |
-          pip install -r doc/ctsm-docs_container/requirements.txt
-      # Build documentation under ${PWD}/_build
       - name: Build Sphinx docs with doc-builder
         run: |
-          bin/git-fleximod update --optional && \
           cd doc && ./build_docs -b ${PWD}/_build -c
