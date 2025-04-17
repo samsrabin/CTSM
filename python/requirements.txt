@@ -1,0 +1,14 @@
+pandas
+tqdm
+scipy
+netcdf4
+requests
+packaging
+numpy
+xarray
+xesmf
+numba
+pylint==2.8.3
+black
+cartopy
+matplotlib
