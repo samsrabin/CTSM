@@ -68,6 +68,5 @@ jobs:
           bin/git-fleximod update --optional
       - name: Build docs using container
         id: build-docs
-        continue-on-error: true
         run: |
           cd doc && ./build_docs -b ${PWD}/_build -c -d
