@@ -1,3 +1,4 @@
+# Modified from https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions#publishing-a-package-using-an-action
 name: Test building ctsm-docs Docker image
 
 # Configures this workflow to run every time a change in the Docker container setup is pushed to the master branch
@@ -15,7 +16,7 @@ on:
 # Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: escomp/ctsm/ctsm-docs
+  IMAGE_NAME: ${{ github.repository }}/ctsm-docs
 
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
@@ -47,8 +48,6 @@ jobs:
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            latest=true
 
       # This step uses the `docker/build-push-action` action to build the image, based on the ctsm-docs `Dockerfile`.
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see [Usage](https://github.com/docker/build-push-action#usage) in the README of the `docker/build-push-action` repository.
@@ -70,4 +69,4 @@ jobs:
       - name: Build docs using container
         id: build-docs
         run: |
-          cd doc && ./build_docs -b ${PWD}/_build -c -d
+          cd doc && ./build_docs -b ${PWD}/_build -c -d -i ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
