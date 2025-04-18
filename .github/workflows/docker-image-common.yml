@@ -2,15 +2,31 @@ name: Workflow used by docker-image workflows
 
 on:
   workflow_call:
+    outputs:
+      REGISTRY:
+        description: "Container registry"
+        value: ${{ jobs.build-image-and-test-docs.outputs.REGISTRY }}
+      IMAGE_NAME:
+        description: "Docker image name"
+        value: ${{ jobs.build-image-and-test-docs.outputs.IMAGE_NAME }}
+      image_tag:
+        description: "First image tag"
+        value: ${{ jobs.build-image-and-test-docs.outputs.image_tag }}
 
 # Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
 env:
     REGISTRY: ghcr.io
     IMAGE_NAME: ${{ github.repository }}/ctsm-docs
 
+# There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
   build-image-and-test-docs:
     runs-on: ubuntu-latest
+    # Variables that might be needed by the calling workflow
+    outputs:
+      REGISTRY: ${{ env.REGISTRY }}
+      IMAGE_NAME: ${{ env.IMAGE_NAME }}
+      image_tag: ${{ steps.set-image-tag.outputs.IMAGE_TAG }}
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
       contents: read
@@ -59,6 +75,7 @@ jobs:
         id: set-image-tag
         run: |
           echo "IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | cut -d',' -f1)" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | cut -d',' -f1)" >> $GITHUB_OUTPUT
       - name: Build docs using container
         id: build-docs
         run: |
