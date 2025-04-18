@@ -20,8 +20,5 @@ on:
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
   build-image-and-test-docs:
-    uses: ./.github/workflows/docker-image-build-common.yml
-    with:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}/ctsm-docs
+    uses: ./.github/workflows/docker-image-common.yml
     secrets: inherit
