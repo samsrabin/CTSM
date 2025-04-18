@@ -1,0 +1,63 @@
+name: Docker Image Common
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        required: true
+        type: boolean
+      REGISTRY:
+        required: true
+        type: string
+      IMAGE_NAME:
+        required: true
+        type: string
+    outputs:
+      image_tag:
+        description: "First image tag"
+        value: ${{ jobs.build-image.outputs.image_tag }}
+      image_digest:
+        description: "Image digest"
+        value: ${{ jobs.build-image.outputs.image_digest }}
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.set-image-tag.outputs.image_tag }}
+      image_digest: ${{ steps.set-image-tag.outputs.image_digest }}
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ inputs.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ inputs.REGISTRY }}/${{ inputs.IMAGE_NAME }}
+
+      - name: Build Docker image
+        id: push
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: doc/ctsm-docs_container
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Set image tag output
+        id: set-image-tag
+        run: |
+          echo "image_tag=$(echo '${{ steps.meta.outputs.tags }}' | cut -d',' -f1)" >> $GITHUB_OUTPUT
