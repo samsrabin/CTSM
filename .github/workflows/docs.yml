@@ -4,14 +4,10 @@ on:
   push:
     paths:
       - 'doc/**'
-      # This workflow doesn't use this file, but because the Python version in this workflow must be synced with the version in the file, changing the file should trigger this workflow.
-      - 'python/conda_env_ctsm_py.txt'
 
   pull_request:
     paths:
       - 'doc/**'
-      # This workflow doesn't use this file, but because the Python version in this workflow must be synced with the version in the file, changing the file should trigger this workflow.
-      - 'python/conda_env_ctsm_py.txt'
 
   workflow_dispatch:
 
@@ -22,42 +18,6 @@ jobs:
   test-build-docs:
     if: ${{ always() }}
     name: Test building documentation without ctsm_pylib
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-
-      - name: Checkout doc-builder external
-        run: |
-          bin/git-fleximod update doc-builder
-      
-      - name: Install python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.13.2'  # needs to be coordinated with version in python/conda_env_ctsm_py.txt
-
-      # Set up for installing Python requirements
-      # Based on  https://github.com/actions/cache/blob/main/examples.md#python---pip
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('doc/ctsm-docs_container/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install Python requirements
-        run: |
-          pip install -r doc/ctsm-docs_container/requirements.txt
-
-      - name: Build Sphinx docs with makefile
-        run: |
-          make SPHINXOPTS="-W --keep-going" BUILDDIR=${PWD}/_build -C doc/ html
-
-      - name: Build Sphinx docs with doc-builder
-        # Run this step even if previous step(s) failed. Useful only if the only failing step was "Build Sphinx docs with makefile"
-        if: success() || failure()
-        run: |
-          cd doc && ./build_docs -b ${PWD}/_build -c
+    uses: ./.github/workflows/docs-common.yml
+    with:
+      use_conda: false
