@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - 'doc/**'
+      # This workflow doesn't use this file, but because the Python version in this workflow must be synced with the version in the file, changing the file should trigger this workflow.
       - 'python/conda_env_ctsm_py.txt'
 
   pull_request:
     paths:
       - 'doc/**'
+      # This workflow doesn't use this file, but because the Python version in this workflow must be synced with the version in the file, changing the file should trigger this workflow.
       - 'python/conda_env_ctsm_py.txt'
 
   workflow_dispatch:
@@ -59,53 +61,3 @@ jobs:
         if: success() || failure()
         run: |
           cd doc && ./build_docs -b ${PWD}/_build -c
-
-  test-build-docs-ctsm_pylib:
-    if: ${{ always() }}
-    name: Test building documentation with ctsm_pylib
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-
-      - name: Checkout doc-builder external
-        run: |
-          bin/git-fleximod update doc-builder
-
-      # Set up the conda environment
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          activate-environment: ctsm_pylib
-          environment-file: python/conda_env_ctsm_py.yml
-          channels: conda-forge
-          auto-activate-base: false
-
-      - name: Build Sphinx docs with makefile
-        run: |
-          conda run -n ctsm_pylib make SPHINXOPTS="-W --keep-going" BUILDDIR=${PWD}/_build -C doc/ html
-
-      - name: Build Sphinx docs with doc-builder
-        # Run this step even if previous step(s) failed. Useful only if the only failing step was "Build Sphinx docs with makefile"
-        if: success() || failure()
-        run: |
-          cd doc && conda run -n ctsm_pylib ./build_docs -b ${PWD}/_build -c
-
-  test-build-docs-container:
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Checkout doc-builder external
-        run: |
-          bin/git-fleximod update doc-builder
-
-      - name: Build docs using container
-        id: build-docs
-        run: |
-          cd doc && ./build_docs -b ${PWD}/_build -c -d
-
-
