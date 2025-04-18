@@ -1,5 +1,5 @@
 # Modified from https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions#publishing-a-package-using-an-action
-name: Test building ctsm-docs Docker image
+name: Test building ctsm-docs Docker image and using it to build the docs
 
 # Configures this workflow to run every time a change in the Docker container setup is pushed to the master branch
 on:

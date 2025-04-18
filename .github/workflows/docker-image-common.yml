@@ -1,4 +1,4 @@
-name: Docker Image Build Common
+name: Workflow used by docker-image workflows
 
 on:
   workflow_call:
