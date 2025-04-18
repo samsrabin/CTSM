@@ -1,4 +1,5 @@
-name: docs
+name: Test building docs when they're updated
+# Does not include a test of building docs with ctsm_pylib; that's in a different Workflow because we only want it to run when ctsm_pylib is updated.
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: docs
+name: Test building docs with ctsm_pylib when it's updated
 
 on:
   push:
