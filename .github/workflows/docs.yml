@@ -51,12 +51,12 @@ jobs:
           pip install -r doc/ctsm-docs_container/requirements.txt
 
       - name: Build Sphinx docs with makefile
-        continue-on-error: true
         run: |
           make SPHINXOPTS="-W --keep-going" BUILDDIR=${PWD}/_build -C doc/ html
 
       - name: Build Sphinx docs with doc-builder
-        continue-on-error: true
+        # Run this step even if previous step(s) failed. Useful only if the only failing step was "Build Sphinx docs with makefile"
+        if: success() || failure()
         run: |
           cd doc && ./build_docs -b ${PWD}/_build -c
 
@@ -70,6 +70,10 @@ jobs:
           fetch-depth: 0
           lfs: true
 
+      - name: Checkout doc-builder external
+        run: |
+          bin/git-fleximod update doc-builder
+
       # Set up the conda environment
       - uses: conda-incubator/setup-miniconda@v3
         with:
@@ -79,16 +83,12 @@ jobs:
           auto-activate-base: false
 
       - name: Build Sphinx docs with makefile
-        continue-on-error: true
         run: |
           conda run -n ctsm_pylib make SPHINXOPTS="-W --keep-going" BUILDDIR=${PWD}/_build -C doc/ html
 
-      - name: Checkout doc-builder external
-        run: |
-          bin/git-fleximod update doc-builder
-
       - name: Build Sphinx docs with doc-builder
-        continue-on-error: true
+        # Run this step even if previous step(s) failed. Useful only if the only failing step was "Build Sphinx docs with makefile"
+        if: success() || failure()
         run: |
           cd doc && conda run -n ctsm_pylib ./build_docs -b ${PWD}/_build -c
 
