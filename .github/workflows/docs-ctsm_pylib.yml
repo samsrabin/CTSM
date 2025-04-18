@@ -10,7 +10,8 @@ on:
       - 'python/conda_env_ctsm_py.txt'
 
   schedule:
-    - cron: '0 0 * * 0'
+    # 8 am every Monday UTC
+    - cron: '0 8 * * 1'
 
   workflow_dispatch:
 
