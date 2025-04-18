@@ -66,6 +66,13 @@ jobs:
       - name: Checkout doc-builder external
         run: |
           bin/git-fleximod update doc-builder
+
+      # Ensure _build directory exists and is writable
+      - name: Ensure _build directory is writable
+        run: |
+          mkdir -p doc/_build
+          chmod -R a+rwx doc/_build
+
       - name: Build docs using container
         id: build-docs
         run: |
