@@ -27,9 +27,9 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Checkout externals, including doc-builder
+      - name: Checkout doc-builder external
         run: |
-          bin/git-fleximod update --optional
+          bin/git-fleximod update doc-builder
       
       - name: Install python
         uses: actions/setup-python@v2
@@ -83,9 +83,9 @@ jobs:
         run: |
           conda run -n ctsm_pylib make SPHINXOPTS="-W --keep-going" BUILDDIR=${PWD}/_build -C doc/ html
 
-      - name: Checkout externals, including doc-builder
+      - name: Checkout doc-builder external
         run: |
-          bin/git-fleximod update --optional
+          bin/git-fleximod update doc-builder
 
       - name: Build Sphinx docs with doc-builder
         continue-on-error: true

@@ -63,9 +63,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       # Try building our docs using the new container
-      - name: Checkout externals, including doc-builder
+      - name: Checkout doc-builder external
         run: |
-          bin/git-fleximod update --optional
+          bin/git-fleximod update doc-builder
       - name: Build docs using container
         id: build-docs
         run: |
