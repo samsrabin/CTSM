@@ -66,7 +66,12 @@ jobs:
         run: |
           bin/git-fleximod update doc-builder
 
+      - name: Set image tag for docs build
+        id: set-image-tag
+        run: |
+          echo "IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | cut -d',' -f1)" >> $GITHUB_ENV
+
       - name: Build docs using container
         id: build-docs
         run: |
-          cd doc && ./build_docs -b ${PWD}/_build -c -d -i ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.labels }}
+          cd doc && ./build_docs -b ${PWD}/_build -c -d -i $IMAGE_TAG
