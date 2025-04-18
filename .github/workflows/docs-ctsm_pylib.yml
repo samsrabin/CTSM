@@ -1,4 +1,4 @@
-name: Test building docs with ctsm_pylib when it's updated
+name: Test building docs with ctsm_pylib
 
 on:
   push:
@@ -8,6 +8,9 @@ on:
   pull_request:
     paths:
       - 'python/conda_env_ctsm_py.txt'
+
+  schedule:
+    - cron: '0 0 * * 0'
 
   workflow_dispatch:
 
