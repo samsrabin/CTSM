@@ -26,3 +26,6 @@ ENV SHELL=/bin/bash \
 USER user
 WORKDIR /home/user
 CMD ["/bin/bash", "-l"]
+
+LABEL org.opencontainers.image.title="Container for building CTSM documentation"
+LABEL org.opencontainers.image.source=https://github.com/ESCOMP/CTSM
