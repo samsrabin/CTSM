@@ -214,12 +214,12 @@ print "==================================================\n";
 # Simple test -- just run build-namelist with -help option
 eval{ system( "$bldnml -help > $tempfile 2>&1 " ); };
    is( $@, '', "help" );
-   &cleanup();
+   cleanup();
 # Simple test -- just run build-namelist with -version option
 eval{ system( "$bldnml -version > $tempfile 2>&1 " ); };
    is( $@, '', "version" );
    system( "/bin/cat $tempfile" );
-   &cleanup();
+   cleanup();
 # Simple test -- just run build-namelist
 &make_env_run();
 eval{ system( "$bldnml > $tempfile 2>&1 " ); };
@@ -236,7 +236,7 @@ print "Run simple tests with all list options \n";
 print "==================================================\n";
 
 $cfiles->copyfiles( "default", $mode );
-&cleanup();
+cleanup();
 # Simple test -- run all the list options
 foreach my $options ( "clm_demand", "ssp_rcp",      "res",
                       "sim_year",   "use_case" ) {
@@ -252,7 +252,7 @@ foreach my $options ( "clm_demand", "ssp_rcp",      "res",
    $expect    = "/CLM build-namelist : $expect/";
    like( $result, $expect, "$options list" );
    is( (-f "lnd_in"), undef, "Check that lnd_in file does NOT exist" );
-   &cleanup();
+   cleanup();
 }
 
 print "\n==================================================\n";
@@ -278,7 +278,7 @@ my $options = "-co2_ppmv 250 ";
       $cfiles->doNOTdodiffonfile( "$tempfile", "most_options", $mode );
       $cfiles->comparefiles( "most_options", $mode, $opts{'compare'} );
    }
-   &cleanup();
+   cleanup();
 
 print "\n==================================================\n";
 print "Test drydep, fire_emis and megan namelists  \n";
@@ -305,7 +305,7 @@ foreach my $options ( "-drydep", "-megan", "-drydep -megan", "-fire_emis", "-dry
    if ( defined($opts{'generate'}) ) {
       $mfiles->copyfiles( "$options", $mode );
    }
-   &cleanup();
+   cleanup();
 }
 $phys = "clm5_0";
 $mode = "-phys $phys";
@@ -361,7 +361,7 @@ foreach my $driver ( "nuopc" ) {
       if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$base_options $options", $mode );
       }
-      &cleanup();
+      cleanup();
    }
 }
 print "\n===============================================================================\n";
@@ -415,7 +415,7 @@ foreach my $site ( "ABBY", "BLAN", "CPER", "DEJU", "GRSM", "HEAL", "KONA", "LENO
       }
    }
    system( "/bin/rm $namelistfile" );
-   &cleanup();
+   cleanup();
 }
 print "\n===============================================================================\n";
 print "Test the PLUMBER2 sites\n";
@@ -469,7 +469,7 @@ foreach my $site (
       $cfiles->copyfiles( "$options", $mode );
    }
    system( "/bin/rm $namelistfile" );
-   &cleanup();
+   cleanup();
 }
 
 print "\n===============================================================================\n";
@@ -504,7 +504,7 @@ foreach my $phys ( "clm4_5", "clm5_0", "clm6_0" ) {
       if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$options", $mode );
       }
-      &cleanup();
+      cleanup();
    }
 }
 print "\n===============================================================================\n";
@@ -529,7 +529,7 @@ foreach my $phys ( "clm6_0" ) {
       if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$options", $mode );
       }
-      &cleanup();
+      cleanup();
    }
 }
 print "\n===============================================================================\n";
@@ -559,7 +559,7 @@ foreach my $phys ( "clm5_0", "clm6_0" ) {
       if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$options", $mode );
       }
-      &cleanup();
+      cleanup();
    }
 }
 print "\n==============================================================\n";
@@ -598,7 +598,7 @@ foreach my $options (
    if ( defined($opts{'generate'}) ) {
       $cfiles->copyfiles( "$options", $mode );
    }
-   &cleanup();
+   cleanup();
 }
 
 
@@ -1496,7 +1496,7 @@ print "Test ALL resolutions that have surface datasets with SP for 1850 and 2000
 print "========================================================================\n";
 
 # Check for ALL resolutions with CLM50SP
-my @resolutions = ( "360x720cru", "10x15", "4x5", "0.9x1.25", "1.9x2.5", "ne3np4.pg3", "ne16np4.pg3", "ne30np4", "ne30np4.pg2", "ne30np4.pg3", "ne120np4.pg3", "ne0np4CONUS.ne30x8", "ne0np4.ARCTIC.ne30x4", "ne0np4.ARCTICGRIS.ne30x8", "C96", "mpasa480", "mpasa120" );
+my @resolutions = ( "360x720cru", "10x15", "4x5", "0.9x1.25", "1.9x2.5", "ne3np4.pg3", "ne16np4.pg3", "ne30np4", "ne30np4.pg2", "ne30np4.pg3", "ne120np4.pg3", "ne0np4CONUS.ne30x8", "ne0np4.ARCTIC.ne30x4", "C96", "mpasa480", "mpasa120" );
 my @only2000_resolutions = ( "1x1_numaIA", "1x1_brazil", "1x1_mexicocityMEX", "1x1_vancouverCAN", "1x1_urbanc_alpha", "5x5_amazon", "0.125nldas2", "mpasa60", "mpasa15", "mpasa3p75" );
 my @regional;
 foreach my $res ( @resolutions ) {
@@ -1525,7 +1525,7 @@ foreach my $res ( @resolutions ) {
       if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$options", $mode );
       }
-      &cleanup(); print "\n";
+      cleanup(); print "\n";
    }
 }
 
@@ -1557,7 +1557,7 @@ foreach my $res ( @resolutions ) {
    if ( defined($opts{'generate'}) ) {
       $cfiles->copyfiles( "$options", $mode );
    }
-   &cleanup(); print "\n";
+   cleanup(); print "\n";
 }
 
 print "\n==================================================\n";
@@ -1607,7 +1607,7 @@ foreach my $phys ( "clm4_5", "clm5_0", "clm6_0" ) {
       } else {
          isnt( $@, 0, "options: $options" );
       }
-      &cleanup();
+      cleanup();
    }
 }
 
@@ -1730,7 +1730,7 @@ foreach my $key ( keys(%finidat_files) ) {
    if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$options", $mode );
    }
-   &cleanup();
+   cleanup();
 }
 
 print "\n==================================================\n";
@@ -1757,7 +1757,7 @@ foreach my $res ( @crop1850_res ) {
    if ( defined($opts{'generate'}) ) {
       $cfiles->copyfiles( "$options", $mode );
    }
-   &cleanup();
+   cleanup();
 }
 
 my @crop_res = ( "1x1_numaIA", "4x5", "10x15", "0.9x1.25", "1.9x2.5", "ne3np4.pg3", "ne30np4", "ne30np4.pg3", "C96", "mpasa120" );
@@ -1775,7 +1775,7 @@ foreach my $res ( @crop_res ) {
    if ( defined($opts{'generate'}) ) {
       $cfiles->copyfiles( "$options", $mode );
    }
-   &cleanup();
+   cleanup();
 }
 print "\n==================================================\n";
 print " Test glc_mec resolutions \n";
@@ -1812,7 +1812,7 @@ foreach my $res ( @glc_res ) {
       } else {
          $startymd = 20150101;
       }
-      $options = "-bgc bgc -res $res -use_case $usecase -envxml_dir . -namelist '&a start_ymd=$startymd/'";
+      $options = "-res $res -use_case $usecase -envxml_dir . -namelist '&a start_ymd=$startymd/' -bgc bgc -crop -namelist '&a do_grossunrep=T/'";
       &make_env_run();
       eval{ system( "$bldnml $options > $tempfile 2>&1 " ); };
       is( $@, '', "$options" );
@@ -1825,7 +1825,7 @@ foreach my $res ( @glc_res ) {
       if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$options", $mode );
       }
-      &cleanup();
+      cleanup();
    }
 }
 # Transient 20th Century simulations
@@ -1846,7 +1846,7 @@ foreach my $res ( @tran_res ) {
    if ( defined($opts{'generate'}) ) {
       $cfiles->copyfiles( "$options", $mode );
    }
-   &cleanup();
+   cleanup();
 }
 # Transient ssp_rcp scenarios that work
 my @tran_res = ( "4x5", "0.9x1.25", "1.9x2.5", "10x15", "360x720cru", "ne3np4.pg3", "ne16np4.pg3", "ne30np4.pg3", "C96", "mpasa120" );
@@ -1866,7 +1866,7 @@ foreach my $usecase ( "1850-2100_SSP2-4.5_transient" ) {
       if ( defined($opts{'generate'}) ) {
          $cfiles->copyfiles( "$options", $mode );
       }
-      &cleanup();
+      cleanup();
    }
 }
 }  # End loop over all physics versions
@@ -1901,7 +1901,7 @@ foreach my $phys ( "clm4_5", "clm5_0", "clm6_0" ) {
         if ( defined($opts{'generate'}) ) {
            $cfiles->copyfiles( "$options $clmopts", $mode );
         }
-        &cleanup();
+        cleanup();
      }
   }
   my @clmoptions = ( "-bgc bgc -envxml_dir .",
@@ -1922,7 +1922,7 @@ foreach my $phys ( "clm4_5", "clm5_0", "clm6_0" ) {
         if ( defined($opts{'generate'}) ) {
            $cfiles->copyfiles( "$options $clmopts", $mode );
         }
-        &cleanup();
+        cleanup();
      }
   }
   my $clmopts = "-bgc bgc -crop";
@@ -1940,7 +1940,7 @@ foreach my $phys ( "clm4_5", "clm5_0", "clm6_0" ) {
   if ( defined($opts{'generate'}) ) {
      $cfiles->copyfiles( "$options $clmopts", $mode );
   }
-  &cleanup();
+  cleanup();
   # Run FATES mode for several resolutions and configurations
   my $clmoptions = "-bgc fates -envxml_dir . -no-megan";
   my @clmres = ( "4x5", "1.9x2.5" );
@@ -1968,7 +1968,7 @@ foreach my $phys ( "clm4_5", "clm5_0", "clm6_0" ) {
         if ( defined($opts{'generate'}) ) {
            $cfiles->copyfiles( "$options $clmoptions $edop", $mode );
         }
-        &cleanup();
+        cleanup();
      }
   }
 }
@@ -2003,11 +2003,11 @@ foreach my $phys ( "clm4_5", "clm5_0", "clm6_0" ) {
         if ( defined($opts{'generate'}) ) {
            $cfiles->copyfiles( "$clmoptions", $mode );
         }
-        &cleanup();
+        cleanup();
      }
   }
 }
-&cleanup();
+cleanup();
 
 system( "/bin/rm $finidat" );
 
@@ -2019,22 +2019,26 @@ $xFail->parseOutput($captOut);
 
 print "Successfully ran all testing for build-namelist\n\n";
 
-&cleanup( "config" );
+cleanup( "config" );
 system( "/bin/rm $tempfile" );
 
 sub cleanup {
-#
-# Cleanup files created
-#
-  my $type = shift;
+    my @temp_files = (
+        $tempfile,          # Global tempfile
+        "lnd_in",          # Generated namelist file
+        "drv_flds_in",     # Driver fields input file
+        "config_cache.xml", # Configuration cache file
+        "env_run.xml",     # Environment run file
+        "thing.nc",     # netCDF file
+    );
 
-  print "Cleanup files created\n";
-  if ( defined($type) ) {
-     if ( $type eq "config" ) {
-        system( "/bin/rm config_cache.xml" );
-     }
-  } else {
-     system( "/bin/rm $tempfile *_in" );
-  }
+    # Remove any temporary namelist files
+    push @temp_files, glob("temp.namelistinfile_*");
+
+    foreach my $file (@temp_files) {
+        if (-f $file) {
+            unlink $file or warn "Could not delete temporary file $file: $!\n";
+        }
+    }
 }
 
