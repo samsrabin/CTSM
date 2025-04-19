@@ -18,14 +18,14 @@ jobs:
 
   test-build-docs:
     if: ${{ always() }}
-    name: Test building documentation without ctsm_pylib or container
+    name: Without ctsm_pylib or container
     uses: ./.github/workflows/docs-common.yml
     with:
       use_conda: false
 
   test-build-docs-container:
     if: ${{ always() }}
-    name: Test building documentation with container
+    name: With container from registry
     runs-on: ubuntu-latest
     steps:
 

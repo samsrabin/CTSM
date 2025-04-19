@@ -20,7 +20,7 @@ permissions:
 jobs:
   test-build-docs-ctsm_pylib:
     if: ${{ always() }}
-    name: Test building documentation with ctsm_pylib
+    name: With ctsm_pylib
     uses: ./.github/workflows/docs-common.yml
     with:
       use_conda: true
