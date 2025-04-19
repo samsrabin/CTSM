@@ -19,7 +19,6 @@
 import os
 import sys
 import sphinx_rtd_theme
-# sys.path.insert(0, os.path.abspath('.'))
 
 
 # -- General configuration ------------------------------------------------
@@ -103,16 +102,6 @@ html_theme = 'sphinx_rtd_theme'
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#
-# The 'versions' option needs to have at least two versions to work, but it doesn't need
-# to have all versions: others will be added dynamically. Note that this maps from version
-# names to html links. The current version can link to the current location (i.e., do
-# nothing). For the other version, we just add a place-holder; its name and value are
-# unimportant because these versions will get replaced dynamically.
-### Sam Rabin 2024-10-02: Commented out to resolve "WARNING: unsupported theme option 'versions' given". Might break things!
-### html_theme_options = {}
-### html_theme_options['versions'] = {version: ''}
-### html_theme_options['versions']['[placeholder]'] = ''
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
