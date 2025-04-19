@@ -18,6 +18,8 @@ use Getopt::Long;
 use NMLTest::CompFiles;
 use English;
 
+our $tempfile;  # Make $tempfile global so cleanup can access it
+
 sub usage {
     die <<EOF;
 SYNOPSIS
@@ -195,7 +197,7 @@ if ( $opts{'test'} ) {
    $bldnml .= " -test";
 }
 
-my $tempfile = "temp_file.txt";
+$tempfile = "temp_file.txt";
 if ( -f $tempfile ) {
   system( "/bin/rm $tempfile" );
 }
