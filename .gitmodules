@@ -123,8 +123,8 @@ fxDONOTUSEurl = https://github.com/ESMCI/mpi-serial
 
 [submodule "doc-builder"]
 path = doc/doc-builder
-url = https://github.com/samsrabin/doc-builder
-fxtag = 823c490b1e19d9384635adfa014053b5dcb18062
+url = https://github.com/ESMCI/doc-builder
+fxtag = v1.2.1
 fxrequired = ToplevelOptional
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/ESMCI/doc-builder
