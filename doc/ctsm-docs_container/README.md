@@ -3,9 +3,9 @@ This directory and its Dockerfile are used to build a Docker container for build
 
 ## Building
 
-If you actually want to build the container, make sure Docker is running and do:
+If you actually want to build the container, make sure Docker is running. In the Docker Desktop settings, make sure you've enabled the [`continerd` image store](https://docs.docker.com/desktop/features/containerd/), which allows multi-platform builds. Then do:
 ```shell
-docker build -t ghcr.io/escomp/ctsm/ctsm-docs .
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/escomp/ctsm/ctsm-docs .
 ```
 
 To use your new version for local testing, you'll need to tell doc-builder to use that image. Call `docker images`, which should return something like this:
