@@ -71,7 +71,7 @@ jobs:
           context: doc/ctsm-docs_container
           platforms: linux/amd64,linux/arm64
           push: false
-          load: true
+          load: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
