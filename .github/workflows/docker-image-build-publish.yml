@@ -6,7 +6,8 @@ on:
   push:
     branches: ['master']
     paths:
-      - 'doc/ctsm-docs_container/**'
+      - 'doc/ctsm-docs_container/Dockerfile'
+      - 'doc/ctsm-docs_container/requirements.txt'
 
   # Run this whenever it's manually called
   workflow_dispatch:
