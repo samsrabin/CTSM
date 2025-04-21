@@ -6,7 +6,17 @@ on:
   push:
     branches: ['master']
     paths:
-      - 'doc/ctsm-docs_container/**'
+      - 'doc/ctsm-docs_container/Dockerfile'
+      - 'doc/ctsm-docs_container/requirements.txt'
+      - '.github/workflows/docker-image-build-common.yml'
+
+  # Also run this on pull requests
+  pull_request:
+    paths:
+      - 'doc/ctsm-docs_container/Dockerfile'
+      - 'doc/ctsm-docs_container/requirements.txt'
+      - '.github/workflows/docker-image-build-common.yml'
+
 
   # Run this whenever it's manually called
   workflow_dispatch:
@@ -51,6 +61,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # This step uses [docker/metadata-action](https://github.com/docker/metadata-action#about) to extract tags and labels that will be applied to the specified image. The `id` "meta" allows the output of this step to be referenced in a subsequent step. The `images` value provides the base name for the tags and labels.
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
       # This step sets up Docker Buildx, which is needed for the multi-platform build in the next step
       # https://docs.docker.com/build/ci/github-actions/multi-platform/
       # v3.1.0
@@ -69,8 +86,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           load: false
-          tags: ${{ env.IMAGE_TAG }}
-          labels: ""
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       # This step generates an artifact attestation for the image, which is an unforgeable statement about where and how it was built. It increases supply chain security for people who consume the image. For more information, see [Using artifact attestations to establish provenance for builds](/actions/securi
       - name: Generate artifact attestation
