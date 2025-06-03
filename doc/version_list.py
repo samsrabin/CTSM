@@ -25,7 +25,7 @@ VERSION_LIST = [
     DocsVersion(
         short_name="release-clm5.0",
         display_name="CLM5.0",
-        ref="release-clm5.0",
+        ref="release-clm5.0-fix-kern-error",
     ),
 ]
 # End version definitions (keep this comment; Sphinx is looking for it)
