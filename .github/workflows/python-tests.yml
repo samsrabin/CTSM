@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     container:
       image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
+      options: --user 1001:121
     steps:
       # Checkout the code
       - uses: actions/checkout@v4
