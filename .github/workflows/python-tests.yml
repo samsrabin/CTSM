@@ -20,6 +20,8 @@ on:
 jobs:
   python-unit-tests:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
     steps:
       # Checkout the code
       - uses: actions/checkout@v4
@@ -36,7 +38,7 @@ jobs:
       - name: Run Python unit tests
         run: |
           cd python
-          conda run -n ctsm_pylib ./run_ctsm_py_tests -u
+          ./run_ctsm_py_tests -u
 
   python-lint-and-black:
     runs-on: ubuntu-latest
