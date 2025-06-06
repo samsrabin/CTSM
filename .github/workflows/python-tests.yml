@@ -20,14 +20,13 @@ on:
 jobs:
   python-unit-tests:
     runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
+      options: --user 1001:121
+      entrypoint: [ "micromamba", "run", "-n", "base" ]
     steps:
       # Checkout the code
       - uses: actions/checkout@v4
-      
-      - uses: docker://ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
-        with:
-          entrypoint: micromamba run -n base
-          options: --user 1001:121
 
       # Run Python unit tests check
       - name: Run Python unit tests
