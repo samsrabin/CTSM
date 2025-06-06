@@ -27,6 +27,12 @@ jobs:
       # Checkout the code
       - uses: actions/checkout@v4
 
+      # Run Python unit tests check with mamba call
+      - name: Run Python unit tests
+        run: |
+          cd python
+          micromamba run -n base ./run_ctsm_py_tests -u
+
       # Run Python unit tests check
       - name: Run Python unit tests
         run: |
