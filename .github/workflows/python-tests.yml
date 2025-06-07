@@ -33,9 +33,10 @@ jobs:
         with:
             image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
             options: -v ${{ github.workspace }}:/home/mambauser
+            # Note that ENTRYPOINT is ignored, so have to load env manually
             run: |
                 cd python
-                ./run_ctsm_py_tests -u
+                micromamba run -n base ./run_ctsm_py_tests -u
 
   python-lint-and-black:
     runs-on: ubuntu-latest
