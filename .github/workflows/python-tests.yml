@@ -20,20 +20,22 @@ on:
 jobs:
   python-unit-tests:
     runs-on: ubuntu-24.04-arm
-    container:
-      image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
-      options: --user 1001:121
+    # container:
+    #   image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
+    #   options: --user 1001:121
     steps:
       # Checkout the code
       - uses: actions/checkout@v4
 
       # Run Python unit tests check
       - name: Run Python unit tests
-        run: |
-          cd python
-          micromamba env list
-          micromamba list
-          micromamba run -n base ./run_ctsm_py_tests -u
+        uses: addnab/docker-run-action@v3
+        with:
+            image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
+            options: -v ${{ github.workspace }}:/home/mambauser
+            run: |
+                cd python
+                ./run_ctsm_py_tests -u
 
   python-lint-and-black:
     runs-on: ubuntu-latest
