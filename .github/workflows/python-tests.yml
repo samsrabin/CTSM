@@ -32,7 +32,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
             image: ghcr.io/samsrabin/ctsm/ctsm_pylib-container:latest
-            options: -v ${{ github.workspace }}:/home/mambauser
+            options: -v ${{ github.workspace }}:/home/mambauser --user 1001:121
             # Note that ENTRYPOINT is ignored, so have to load env manually
             run: |
                 cd python
