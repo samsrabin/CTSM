@@ -36,7 +36,7 @@ jobs:
             # Note that ENTRYPOINT is ignored, so have to load env manually
             run: |
                 cd python
-                micromamba run -n base ./run_ctsm_py_tests -u
+                micromamba run -n base --root-prefix $PWD ./run_ctsm_py_tests -u
 
   python-lint-and-black:
     runs-on: ubuntu-latest
