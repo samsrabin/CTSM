@@ -3363,7 +3363,6 @@ module CLMFatesInterfaceMod
    use FatesIOVariableKindMod, only : site_elcwd_r8, site_elage_r8, site_agefuel_r8
    use FatesIOVariableKindMod, only : site_cdpf_r8, site_cdsc_r8, site_clscpf_r8
    use FatesIOVariableKindMod, only : site_landuse_r8, site_lulu_r8
-   use FatesIOVariableKindMod, only : site_edgebin_r8
    use FatesIODimensionsMod, only : fates_bounds_type
 
 
@@ -3469,7 +3468,7 @@ module CLMFatesInterfaceMod
              site_scagpft_r8, site_agepft_r8, site_elem_r8, site_elpft_r8, &
              site_elcwd_r8, site_elage_r8, site_agefuel_r8, &
              site_cdsc_r8, site_cdpf_r8, &
-             site_landuse_r8, site_lulu_r8, site_edgebin_r8)
+             site_landuse_r8, site_lulu_r8)
 
 
            d_index = fates_hist%dim_kinds(dk_index)%dim2_index

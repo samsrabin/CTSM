@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 0e0b33fcd170d5ed40d6ba4f9159c9e3e0042e0f  # nag-panic-ts: Delete IS_FOREST outputs.
+fxtag = 048345a0ab62791c0cd44115e15ef7971bb6309c  # nag-panic-ts: Delete FATES_AREA_PLANTS/TREES_AP outputs.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
