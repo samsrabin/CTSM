@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = d5de17a63d3f20a23e2ac3e3c86107c787c36576  # nag-panic-ts: Whitespace and comment reversions.
+fxtag = 5a5088b801b3ae6eac6ff98c196c5b7386858d77  # nag-panic-ts: Delete nlevedgeforest and related stuff.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates

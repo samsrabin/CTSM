@@ -3713,7 +3713,6 @@ module CLMFatesInterfaceMod
 
    use FatesIODimensionsMod,   only : fates_bounds_type
    use FatesInterfaceTypesMod, only : nlevsclass, nlevage, nlevcoage
-   use FatesInterfaceTypesMod, only : nlevedgeforest
    use FatesInterfaceTypesMod, only : nlevheight
    use FatesInterfaceTypesMod, only : nlevdamage
    use FatesFuelClassesMod,    only : num_fuel_classes
@@ -3754,9 +3753,6 @@ module CLMFatesInterfaceMod
 
    fates%age_class_begin = 1
    fates%age_class_end = nlevage
-
-   fates%edgeforest_class_begin = 1
-   fates%edgeforest_class_end = nlevedgeforest
 
    fates%height_begin = 1
    fates%height_end = nlevheight
