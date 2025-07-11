@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 9b7dff2c50209d9e46c2c8288a7b1c5bf6efa3a3  # nag-panic-ts: Delete hlm_use_edge_forest.
+fxtag = d5de17a63d3f20a23e2ac3e3c86107c787c36576  # nag-panic-ts: Whitespace and comment reversions.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
