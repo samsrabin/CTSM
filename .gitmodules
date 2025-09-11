@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = ceb7823ef8a8f416df05ab2cb17c4fb8a710997f  # edge-flammability: Fix UpdateRxfireBurnWindow: Wind m/s, not m/min.
+fxtag = 33212c2238e500b40e849925e3e23821ea150c2a  # edge-flammability: Actually ignore bareground patch in all relevant fire history.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
