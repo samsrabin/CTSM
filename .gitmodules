@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = febdfb0454d0d7e3ba719ad7abf0f24053443166  # edge-flammability-ts2: Use patch's fireWeather effective_windspeed, not site's.
+fxtag = 1f726ef8eb5e4cd6c1c1774a713d79be31402a95  # edge-flammability-ts2: Use oldest veg patch's FWI, not site's.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
