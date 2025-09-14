@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 38e807449f79b463eb7ba76ee07bf5926be0bc0a  # edge-flammability-ts2: Delete Site FDI.
+fxtag = d01fe564d10794b31825a64a304172d9a06f5aa3  # edge-flammability-ts3: Set patch FDI in loop. NOT USING PATCH'S FIREWEATHER
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
