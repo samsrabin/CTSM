@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = cdb827acb84e580b89929b7496dc422ef1cbc389  # edge-flammability-ts: ts: Some bare patch fire outputs now use oldestVegPatch.
+fxtag = 109ebce5f0a219244a32a8a167a8a908d05205c2  # edge-flammability-ts: Ignitions outputs: Ampersands, not backslashes.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
