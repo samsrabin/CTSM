@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 109ebce5f0a219244a32a8a167a8a908d05205c2  # edge-flammability-ts: Ignitions outputs: Ampersands, not backslashes.
+fxtag = 70ba419162ae3d12d0af278a5be63816cbb1d758  # edge-flammability-ts: NF_successful: Don't double-weight by patch area.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
