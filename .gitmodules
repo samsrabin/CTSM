@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 76d837db2303c1fdfedee0b980a501b10de9a337  # edge-flammability-ts3: Actually use loopPatch2 FWI.
+fxtag = be6f351ff70ab32c3f1d4bbf9d0db4055a972f35  # edge-flammability-ts3: On patch creation, copy fireWeather from site.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
