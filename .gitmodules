@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 9b9f5d5693a2a8cd80c1440bd1f96a669f2bac41  # edge-flammability: Add 15 per-edgebin outputs related to fire (+ bugfix)
+fxtag = 56ab154c30c8c8e324399643b9519bd62122e6b3  # edge-flammability-ts4: init_patches(): Don't pass younger patch in call of Patch%Create().
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
