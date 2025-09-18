@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 77c683c8d576fbe143adf1aa674d89b755eac18a  # edge-flammability-ts4: Call CalculateTreeGrassAreaSite() before per-edge history.
+fxtag = 8896448a2b90de76fbdbd34bcd6959eca97b2760  # edge-flammability-ts4: Add some extra error messaging at bad sum_bin_weight_of_all_patches.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
