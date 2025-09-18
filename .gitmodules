@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = d7665774c9185d5fb996ebaa25f3caaece7a8294  # edge-flammability-ts4: Add extra condition for edge bin weight discrepancy check.
+fxtag = 4f3a3e14468f7705435d93783ded203ce4262eeb  # edge-flammability-ts4: Bugfix: Restore currentSite%rxfire_area_fuel update.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
