@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 6f32f1465cdba984939abf3d273e14c51ddeaaec  # edge-flammability-ts4: Add isnan check before patch_area_in_this_bin == 0._r8.
+fxtag = 7b7121a9b4f3f225860389d79c2da76bc04a92bf  # edge-flammability-ts4: Throw error if rxflag ever differs among a site's patches.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
