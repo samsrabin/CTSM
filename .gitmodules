@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 4f3a3e14468f7705435d93783ded203ce4262eeb  # edge-flammability-ts4: Bugfix: Restore currentSite%rxfire_area_fuel update.
+fxtag = 21b1b17c7afaea0c529bb45a94567982dc461ec6  # edge-flammability-ts4: calculate_edgeforest_area(): Revert initial zeroing of all area_in_edgeforest_bins.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
