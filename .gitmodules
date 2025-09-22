@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 4670f2a4f099a7e2d31c3737fcb8e629e7acb469  # Branch rh-varies-by-patch: Error if patches aren't always contiguous
+fxtag = cadc34cb20b2985d4d97e24521ec461cb3708d73  # Branch rh-varies-by-patch: Log if VEGETATED patch RHs differ.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
