@@ -1161,6 +1161,13 @@ module CLMFatesInterfaceMod
       real(r8) :: s_node, smp_node         ! local for relative water content and potential
       logical  :: after_start_of_harvest_ts
       integer  :: iharv
+
+      ! SSR: Check whether RH varies by patch
+      integer  :: ifp2                     ! patch index ft
+      integer  :: p2
+      real(r8) :: max_rh_diff
+      real(r8) :: this_rh_diff
+      real(r8) :: tol
       !-----------------------------------------------------------------------
 
       ! ---------------------------------------------------------------------------------
@@ -1277,6 +1284,42 @@ module CLMFatesInterfaceMod
                   atm2lnd_inst%wind24_patch(p)
 
          end do
+
+         ! SSR: Check whether RH varies by patch in wateratm2lndbulk_inst
+         max_rh_diff = 0._r8
+         tol = 1e-9_r8
+         ! Top loop through patches that have a younger patch
+         do ifp = 1, this%fates(nc)%sites(s)%youngest_patch%patchno - 1
+            p = ifp+col%patchi(c)
+            ! Subloop through younger patches
+            do ifp2 = ifp+1, this%fates(nc)%sites(s)%youngest_patch%patchno
+               p2 = ifp2+col%patchi(c)
+               this_rh_diff = abs(wateratm2lndbulk_inst%rh24_patch(p) - wateratm2lndbulk_inst%rh24_patch(p2))
+               if (this_rh_diff > max_rh_diff) then
+                 max_rh_diff = this_rh_diff
+               end if
+            end do
+         end do
+         if (max_rh_diff > tol) then
+           write(iulog,*) 'Max CLM RH diff b/w patches at a site: ', max_rh_diff
+         end if
+
+         ! SSR: Check whether RH varies by patch in bc_in
+         max_rh_diff = 0._r8
+         tol = 1e-9_r8
+         ! Top loop through patches that have a younger patch
+         do ifp = 1, this%fates(nc)%sites(s)%youngest_patch%patchno - 1
+            ! Subloop through younger patches
+            do ifp2 = ifp+1, this%fates(nc)%sites(s)%youngest_patch%patchno
+               this_rh_diff = abs(this%fates(nc)%bc_in(s)%relhumid24_pa(ifp) - this%fates(nc)%bc_in(s)%relhumid24_pa(ifp2))
+               if (this_rh_diff > max_rh_diff) then
+                 max_rh_diff = this_rh_diff
+               end if
+            end do
+         end do
+         if (max_rh_diff > tol) then
+           write(iulog,*) 'Max bc_in RH diff b/w patches at a site: ', max_rh_diff
+         end if
 
          ! Here we use the same logic as the pft_areafrac initialization to get an array with values for each pft
          ! in FATES.
