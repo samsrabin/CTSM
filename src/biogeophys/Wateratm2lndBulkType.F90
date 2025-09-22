@@ -14,9 +14,11 @@ module Wateratm2lndBulkType
   use shr_log_mod    , only : errMsg => shr_log_errMsg
   use decompMod      , only : bounds_type
   use abortutils     , only : endrun
+  use ColumnType     , only : col
   use PatchType      , only : patch
   use clm_varctl     , only : iulog, use_fates, use_cn, use_cndv
   use clm_varcon     , only : spval
+  use FatesInterfaceMod, only : fates_interface_type
   use WaterAtm2lndType , only : wateratm2lnd_type
   use WaterInfoBaseType, only : water_info_base_type
   use WaterTracerContainerType, only : water_tracer_container_type
@@ -362,7 +364,7 @@ contains
 
   end subroutine InitAccVars
 
-  subroutine UpdateAccVars (this, bounds)
+  subroutine UpdateAccVars (this, bounds, fates, fcolumn)
     !
     ! USES
     use clm_time_manager, only : get_nstep
@@ -371,6 +373,8 @@ contains
     ! !ARGUMENTS:
     class(wateratm2lndbulk_type), intent(in) :: this
     type(bounds_type)      , intent(in) :: bounds
+    type(fates_interface_type), intent(in) :: fates
+    integer, intent(in) :: fcolumn(:)
     !
     ! !LOCAL VARIABLES:
     integer :: g,c,p                     ! indices
@@ -380,6 +384,7 @@ contains
     integer :: begc, endc
     real(r8), pointer :: rbufslp(:)      ! temporary single level - patch level
     real(r8), pointer :: rbufslc(:)      ! temporary single level - column level
+    integer :: ifp, s
     !---------------------------------------------------------------------
 
     begp = bounds%begp; endp = bounds%endp
@@ -441,9 +446,14 @@ contains
        call update_accum_field  ('PREC24', rbufslp, nstep)
        call extract_accum_field ('PREC24', this%prec24_patch, nstep)
 
-       do p = bounds%begp,bounds%endp
-          g = patch%gridcell(p)
-          rbufslp(p) = this%forc_rh_grc(g)
+       do s=1,fates%nsites
+          c = fcolumn(s)
+          g = col%gridcell(c)
+          do ifp = 1, fates%sites(s)%youngest_patch%patchno !for vegetated patches
+             ! Mapping between  IFP space (1,2,3) and HLM P space (looping by IFP)
+             p = ifp+col%patchi(c)
+             rbufslp(p) = this%forc_rh_grc(g)
+          end do
        end do
        call update_accum_field  ('RH24', rbufslp, nstep)
        call extract_accum_field ('RH24', this%rh24_patch, nstep)

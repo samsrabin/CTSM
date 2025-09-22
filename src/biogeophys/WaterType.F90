@@ -61,6 +61,7 @@ module WaterType
   use clm_varctl               , only : iulog
   use clm_varpar               , only : nlevsno
   use ncdio_pio                , only : file_desc_t
+  use FatesInterfaceMod     , only : fates_interface_type
   use WaterFluxBulkType        , only : waterfluxbulk_type
   use WaterFluxType            , only : waterflux_type
   use WaterStateBulkType       , only : waterstatebulk_type
@@ -708,7 +709,7 @@ contains
   end subroutine InitAccVars
 
   !-----------------------------------------------------------------------
-  subroutine UpdateAccVars(this, bounds)
+  subroutine UpdateAccVars(this, bounds, fates, fcolumn)
     !
     ! !DESCRIPTION:
     ! Update accumulated variables
@@ -718,6 +719,8 @@ contains
     ! !ARGUMENTS:
     class(water_type), intent(inout) :: this
     type(bounds_type), intent(in)    :: bounds
+    type(fates_interface_type), intent(in) :: fates
+    integer, intent(in) :: fcolumn(:)
     !
     ! !LOCAL VARIABLES:
 
@@ -725,7 +728,7 @@ contains
     !-----------------------------------------------------------------------
 
     call this%waterfluxbulk_inst%UpdateAccVars(bounds)
-    call this%wateratm2lndbulk_inst%UpdateAccVars(bounds)
+    call this%wateratm2lndbulk_inst%UpdateAccVars(bounds, fates, fcolumn)
     call this%waterdiagnosticbulk_inst%UpdateAccVars(bounds)
 
   end subroutine UpdateAccVars
