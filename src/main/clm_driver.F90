@@ -1431,7 +1431,12 @@ contains
 
     call canopystate_inst%UpdateAccVars(bounds_proc)
 
-    call water_inst%UpdateAccVars(bounds_proc)
+    !$OMP PARALLEL DO PRIVATE (nc)
+    do nc = 1,nclumps
+       call get_clump_bounds(nc, bounds_clump)
+       call water_inst%UpdateAccVars(bounds_clump, clm_fates%fates(nc), clm_fates%f2hmap(nc)%fcolumn)
+    end do
+    !$OMP END PARALLEL DO
 
     call energyflux_inst%UpdateAccVars(bounds_proc)
 
