@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 18fde9b42d166e829ffb83b4c04aa76dbbbd2c32  # edge-flammability: Add output FATES_FOREST_ANYAREA_EB.
+fxtag = b4c9732c011029a34af4e9e98c5608673c412df3  # edge-flammability: Add outputs for 24-hour RH and wind speed of oldest veg patch.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
