@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 0a0c476cf2cb002f26079a89b98bd939a609c770  # edge-flammability-ts6: Always start edge bin area outputs at zero.
+fxtag = eea4701ab46add8254c709d0b4ba758a745b6224  # edge-flammability-ts6: Move UpdateEffectiveWindSpeed() from after UpdateIndex() to before.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
