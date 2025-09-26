@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 1983cefe999746d25b17576cc6311dcb517b48ab  # edge-flammability-ts6: Everything except calling apply_edgeforest_flammability_to_site().
+fxtag = 1dfed3bd5d6d4bf61fe1a08cd01fa3f520eeb7df  # edge-flammability-ts6: Apply edge forest flammability enhancements.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
