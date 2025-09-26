@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 6d057c40dd1e99c7b1f3b0f97f0875c6318628f6  # edge-flammability-ts6: Add edge flam enh params for temp, RH, and wind to default CDL.
+fxtag = f4e49d3adf3b9ed3ea44fc6dafe12e7d5e785631  # edge-flammability-ts6: Add fates_params_edgeflam.cdl.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
