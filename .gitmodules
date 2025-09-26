@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = eea4701ab46add8254c709d0b4ba758a745b6224  # edge-flammability-ts6: Move UpdateEffectiveWindSpeed() from after UpdateIndex() to before.
+fxtag = 1983cefe999746d25b17576cc6311dcb517b48ab  # edge-flammability-ts6: Everything except calling apply_edgeforest_flammability_to_site().
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
