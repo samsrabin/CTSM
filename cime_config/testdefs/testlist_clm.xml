@@ -2958,6 +2958,18 @@
     </options>
   </test>
 
+  <test name="SMS_D_Ld5" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdEdgeForestFlam">
+    <machines>
+      <machine name="derecho" compiler="intel"   category="fates"/>
+      <machine name="derecho" compiler="intel"   category="fates_edgeforest"/>
+      <machine name="izumi"   compiler="nag"     category="fates"/>
+      <machine name="izumi"   compiler="nag"     category="fates_edgeforest"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
   <test name="SMS_Lm49" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdEdgeForestMonthly">
     <machines>
       <machine name="derecho" compiler="intel"   category="fates"/>
@@ -2968,7 +2980,17 @@
     </options>
   </test>
 
-  <test name="SMS_Lm49" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdEdgeForestMonthly--clm-allInst">
+  <test name="SMS_Lm49" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdEdgeForestFlamMonthly">
+    <machines>
+      <machine name="derecho" compiler="intel"   category="fates"/>
+      <machine name="derecho" compiler="intel"   category="fates_edgeforest"/>
+    </machines>
+    <options>
+      <option name="wallclock">03:00:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_Lm49" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdEdgeForestFlamMonthly--clm-allInst">
     <machines>
       <machine name="derecho" compiler="intel"   category="fates_edgeforest"/>
     </machines>
