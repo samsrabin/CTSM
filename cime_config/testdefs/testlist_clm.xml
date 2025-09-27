@@ -2968,6 +2968,16 @@
     </options>
   </test>
 
+  <test name="SMS_Lm49" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdEdgeForestMonthly--clm-allInst">
+    <machines>
+      <machine name="derecho" compiler="intel"   category="fates_edgeforest"/>
+    </machines>
+    <options>
+      <option name="wallclock">03:00:00</option>
+      <option name="comment">allInst version to avoid possible time-averaging artifacts in outputs</option>
+    </options>
+  </test>
+
   <test name="SMS_Ld10_D_Mmpi-serial" grid="CLM_USRDAT" compset="I1PtClm60Fates" testmods="clm/FatesFireLightningPopDens--clm/NEON/FATES/NIWO">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_clm"/>
