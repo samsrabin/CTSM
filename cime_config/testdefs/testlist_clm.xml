@@ -3347,10 +3347,12 @@
     <machines>
       <machine name="derecho" compiler="intel" category="aux_clm"/>
       <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_moss"/>
       <machine name="izumi" compiler="nag" category="aux_clm"/>
     </machines>
     <options>
       <option name="wallclock">00:40:00</option>
+      <option name="comment">Just including this in fates_moss as a cheap way to test against an existing baseline. Delete it from that suite after generating first baseline on fates-moss branch.</option>
     </options>
   </test>
   <test name="ERI_D_Ld20" grid="f10_f10_mg37" compset="I2000Clm50Fates" testmods="clm/FatesCold">
@@ -4383,6 +4385,29 @@
     </machines>
     <options>
       <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D_Ld5" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdMossAllVars">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_moss"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_moss"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D_Ld5" grid="f10_f10_mg37" compset="I2000Clm60Fates" testmods="clm/FatesColdAllVars">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="fates_moss"/>
+      <machine name="izumi" compiler="nag" category="fates_moss"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">Cheap way to check that runs with no moss PFTs aren't affected by moss development.</option>
     </options>
   </test>
 
