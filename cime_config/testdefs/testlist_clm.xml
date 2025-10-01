@@ -3347,12 +3347,10 @@
     <machines>
       <machine name="derecho" compiler="intel" category="aux_clm"/>
       <machine name="derecho" compiler="intel" category="fates"/>
-      <machine name="derecho" compiler="intel" category="fates_moss"/>
       <machine name="izumi" compiler="nag" category="aux_clm"/>
     </machines>
     <options>
       <option name="wallclock">00:40:00</option>
-      <option name="comment">Just including this in fates_moss as a cheap way to test against an existing baseline. Delete it from that suite after generating first baseline on fates-moss branch.</option>
     </options>
   </test>
   <test name="ERI_D_Ld20" grid="f10_f10_mg37" compset="I2000Clm50Fates" testmods="clm/FatesCold">
