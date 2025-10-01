@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = bf6cdae57e15ab6123ed3f168a18460f8c4838f9  # moss: Add moss photosynthesis & respiration.
+fxtag = 9e6a6e8513decdce1c18bd124c2f704d574c85e0  # moss: Kludge to ignore diagnostic stomatal conductance from mosses.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
