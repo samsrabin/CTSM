@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = d8e7a2e0676f2558fd2be7d6bccba97689707def  # edge-flammability-ts6: Add check for unexpected no temp diff to UpdateFireWeather().
+fxtag = e82aafcb7da7e489d99d6482e035023d47768a19  # edge-flammability-ts6: Call calculate_edgeforest_area before apply_edgeforest_flammability_to_site.
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
