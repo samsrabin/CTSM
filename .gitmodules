@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 2e8a198e53662ab5a1ea42b9f84f80170e5fa64b  # edge-flammability-ts6: Does it happen for anything other than the fifth bin?
+fxtag = d3db95b099e1a8b2272991ab0021ac0a859219e4  # edge-flammability-ts6: Revert "Does it happen for anything other than the fifth bin?"
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
