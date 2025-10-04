@@ -28,7 +28,7 @@
 [submodule "fates"]
 path = src/fates
 url = https://github.com/samsrabin/fates
-fxtag = 8932a70e203ff751a150057faaafe4db4868f7f2  # edge-flammability: Apply physical constraints on fire weather changes.
+fxtag = ce9961119fc479b4375220582c9506651ac4c9a4  # edge-flammability: Merge branch 'edge-area-202410' into edge-flammability
 fxrequired = AlwaysRequired
 # Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
 fxDONOTUSEurl = https://github.com/NGEET/fates
