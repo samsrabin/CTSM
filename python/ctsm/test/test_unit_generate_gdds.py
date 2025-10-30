@@ -7,6 +7,8 @@ Unit tests for generate_gdds.py
 import unittest
 import os
 
+import numpy as np
+
 from ctsm import unit_testing
 from ctsm.crop_calendars import generate_gdds as gg
 
@@ -122,6 +124,25 @@ class TestGetMaxGsLengths(unittest.TestCase):
         max_season_length_from_hdates_file = False
         paramfile = self._paramfile_60
         gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+
+    def test_generate_gdds_get_mxmats_none(self):
+        """Test not importing from a paramfile (should return None)"""
+        max_season_length_from_hdates_file = True
+        paramfile = None
+        result = gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+        self.assertIsNone(result)
+
+    def test_generate_gdds_get_mxmats_values(self):
+        """As test_generate_gdds_get_mxmats_ctsm60, but also checking values"""
+        max_season_length_from_hdates_file = False
+        paramfile = self._paramfile_60
+        mxmats = gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+
+        # Check values
+        self.assertTrue(np.isinf(mxmats["needleleaf_evergreen_temperate_tree"]))
+        self.assertEqual(mxmats["temperate_corn"], 165)
+        self.assertEqual(mxmats["miscanthus"], 210)
+        
 
 
 if __name__ == "__main__":
