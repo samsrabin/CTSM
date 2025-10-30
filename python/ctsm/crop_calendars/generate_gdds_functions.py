@@ -62,6 +62,15 @@ def check_sdates(dates_ds, sdates_rx, outdir_figs, logger, verbose=False):
 
     sdates_grid = grid_one_variable(dates_ds, "SDATES")
 
+    # In this script, we assume that you used prescribed sowing dates on the same grid as the
+    # CLM run
+    assert bool(
+        sdates_rx["lat"].equals(sdates_grid["lat"])
+    ), "CLM lat grid doesn't match rx sdates's"
+    assert bool(
+        sdates_rx["lon"].equals(sdates_grid["lon"])
+    ), "CLM lon grid doesn't match rx sdates's"
+
     all_ok = True
     any_found = False
     vegtypes_skipped = []
@@ -83,8 +92,16 @@ def check_sdates(dates_ds, sdates_rx, outdir_figs, logger, verbose=False):
         # Output
         out_map = sdates_grid.sel(ivt_str=vegtype_str).squeeze(drop=True)
 
-        # Check for differences
+        # Calculate differences
         diff_map = out_map - in_map
+        assert (
+            diff_map.shape == in_map.shape
+        ), f"Diff map shape {diff_map.shape} doesn't match in_map shape {in_map.shape}"
+        assert (
+            diff_map.shape == out_map.shape
+        ), f"Diff map shape {diff_map.shape} doesn't match out_map shape {out_map.shape}"
+
+        # Check for differences
         diff_map_notnan = diff_map.values[np.invert(np.isnan(diff_map.values))]
         if np.any(diff_map_notnan):
             log(logger, f"Difference(s) found in {vegtype_str}")
@@ -495,6 +512,15 @@ def import_and_process_1yr(
     hdates_rx_orig = import_rx_dates(
         "h", hdates_rx, incl_patches1d_itype_veg, mxsowings, logger
     )  # Yes, mxsowings even when importing harvests
+
+    # In this script, we assume that you have prescribed harvest dates on the same grid as the
+    # CLM run
+    assert bool(
+        hdates_rx_orig["lat"].equals(dates_incl_ds["lat"])
+    ), "CLM lat grid doesn't match rx hdates's"
+    assert bool(
+        hdates_rx_orig["lon"].equals(dates_incl_ds["lon"])
+    ), "CLM lon grid doesn't match rx hdates's"
 
     # Limit growing season to CLM max growing season length, if needed
     if mxmats and (imported_sdates or imported_hdates):
