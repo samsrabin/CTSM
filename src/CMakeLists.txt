@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.10)
 
 list(APPEND CMAKE_MODULE_PATH ${CIME_CMAKE_MODULE_DIRECTORY})
 include(CIME_initial_setup)
@@ -45,6 +45,8 @@ add_subdirectory(${CLM_ROOT}/share/unit_test_stubs/util csm_share_stubs)
 list ( APPEND drv_sources_needed
   ${CLM_ROOT}/components/cmeps/cesm/nuopc_cap_share/glc_elevclass_mod.F90
   ${CLM_ROOT}/components/cmeps/cesm/nuopc_cap_share/shr_dust_emis_mod.F90
+  ${CLM_ROOT}/components/cmeps/cesm/nuopc_cap_share/shr_expr_parser_mod.F90
+  ${CLM_ROOT}/components/cmeps/cesm/nuopc_cap_share/shr_fire_emis_mod.F90
   )
 
 # Add CLM source directories
@@ -91,7 +93,7 @@ add_library(csm_share ${share_sources} ${drv_sources_needed})
 declare_generated_dependencies(csm_share "${share_genf90_sources}")
 add_library(clm ${clm_sources})
 declare_generated_dependencies(clm "${clm_genf90_sources}")
-add_dependencies(clm csm_share esmf)
+add_dependencies(clm csm_share ESMF)
 
 # We need to look for header files here, in order to pick up shr_assert.h
 include_directories(${CLM_ROOT}/share/include)
