@@ -100,6 +100,30 @@ class TestGenerateGddsArgs(unittest.TestCase):
         gg._parse_args(args)
 
 
+class TestGetMaxGsLengths(unittest.TestCase):
+    """Tests get_max_growing_season_lengths()"""
+
+    def setUp(self):
+        self._paramfile_51 = os.path.join(
+            os.path.dirname(__file__), "testinputs", "ctsm51_params.c211112.nc"
+        )
+        self._paramfile_60 = os.path.join(
+            os.path.dirname(__file__), "testinputs", "ctsm60_params_cal115_c250813.nc"
+        )
+
+    def test_generate_gdds_get_mxmats_ctsm51(self):
+        """Test importing from a ctsm51 paramfile (no fail)"""
+        max_season_length_from_hdates_file = False
+        paramfile = self._paramfile_51
+        gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+
+    def test_generate_gdds_get_mxmats_ctsm60(self):
+        """Test importing from a ctsm60 paramfile (no fail)"""
+        max_season_length_from_hdates_file = False
+        paramfile = self._paramfile_60
+        gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+
+
 if __name__ == "__main__":
     unit_testing.setup_for_tests()
     unittest.main()
