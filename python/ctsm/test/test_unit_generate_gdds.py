@@ -113,17 +113,19 @@ class TestGetMaxGsLengths(unittest.TestCase):
             os.path.dirname(__file__), "testinputs", "ctsm60_params_cal115_c250813.nc"
         )
 
+        # Default arguments
+        self.no_mxmats = False
+        self.paramfile = self._paramfile_60
+
     def test_generate_gdds_get_mxmats_ctsm51(self):
         """Test importing from a ctsm51 paramfile (no fail)"""
-        max_season_length_from_hdates_file = False
         paramfile = self._paramfile_51
-        gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+        gg._get_max_growing_season_lengths(self.no_mxmats, paramfile)
 
     def test_generate_gdds_get_mxmats_ctsm60(self):
         """Test importing from a ctsm60 paramfile (no fail)"""
-        max_season_length_from_hdates_file = False
         paramfile = self._paramfile_60
-        gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+        gg._get_max_growing_season_lengths(self.no_mxmats, paramfile)
 
     def test_generate_gdds_get_mxmats_none(self):
         """Test not importing from a paramfile (should return None)"""
@@ -133,10 +135,8 @@ class TestGetMaxGsLengths(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_generate_gdds_get_mxmats_values(self):
-        """As test_generate_gdds_get_mxmats_ctsm60, but also checking values"""
-        max_season_length_from_hdates_file = False
-        paramfile = self._paramfile_60
-        mxmats = gg._get_max_growing_season_lengths(max_season_length_from_hdates_file, paramfile)
+        """Check values"""
+        mxmats = gg._get_max_growing_season_lengths(self.no_mxmats, self.paramfile)
 
         # Check values
         self.assertTrue(np.isinf(mxmats["needleleaf_evergreen_temperate_tree"]))
