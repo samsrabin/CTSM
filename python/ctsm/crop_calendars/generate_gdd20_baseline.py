@@ -321,7 +321,7 @@ def generate_gdd20_baseline(input_files, output_file, author, variable, year_arg
     output_dir = os.path.dirname(output_file)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    ds_out.to_netcdf(output_file, format="NETCDF3_CLASSIC", encoding=encoding_dict)
+    ds_out.to_netcdf(output_file, format="NETCDF4_CLASSIC", encoding=encoding_dict)
 
     print("Done!")
 
