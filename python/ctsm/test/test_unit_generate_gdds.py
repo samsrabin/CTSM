@@ -727,8 +727,8 @@ class TestGetFileLists(unittest.TestCase):
     def test_get_file_lists_partial_overlap(self):
         """Test _get_file_lists when some time slices have files and others don't"""
         # Create h1 and h2 files for 2000 only
-        h1_file = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
-        h2_file = self._create_test_file("test.clm2.h2i.2000-01-01-00000.nc")
+        self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
+        self._create_test_file("test.clm2.h2i.2000-01-01-00000.nc")
 
         # Request time slices for 2000 and 2001
         time_slice_list = [

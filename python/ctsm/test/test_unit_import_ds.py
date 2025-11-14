@@ -6,11 +6,9 @@ Unit tests for import_ds.py
 
 import unittest
 import os
-import argparse
 import tempfile
 import shutil
 
-import numpy as np
 import xarray as xr
 from cftime import DatetimeNoLeap
 
@@ -143,7 +141,7 @@ class TestGetFilesInTimeSlice(unittest.TestCase):
 
         return filelist
 
-    def _create_daily_test_file(self, year, month, days, hour=0, minute=0, second=0):
+    def _create_daily_test_file(self, year, month, days, *, hour=0, minute=0, second=0):
         """
         Helper method to create a test file with daily timesteps
 
