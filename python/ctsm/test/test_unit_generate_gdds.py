@@ -444,60 +444,17 @@ class TestFindInstHistFiles(unittest.TestCase):
             pass
         return filepath
 
-    def test_find_inst_hist_files_h1_no_year(self):
-        """Test finding h1 files without specifying year"""
-        # Create test files
-        file1 = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
-        file2 = self._create_test_file("test.clm2.h1i.2000-02-01-00000.nc")
-        file3 = self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc")
-
-        result = gf.find_inst_hist_files(self.temp_dir, h=1, this_year=None)
-
-        # Should find all h1i files
-        self.assertEqual(len(result), 3)
-        self.assertIn(file1, result)
-        self.assertIn(file2, result)
-        self.assertIn(file3, result)
-
-    def test_find_inst_hist_files_h2_no_year(self):
-        """Test finding h2 files without specifying year"""
+    def test_find_inst_hist_files(self):
+        """Test finding only h2 files when h1i files present too"""
         # Create test files
         file1 = self._create_test_file("test.clm2.h2i.2000-01-01-00000.nc")
         file2 = self._create_test_file("test.clm2.h2i.2001-01-01-00000.nc")
         # Create h1 file that should not be found
         self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
 
-        result = gf.find_inst_hist_files(self.temp_dir, h=2, this_year=None)
+        result = gf.find_inst_hist_files(self.temp_dir, h=2)
 
         # Should find only h2i files
-        self.assertEqual(len(result), 2)
-        self.assertIn(file1, result)
-        self.assertIn(file2, result)
-
-    def test_find_inst_hist_files_with_year(self):
-        """Test finding files for a specific year"""
-        # Create test files
-        file_2000 = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
-        file_2001 = self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc")
-        file_2002 = self._create_test_file("test.clm2.h1i.2002-01-01-00000.nc")
-
-        result = gf.find_inst_hist_files(self.temp_dir, h=1, this_year=2001)
-
-        # Should find only 2001 file
-        self.assertEqual(len(result), 1)
-        self.assertIn(file_2001, result)
-        self.assertNotIn(file_2000, result)
-        self.assertNotIn(file_2002, result)
-
-    def test_find_inst_hist_files_base_extension(self):
-        """Test finding files with .nc.base extension"""
-        # Create test files with .nc.base extension
-        file1 = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc.base")
-        file2 = self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc.base")
-
-        result = gf.find_inst_hist_files(self.temp_dir, h=1, this_year=None)
-
-        # Should find .nc.base files
         self.assertEqual(len(result), 2)
         self.assertIn(file1, result)
         self.assertIn(file2, result)
@@ -506,12 +463,27 @@ class TestFindInstHistFiles(unittest.TestCase):
         """Test that .nc files are preferred over .nc.base files"""
         # Create both .nc and .nc.base files
         file_nc = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
+        self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc.base")
 
-        result = gf.find_inst_hist_files(self.temp_dir, h=1, this_year=None)
+        result = gf.find_inst_hist_files(self.temp_dir, h=1)
 
         # Should find .nc files first (pattern order preference)
         self.assertIn(file_nc, result)
-        # .nc.base should only be found if no .nc files exist
+        # Should have only 1 file (the .nc file, not the .nc.base)
+        self.assertEqual(len(result), 1)
+
+    def test_find_inst_hist_files_base_only(self):
+        """Test finding files when only .nc.base files exist"""
+        # Create only .nc.base files
+        file1 = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc.base")
+        file2 = self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc.base")
+
+        result = gf.find_inst_hist_files(self.temp_dir, h=1)
+
+        # Should find .nc.base files when no .nc files exist
+        self.assertEqual(len(result), 2)
+        self.assertIn(file1, result)
+        self.assertIn(file2, result)
 
     def test_find_inst_hist_files_multiple_months_same_year(self):
         """Test finding multiple files from the same year"""
@@ -520,15 +492,16 @@ class TestFindInstHistFiles(unittest.TestCase):
         file2 = self._create_test_file("test.clm2.h1i.2000-01-15-00000.nc")
         file3 = self._create_test_file("test.clm2.h1i.2000-01-31-00000.nc")
         # Create file from different year
-        self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc")
+        file4 = self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc")
 
-        result = gf.find_inst_hist_files(self.temp_dir, h=1, this_year=2000)
+        result = gf.find_inst_hist_files(self.temp_dir, h=1)
 
-        # Should find all January 2000 files
-        self.assertEqual(len(result), 3)
+        # Should find all files
+        self.assertEqual(len(result), 4)
         self.assertIn(file1, result)
         self.assertIn(file2, result)
         self.assertIn(file3, result)
+        self.assertIn(file4, result)
 
     def test_find_inst_hist_files_no_files_found(self):
         """Test error when no matching files are found"""
@@ -537,7 +510,7 @@ class TestFindInstHistFiles(unittest.TestCase):
 
         # Should raise a FileNotFoundError error
         with self.assertRaises(FileNotFoundError):
-            gf.find_inst_hist_files(self.temp_dir, h=1, this_year=None)
+            gf.find_inst_hist_files(self.temp_dir, h=1)
 
     def test_find_inst_hist_files_different_case_names(self):
         """Test that RuntimeError is raised when files from different case names are found"""
@@ -548,7 +521,7 @@ class TestFindInstHistFiles(unittest.TestCase):
 
         # Should raise RuntimeError due to multiple case names
         with self.assertRaises(RuntimeError):
-            gf.find_inst_hist_files(self.temp_dir, h=1, this_year=2000)
+            gf.find_inst_hist_files(self.temp_dir, h=1)
 
     def test_find_inst_hist_files_different_case_names_with_logger(self):
         """
@@ -565,7 +538,7 @@ class TestFindInstHistFiles(unittest.TestCase):
 
         # Should raise RuntimeError due to multiple case names, even with logger
         with self.assertRaises(RuntimeError):
-            gf.find_inst_hist_files(self.temp_dir, h=1, this_year=2000, logger=logger)
+            gf.find_inst_hist_files(self.temp_dir, h=1, logger=logger)
 
     def test_find_inst_hist_files_no_files_found_with_logger(self):
         """Test error when no matching files are found, with logger"""
@@ -578,7 +551,7 @@ class TestFindInstHistFiles(unittest.TestCase):
 
         # Should raise a FileNotFoundError even with logger
         with self.assertRaises(FileNotFoundError):
-            gf.find_inst_hist_files(self.temp_dir, h=1, this_year=None, logger=logger)
+            gf.find_inst_hist_files(self.temp_dir, h=1, logger=logger)
 
     def test_find_inst_hist_files_h_str_with_logger(self):
         """Test that TypeError is raised when h is a string, with logger"""
@@ -589,7 +562,7 @@ class TestFindInstHistFiles(unittest.TestCase):
         self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
 
         with self.assertRaises(TypeError):
-            gf.find_inst_hist_files(self.temp_dir, h="1", this_year=2000, logger=logger)
+            gf.find_inst_hist_files(self.temp_dir, h="1", logger=logger)
 
     def test_find_inst_hist_files_h_float_with_logger(self):
         """Test that TypeError is raised when h is a float, with logger"""
@@ -600,7 +573,7 @@ class TestFindInstHistFiles(unittest.TestCase):
         self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
 
         with self.assertRaises(TypeError):
-            gf.find_inst_hist_files(self.temp_dir, h=1.0, this_year=2000, logger=logger)
+            gf.find_inst_hist_files(self.temp_dir, h=1.0, logger=logger)
 
 
 class TestGetFileLists(unittest.TestCase):
