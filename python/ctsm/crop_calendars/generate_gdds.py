@@ -221,7 +221,6 @@ def main(
                     gddharv_yp_list,
                     skip_patches_for_isel_nan_lastyear,
                     lastyear_active_patch_indices_list,
-                    incorrectly_daily,
                     save_figs,
                     incl_vegtypes_str,
                     incl_patches1d_itype_veg,
@@ -231,7 +230,6 @@ def main(
             print(f"Will resume import at {pickle_year+1}")
             h2_ds = None
         else:
-            incorrectly_daily = False
             skip_patches_for_isel_nan_lastyear = np.ndarray([])
             pickle_year = -np.inf
             gddaccum_yp_list = []
@@ -270,7 +268,6 @@ def main(
                 gddharv_yp_list,
                 skip_patches_for_isel_nan_lastyear,
                 lastyear_active_patch_indices_list,
-                incorrectly_daily,
                 incl_vegtypes_str,
                 incl_patches1d_itype_veg,
                 mxsowings,
@@ -284,7 +281,6 @@ def main(
                 gddharv_yp_list,
                 skip_patches_for_isel_nan_lastyear,
                 lastyear_active_patch_indices_list,
-                incorrectly_daily,
                 incl_vegtypes_str,
                 h2_ds_file,
                 mxmats,
@@ -309,7 +305,6 @@ def main(
                         gddharv_yp_list,
                         skip_patches_for_isel_nan_lastyear,
                         lastyear_active_patch_indices_list,
-                        incorrectly_daily,
                         save_figs,
                         incl_vegtypes_str,
                         incl_patches1d_itype_veg,
