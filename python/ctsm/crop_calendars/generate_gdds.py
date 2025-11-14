@@ -21,6 +21,9 @@ sys.path.insert(1, _CTSM_PYTHON)
 from ctsm.ctsm_logging import log, error  # pylint: disable=wrong-import-position
 import ctsm.crop_calendars.cropcal_module as cc  # pylint: disable=wrong-import-position
 import ctsm.crop_calendars.generate_gdds_functions as gddfn  # pylint: disable=wrong-import-position
+from ctsm.crop_calendars.import_ds import (
+    get_files_in_time_slice,
+)  # pylint: disable=wrong-import-position
 
 # Functions here were written with too many positional arguments. At some point that should be
 # fixed. For now, we'll just disable the warning.
@@ -77,6 +80,25 @@ def _get_time_slice_list(first_season, last_season):
     assert len(slice_list) == last_season - first_season + 2
 
     return slice_list
+
+
+def _get_file_lists(input_dir, time_slice_list, logger):
+    """
+    For each time slice in a list, find the file(s) that need to be read to get all history
+    timesteps in the slice. Returns both h1i and h2i file lists.
+    """
+    output_file_lists_list = [None, None]
+    for i, h in enumerate([1, 2]):
+        all_h_files = gddfn.find_inst_hist_files(input_dir, h=h, logger=logger)
+        h_file_lists = []
+        for time_slice in time_slice_list:
+            try:
+                h_file_lists.append(get_files_in_time_slice(all_h_files, time_slice, logger=logger))
+            except FileNotFoundError as e:
+                raise FileNotFoundError(f"No h{h} timesteps found in {time_slice}") from e
+        output_file_lists_list[i] = h_file_lists
+    h1_file_lists, h2_file_lists = tuple(output_file_lists_list)
+    return h1_file_lists, h2_file_lists
 
 
 def main(
