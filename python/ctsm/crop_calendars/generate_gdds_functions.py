@@ -735,11 +735,19 @@ def import_and_process_1yr(
             )
             nanmask_output_gdds_lastyr = np.isnan(gddaccum_yp_list[var][year_index - 1, :])
             if not np.array_equal(nanmask_output_gdds_lastyr, nanmask_output_sdates):
-                error(
-                    logger,
-                    "NaN masks differ between this year's sdates and 'filled-out' GDDs from "
-                    + "last year",
+                n_lastyr_where_not_sdates = np.sum(
+                    nanmask_output_gdds_lastyr & ~nanmask_output_sdates
                 )
+                n_sdates_where_not_lastyr = np.sum(
+                    ~nanmask_output_gdds_lastyr & nanmask_output_sdates
+                )
+                msg = (
+                    "NaN masks differ between this year's sdates and 'filled-out' GDDs from last"
+                    f" year. {n_lastyr_where_not_sdates} NaN last year after filling out where not"
+                    f" NaN in sdates; {n_sdates_where_not_lastyr} vice versa. Out of size"
+                    f" {n_lastyr_where_not_sdates.size}."
+                )
+                error(logger, msg)
         last_year_active_patch_indices_list[var] = this_year_active_patch_indices
 
     skip_patches_for_isel_nan_last_year = skip_patches_for_isel_nan
