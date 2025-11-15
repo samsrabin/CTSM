@@ -117,7 +117,9 @@ def _get_file_lists(input_dir, time_slice_lists_list, logger):
         h_file_lists = []
         for time_slice in time_slice_list:
             try:
-                h_file_lists.append(get_files_in_time_slice(all_h_files, time_slice, logger=logger))
+                h_file_lists.append(
+                    get_files_in_time_slice(all_h_files, time_slice, logger=logger, quiet=True)
+                )
             except FileNotFoundError as e:
                 raise FileNotFoundError(f"No h{h} timesteps found in {time_slice}") from e
         output_file_lists_list[i] = h_file_lists
@@ -198,17 +200,6 @@ def main(
     ##########################
 
     if not only_make_figs:
-        # Keep 1 extra year to avoid incomplete final growing season for crops
-        # harvested after Dec. 31.
-        yr_1_import_str = f"{first_season+1}-01-01"
-        yr_n_import_str = f"{last_season+2}-01-01"
-
-        log(
-            logger,
-            f"Importing netCDF time steps {yr_1_import_str} through {yr_n_import_str} "
-            + "(years are +1 because of CTSM output naming)",
-        )
-
         pickle_file = os.path.join(output_dir, f"{first_season}-{last_season}.pickle")
         h2_ds_file = os.path.join(output_dir, f"{first_season}-{last_season}.h2_ds.nc")
         if os.path.exists(pickle_file) and not no_pickle:
@@ -216,7 +207,7 @@ def main(
                 (
                     first_season,
                     last_season,
-                    pickle_year,
+                    pickle_season,
                     gddaccum_yp_list,
                     gddharv_yp_list,
                     skip_patches_for_isel_nan_lastyear,
@@ -227,11 +218,11 @@ def main(
                     mxsowings,
                     skip_crops,
                 ) = pickle.load(file)
-            print(f"Will resume import at {pickle_year+1}")
+            log(logger, f"Will resume import at season {pickle_season+1}")
             h2_ds = None
         else:
             skip_patches_for_isel_nan_lastyear = np.ndarray([])
-            pickle_year = -np.inf
+            pickle_season = -np.inf
             gddaccum_yp_list = []
             gddharv_yp_list = []
             incl_vegtypes_str = None
@@ -249,16 +240,16 @@ def main(
             input_dir, (h1_time_slices, h2_time_slices), logger
         )
 
-        for yr_index, this_yr in enumerate(_get_history_yr_range(first_season, last_season)):
-            if this_yr <= pickle_year:
+        for y, history_yr in enumerate(_get_history_yr_range(first_season, last_season)):
+            if history_yr <= pickle_season:
                 continue
-            log(logger, f"netCDF year {this_yr}...")
+            log(logger, f"History year {history_yr}...")
 
             # Get time slice and files to read for this year
-            h1_time_slice = h1_time_slices[yr_index]  # pylint: disable=unsubscriptable-object
-            h2_time_slice = h2_time_slices[yr_index]  # pylint: disable=unsubscriptable-object
-            h1_file_list = h1_file_lists[yr_index]  # pylint: disable=unsubscriptable-object
-            h2_file_list = h2_file_lists[yr_index]  # pylint: disable=unsubscriptable-object
+            h1_time_slice = h1_time_slices[y]  # pylint: disable=unsubscriptable-object
+            h2_time_slice = h2_time_slices[y]  # pylint: disable=unsubscriptable-object
+            h1_file_list = h1_file_lists[y]  # pylint: disable=unsubscriptable-object
+            h2_file_list = h2_file_lists[y]  # pylint: disable=unsubscriptable-object
 
             (
                 h2_ds,
@@ -274,7 +265,7 @@ def main(
             ) = gddfn.import_and_process_1yr(
                 first_season,
                 last_season,
-                yr_index,
+                y,
                 sdates_rx,
                 hdates_rx,
                 gddaccum_yp_list,
@@ -300,7 +291,7 @@ def main(
                     [
                         first_season,
                         last_season,
-                        this_yr,
+                        history_yr,
                         gddaccum_yp_list,
                         gddharv_yp_list,
                         skip_patches_for_isel_nan_lastyear,
