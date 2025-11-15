@@ -253,10 +253,11 @@ class TestGetTimeSliceLists(unittest.TestCase):
         self.assertEqual(h1_slices, expected_h1)
 
         # Check h2 slices (daily timesteps - full year)
+        # For daily, starts at first_season (1986), not first_season + 1
         expected_h2 = [
+            slice("1986-01-02", "1987-01-01"),
             slice("1987-01-02", "1988-01-01"),
             slice("1988-01-02", "1989-01-01"),
-            slice("1989-01-02", "1990-01-01"),
         ]
         self.assertEqual(h2_slices, expected_h2)
 
@@ -272,9 +273,10 @@ class TestGetTimeSliceLists(unittest.TestCase):
         self.assertEqual(h1_slices, expected_h1)
 
         # Check h2 slices
+        # For daily, starts at first_season (1987), not first_season + 1
         expected_h2 = [
+            slice("1987-01-02", "1988-01-01"),
             slice("1988-01-02", "1989-01-01"),
-            slice("1989-01-02", "1990-01-01"),
         ]
         self.assertEqual(h2_slices, expected_h2)
 
@@ -322,6 +324,51 @@ class TestGetTimeSliceLists(unittest.TestCase):
             start_year = int(s.start[:4])
             stop_year = int(s.stop[:4])
             self.assertEqual(stop_year, start_year + 1)
+
+
+class TestGetHistoryYrRange(unittest.TestCase):
+    """Tests for _get_history_yr_range()"""
+
+    def test_get_history_yr_range_annual(self):
+        """Test _get_history_yr_range with annual frequency"""
+        result = gg._get_history_yr_range(1986, 1987, "annual")
+        # For annual: first_season + 1 through last_season + 2
+        expected = range(1987, 1990)
+        self.assertEqual(result, expected)
+
+    def test_get_history_yr_range_daily(self):
+        """Test _get_history_yr_range with daily frequency"""
+        result = gg._get_history_yr_range(1986, 1987, "daily")
+        # For daily: first_season through last_season + 1
+        expected = range(1986, 1989)
+        self.assertEqual(result, expected)
+
+    def test_get_history_yr_range_annual_single_year(self):
+        """Test _get_history_yr_range with annual frequency and single year"""
+        result = gg._get_history_yr_range(2000, 2000, "annual")
+        # Should give 2001, 2002
+        expected = range(2001, 2003)
+        self.assertEqual(result, expected)
+
+    def test_get_history_yr_range_daily_single_year(self):
+        """Test _get_history_yr_range with daily frequency and single year"""
+        result = gg._get_history_yr_range(2000, 2000, "daily")
+        # Should give 2000, 2001
+        expected = range(2000, 2002)
+        self.assertEqual(result, expected)
+
+    def test_get_history_yr_range_unknown_freq(self):
+        """Test _get_history_yr_range with unknown frequency"""
+        with self.assertRaises(NotImplementedError):
+            gg._get_history_yr_range(2000, 2001, "monthly")
+
+    def test_get_history_yr_range_lengths_match(self):
+        """Test that annual and daily ranges have the same length"""
+        annual_range = gg._get_history_yr_range(2000, 2005, "annual")
+        daily_range = gg._get_history_yr_range(2000, 2005, "daily")
+        self.assertEqual(len(annual_range), len(daily_range))
+        # Should be last_season - first_season + 2
+        self.assertEqual(len(annual_range), 2005 - 2000 + 2)
 
 
 class TestCheckGridMatch(unittest.TestCase):
@@ -616,14 +663,14 @@ class TestGetFileLists(unittest.TestCase):
     def test_get_file_lists_single_year(self):
         """Test _get_file_lists with a single year of data"""
         # Create h1 and h2 files for 2000 and 2001
-        # (first_season=1999, last_season=1999 will request slices for both years)
+        # Also need h2 file for 1999 since daily starts at first_season
+        h2_file_1999 = self._create_test_file("test.clm2.h2i.1999-01-02-00000.nc")
         h1_file_2000 = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
         h2_file_2000 = self._create_test_file("test.clm2.h2i.2000-01-02-00000.nc")
         h1_file_2001 = self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc")
-        h2_file_2001 = self._create_test_file("test.clm2.h2i.2001-01-02-00000.nc")
 
         # Get time slice lists for first_season=1999, last_season=1999
-        # This will give us slices for 2000 and 2001
+        # This will give us slices for 2000 and 2001 (h1), and 1999, 2000, 2001 (h2)
         time_slice_lists_list = gg._get_time_slice_lists(1999, 1999)
 
         h1_file_lists, h2_file_lists = gg._get_file_lists(
@@ -639,23 +686,24 @@ class TestGetFileLists(unittest.TestCase):
         self.assertEqual(len(h1_file_lists[0]), 1)
         self.assertEqual(h1_file_lists[0], [h1_file_2000])
         self.assertEqual(len(h2_file_lists[0]), 1)
-        self.assertEqual(h2_file_lists[0], [h2_file_2000])
+        self.assertEqual(h2_file_lists[0], [h2_file_1999])
         self.assertEqual(len(h1_file_lists[1]), 1)
         self.assertEqual(h1_file_lists[1], [h1_file_2001])
         self.assertEqual(len(h2_file_lists[1]), 1)
-        self.assertEqual(h2_file_lists[1], [h2_file_2001])
+        self.assertEqual(h2_file_lists[1], [h2_file_2000])
 
     def test_get_file_lists_multiple_years(self):
         """Test _get_file_lists with multiple years of data"""
         # Create h1 and h2 files for 2000-2002
+        # Also need h2 file for 1999 since daily starts at first_season
         h1_files = []
-        h2_files = []
+        h2_files = [self._create_test_file("test.clm2.h2i.1999-01-02-00000.nc")]
         for year in [2000, 2001, 2002]:
             h1_files.append(self._create_test_file(f"test.clm2.h1i.{year}-01-01-00000.nc"))
             h2_files.append(self._create_test_file(f"test.clm2.h2i.{year}-01-02-00000.nc"))
 
         # Get time slice lists for first_season=1999, last_season=2000
-        # This will give us slices for 2000, 2001, 2002
+        # This will give us slices for 2000, 2001, 2002 (h1) and 1999, 2000, 2001 (h2)
         time_slice_lists_list = gg._get_time_slice_lists(1999, 2000)
 
         h1_file_lists, h2_file_lists = gg._get_file_lists(
@@ -680,13 +728,14 @@ class TestGetFileLists(unittest.TestCase):
         h1_file_2000 = self._create_test_file("test.clm2.h1i.2000-01-01-00000.nc")
         h1_file_2001 = self._create_test_file("test.clm2.h1i.2001-01-01-00000.nc")
 
-        # Create multiple h2 files for 2000 (daily throughout the year)
+        # Create multiple h2 files for 1999 and 2000 (daily throughout the year)
+        h2_files_1999 = []
+        for month in ["01", "06", "12"]:
+            h2_files_1999.append(self._create_test_file(f"test.clm2.h2i.1999-{month}-15-00000.nc"))
+
         h2_files_2000 = []
         for month in ["01", "06", "12"]:
             h2_files_2000.append(self._create_test_file(f"test.clm2.h2i.2000-{month}-15-00000.nc"))
-
-        # Create h2 file for 2001
-        h2_file_2001 = self._create_test_file("test.clm2.h2i.2001-01-02-00000.nc")
 
         # Get time slice lists for first_season=1999, last_season=1999
         time_slice_lists_list = gg._get_time_slice_lists(1999, 1999)
@@ -699,18 +748,18 @@ class TestGetFileLists(unittest.TestCase):
         self.assertEqual(len(h1_file_lists), 2)
         self.assertEqual(len(h2_file_lists), 2)
 
-        # Check contents of file lists for first year (2000)
+        # Check contents of file lists
         # pylint: disable=unsubscriptable-object
         self.assertEqual(len(h1_file_lists[0]), 1)
         self.assertEqual(h1_file_lists[0], [h1_file_2000])
         self.assertEqual(len(h2_file_lists[0]), 3)
-        self.assertEqual(h2_file_lists[0], sorted(h2_files_2000))
+        self.assertEqual(h2_file_lists[0], sorted(h2_files_1999))
 
         # Check second year (2001)
         self.assertEqual(len(h1_file_lists[1]), 1)
         self.assertEqual(h1_file_lists[1], [h1_file_2001])
-        self.assertEqual(len(h2_file_lists[1]), 1)
-        self.assertEqual(h2_file_lists[1], [h2_file_2001])
+        self.assertEqual(len(h2_file_lists[1]), 3)
+        self.assertEqual(h2_file_lists[1], sorted(h2_files_2000))
 
     def test_get_file_lists_no_h1_files(self):
         """Test _get_file_lists when h1 files are missing"""
