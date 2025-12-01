@@ -2199,9 +2199,9 @@ contains
                crop_inst%leafc_emergence_thisyr_patch(p,s) = -1._r8
                crop_inst%leafc_anthesis_thisyr_patch(p,s) = -1._r8
                crop_inst%leafc_maturity_thisyr_patch(p,s) = -1._r8
-               crop_inst%grainc_emergence_thisyr_patch(p,s) = -1._r8
-               crop_inst%grainc_anthesis_thisyr_patch(p,s) = -1._r8
-               crop_inst%grainc_maturity_thisyr_patch(p,s) = -1._r8
+               crop_inst%reprc_emergence_thisyr_patch(p,s) = -1._r8
+               crop_inst%reprc_anthesis_thisyr_patch(p,s) = -1._r8
+               crop_inst%reprc_maturity_thisyr_patch(p,s) = -1._r8
                crop_inst%sowing_reason_perharv_patch(p,s) = -1._r8
                crop_inst%harvest_reason_thisyr_patch(p,s) = -1._r8
                do k = repr_grain_min, repr_grain_max
@@ -2530,7 +2530,7 @@ contains
             if ((.not. do_harvest) .and. leafout(p) >= huileaf(p) .and. hui(p) < huigrain(p) .and. idpp < mxmat) then
                cphase(p) = cphase_leafemerge
                if (cphase(p) /= cphase_orig) then
-                  call crop_inst%CropPhaseTransitionBiomass(p, cnveg_carbonstate_inst, cnveg_carbonflux_inst)
+                  call crop_inst%CropPhaseTransitionBiomass(p, cnveg_carbonstate_inst)
                end if
                if (abs(onset_counter(p)) > 1.e-6_r8) then
                   onset_flag(p)    = 1._r8
@@ -2558,7 +2558,7 @@ contains
 
             else if (do_harvest) then
                cphase(p) = cphase_harvest
-               call crop_inst%CropPhaseTransitionBiomass(p, cnveg_carbonstate_inst, cnveg_carbonflux_inst)
+               call crop_inst%CropPhaseTransitionBiomass(p, cnveg_carbonstate_inst)
 
                ! Don't update these if you're just harvesting because of incorrect Dec.
                ! 31 planting
@@ -2589,9 +2589,9 @@ contains
                   crop_inst%leafc_emergence_thisyr_patch(p, harvest_count(p)) = crop_inst%leafc_emergence_patch(p)
                   crop_inst%leafc_anthesis_thisyr_patch(p, harvest_count(p)) = crop_inst%leafc_anthesis_patch(p)
                   crop_inst%leafc_maturity_thisyr_patch(p, harvest_count(p)) = crop_inst%leafc_maturity_patch(p)
-                  crop_inst%grainc_emergence_thisyr_patch(p, harvest_count(p)) = crop_inst%grainc_emergence_patch(p)
-                  crop_inst%grainc_anthesis_thisyr_patch(p, harvest_count(p)) = crop_inst%grainc_anthesis_patch(p)
-                  crop_inst%grainc_maturity_thisyr_patch(p, harvest_count(p)) = crop_inst%grainc_maturity_patch(p)
+                  crop_inst%reprc_emergence_thisyr_patch(p, harvest_count(p)) = crop_inst%reprc_emergence_patch(p)
+                  crop_inst%reprc_anthesis_thisyr_patch(p, harvest_count(p)) = crop_inst%reprc_anthesis_patch(p)
+                  crop_inst%reprc_maturity_thisyr_patch(p, harvest_count(p)) = crop_inst%reprc_maturity_patch(p)
                endif
 
                croplive(p) = .false.     ! no re-entry in greater if-block
@@ -2626,7 +2626,7 @@ contains
             else if (hui(p) >= huigrain(p)) then
                cphase(p) = cphase_grainfill
                if (cphase(p) /= cphase_orig) then
-                  call crop_inst%CropPhaseTransitionBiomass(p, cnveg_carbonstate_inst, cnveg_carbonflux_inst)
+                  call crop_inst%CropPhaseTransitionBiomass(p, cnveg_carbonstate_inst)
                end if
                bglfr(p) = 1._r8/(leaf_long(ivt(p))*avg_dayspyr*secspday)
             end if
@@ -3018,9 +3018,9 @@ contains
       crop_inst%leafc_emergence_patch(p) = -1._r8
       crop_inst%leafc_anthesis_patch(p) = -1._r8
       crop_inst%leafc_maturity_patch(p) = -1._r8
-      crop_inst%grainc_emergence_patch(p) = -1._r8
-      crop_inst%grainc_anthesis_patch(p) = -1._r8
-      crop_inst%grainc_maturity_patch(p) = -1._r8
+      crop_inst%reprc_emergence_patch(p) = -1._r8
+      crop_inst%reprc_anthesis_patch(p) = -1._r8
+      crop_inst%reprc_maturity_patch(p) = -1._r8
 
     end associate
 
