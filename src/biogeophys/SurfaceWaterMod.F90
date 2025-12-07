@@ -134,7 +134,7 @@ contains
     call BulkDiag_FracH2oSfc(bounds, num_soilc, filter_soilc, &
          ! Inputs
          dtime                         = dtime, &
-         micro_sigma                   = col%micro_sigma, &
+         micro_sigma                   = col%micro_sigma(begc:endc), &
          h2osno_total                  = h2osno_total(begc:endc), &
          h2osfc                        = b_waterstate_inst%h2osfc_col(begc:endc), &
          ! Outputs
