@@ -1,0 +1,43 @@
+! Specify exact sowing dates with the half-degree inputs. Meshfile is the default.
+stream_meshfile_cropcal = '$DIN_LOC_ROOT/lnd/clm2/cropdata/calendars/processed/360x720_120830_ESMFmesh_c20210507_cdf5.tweaked_latlons.nc'
+stream_fldFileName_swindow_start = '$DIN_LOC_ROOT/lnd/clm2/cropdata/calendars/processed/sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-hcru_hcru_mt13.2000-2000.20230728_165845.tweaked_latlons.nc'
+stream_fldFileName_swindow_end = '$DIN_LOC_ROOT/lnd/clm2/cropdata/calendars/processed/sdates_ggcmi_crop_calendar_phase3_v1.01_nninterp-hcru_hcru_mt13.2000-2000.20230728_165845.tweaked_latlons.nc'
+
+! Other stuff for GDD generation
+generate_crop_gdds = .true.
+use_mxmat = .false.
+stream_fldFileName_cultivar_gdds = ''
+stream_fldFileName_gdd20_baseline = ''
+cropcals_rx_adapt = .false.
+cropcals_rx = .true.
+
+! (h0) Keep default h0 file outputs, but save annually
+hist_nhtfrq(1) = -8760
+
+! (h1) Annual outputs
+hist_nhtfrq(2) = 17520
+hist_mfilt(2) = 999
+hist_type1d_pertape(2) = 'PFTS'
+hist_dov2xy(2) = .false.
+! Needed for generating maturity requirements
+hist_fincl2 = 'GRAINC_TO_FOOD_PERHARV', 'GRAINC_TO_FOOD_ANN', 'SDATES', 'SDATES_PERHARV', 'SYEARS_PERHARV', 'HDATES', 'GDDHARV_PERHARV', 'GDDACCUM_PERHARV', 'HUI_PERHARV', 'SOWING_REASON_PERHARV', 'HARVEST_REASON_PERHARV'
+! Add those needed for GDD20 baseline generation
+hist_fincl2 += 'GDD0', 'GDD8', 'GDD10', 'GDD0X', 'GDD8X', 'GDD10X', 'GDD020', 'GDD820', 'GDD1020'
+! Plus some extra just in case
+hist_fincl2 += 'GDD20_BASELINE', 'SWINDOW_STARTS', 'SWINDOW_ENDS', 'GDD20_SEASON_START', 'GDD20_SEASON_END'
+
+! (h2) Daily outputs for generating maturity requirements and figures thereof
+hist_fincl3 = 'GDDACCUM', 'GDDHARV'
+hist_nhtfrq(3) = -24
+hist_mfilt(3) = 365
+hist_type1d_pertape(3) = 'PFTS'
+hist_dov2xy(3) = .false.
+! These variables are averaged over each history timestep by default. For generating maturity requirements, we want instantaneous values. At a daily timestep it won't be a big difference, but still. generate_gdds script will fail without this!
+hist_avgflag_pertape(3) = 'I'
+
+! All crops everywhere
+do_transient_crops = .false.
+flanduse_timeseries = ''
+use_init_interp = .true.
+allow_invalid_swindow_inputs = .true.
+! fsurdat will be added here during shell_commands:

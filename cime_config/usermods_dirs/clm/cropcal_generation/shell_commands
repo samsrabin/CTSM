@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Set up case to use fsurdat file that has all crops everywhere"""
+
+import os
+import subprocess
+import re
+
+
+def get_input_fsurdat_file() -> str:
+    """Get input fsurdat file"""
+
+    # Generate lnd_in namelist
+    subprocess.check_output("./case.setup")
+    subprocess.check_output("./preview_namelists")
+
+    # Extract fsurdat line from lnd_in
+    fsurdat_lines = []
+    lnd_in = "CaseDocs/lnd_in"
+    with open(lnd_in, encoding="utf8") as f:
+        for line in f:
+            if " fsurdat = '" in line:
+                fsurdat_lines.append(line)
+    n_found = len(fsurdat_lines)
+    assert n_found == 1, f"Expected 1 fsurdat line in CaseDocs; found {n_found}"
+
+    # Extract fsurdat file path from line
+    fsurdat_path = fsurdat_lines[0]
+    matches = re.findall(r"'([^']+)'", fsurdat_path)
+    n = len(matches)
+    assert (
+        n == 1
+    ), f"Expected 1 text in apostrophes in fsurdat line; found {n}: {fsurdat_path}"
+    fsurdat_path = matches[0]
+
+    # Make sure it exists
+    if not os.path.exists(fsurdat_path):
+        raise FileNotFoundError(fsurdat_path)
+
+    return fsurdat_path
+
+
+def get_output_fsurdat_file(fsurdat_in: str) -> str:
+    """Get output fsurdat file"""
+
+    fsurdat_basename = os.path.basename(fsurdat_in)
+    root, ext = os.path.splitext(fsurdat_basename)
+    return os.path.join(os.getcwd(), root + ".all_crops_everywhere" + ext)
+
+
+def write_cfg_file(fsurdat_in: str, fsurdat_out: str) -> str:
+    """Write .cfg file for use by fsurdat_modifier"""
+    cfg_file = os.path.join("fsurdat_all_crops_everywhere.cfg")
+    with open(cfg_file, "w", encoding="utf8") as f:
+        f.write(
+            f"""
+[modify_fsurdat_basic_options]
+
+# Path and name of input surface dataset (str)
+fsurdat_in = {fsurdat_in}
+
+# Path and name of output surface dataset (str)
+fsurdat_out = {fsurdat_out}
+
+# Settings for GDD/GDD20BL-generating run
+process_subgrid_section = True
+evenly_split_cropland = True
+
+# Keep the rest of the defaults for this section
+idealized = False
+process_var_list_section = False
+lnd_lat_1 = -90
+lnd_lat_2 = 90
+lnd_lon_1 = 0
+lnd_lon_2 = 360
+lon_type = 360
+landmask_file = UNSET
+lat_dimname = UNSET
+lon_dimname = UNSET
+dom_pft = UNSET
+lai = UNSET
+sai = UNSET
+hgt_top = UNSET
+hgt_bot = UNSET
+soil_color = UNSET
+std_elev = UNSET
+max_sat_area = UNSET
+include_nonveg = True
+
+
+[modify_fsurdat_subgrid_fractions]
+
+PCT_CROP    = 100.0
+PCT_NATVEG  = 0.0
+PCT_GLACIER = 0.0
+PCT_WETLAND = 0.0
+PCT_LAKE    = 0.0
+PCT_OCEAN   = 0.0
+PCT_URBAN   = 0.0 0.0 0.0
+"""
+        )
+    return cfg_file
+
+
+def run_fsurdat_modifier(cfg_file: str) -> None:
+    """Run fsurdat_modifier to get fsurdat with all crops everywhere"""
+    # Get path to fsurdat_modifier script
+    srcroot = subprocess.check_output(["./xmlquery", "--value", "SRCROOT"]).decode()
+    if not os.path.exists(srcroot):
+        raise FileNotFoundError(srcroot)
+    fsurdat_modifier_path = os.path.join(
+        srcroot, "tools", "modify_input_files", "fsurdat_modifier"
+    )
+    if not os.path.exists(fsurdat_modifier_path):
+        raise FileNotFoundError(fsurdat_modifier_path)
+
+    # Run fsurdat_modifier
+    subprocess.check_output(args=[fsurdat_modifier_path, "--overwrite", cfg_file])
+
+
+def add_fsurdat_to_user_nl_clm(fsurdat: str) -> None:
+    """Append our fsurdat file to user_nl_clm"""
+    user_nl_clm = "user_nl_clm"
+    if not os.path.exists(user_nl_clm):
+        raise FileNotFoundError(user_nl_clm)
+    with open(user_nl_clm, "a", encoding="utf8") as f:
+        f.write(f"fsurdat = '{fsurdat}'\n")
+    subprocess.check_output("./preview_namelists")
+
+
+def main():
+    """Main function"""
+    fsurdat_in = get_input_fsurdat_file()
+    fsurdat_out = get_output_fsurdat_file(fsurdat_in)
+    cfg_file = write_cfg_file(fsurdat_in, fsurdat_out)
+    run_fsurdat_modifier(cfg_file)
+    add_fsurdat_to_user_nl_clm(fsurdat_out)
+
+
+if __name__ == "__main__":
+    main()
+    print("shell_commands completed successfully")
