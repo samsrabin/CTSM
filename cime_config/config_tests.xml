@@ -165,8 +165,8 @@ This defines various CTSM-specific system tests
     <HIST_N>$STOP_N</HIST_N>
   </test>
 
-  <test NAME="RXCROPMATURITYSKIPGEN">
-    <DESC>As RXCROPMATURITY but don't actually generate GDDs. Allows short testing with existing GDD inputs.</DESC>
+  <test NAME="RXCROPMATURITYSKIPFIRSTRUN">
+    <DESC>As RXCROPMATURITY but skip GDD-Generating run. Instead, generate calendar files based on archived GDD-Generating run outputs.</DESC>
     <INFO_DBUG>1</INFO_DBUG>
     <DOUT_S>FALSE</DOUT_S>
     <CONTINUE_RUN>FALSE</CONTINUE_RUN>

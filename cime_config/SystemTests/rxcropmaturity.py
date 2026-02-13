@@ -55,7 +55,7 @@ def _copy_files_from_gddgen_run_to_baseline(
 ) -> None:
     """
     When we generate a baseline of an RXCROPMATURITY test, we want to save all the h1 and h2 files
-    for future use by RXCROPMATURITYSKIPGEN tests. This function copies them to the RXCROPMATURITY
+    for future use by RXCROPMATURITYSKIPFIRSTRUN tests. This function copies them to the RXCROPMATURITY
     test's baseline directory, in a new subdirectory. If the file already exists at the top level
     of the baseline directory, this script will just softlink it into the subdirectory.
     """
@@ -143,7 +143,7 @@ def _get_baseline_dir_with_files_from_gddgen_run(baseline_dir: str, res: str) ->
 
 class RXCROPMATURITYSHARED(SystemTestsCommon):
     """
-    Parent class of RXCROPMATURITY and RXCROPMATURITYSKIPGEN SystemTests
+    Parent class of RXCROPMATURITY and RXCROPMATURITYSKIPFIRSTRUN SystemTests
     """
 
     # pylint: disable=too-many-instance-attributes
