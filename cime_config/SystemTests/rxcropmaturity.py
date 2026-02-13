@@ -31,17 +31,11 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # initialize an object interface to the SMS system test
         SystemTestsCommon.__init__(self, case)
 
-        # Is this a real RXCROPMATURITY test or not?
-        casebaseid = self._case.get_value("CASEBASEID")
-        full_test = "RXCROPMATURITY_" in casebaseid
-        skipgen_test = "RXCROPMATURITYSKIPGEN_" in casebaseid
-
         # Ensure run length is at least 5 years. Minimum to produce one complete growing season
         # (i.e., two complete calendar years) actually 4 years, but that only gets you 1 season
         # usable for GDD generation, so you can't check for season-to-season consistency.
         stop_n = self._case.get_value("STOP_N")
         stop_option = self._case.get_value("STOP_OPTION")
-        stop_n_orig = stop_n
         stop_option_orig = stop_option
         if "nsecond" in stop_option:
             stop_n /= 60
@@ -64,20 +58,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 f"STOP_OPTION ({stop_option_orig}) must be nsecond(s), nminute(s), "
                 + "nhour(s), nday(s), nmonth(s), or nyear(s)"
             )
-        elif full_test and stop_n < 5:
-            error_message = (
-                "RXCROPMATURITY must be run for at least 5 years; you requested "
-                + f"{stop_n_orig} {stop_option_orig[1:]}"
-            )
-        elif skipgen_test and stop_n < 3:
-            # First year is discarded because crops are already in the ground at restart, and those
-            # aren't affected by the new crop calendar inputs. The second year is useable, but we
-            # need a third year so that all crops planted in the second year have a chance to
-            # finish.
-            error_message = (
-                "RXCROPMATURITYSKIPGEN (both-forced part) must be run for at least 3 years; you requested "
-                + f"{stop_n_orig} {stop_option_orig[1:]}"
-            )
         if error_message is not None:
             logger.error(error_message)
             raise RuntimeError(error_message)
@@ -86,6 +66,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._run_Nyears = int(stop_n)
 
         # Only allow RXCROPMATURITY to be called with test cropMonthOutput
+        casebaseid = self._case.get_value("CASEBASEID")
         if casebaseid.split("-")[-1] != "cropMonthOutput":
             error_message = (
                 "Only call RXCROPMATURITY with test cropMonthOutput "
@@ -176,11 +157,17 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # We *do* expect history files here, but anyway. This works.
         self._skip_pnl = False
 
-        # If not generating GDDs, only run a few days of this.
+        # If not generating GDDs, only run 5 days of this.
+        # Otherwise, always run 5 years, regardless of what user requested.
+        # (User-requested length will apply to the Prescribed Calendars run.)
+        stop_n = 5
         if skip_gen:
-            with Case(self._path_gddgen, read_only=False) as case:
-                case.set_value("STOP_N", 5)
-                case.set_value("STOP_OPTION", "ndays")
+            stop_option = "ndays"
+        else:
+            stop_option = "nyears"
+        with Case(self._path_gddgen, read_only=False) as case:
+            case.set_value("STOP_N", stop_n)
+            case.set_value("STOP_OPTION", stop_option)
 
         self.run_indv(suffix=None, st_archive=True)
         if skip_gen:
