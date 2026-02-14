@@ -4544,6 +4544,19 @@
     </options>
   </test>
 
+  <test name="RXCROPMATURITYSKIPFIRSTRUN_Ld5" grid="f10_f10_mg37" compset="IHistClm60BgcCrop" testmods="clm/cropMonthOutput">
+    <machines>
+      <machine name="derecho" compiler="intel" category="aux_clm"/>
+      <machine name="derecho" compiler="intel" category="rxcropmaturity"/>
+      <machine name="derecho" compiler="intel" category="crop_calendars"/>
+      <machine name="derecho" compiler="intel" category="clm_pymods"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">As RXCROPMATURITYSKIPFIRSTRUN_Ly1 test, but shorter. Intended for use in clm_pymods only, to test that the outputs of the calendar-generating scripts can be read by CLM. Of course, if it's in clm_pymods, it has to be in aux_clm too. We want to keep the Ly1 test because it will capture many more sowings than this Ld5 test, giving a better assessment of actual results.</option>
+    </options>
+  </test>
+
   <test name="ERP_D_P64x2_Ld10" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/Hillslope">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_clm"/>
