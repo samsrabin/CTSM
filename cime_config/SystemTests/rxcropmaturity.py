@@ -413,7 +413,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         if not os.path.exists(self._sdatefile):
             error_message = f"ERROR: Sowing date file not found: {self._sdatefile}"
         elif not os.path.exists(self._hdatefile):
-            error_message = f"ERROR: Harvest date file not found: {self._sdatefile}"
+            error_message = f"ERROR: Harvest date file not found: {self._hdatefile}"
         if error_message is not None:
             logger.error(error_message)
             raise RuntimeError(error_message)
