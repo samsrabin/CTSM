@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 BASELINE_SUBDIR_WITH_INPUTS = "inputs_for_cropcal_script_tests"
 
 # See_get_baseline_dir_with_files_from_gddgen_run()
-BASELINE_VERSION_OF_GDDGEN_RUN_FILES = "ctsm5.4.019"
+BASELINE_VERSION_OF_GDDGEN_RUN_FILES = "cropcal-gddgen-usermod.3d80e656c8"
 
 
 def _copy_files_from_gddgen_run_to_baseline(
