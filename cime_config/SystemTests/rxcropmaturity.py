@@ -54,7 +54,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         # Define other variables that will be set outside __init__()
         self._cfg_path: str = None
-        self._ctsm_root: str = None
         self._flanduse_timeseries_in: str = None
         self._fsurdat_in: str = None
         self._fsurdat_out: str = None
@@ -64,10 +63,17 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._run_nyears: int = None
         self._this_conda_env: str = None
 
+        # Where is our CTSM checkout?
+        self._ctsm_root: str = self._case.get_value("COMP_ROOT_DIR_LND")
+
         # Is this a real RXCROPMATURITY test or not?
         casebaseid: str = self._case.get_value("CASEBASEID")
         full_test = "RXCROPMATURITY_" in casebaseid
         skipgen_test = "RXCROPMATURITYSKIPGEN_" in casebaseid
+
+        # Get the run start year
+        run_startdate: str = self._case.get_value("RUN_STARTDATE")
+        self._run_startyear = int(run_startdate.split("-")[0])
 
         # Get the number of complete years that will be run
         self._run_nyears = self._get_run_nyears(full_test, skipgen_test)
@@ -313,11 +319,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
     def _setup_all(self, h1_inst: bool) -> None:
         logger.info("RXCROPMATURITY log:  _setup_all start")
-
-        # Get some info
-        self._ctsm_root: str = self._case.get_value("COMP_ROOT_DIR_LND")
-        run_startdate: str = self._case.get_value("RUN_STARTDATE")
-        self._run_startyear = int(run_startdate.split("-")[0])
 
         # Set sowing dates file (and other crop calendar settings) for all runs
         logger.info("RXCROPMATURITY log:  modify user_nl files: all tests")
