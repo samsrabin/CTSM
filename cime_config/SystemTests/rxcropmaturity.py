@@ -25,12 +25,25 @@ try:
     from cime.CIME.XML.standard_module_setup import logging
     from cime.CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
     from cime.CIME.case import Case
+    from python.ctsm.crop_calendars.systemtest_helpers.utils import (
+        get_usable_years_for_check_rxboth_run,
+    )
 except ImportError:
     import systemtest_utils as stu
     from CIME.SystemTests.system_tests_common import SystemTestsCommon
     from CIME.XML.standard_module_setup import logging
     from CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
     from CIME.case import Case
+
+    _CTSM_PYTHON = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), os.pardir, "python"
+    )
+    import sys
+
+    sys.path.insert(1, _CTSM_PYTHON)
+    from ctsm.crop_calendars.systemtest_helpers.utils import (
+        get_usable_years_for_check_rxboth_run,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -422,12 +435,9 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         output_dir = os.path.join(self._get_caseroot(), "run")
 
-        if skip_gen:
-            first_usable_year = self._run_startyear + 1
-            last_usable_year = first_usable_year
-        else:
-            first_usable_year = self._run_startyear + 2
-            last_usable_year = self._run_startyear + self._run_nyears - 2
+        first_usable_year, last_usable_year = get_usable_years_for_check_rxboth_run(
+            self._run_startyear, self._run_nyears, skip_gen
+        )
 
         tool_path = os.path.join(
             self._ctsm_root, "python", "ctsm", "crop_calendars", "check_rxboth_run.py"
