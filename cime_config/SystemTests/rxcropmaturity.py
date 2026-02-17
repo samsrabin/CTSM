@@ -304,7 +304,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         if os.path.exists(self._path_gddgen):
             shutil.rmtree(self._path_gddgen)
         logger.info("RXCROPMATURITY log:  cloning")
-        case_gddgen = self._case.create_clone(clone_path, keepexe=True)
+        case_gddgen: Case = self._case.create_clone(clone_path, keepexe=True)
         logger.info("RXCROPMATURITY log:  done cloning")
 
         os.chdir(self._path_gddgen)
@@ -348,6 +348,29 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             logger.info("RXCROPMATURITY log:  run fsurdat_modifier")
             self._run_fsurdat_modifier()
 
+        # Get the directories that scripts will use. Do this now, before running any cases, to fail
+        # quickly if only doing an RXCROPMATURITYSCRIPTS test but there's no baseline available.
+        if self._scriptsonly_test:
+            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
+            lnd_grid = case_gddgen.get_value("LND_GRID")
+            # Input for generate_gdds.py
+            self._generate_gdds_indir = _get_baseline_dir_with_files_from_run(
+                "generate_gdds", baseline_dir, lnd_grid
+            )
+            # Input for check_rxboth_run.py
+            self._check_rxboth_run_indir = _get_baseline_dir_with_files_from_run(
+                "check_rxboth_run", baseline_dir, lnd_grid
+            )
+        else:
+            # Input for generate_gdds.py
+            dout_sr = case_gddgen.get_value("DOUT_S_ROOT")
+            self._gddgen_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
+            self._generate_gdds_indir = self._gddgen_phase_outdir
+            # Input for check_rxboth_run.py
+            dout_sr = case_rxboth.get_value("DOUT_S_ROOT")
+            self._prescribed_calendars_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
+            self._check_rxboth_run_indir = self._prescribed_calendars_phase_outdir
+
         # -------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
         # -------------------------------------------------------------------
@@ -361,21 +384,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Run GDD-Generating case
         self.run_indv(suffix=None, st_archive=True)
 
-        # Get directory where GDD-Generating case leaves its outputs.
-        dout_sr = case_gddgen.get_value("DOUT_S_ROOT")
-        self._gddgen_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
-
         # Process outputs into new crop maturity requirements file
-        # First, get the directory with the run outputs.
-        if self._scriptsonly_test:
-            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
-            lnd_grid = case_gddgen.get_value("LND_GRID")
-            self._generate_gdds_indir = _get_baseline_dir_with_files_from_run(
-                "generate_gdds", baseline_dir, lnd_grid
-            )
-        else:
-            self._generate_gdds_indir = self._gddgen_phase_outdir
-        # Now run generate_gdds.py:
         self._run_generate_gdds(self._generate_gdds_indir)
 
         # -------------------------------------------------------------------
@@ -411,16 +420,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # (4) Check Prescribed Calendars run
         # -------------------------------------------------------------------
         logger.info("RXCROPMATURITY log:  output check: Prescribed Calendars")
-        # First, get the directory with the run outputs.
-        if self._scriptsonly_test:
-            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
-            lnd_grid = case_gddgen.get_value("LND_GRID")
-            self._check_rxboth_run_indir = _get_baseline_dir_with_files_from_run(
-                "check_rxboth_run", baseline_dir, lnd_grid
-            )
-        else:
-            self._check_rxboth_run_indir = self._gddgen_phase_outdir
-        # Now run the check:
         self._run_check_rxboth_run()
 
     # Get sowing and harvest dates for this resolution.
@@ -716,7 +715,6 @@ class RXCROPMATURITY(RXCROPMATURITYSHARED):
         )
 
         # Copy files from Prescribed Calendars phase
-        # Copy files from GDD-Generating phase
         _copy_extra_files_from_run_to_baseline(
             "check_rxboth_run", self._prescribed_calendars_phase_outdir, basegen_dir
         )
