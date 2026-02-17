@@ -358,12 +358,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # We *do* expect history files here, but anyway. This works.
         self._skip_pnl = False
 
-        # If not generating GDDs, only run a few days of this.
-        if self._scriptsonly_test:
-            with Case(self._path_gddgen, read_only=False) as case:
-                case.set_value("STOP_N", 5)
-                case.set_value("STOP_OPTION", "ndays")
-
         # Run GDD-Generating case
         self.run_indv(suffix=None, st_archive=True)
 
