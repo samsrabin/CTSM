@@ -10,7 +10,9 @@
         prebeta: Run before CESM beta tags (more extensive, but should have tests outside of prealpha) (subset of aux_clm tests)
         aux_cime_baselines: CESM cime baselines (subset of aux_clm tests)
         hillslope: Experimental test list used for the hillslope option of the model
-        rxcropmaturity: Short tests to be run during development related to prescribed crop calendars
+        crop_calendars: Tests to be run during development related to crop calendars, whether that be actual model code or just the Python tools.
+        rxcropmaturity: Tests to be run during Python tool development related to crop calendars. Subset of crop_calendars suite.
+        rxcropmaturityscripts_baseline: Tests from crop_calendars suite that are needed for generating baselines to be used in rxcropmaturity suite tests.
         matrixcn: Tests exercising the matrix-CN capability
         aux_clm_mpi_serial: aux_clm tests using mpi-serial. Useful for redoing tests that failed due to https://github.com/ESCOMP/CTSM/issues/2916, after having replaced libraries/mpi-serial with a fresh copy.
         subset_data: Tests exercising the subset_data tool and running CTSM with its output
@@ -4513,7 +4515,7 @@
   <test name="RXCROPMATURITY_Lm61" grid="f09_t232" compset="IHistClm60BgcCropCrujra"  testmods="clm/cropMonthOutput">
     <machines>
       <machine name="derecho" compiler="intel" category="ctsm_sci"/>
-      <machine name="derecho" compiler="intel" category="rxcropmaturity"/>
+      <machine name="derecho" compiler="intel" category="crop_calendars"/>
     </machines>
     <options>
       <option name="wallclock">12:00:00</option>
@@ -4523,8 +4525,8 @@
 
   <test name="RXCROPMATURITY_Lm61" grid="f10_f10_mg37" compset="IHistClm60BgcCrop" testmods="clm/cropMonthOutput">
     <machines>
-      <machine name="derecho" compiler="intel" category="rxcropmaturity"/>
       <machine name="derecho" compiler="intel" category="crop_calendars"/>
+      <machine name="derecho" compiler="intel" category="rxcropmaturity_baseline"/>
     </machines>
     <options>
       <option name="wallclock">6:00:00</option>
@@ -4532,9 +4534,10 @@
     </options>
   </test>
 
-  <test name="RXCROPMATURITYSCRIPTS_Ld1097" grid="f10_f10_mg37" compset="IHistClm60BgcCrop" testmods="clm/cropMonthOutput">
+  <test name="RXCROPMATURITYSCRIPTS_Ld5" grid="f10_f10_mg37" compset="IHistClm60BgcCrop" testmods="clm/cropMonthOutput">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_clm"/>
+      <machine name="derecho" compiler="intel" category="clm_pymods"/>
       <machine name="derecho" compiler="intel" category="rxcropmaturity"/>
       <machine name="derecho" compiler="intel" category="crop_calendars"/>
     </machines>
