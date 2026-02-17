@@ -25,6 +25,8 @@ try:
     from cime.CIME.XML.standard_module_setup import logging
     from cime.CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
     from cime.CIME.case import Case
+    from cime.CIME.utils import safe_copy
+    from python.ctsm.machine_defaults import MACHINE_DEFAULTS
     from python.ctsm.crop_calendars.systemtest_helpers.utils import (
         get_usable_years_for_check_rxboth_run,
     )
@@ -34,6 +36,7 @@ except ImportError:
     from CIME.XML.standard_module_setup import logging
     from CIME.SystemTests.test_utils.user_nl_utils import append_to_user_nl_files
     from CIME.case import Case
+    from CIME.utils import safe_copy
 
     _CTSM_PYTHON = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), os.pardir, "python"
@@ -44,8 +47,106 @@ except ImportError:
     from ctsm.crop_calendars.systemtest_helpers.utils import (
         get_usable_years_for_check_rxboth_run,
     )
+    from ctsm.machine_defaults import MACHINE_DEFAULTS
 
 logger = logging.getLogger(__name__)
+
+# See _copy_files_from_gddgen_run_to_baseline()
+BASELINE_SUBDIR_WITH_INPUTS = "inputs_for_cropcal_script_tests"
+
+# See_get_baseline_dir_with_files_from_gddgen_run()
+BASELINE_VERSION_OF_GDDGEN_RUN_FILES = "ctsm5.4.019"
+
+
+def _copy_files_from_gddgen_run_to_baseline(
+    gddgen_out_dir: str, baseline_dir: str
+) -> None:
+    """
+    When we generate a baseline of an RXCROPMATURITY test, we want to save all the h1 and h2 files
+    for future use by RXCROPMATURITYSKIPGEN tests. This function copies them to the RXCROPMATURITY
+    test's baseline directory, in a new subdirectory. If the file already exists at the top level
+    of the baseline directory, this script will just softlink it into the subdirectory.
+    """
+    if not os.path.exists(gddgen_out_dir):
+        raise FileNotFoundError(gddgen_out_dir)
+    if not os.path.exists(baseline_dir):
+        raise FileNotFoundError(baseline_dir)
+
+    # Get files to copy
+    file_list = glob.glob(pattern := os.path.join(gddgen_out_dir, "*clm2.h[12]i*.nc"))
+    if not file_list:
+        raise FileNotFoundError(f"No files found matching pattern: '{pattern}'")
+
+    # Create subdir in baseline
+    baseline_subdir = os.path.join(baseline_dir, BASELINE_SUBDIR_WITH_INPUTS)
+    os.makedirs(baseline_subdir, mode=0o755)  # rwxr-xr-x
+
+    for file in file_list:
+        target_file = os.path.join(baseline_subdir, os.path.basename(file))
+        existing_file = os.path.join(baseline_dir, os.path.basename(file))
+        if os.path.exists(existing_file):
+            os.symlink(existing_file, target_file)
+        else:
+            # See safe_copy for why preserving metadata while copying baseline files is a bad idea
+            safe_copy(file, target_file, preserve_meta=False)
+            # Explicitly set permissions rw-r--r-- to ensure all-readable
+            os.chmod(target_file, 0o644)
+
+
+def _get_baseline_dir_with_files_from_gddgen_run(baseline_dir: str, res: str) -> str:
+    """
+    Get the directory containing baseline files from a GDD-Generating run.
+
+    This function searches for baseline files from a previous GDD-Generating run that match the
+    specified resolution. It looks in a versioned baseline directory for tests with the
+    required output files.
+
+    Note that, if multiple such tests exist, it will only return the first it sees.
+
+    Args:
+        baseline_dir (str): The root directory containing baseline data.
+        res (str): The resolution string to match (e.g., grid resolution).
+
+    Returns:
+        str: Path to the directory containing the matching GDD generation output files.
+
+    Raises:
+        FileNotFoundError: If no baseline directories are found matching the pattern,
+            or if no tests are found with archived data matching the specified resolution.
+        RuntimeError: If multiple matches for the resolution are found in a single lnd_in file
+            (expected at most one match).
+    """
+    # Get the path to the baseline version we want to use
+    this_baseline_dir = os.path.join(baseline_dir, BASELINE_VERSION_OF_GDDGEN_RUN_FILES)
+
+    # Find all cases in that baseline with outputs we can use
+    gddgen_out_dir_list = glob.glob(
+        pattern := os.path.join(this_baseline_dir, "*", BASELINE_SUBDIR_WITH_INPUTS)
+    )
+    gddgen_out_dir_list.sort()
+    if not gddgen_out_dir_list:
+        raise FileNotFoundError(pattern)
+
+    # Find a case matching this case's grid
+    baseline_dir_with_files_from_gddgen_run = None
+    for d in gddgen_out_dir_list:
+        lnd_in = os.path.join(d, os.pardir, "CaseDocs", "lnd_in")
+        with open(lnd_in, "r", encoding="utf8") as f:
+            matches = re.findall(rf"-res {re.escape(res)}\b", f.read())
+            if not matches:
+                continue
+            if len(matches) > 1:
+                raise RuntimeError(
+                    f"Expected at most 1 match for '-res {res}' in {lnd_in}; got {len(matches)}"
+                )
+            baseline_dir_with_files_from_gddgen_run = d
+            break
+    if not baseline_dir_with_files_from_gddgen_run:
+        raise FileNotFoundError(
+            f"No tests found in {this_baseline_dir} with archived data matching res {res}"
+        )
+
+    return baseline_dir_with_files_from_gddgen_run
 
 
 class RXCROPMATURITYSHARED(SystemTestsCommon):
@@ -62,8 +163,20 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._case: Case
 
         # Directories:
-        #   _generate_gdds_dir: The directory where generate_gdds.py will save its outputs.
-        self._generate_gdds_dir: str = None
+        #   _gddgen_baseline_dir: If generating an RXCROPMATURITY baseline, the relevant files from
+        #                         _gddgen_phase_outdir will be copied here: A subdirectory of the
+        #                         case's baseline directory.
+        #   _gddgen_phase_outdir: Where the results from the GDD-Generating run are saved after that
+        #                         case completes.
+        #   _generate_gdds_indir: Directory with files from GDD-Generating run, to be used as input
+        #                         to generate_gdds.py.
+        #   _generate_gdds_outdir: The directory where generate_gdds.py will save its outputs.
+        self._generate_gdds_indir: str = None
+        self._gddgen_baseline_dir: str = None
+        self._gddgen_phase_outdir: str = None
+        self._generate_gdds_outdir: str = None
+
+        # Define other variables that will be set outside __init__()
 
         # Define other variables that will be set outside __init__()
         self._cfg_path: str = None
@@ -242,12 +355,25 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 case.set_value("STOP_N", 5)
                 case.set_value("STOP_OPTION", "ndays")
 
+        # Run GDD-Generating case
         self.run_indv(suffix=None, st_archive=True)
+
+        # Get directory where GDD-Generating case leaves its outputs.
+        dout_sr = case_gddgen.get_value("DOUT_S_ROOT")
+        self._gddgen_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
+
+        # Process outputs into new crop maturity requirements file
+        # First, get the directory with the run outputs.
         if skip_gen:
-            # Interpolate an existing GDD file. Needed to check obedience to GDD inputs.
-            self._run_interpolate_gdds()
+            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
+            lnd_grid = case_gddgen.get_value("LND_GRID")
+            self._generate_gdds_indir = _get_baseline_dir_with_files_from_gddgen_run(
+                baseline_dir, lnd_grid
+            )
         else:
-            self._run_generate_gdds(case_gddgen)
+            self._generate_gdds_indir = self._gddgen_phase_outdir
+        # Now run generate_gdds.py:
+        self._run_generate_gdds(self._generate_gdds_indir)
 
         # -------------------------------------------------------------------
         # (3) Set up and perform Prescribed Calendars run
@@ -484,13 +610,13 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             nl_additions.append("hist_avgflag_pertape(2) = 'I'")
         self._append_to_user_nl_clm(nl_additions)
 
-    def _run_generate_gdds(self, case_gddgen: Case) -> None:
-        self._generate_gdds_dir = os.path.join(self._path_gddgen, "generate_gdds_out")
-        os.makedirs(self._generate_gdds_dir)
+    def _run_generate_gdds(self, input_dir: str):
+        self._generate_gdds_outdir = os.path.join(
+            self._path_gddgen, "generate_gdds_out"
+        )
+        os.makedirs(self._generate_gdds_outdir)
 
         # Get arguments to generate_gdds.py
-        dout_sr: str = case_gddgen.get_value("DOUT_S_ROOT")
-        input_dir = os.path.join(dout_sr, "lnd", "hist")
         first_season = self._run_startyear + 2
         last_season = self._run_startyear + self._run_nyears - 2
         sdates_file = self._sdatefile
@@ -523,7 +649,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         # Where were the prescribed maturity requirements saved?
         generated_gdd_files = glob.glob(
-            os.path.join(self._generate_gdds_dir, "gdds_*.nc")
+            os.path.join(self._generate_gdds_outdir, "gdds_*.nc")
         )
         if n_files := len(generated_gdd_files) != 1:
             error_message = (
@@ -533,31 +659,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             logger.error(error_message)
             raise RuntimeError(error_message)
         self._gdds_file = generated_gdd_files[0]
-
-    def _run_interpolate_gdds(self) -> None:
-        # File where interpolated GDDs should be saved
-        self._gdds_file = os.path.join(self._get_caseroot(), "interpolated_gdds.nc")
-
-        # It'd be much nicer to call interpolate_gdds.main(), but I can't import interpolate_gdds.
-        # See https://github.com/ESCOMP/CTSM/issues/2603
-        tool_path = os.path.join(
-            self._ctsm_root, "python", "ctsm", "crop_calendars", "interpolate_gdds.py"
-        )
-        command = " ".join(
-            [
-                f"python3 {tool_path}",
-                f"--input-file {self._fallback_gdds_file}",
-                f"--target-file {self._sdatefile}",
-                f"--output-file {self._gdds_file}",
-                "--overwrite",
-            ]
-        )
-        stu.run_python_script(
-            self._get_caseroot(),
-            self._this_conda_env,
-            command,
-            tool_path,
-        )
 
     def _get_conda_env(self) -> None:
         stu.cmds_to_setup_conda(self._get_caseroot())
@@ -590,3 +691,6 @@ class RXCROPMATURITY(RXCROPMATURITYSHARED):
 
     def run_phase(self) -> None:
         self._run_phase()
+
+    def generate_baseline_phase(self, basegen_dir):
+        _copy_files_from_gddgen_run_to_baseline(self._gddgen_phase_outdir, basegen_dir)
