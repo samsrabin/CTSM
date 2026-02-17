@@ -30,6 +30,7 @@ try:
     from python.ctsm.crop_calendars.systemtest_helpers.utils import (
         get_usable_years_for_check_rxboth_run,
     )
+    from python.ctsm.crop_calendars.cropcal_constants import FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
 except ImportError:
     import systemtest_utils as stu
     from CIME.SystemTests.system_tests_common import SystemTestsCommon
@@ -47,38 +48,46 @@ except ImportError:
     from ctsm.crop_calendars.systemtest_helpers.utils import (
         get_usable_years_for_check_rxboth_run,
     )
+    from ctsm.crop_calendars.cropcal_constants import FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
     from ctsm.machine_defaults import MACHINE_DEFAULTS
 
 logger = logging.getLogger(__name__)
 
-# See _copy_files_from_gddgen_run_to_baseline()
+# See _copy_extra_files_from_run_to_baseline()
 BASELINE_SUBDIR_WITH_INPUTS = "inputs_for_cropcal_script_tests"
 
-# See_get_baseline_dir_with_files_from_gddgen_run()
-BASELINE_VERSION_OF_GDDGEN_RUN_FILES = "ctsm5.4.019"
+# See _get_baseline_dir_with_files_from_gddgen_run()
+BASELINE_VERSION_OF_SCRIPT_INPUT_FILES = "ctsm5.4.019"
 
 
-def _copy_files_from_gddgen_run_to_baseline(
-    gddgen_out_dir: str, baseline_dir: str
+def _copy_extra_files_from_run_to_baseline(
+    which_script: str, gddgen_out_dir: str, baseline_dir: str
 ) -> None:
     """
     When we generate a baseline of an RXCROPMATURITY test, we want to save all the h1 and h2 files
-    for future use by RXCROPMATURITYSKIPFIRSTRUN tests. This function copies them to the RXCROPMATURITY
+    for future use by RXCROPMATURITYSCRIPTS tests. This function copies them to the RXCROPMATURITY
     test's baseline directory, in a new subdirectory. If the file already exists at the top level
     of the baseline directory, this script will just softlink it into the subdirectory.
     """
+    if which_script == "generate_gdds":
+        basename_pattern = "*clm2.h[12]i*.nc"
+    elif which_script == "check_rxboth_run":
+        basename_pattern = FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
+    else:
+        raise ValueError(f"Unrecognized {which_script=}")
+
     if not os.path.exists(gddgen_out_dir):
         raise FileNotFoundError(gddgen_out_dir)
     if not os.path.exists(baseline_dir):
         raise FileNotFoundError(baseline_dir)
 
     # Get files to copy
-    file_list = glob.glob(pattern := os.path.join(gddgen_out_dir, "*clm2.h[12]i*.nc"))
+    file_list = glob.glob(pattern := os.path.join(gddgen_out_dir, basename_pattern))
     if not file_list:
         raise FileNotFoundError(f"No files found matching pattern: '{pattern}'")
 
     # Create subdir in baseline
-    baseline_subdir = os.path.join(baseline_dir, BASELINE_SUBDIR_WITH_INPUTS)
+    baseline_subdir = os.path.join(baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, which_script)
     os.makedirs(baseline_subdir, mode=0o755)  # rwxr-xr-x
 
     for file in file_list:
@@ -93,17 +102,19 @@ def _copy_files_from_gddgen_run_to_baseline(
             os.chmod(target_file, 0o644)
 
 
-def _get_baseline_dir_with_files_from_gddgen_run(baseline_dir: str, res: str) -> str:
+def _get_baseline_dir_with_files_from_run(which_script: str, baseline_dir: str, res: str) -> str:
     """
-    Get the directory containing baseline files from a GDD-Generating run.
+    Get the directory containing baseline files from a run.
 
-    This function searches for baseline files from a previous GDD-Generating run that match the
-    specified resolution. It looks in a versioned baseline directory for tests with the
-    required output files.
+    This function searches for baseline files from a previous GDD-Generating or Prescribed Calendars
+    run that match the specified resolution. It looks in a versioned baseline directory for tests
+    with the required output files.
 
     Note that, if multiple such tests exist, it will only return the first it sees.
 
     Args:
+        which_script (str): Which script will be using this data? See options in
+                            _copy_extra_files_from_run_to_baseline().
         baseline_dir (str): The root directory containing baseline data.
         res (str): The resolution string to match (e.g., grid resolution).
 
@@ -117,11 +128,11 @@ def _get_baseline_dir_with_files_from_gddgen_run(baseline_dir: str, res: str) ->
             (expected at most one match).
     """
     # Get the path to the baseline version we want to use
-    this_baseline_dir = os.path.join(baseline_dir, BASELINE_VERSION_OF_GDDGEN_RUN_FILES)
+    this_baseline_dir = os.path.join(baseline_dir, BASELINE_VERSION_OF_SCRIPT_INPUT_FILES)
 
     # Find all cases in that baseline with outputs we can use
     gddgen_out_dir_list = glob.glob(
-        pattern := os.path.join(this_baseline_dir, "*", BASELINE_SUBDIR_WITH_INPUTS)
+        pattern := os.path.join(this_baseline_dir, "*", BASELINE_SUBDIR_WITH_INPUTS, which_script)
     )
     gddgen_out_dir_list.sort()
     if not gddgen_out_dir_list:
@@ -130,7 +141,7 @@ def _get_baseline_dir_with_files_from_gddgen_run(baseline_dir: str, res: str) ->
     # Find a case matching this case's grid
     baseline_dir_with_files_from_gddgen_run = None
     for d in gddgen_out_dir_list:
-        lnd_in = os.path.join(d, os.pardir, "CaseDocs", "lnd_in")
+        lnd_in = os.path.join(d, os.pardir, os.pardir, "CaseDocs", "lnd_in")
         with open(lnd_in, "r", encoding="utf8") as f:
             matches = re.findall(rf"-res {re.escape(res)}\b", f.read())
             if not matches:
@@ -151,7 +162,7 @@ def _get_baseline_dir_with_files_from_gddgen_run(baseline_dir: str, res: str) ->
 
 class RXCROPMATURITYSHARED(SystemTestsCommon):
     """
-    Parent class of RXCROPMATURITY and RXCROPMATURITYSKIPFIRSTRUN SystemTests
+    Parent class of RXCROPMATURITY and RXCROPMATURITYSCRIPTS SystemTests
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -163,6 +174,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._case: Case
 
         # Directories:
+        #   _check_rxboth_run_indir: Directory with files from Prescribed Calendars run, to be used
+        #                            as input to check_rxboth_run.py.
         #   _gddgen_baseline_dir: If generating an RXCROPMATURITY baseline, the relevant files from
         #                         _gddgen_phase_outdir will be copied here: A subdirectory of the
         #                         case's baseline directory.
@@ -171,10 +184,14 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         #   _generate_gdds_indir: Directory with files from GDD-Generating run, to be used as input
         #                         to generate_gdds.py.
         #   _generate_gdds_outdir: The directory where generate_gdds.py will save its outputs.
+        #   _prescribed_calendars_phase_outdir: Where the results from the Prescribed Calendars run
+        #                                       are saved after that case completes.
+        self._check_rxboth_run_indir: str = None
         self._generate_gdds_indir: str = None
         self._gddgen_baseline_dir: str = None
         self._gddgen_phase_outdir: str = None
         self._generate_gdds_outdir: str = None
+        self._prescribed_calendars_phase_outdir: str = None
 
         # Define other variables that will be set outside __init__()
 
@@ -195,14 +212,15 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Is this a real RXCROPMATURITY test or not?
         casebaseid: str = self._case.get_value("CASEBASEID")
         full_test = "RXCROPMATURITY_" in casebaseid
-        skipfirstrun_test = "RXCROPMATURITYSKIPFIRSTRUN_" in casebaseid
+        self._scriptsonly_test = "RXCROPMATURITYSCRIPTS_" in casebaseid
+        assert full_test ^ self._scriptsonly_test  # Assert that exactly one is true (XOR)
 
         # Get the run start year
         run_startdate: str = self._case.get_value("RUN_STARTDATE")
         self._run_startyear = int(run_startdate.split("-")[0])
 
         # Get the number of complete years that will be run
-        self._run_nyears = self._get_run_nyears(full_test, skipfirstrun_test)
+        self._run_nyears = self._get_run_nyears()
 
         # Only allow RXCROPMATURITY to be called with test cropMonthOutput
         if casebaseid.split("-")[-1] != "cropMonthOutput":
@@ -225,7 +243,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Which conda environment should we use?
         self._get_conda_env()
 
-    def _get_run_nyears(self, full_test: bool, skipfirstrun_test: bool) -> int:
+    def _get_run_nyears(self) -> int:
         """
         Get the number of complete years that will be run, checking that it's enough for the scripts
         to work and be tested properly.
@@ -258,19 +276,10 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 f"STOP_OPTION ({stop_option_orig}) must be nsecond(s), nminute(s), "
                 + "nhour(s), nday(s), nmonth(s), or nyear(s)"
             )
-        elif full_test and stop_n < 5:
+        elif not self._scriptsonly_test and stop_n < 5:
             error_message = (
                 "RXCROPMATURITY must be run for at least 5 years; you requested "
                 + f"{stop_n_orig} {stop_option_orig[1:]}"
-            )
-        elif skipfirstrun_test and stop_n < 3:
-            # First year is discarded because crops are already in the ground at restart, and those
-            # aren't affected by the new crop calendar inputs. The second year is useable, but we
-            # need a third year so that all crops planted in the second year have a chance to
-            # finish.
-            error_message = (
-                "RXCROPMATURITYSKIPFIRSTRUN (both-forced part) must be run for at least 3 years;"
-                f" you requested {stop_n_orig} {stop_option_orig[1:]}"
             )
         if error_message is not None:
             logger.error(error_message)
@@ -279,7 +288,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Get the number of complete years that will be run
         return int(stop_n)
 
-    def _run_phase(self, skip_firstrun: bool = False, h1_inst: bool = False) -> None:
+    def run_phase(self, h1_inst: bool = False) -> None:
         # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
         # want to be saved as baseline.
 
@@ -350,7 +359,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._skip_pnl = False
 
         # If not generating GDDs, only run a few days of this.
-        if skip_firstrun:
+        if self._scriptsonly_test:
             with Case(self._path_gddgen, read_only=False) as case:
                 case.set_value("STOP_N", 5)
                 case.set_value("STOP_OPTION", "ndays")
@@ -364,11 +373,11 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         # Process outputs into new crop maturity requirements file
         # First, get the directory with the run outputs.
-        if skip_firstrun:
+        if self._scriptsonly_test:
             baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
             lnd_grid = case_gddgen.get_value("LND_GRID")
-            self._generate_gdds_indir = _get_baseline_dir_with_files_from_gddgen_run(
-                baseline_dir, lnd_grid
+            self._generate_gdds_indir = _get_baseline_dir_with_files_from_run(
+                "generate_gdds", baseline_dir, lnd_grid
             )
         else:
             self._generate_gdds_indir = self._gddgen_phase_outdir
@@ -393,13 +402,32 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             ]
         )
 
+        # If not actually checking this run's outputs, only run a few days of this.
+        if self._scriptsonly_test:
+            with Case(self._path_gddgen, read_only=False) as case:
+                case.set_value("STOP_N", 5)
+                case.set_value("STOP_OPTION", "ndays")
+
         self.run_indv()
+
+        # This is needed for baseline-generating phase; see RXCROPMATURITY.generate_baseline_phase()
+        self._prescribed_calendars_phase_outdir = case_gddgen.get_value("RUNDIR")
 
         # -------------------------------------------------------------------
         # (4) Check Prescribed Calendars run
         # -------------------------------------------------------------------
         logger.info("RXCROPMATURITY log:  output check: Prescribed Calendars")
-        self._run_check_rxboth_run(skip_firstrun)
+        # First, get the directory with the run outputs.
+        if self._scriptsonly_test:
+            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
+            lnd_grid = case_gddgen.get_value("LND_GRID")
+            self._check_rxboth_run_indir = _get_baseline_dir_with_files_from_run(
+                "check_rxboth_run", baseline_dir, lnd_grid
+            )
+        else:
+            self._check_rxboth_run_indir = self._gddgen_phase_outdir
+        # Now run the check:
+        self._run_check_rxboth_run()
 
     # Get sowing and harvest dates for this resolution.
     def _get_rx_dates(self) -> None:
@@ -557,12 +585,10 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             cfg_out.write("PCT_OCEAN   = 0.0\n")
             cfg_out.write("PCT_URBAN   = 0.0 0.0 0.0\n")
 
-    def _run_check_rxboth_run(self, skip_firstrun: bool) -> None:
-
-        output_dir = os.path.join(self._get_caseroot(), "run")
+    def _run_check_rxboth_run(self) -> None:
 
         first_usable_year, last_usable_year = get_usable_years_for_check_rxboth_run(
-            self._run_startyear, self._run_nyears, skip_firstrun
+            self._run_startyear, self._run_nyears, self._scriptsonly_test
         )
 
         tool_path = os.path.join(
@@ -570,7 +596,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         )
         command = (
             f"python3 {tool_path} "
-            + f"--directory {output_dir} "
+            + f"--directory {self._check_rxboth_run_indir} "
             + f"-y1 {first_usable_year} "
             + f"-yN {last_usable_year} "
             + f"--rx-sdates-file {self._sdatefile} "
@@ -689,8 +715,14 @@ class RXCROPMATURITY(RXCROPMATURITYSHARED):
     Prescribed Calendars run with the resulting crop calendar input files.
     """
 
-    def run_phase(self) -> None:
-        self._run_phase()
-
     def generate_baseline_phase(self, basegen_dir):
-        _copy_files_from_gddgen_run_to_baseline(self._gddgen_phase_outdir, basegen_dir)
+        # Copy files from GDD-Generating phase
+        _copy_extra_files_from_run_to_baseline(
+            "generate_gdds", self._gddgen_phase_outdir, basegen_dir
+        )
+
+        # Copy files from Prescribed Calendars phase
+        # Copy files from GDD-Generating phase
+        _copy_extra_files_from_run_to_baseline(
+            "check_rxboth_run", self._prescribed_calendars_phase_outdir, basegen_dir
+        )

@@ -165,7 +165,7 @@ This defines various CTSM-specific system tests
     <HIST_N>$STOP_N</HIST_N>
   </test>
 
-  <test NAME="RXCROPMATURITYSKIPFIRSTRUN">
+  <test NAME="RXCROPMATURITYSCRIPTS">
     <DESC>As RXCROPMATURITY but don't actually generate GDDs. Allows short testing with existing GDD inputs.</DESC>
     <INFO_DBUG>1</INFO_DBUG>
     <DOUT_S>FALSE</DOUT_S>

@@ -4532,7 +4532,7 @@
     </options>
   </test>
 
-  <test name="RXCROPMATURITYSKIPFIRSTRUN_Ld1097" grid="f10_f10_mg37" compset="IHistClm60BgcCrop" testmods="clm/cropMonthOutput">
+  <test name="RXCROPMATURITYSCRIPTS_Ld1097" grid="f10_f10_mg37" compset="IHistClm60BgcCrop" testmods="clm/cropMonthOutput">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_clm"/>
       <machine name="derecho" compiler="intel" category="rxcropmaturity"/>

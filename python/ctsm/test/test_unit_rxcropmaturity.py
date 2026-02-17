@@ -17,10 +17,10 @@ sys.path.insert(1, _CTSM_ROOT)
 # pylint: disable=wrong-import-position
 from ctsm import unit_testing
 from cime_config.SystemTests.rxcropmaturity import (
-    _copy_files_from_gddgen_run_to_baseline,
-    _get_baseline_dir_with_files_from_gddgen_run,
+    _copy_extra_files_from_run_to_baseline,
+    _get_baseline_dir_with_files_from_run,
     BASELINE_SUBDIR_WITH_INPUTS,
-    BASELINE_VERSION_OF_GDDGEN_RUN_FILES,
+    BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
 )
 from cime.CIME.utils import SharedArea
 
@@ -47,6 +47,7 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         self.baseline_dir = os.path.join(self.temp_base, "baseline")
         os.makedirs(self.gddgen_out_dir)
         os.makedirs(self.baseline_dir)
+        self._which_script = "generate_gdds"
 
     def tearDown(self):
         """Clean up temporary directories"""
@@ -70,10 +71,14 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         h1a_filename = "test.clm2.h1a.2000-01-01.nc"
         _create_sample_file(self.gddgen_out_dir, h1a_filename, "h1a file content")
 
-        _copy_files_from_gddgen_run_to_baseline(self.gddgen_out_dir, self.baseline_dir)
+        _copy_extra_files_from_run_to_baseline(
+            self._which_script, self.gddgen_out_dir, self.baseline_dir
+        )
 
         # Check that subdirectory was created
-        baseline_subdir = os.path.join(self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS)
+        baseline_subdir = os.path.join(
+            self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, self._which_script
+        )
         self.assertTrue(os.path.exists(baseline_subdir))
 
         # Check that h1 and h2 files were copied
@@ -92,6 +97,23 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         h1a_file = os.path.join(baseline_subdir, h1a_filename)
         self.assertFalse(os.path.exists(h1a_file))
 
+    def test_basic_copy_functionality_checkrxboth(self):
+        """Test that which_script='check_rxboth_run' doesn't fail"""
+        expected_files = self._create_h1_h2_files()
+
+        _copy_extra_files_from_run_to_baseline(
+            "check_rxboth_run", self.gddgen_out_dir, self.baseline_dir
+        )
+
+    def test_error_invalid_whichscript(self):
+        """Test that error is thrown on unrecognized which_script"""
+        which_script = "jsdnfwoeurn3oi4n3"
+
+        with self.assertRaisesRegex(ValueError, f"Unrecognized.*{which_script}"):
+            _copy_extra_files_from_run_to_baseline(
+                which_script, self.gddgen_out_dir, self.baseline_dir
+            )
+
     def test_symlink_when_file_exists_in_baseline(self):
         """Test that symlinks are created when files already exist in baseline_dir"""
         # Create h1 file in gddgen_out_dir
@@ -104,10 +126,14 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         # Create the same file in baseline_dir (top level)
         existing_file = _create_sample_file(self.baseline_dir, filename, baseline_content)
 
-        _copy_files_from_gddgen_run_to_baseline(self.gddgen_out_dir, self.baseline_dir)
+        _copy_extra_files_from_run_to_baseline(
+            self._which_script, self.gddgen_out_dir, self.baseline_dir
+        )
 
         # Check that a symlink was created in the subdirectory
-        baseline_subdir = os.path.join(self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS)
+        baseline_subdir = os.path.join(
+            self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, self._which_script
+        )
         target_file = os.path.join(baseline_subdir, filename)
 
         self.assertTrue(os.path.islink(target_file))
@@ -133,9 +159,13 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         # Create only the first file in baseline_dir
         _create_sample_file(self.baseline_dir, filename1, baseline_content)
 
-        _copy_files_from_gddgen_run_to_baseline(self.gddgen_out_dir, self.baseline_dir)
+        _copy_extra_files_from_run_to_baseline(
+            self._which_script, self.gddgen_out_dir, self.baseline_dir
+        )
 
-        baseline_subdir = os.path.join(self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS)
+        baseline_subdir = os.path.join(
+            self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, self._which_script
+        )
         target_file1 = os.path.join(baseline_subdir, filename1)
         target_file2 = os.path.join(baseline_subdir, filename2)
 
@@ -154,7 +184,9 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         nonexistent_dir = "/path/that/does/not/exist"
 
         with self.assertRaises(FileNotFoundError) as context:
-            _copy_files_from_gddgen_run_to_baseline(nonexistent_dir, self.baseline_dir)
+            _copy_extra_files_from_run_to_baseline(
+                self._which_script, nonexistent_dir, self.baseline_dir
+            )
 
         self.assertEqual(str(context.exception), nonexistent_dir)
 
@@ -163,7 +195,9 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         nonexistent_dir = "/path/that/does/not/exist"
 
         with self.assertRaises(FileNotFoundError) as context:
-            _copy_files_from_gddgen_run_to_baseline(self.gddgen_out_dir, nonexistent_dir)
+            _copy_extra_files_from_run_to_baseline(
+                self._which_script, self.gddgen_out_dir, nonexistent_dir
+            )
 
         self.assertEqual(str(context.exception), nonexistent_dir)
 
@@ -174,7 +208,9 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         _create_sample_file(self.gddgen_out_dir, h1a_filename, "h1a file content")
 
         with self.assertRaises(FileNotFoundError) as context:
-            _copy_files_from_gddgen_run_to_baseline(self.gddgen_out_dir, self.baseline_dir)
+            _copy_extra_files_from_run_to_baseline(
+                self._which_script, self.gddgen_out_dir, self.baseline_dir
+            )
 
         # Check that error message contains the pattern
         error_msg = str(context.exception)
@@ -195,9 +231,13 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         for filename in files_to_create:
             _create_sample_file(self.gddgen_out_dir, filename, f"content of {filename}")
 
-        _copy_files_from_gddgen_run_to_baseline(self.gddgen_out_dir, self.baseline_dir)
+        _copy_extra_files_from_run_to_baseline(
+            self._which_script, self.gddgen_out_dir, self.baseline_dir
+        )
 
-        baseline_subdir = os.path.join(self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS)
+        baseline_subdir = os.path.join(
+            self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, self._which_script
+        )
 
         # Check that all files were copied
         for filename in files_to_create:
@@ -227,9 +267,13 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
         )
 
         with SharedArea():
-            _copy_files_from_gddgen_run_to_baseline(self.gddgen_out_dir, self.baseline_dir)
+            _copy_extra_files_from_run_to_baseline(
+                self._which_script, self.gddgen_out_dir, self.baseline_dir
+            )
 
-        baseline_subdir = os.path.join(self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS)
+        baseline_subdir = os.path.join(
+            self.baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, self._which_script
+        )
         target_file = os.path.join(baseline_subdir, filename)
 
         # Check that the copied file has standard permissions (0o644 = rw-r--r--)
@@ -267,8 +311,9 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
         """Create temporary baseline directory structure for testing"""
         self.temp_base = tempfile.mkdtemp()
         self.baseline_dir = os.path.join(self.temp_base, "baseline")
-        self.versioned_dir = os.path.join(self.baseline_dir, BASELINE_VERSION_OF_GDDGEN_RUN_FILES)
+        self.versioned_dir = os.path.join(self.baseline_dir, BASELINE_VERSION_OF_SCRIPT_INPUT_FILES)
         os.makedirs(self.versioned_dir)
+        self._which_script = "generate_gdds"
 
     def tearDown(self):
         """Clean up temporary directories"""
@@ -278,7 +323,7 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
     def _create_test_case(self, case_name, resolution):
         """Helper to create a test case directory with lnd_in file"""
         case_dir = os.path.join(self.versioned_dir, case_name)
-        inputs_dir = os.path.join(case_dir, BASELINE_SUBDIR_WITH_INPUTS)
+        inputs_dir = os.path.join(case_dir, BASELINE_SUBDIR_WITH_INPUTS, self._which_script)
         casedocs_dir = os.path.join(case_dir, "CaseDocs")
         os.makedirs(inputs_dir)
         os.makedirs(casedocs_dir)
@@ -300,7 +345,9 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
         expected_dir = self._create_test_case("test_case_f09", target_res)
         self._create_test_case("test_case_f10", "f10_f10_mg37")
 
-        result = _get_baseline_dir_with_files_from_gddgen_run(self.baseline_dir, target_res)
+        result = _get_baseline_dir_with_files_from_run(
+            self._which_script, self.baseline_dir, target_res
+        )
 
         self.assertEqual(result, expected_dir)
 
@@ -313,10 +360,12 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
         os.makedirs(case_dir)
 
         with self.assertRaises(FileNotFoundError) as context:
-            _get_baseline_dir_with_files_from_gddgen_run(self.baseline_dir, target_res)
+            _get_baseline_dir_with_files_from_run(self._which_script, self.baseline_dir, target_res)
 
         # Check that error message contains the expected pattern
-        expected_pattern = os.path.join(self.versioned_dir, "*", BASELINE_SUBDIR_WITH_INPUTS)
+        expected_pattern = os.path.join(
+            self.versioned_dir, "*", BASELINE_SUBDIR_WITH_INPUTS, self._which_script
+        )
         self.assertIn(expected_pattern, str(context.exception))
 
     def test_error_when_no_matching_resolution(self):
@@ -328,7 +377,7 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
         self._create_test_case("test_case_f10", "f10_f10_mg37")
 
         with self.assertRaises(FileNotFoundError) as context:
-            _get_baseline_dir_with_files_from_gddgen_run(self.baseline_dir, target_res)
+            _get_baseline_dir_with_files_from_run(self._which_script, self.baseline_dir, target_res)
 
         error_msg = str(context.exception)
         self.assertIn("No tests found", error_msg)
@@ -341,7 +390,7 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
 
         # Create case with lnd_in containing multiple matches
         case_dir = os.path.join(self.versioned_dir, "test_case")
-        inputs_dir = os.path.join(case_dir, BASELINE_SUBDIR_WITH_INPUTS)
+        inputs_dir = os.path.join(case_dir, BASELINE_SUBDIR_WITH_INPUTS, self._which_script)
         casedocs_dir = os.path.join(case_dir, "CaseDocs")
         os.makedirs(inputs_dir)
         os.makedirs(casedocs_dir)
@@ -351,7 +400,7 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
         _create_sample_file(casedocs_dir, "lnd_in", lnd_in_content)
 
         with self.assertRaises(RuntimeError) as context:
-            _get_baseline_dir_with_files_from_gddgen_run(self.baseline_dir, target_res)
+            _get_baseline_dir_with_files_from_run(self._which_script, self.baseline_dir, target_res)
 
         error_msg = str(context.exception)
         self.assertIn("Expected at most 1 match", error_msg)
@@ -365,7 +414,9 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
 
         expected_dir = self._create_test_case("test_case", target_res)
 
-        result = _get_baseline_dir_with_files_from_gddgen_run(self.baseline_dir, target_res)
+        result = _get_baseline_dir_with_files_from_run(
+            self._which_script, self.baseline_dir, target_res
+        )
 
         self.assertEqual(result, expected_dir)
 
@@ -378,7 +429,7 @@ class TestGetBaselineDirWithFilesFromGddgenRun(unittest.TestCase):
 
         # Should not match because we're looking for exact "-res f09", not "-res f09_g17"
         with self.assertRaises(FileNotFoundError):
-            _get_baseline_dir_with_files_from_gddgen_run(self.baseline_dir, target_res)
+            _get_baseline_dir_with_files_from_run(self._which_script, self.baseline_dir, target_res)
 
 
 if __name__ == "__main__":

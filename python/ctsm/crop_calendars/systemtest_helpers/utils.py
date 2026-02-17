@@ -6,10 +6,10 @@ from typing import Tuple
 
 
 def get_usable_years_for_check_rxboth_run(
-    run_startyear: int, run_nyears: int, skip_firstrun: bool
+    run_startyear: int, run_nyears: int, scriptsonly_test: bool
 ) -> Tuple[int, int]:
     """Get the first and last years to run through check_rxboth_run.py"""
-    if skip_firstrun:
+    if scriptsonly_test:
         first_usable_year = run_startyear + 1
         last_usable_year = first_usable_year
     else:

@@ -21,6 +21,9 @@ rather than actually importing this module. So this module should be viewed as a
 convenience that can be used by scripts with simple needs, but does not need to be used.
 """
 
-from ctsm.path_utils import add_cime_lib_to_path
+try:
+    from ctsm.path_utils import add_cime_lib_to_path
+except ImportError:
+    from python.ctsm.path_utils import add_cime_lib_to_path
 
 _ = add_cime_lib_to_path()

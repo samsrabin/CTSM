@@ -22,6 +22,9 @@ from ctsm.crop_calendars.check_rx_obeyed import (  # pylint: disable=wrong-impor
 from ctsm.crop_calendars.check_constant_vars import (  # pylint: disable=wrong-import-position
     check_constant_vars,
 )
+from ctsm.crop_calendars.cropcal_constants import (  # pylint: disable=wrong-import-position
+    FILE_PATTERN_FOR_CHECK_RXBOTH_RUN,
+)
 
 
 def main(argv):
@@ -78,7 +81,7 @@ def main(argv):
 
     any_bad = False
 
-    annual_outfiles = glob.glob(os.path.join(args.directory, "*.clm2.h1i.*.nc"))
+    annual_outfiles = glob.glob(os.path.join(args.directory, FILE_PATTERN_FOR_CHECK_RXBOTH_RUN))
 
     # These should be constant in a Prescribed Calendars (rxboth) run, as long as the inputs were
     # static.
