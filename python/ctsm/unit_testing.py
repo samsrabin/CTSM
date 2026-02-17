@@ -4,6 +4,10 @@ from pathlib import Path
 import sys
 from ctsm.ctsm_logging import setup_logging_for_tests
 
+# Just importing this, even if we never use it, makes it so that CIME imports in tested modules
+# don't fail.
+from ctsm import add_cime_to_path  # pylint: disable=unused-import
+
 
 def add_machine_node_args(machine, nodes, tasks):
     """add arguments to sys.argv"""
