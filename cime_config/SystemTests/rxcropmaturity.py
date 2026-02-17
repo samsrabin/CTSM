@@ -63,7 +63,7 @@ def _copy_files_from_gddgen_run_to_baseline(
 ) -> None:
     """
     When we generate a baseline of an RXCROPMATURITY test, we want to save all the h1 and h2 files
-    for future use by RXCROPMATURITYSKIPGEN tests. This function copies them to the RXCROPMATURITY
+    for future use by RXCROPMATURITYSKIPFIRSTRUN tests. This function copies them to the RXCROPMATURITY
     test's baseline directory, in a new subdirectory. If the file already exists at the top level
     of the baseline directory, this script will just softlink it into the subdirectory.
     """
@@ -195,14 +195,14 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Is this a real RXCROPMATURITY test or not?
         casebaseid: str = self._case.get_value("CASEBASEID")
         full_test = "RXCROPMATURITY_" in casebaseid
-        skipgen_test = "RXCROPMATURITYSKIPGEN_" in casebaseid
+        skipfirstrun_test = "RXCROPMATURITYSKIPFIRSTRUN_" in casebaseid
 
         # Get the run start year
         run_startdate: str = self._case.get_value("RUN_STARTDATE")
         self._run_startyear = int(run_startdate.split("-")[0])
 
         # Get the number of complete years that will be run
-        self._run_nyears = self._get_run_nyears(full_test, skipgen_test)
+        self._run_nyears = self._get_run_nyears(full_test, skipfirstrun_test)
 
         # Only allow RXCROPMATURITY to be called with test cropMonthOutput
         if casebaseid.split("-")[-1] != "cropMonthOutput":
@@ -225,7 +225,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Which conda environment should we use?
         self._get_conda_env()
 
-    def _get_run_nyears(self, full_test: bool, skipgen_test: bool) -> int:
+    def _get_run_nyears(self, full_test: bool, skipfirstrun_test: bool) -> int:
         """
         Get the number of complete years that will be run, checking that it's enough for the scripts
         to work and be tested properly.
@@ -263,13 +263,13 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 "RXCROPMATURITY must be run for at least 5 years; you requested "
                 + f"{stop_n_orig} {stop_option_orig[1:]}"
             )
-        elif skipgen_test and stop_n < 3:
+        elif skipfirstrun_test and stop_n < 3:
             # First year is discarded because crops are already in the ground at restart, and those
             # aren't affected by the new crop calendar inputs. The second year is useable, but we
             # need a third year so that all crops planted in the second year have a chance to
             # finish.
             error_message = (
-                "RXCROPMATURITYSKIPGEN (both-forced part) must be run for at least 3 years;"
+                "RXCROPMATURITYSKIPFIRSTRUN (both-forced part) must be run for at least 3 years;"
                 f" you requested {stop_n_orig} {stop_option_orig[1:]}"
             )
         if error_message is not None:
@@ -279,7 +279,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Get the number of complete years that will be run
         return int(stop_n)
 
-    def _run_phase(self, skip_gen: bool = False, h1_inst: bool = False) -> None:
+    def _run_phase(self, skip_firstrun: bool = False, h1_inst: bool = False) -> None:
         # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
         # want to be saved as baseline.
 
@@ -350,7 +350,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._skip_pnl = False
 
         # If not generating GDDs, only run a few days of this.
-        if skip_gen:
+        if skip_firstrun:
             with Case(self._path_gddgen, read_only=False) as case:
                 case.set_value("STOP_N", 5)
                 case.set_value("STOP_OPTION", "ndays")
@@ -364,7 +364,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         # Process outputs into new crop maturity requirements file
         # First, get the directory with the run outputs.
-        if skip_gen:
+        if skip_firstrun:
             baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
             lnd_grid = case_gddgen.get_value("LND_GRID")
             self._generate_gdds_indir = _get_baseline_dir_with_files_from_gddgen_run(
@@ -399,7 +399,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # (4) Check Prescribed Calendars run
         # -------------------------------------------------------------------
         logger.info("RXCROPMATURITY log:  output check: Prescribed Calendars")
-        self._run_check_rxboth_run(skip_gen)
+        self._run_check_rxboth_run(skip_firstrun)
 
     # Get sowing and harvest dates for this resolution.
     def _get_rx_dates(self) -> None:
@@ -557,12 +557,12 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             cfg_out.write("PCT_OCEAN   = 0.0\n")
             cfg_out.write("PCT_URBAN   = 0.0 0.0 0.0\n")
 
-    def _run_check_rxboth_run(self, skip_gen: bool) -> None:
+    def _run_check_rxboth_run(self, skip_firstrun: bool) -> None:
 
         output_dir = os.path.join(self._get_caseroot(), "run")
 
         first_usable_year, last_usable_year = get_usable_years_for_check_rxboth_run(
-            self._run_startyear, self._run_nyears, skip_gen
+            self._run_startyear, self._run_nyears, skip_firstrun
         )
 
         tool_path = os.path.join(

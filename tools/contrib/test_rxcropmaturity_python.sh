@@ -2,7 +2,7 @@
 set -e
 
 # This script is designed to easily test updated versions of the code in python/ctsm/crop_calendars/
-# on outputs of the rxcropmaturity test suite. For RXCROPMATURITYSKIPGEN tests (i.e., skipping the
+# on outputs of the rxcropmaturity test suite. For RXCROPMATURITYSKIPFIRSTRUN tests (i.e., skipping the
 # GDD-generating step, it will rerun check_rxboth_run.py. It will also do this for RXCROPMATURITY
 # tests whose call of generate_gdds.py completed successfully. For RXCROPMATURITY tests where that
 # failed, it will retry the generate_gdds.py call. Tests are performed with both the ctsm_pylib
@@ -18,13 +18,13 @@ set -e
 #     ctsm_pylib
 #        RXCROPMATURITYINST_Lm61.f10_f10_mg37.IHist check_rxboth_run ✅
 #        RXCROPMATURITY_Lm61.f10_f10_mg37.IHist generate_gdds 🔴
-#        RXCROPMATURITYSKIPGENINST_Ld1097.f10_f10_mg37.IHist check_rxboth_run ✅
-#        RXCROPMATURITYSKIPGEN_Ld1097.f10_f10_mg37.IHist check_rxboth_run 🔴
+#        RXCROPMATURITYSKIPFIRSTRUNINST_Ld1097.f10_f10_mg37.IHist check_rxboth_run ✅
+#        RXCROPMATURITYSKIPFIRSTRUN_Ld1097.f10_f10_mg37.IHist check_rxboth_run 🔴
 #     npl
 #        RXCROPMATURITYINST_Lm61.f10_f10_mg37.IHist check_rxboth_run ✅
 #        RXCROPMATURITY_Lm61.f10_f10_mg37.IHist generate_gdds ✅
-#        RXCROPMATURITYSKIPGENINST_Ld1097.f10_f10_mg37.IHist check_rxboth_run ✅
-#        RXCROPMATURITYSKIPGEN_Ld1097.f10_f10_mg37.IHist check_rxboth_run ✅
+#        RXCROPMATURITYSKIPFIRSTRUNINST_Ld1097.f10_f10_mg37.IHist check_rxboth_run ✅
+#        RXCROPMATURITYSKIPFIRSTRUN_Ld1097.f10_f10_mg37.IHist check_rxboth_run ✅
 #
 # Log files for each will be saved as TEST_SHORTNAME.CONDA_ENV.log.
 
