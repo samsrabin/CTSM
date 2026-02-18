@@ -305,7 +305,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         # Get the directories that scripts will use. Do this now, before running any cases, to fail
         # quickly if only doing an RXCROPMATURITYSCRIPTS test but there's no baseline available.
-        self._get_dirs_for_scripts(case_gddgen)
+        self._get_dirs_for_scripts(case_gddgen, case_rxboth)
 
         # -------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
@@ -356,7 +356,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Run GDD-Generating case
         self.run_indv(suffix=None, st_archive=True)
 
-    def _get_dirs_for_scripts(self, case_gddgen: Case):
+    def _get_dirs_for_scripts(self, case_gddgen: Case, case_rxboth: Case):
         if self._scriptsonly_test:
             baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
             lnd_grid = case_gddgen.get_value("LND_GRID")
@@ -374,7 +374,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             self._gddgen_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
             self._generate_gdds_indir = self._gddgen_phase_outdir
             # Input for check_rxboth_run.py
-            self._prescribed_calendars_phase_outdir = case_gddgen.get_value("RUNDIR")
+            self._prescribed_calendars_phase_outdir = case_rxboth.get_value("RUNDIR")
             self._check_rxboth_run_indir = self._prescribed_calendars_phase_outdir
 
     def _setup_case_gddgen(self, h1_inst: bool, caseroot: str, case_gddgen: Case):
