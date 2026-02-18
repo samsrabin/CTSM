@@ -367,8 +367,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             self._gddgen_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
             self._generate_gdds_indir = self._gddgen_phase_outdir
             # Input for check_rxboth_run.py
-            dout_sr = case_rxboth.get_value("DOUT_S_ROOT")
-            self._prescribed_calendars_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
+            self._prescribed_calendars_phase_outdir = case_gddgen.get_value("RUNDIR")
             self._check_rxboth_run_indir = self._prescribed_calendars_phase_outdir
 
         # -------------------------------------------------------------------
@@ -412,9 +411,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 case.set_value("STOP_OPTION", "ndays")
 
         self.run_indv()
-
-        # This is needed for baseline-generating phase; see RXCROPMATURITY.generate_baseline_phase()
-        self._prescribed_calendars_phase_outdir = case_gddgen.get_value("RUNDIR")
 
         # -------------------------------------------------------------------
         # (4) Check Prescribed Calendars run
