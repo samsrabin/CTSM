@@ -296,17 +296,88 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # (1) Set up GDD-generating run
         # -------------------------------------------------------------------
         # Create clone to be GDD-Generating case
-        logger.info("RXCROPMATURITY log:  cloning setup")
-        case_rxboth = self._case
-        caseroot: str = self._case.get_value("CASEROOT")
-        clone_path = f"{caseroot}.gddgen"
-        self._path_gddgen = clone_path
-        if os.path.exists(self._path_gddgen):
-            shutil.rmtree(self._path_gddgen)
-        logger.info("RXCROPMATURITY log:  cloning")
-        case_gddgen: Case = self._case.create_clone(clone_path, keepexe=True)
-        logger.info("RXCROPMATURITY log:  done cloning")
+        case_rxboth, caseroot, case_gddgen = self._create_case_gddgen()
 
+        os.chdir(self._path_gddgen)
+        self._set_active_case(case_gddgen)
+
+        self._setup_case_gddgen(h1_inst, caseroot, case_gddgen)
+
+        # Get the directories that scripts will use. Do this now, before running any cases, to fail
+        # quickly if only doing an RXCROPMATURITYSCRIPTS test but there's no baseline available.
+        self._get_dirs_for_scripts(case_gddgen)
+
+        # -------------------------------------------------------------------
+        # (2) Perform GDD-generating run and generate prescribed GDDs file
+        # -------------------------------------------------------------------
+        self._run_case_gdden()
+
+        # Process outputs into new crop maturity requirements file
+        self._run_generate_gdds(self._generate_gdds_indir)
+
+        # -------------------------------------------------------------------
+        # (3) Set up and perform Prescribed Calendars run
+        # -------------------------------------------------------------------
+        os.chdir(caseroot)
+        self._set_active_case(case_rxboth)
+
+        # Set up stuff that applies to both tests
+        self._setup_case_rxboth(h1_inst)
+
+        # Run
+        self.run_indv()
+
+        # -------------------------------------------------------------------
+        # (4) Check Prescribed Calendars run
+        # -------------------------------------------------------------------
+        logger.info("RXCROPMATURITY log:  output check: Prescribed Calendars")
+        self._run_check_rxboth_run()
+
+    def _setup_case_rxboth(self, h1_inst):
+        self._setup_all(h1_inst)
+
+        # Add stuff specific to Prescribed Calendars run
+        logger.info("RXCROPMATURITY log:  modify user_nl files: Prescribed Calendars")
+        self._append_to_user_nl_clm(
+            [
+                "generate_crop_gdds = .false.",
+                f"stream_fldFileName_cultivar_gdds = '{self._gdds_file}'",
+            ]
+        )
+
+    def _run_case_gdden(self):
+        logger.info("RXCROPMATURITY log:  Start GDD-Generating run")
+
+        # As per SSP test:
+        # "No history files expected, set suffix=None to avoid compare error"
+        # We *do* expect history files here, but anyway. This works.
+        self._skip_pnl = False
+
+        # Run GDD-Generating case
+        self.run_indv(suffix=None, st_archive=True)
+
+    def _get_dirs_for_scripts(self, case_gddgen: Case):
+        if self._scriptsonly_test:
+            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
+            lnd_grid = case_gddgen.get_value("LND_GRID")
+            # Input for generate_gdds.py
+            self._generate_gdds_indir = _get_baseline_dir_with_files_from_run(
+                "generate_gdds", baseline_dir, lnd_grid
+            )
+            # Input for check_rxboth_run.py
+            self._check_rxboth_run_indir = _get_baseline_dir_with_files_from_run(
+                "check_rxboth_run", baseline_dir, lnd_grid
+            )
+        else:
+            # Input for generate_gdds.py
+            dout_sr = case_gddgen.get_value("DOUT_S_ROOT")
+            self._gddgen_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
+            self._generate_gdds_indir = self._gddgen_phase_outdir
+            # Input for check_rxboth_run.py
+            self._prescribed_calendars_phase_outdir = case_gddgen.get_value("RUNDIR")
+            self._check_rxboth_run_indir = self._prescribed_calendars_phase_outdir
+
+    def _setup_case_gddgen(self, h1_inst: bool, caseroot: str, case_gddgen: Case):
         os.chdir(self._path_gddgen)
         self._set_active_case(case_gddgen)
 
@@ -334,7 +405,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # should have every crop in most of the world.
         self._get_flanduse_timeseries_in(case_gddgen)
         if self._flanduse_timeseries_in is not None:
-
             # Download files from the server, if needed
             case_gddgen.check_all_input_data()
 
@@ -348,69 +418,18 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             logger.info("RXCROPMATURITY log:  run fsurdat_modifier")
             self._run_fsurdat_modifier()
 
-        # Get the directories that scripts will use. Do this now, before running any cases, to fail
-        # quickly if only doing an RXCROPMATURITYSCRIPTS test but there's no baseline available.
-        if self._scriptsonly_test:
-            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
-            lnd_grid = case_gddgen.get_value("LND_GRID")
-            # Input for generate_gdds.py
-            self._generate_gdds_indir = _get_baseline_dir_with_files_from_run(
-                "generate_gdds", baseline_dir, lnd_grid
-            )
-            # Input for check_rxboth_run.py
-            self._check_rxboth_run_indir = _get_baseline_dir_with_files_from_run(
-                "check_rxboth_run", baseline_dir, lnd_grid
-            )
-        else:
-            # Input for generate_gdds.py
-            dout_sr = case_gddgen.get_value("DOUT_S_ROOT")
-            self._gddgen_phase_outdir = os.path.join(dout_sr, "lnd", "hist")
-            self._generate_gdds_indir = self._gddgen_phase_outdir
-            # Input for check_rxboth_run.py
-            self._prescribed_calendars_phase_outdir = case_gddgen.get_value("RUNDIR")
-            self._check_rxboth_run_indir = self._prescribed_calendars_phase_outdir
-
-        # -------------------------------------------------------------------
-        # (2) Perform GDD-generating run and generate prescribed GDDs file
-        # -------------------------------------------------------------------
-        logger.info("RXCROPMATURITY log:  Start GDD-Generating run")
-
-        # As per SSP test:
-        # "No history files expected, set suffix=None to avoid compare error"
-        # We *do* expect history files here, but anyway. This works.
-        self._skip_pnl = False
-
-        # Run GDD-Generating case
-        self.run_indv(suffix=None, st_archive=True)
-
-        # Process outputs into new crop maturity requirements file
-        self._run_generate_gdds(self._generate_gdds_indir)
-
-        # -------------------------------------------------------------------
-        # (3) Set up and perform Prescribed Calendars run
-        # -------------------------------------------------------------------
-        os.chdir(caseroot)
-        self._set_active_case(case_rxboth)
-
-        # Set up stuff that applies to both tests
-        self._setup_all(h1_inst)
-
-        # Add stuff specific to Prescribed Calendars run
-        logger.info("RXCROPMATURITY log:  modify user_nl files: Prescribed Calendars")
-        self._append_to_user_nl_clm(
-            [
-                "generate_crop_gdds = .false.",
-                f"stream_fldFileName_cultivar_gdds = '{self._gdds_file}'",
-            ]
-        )
-
-        self.run_indv()
-
-        # -------------------------------------------------------------------
-        # (4) Check Prescribed Calendars run
-        # -------------------------------------------------------------------
-        logger.info("RXCROPMATURITY log:  output check: Prescribed Calendars")
-        self._run_check_rxboth_run()
+    def _create_case_gddgen(self):
+        logger.info("RXCROPMATURITY log:  cloning setup")
+        case_rxboth = self._case
+        caseroot: str = self._case.get_value("CASEROOT")
+        clone_path = f"{caseroot}.gddgen"
+        self._path_gddgen = clone_path
+        if os.path.exists(self._path_gddgen):
+            shutil.rmtree(self._path_gddgen)
+        logger.info("RXCROPMATURITY log:  cloning")
+        case_gddgen: Case = self._case.create_clone(clone_path, keepexe=True)
+        logger.info("RXCROPMATURITY log:  done cloning")
+        return case_rxboth,caseroot,case_gddgen
 
     # Get sowing and harvest dates for this resolution.
     def _get_rx_dates(self) -> None:
