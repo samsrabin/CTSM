@@ -404,12 +404,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             ]
         )
 
-        # If not actually checking this run's outputs, only run a few days of this.
-        if self._scriptsonly_test:
-            with Case(self._path_gddgen, read_only=False) as case:
-                case.set_value("STOP_N", 5)
-                case.set_value("STOP_OPTION", "ndays")
-
         self.run_indv()
 
         # -------------------------------------------------------------------
