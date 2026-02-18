@@ -30,7 +30,9 @@ try:
     from python.ctsm.crop_calendars.systemtest_helpers.utils import (
         get_usable_years_for_check_rxboth_run,
     )
-    from python.ctsm.crop_calendars.cropcal_constants import FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
+    from python.ctsm.crop_calendars.cropcal_constants import (
+        FILE_PATTERN_FOR_CHECK_RXBOTH_RUN,
+    )
 except ImportError:
     import systemtest_utils as stu
     from CIME.SystemTests.system_tests_common import SystemTestsCommon
@@ -87,7 +89,9 @@ def _copy_extra_files_from_run_to_baseline(
         raise FileNotFoundError(f"No files found matching pattern: '{pattern}'")
 
     # Create subdir in baseline
-    baseline_subdir = os.path.join(baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, which_script)
+    baseline_subdir = os.path.join(
+        baseline_dir, BASELINE_SUBDIR_WITH_INPUTS, which_script
+    )
     os.makedirs(baseline_subdir, mode=0o755)  # rwxr-xr-x
 
     for file in file_list:
@@ -102,7 +106,9 @@ def _copy_extra_files_from_run_to_baseline(
             os.chmod(target_file, 0o644)
 
 
-def _get_baseline_dir_with_files_from_run(which_script: str, baseline_dir: str, res: str) -> str:
+def _get_baseline_dir_with_files_from_run(
+    which_script: str, baseline_dir: str, res: str
+) -> str:
     """
     Get the directory containing baseline files from a run.
 
@@ -128,11 +134,15 @@ def _get_baseline_dir_with_files_from_run(which_script: str, baseline_dir: str, 
             (expected at most one match).
     """
     # Get the path to the baseline version we want to use
-    this_baseline_dir = os.path.join(baseline_dir, BASELINE_VERSION_OF_SCRIPT_INPUT_FILES)
+    this_baseline_dir = os.path.join(
+        baseline_dir, BASELINE_VERSION_OF_SCRIPT_INPUT_FILES
+    )
 
     # Find all cases in that baseline with outputs we can use
     gddgen_out_dir_list = glob.glob(
-        pattern := os.path.join(this_baseline_dir, "*", BASELINE_SUBDIR_WITH_INPUTS, which_script)
+        pattern := os.path.join(
+            this_baseline_dir, "*", BASELINE_SUBDIR_WITH_INPUTS, which_script
+        )
     )
     gddgen_out_dir_list.sort()
     if not gddgen_out_dir_list:
@@ -213,7 +223,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         casebaseid: str = self._case.get_value("CASEBASEID")
         full_test = "RXCROPMATURITY_" in casebaseid
         self._scriptsonly_test = "RXCROPMATURITYSCRIPTS_" in casebaseid
-        assert full_test ^ self._scriptsonly_test  # Assert that exactly one is true (XOR)
+        # Assert that exactly one is true (XOR)
+        assert full_test ^ self._scriptsonly_test
 
         # Get the run start year
         run_startdate: str = self._case.get_value("RUN_STARTDATE")
@@ -433,7 +444,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         logger.info("RXCROPMATURITY log:  cloning")
         case_gddgen: Case = self._case.create_clone(clone_path, keepexe=True)
         logger.info("RXCROPMATURITY log:  done cloning")
-        return case_rxboth,caseroot,case_gddgen
+        return case_rxboth, caseroot, case_gddgen
 
     # Get sowing and harvest dates for this resolution.
     def _get_rx_dates(self) -> None:
