@@ -356,9 +356,13 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Run GDD-Generating case
         self.run_indv(suffix=None, st_archive=True)
 
+    # TODO: Move this to be module-level, since self isn't used
+    def _get_baseline_dir(self, case: Case):
+        return MACHINE_DEFAULTS[case.get_value("MACH")].baseline_dir
+
     def _get_dirs_for_scripts(self, case_gddgen: Case, case_rxboth: Case):
         if self._scriptsonly_test:
-            baseline_dir = MACHINE_DEFAULTS[case_gddgen.get_value("MACH")].baseline_dir
+            baseline_dir = self._get_baseline_dir(case_gddgen)
             lnd_grid = case_gddgen.get_value("LND_GRID")
             # Input for generate_gdds.py
             self._generate_gdds_indir = _get_baseline_dir_with_files_from_run(

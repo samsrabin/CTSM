@@ -1,7 +1,10 @@
-from rxcropmaturity import RXCROPMATURITYSHARED
+try:
+    from . import rxcropmaturity
+except ImportError:
+    import rxcropmaturity
 
 
-class RXCROPMATURITYSCRIPTS(RXCROPMATURITYSHARED):
+class RXCROPMATURITYSCRIPTS(rxcropmaturity.RXCROPMATURITYSHARED):
     """
     Version of RXCROPMATURITYSHARED test that will skip both GDD-Generating and Prescribed Calendars
     runs, instead just testing the crop calendar scripts using archived inputs. The logic for
