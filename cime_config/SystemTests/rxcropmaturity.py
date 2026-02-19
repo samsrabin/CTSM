@@ -214,15 +214,11 @@ def _get_seasons_for_generate_gdds(run_startyear: int, run_nyears: int) -> Tuple
 
 
 def _get_usable_years_for_check_rxboth_run(
-    run_startyear: int, run_nyears: int, scriptsonly_test: bool
+    run_startyear: int, run_nyears: int
 ) -> Tuple[int, int]:
     """Get the first and last years to run through check_rxboth_run.py"""
-    if scriptsonly_test:
-        first_usable_year = run_startyear + 1
-        last_usable_year = first_usable_year
-    else:
-        first_usable_year = run_startyear + 2
-        last_usable_year = run_startyear + run_nyears - 2
+    first_usable_year = run_startyear + 2
+    last_usable_year = run_startyear + run_nyears - 2
     return first_usable_year, last_usable_year
 
 
@@ -462,7 +458,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         )
         self._checkrxboth_first_usable_year, self._checkrxboth_last_usable_year = (
             _get_usable_years_for_check_rxboth_run(
-                self._run_startyear, self._run_nyears, self._scriptsonly_test
+                self._run_startyear, self._run_nyears
             )
         )
 
