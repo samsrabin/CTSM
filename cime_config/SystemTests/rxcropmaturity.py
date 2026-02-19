@@ -348,7 +348,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Get the number of complete years that will be run
         return int(stop_n)
 
-    def run_phase(self, h1_inst: bool = False) -> None:
+    def run_phase(self) -> None:
         # Modeling this after the SSP test, we create a clone to be the case whose outputs we don't
         # want to be saved as baseline.
 
@@ -361,7 +361,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         os.chdir(self._path_gddgen)
         self._set_active_case(case_gddgen)
 
-        self._setup_case_gddgen(h1_inst, caseroot, case_gddgen)
+        self._setup_case_gddgen(caseroot, case_gddgen)
 
         # Get the directories that scripts will use. Do this now, before running any cases, to fail
         # quickly if only doing an RXCROPMATURITYSCRIPTS test but there's no baseline available.
@@ -382,7 +382,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._set_active_case(case_rxboth)
 
         # Set up stuff that applies to both tests
-        self._setup_case_rxboth(h1_inst)
+        self._setup_case_rxboth()
 
         # Run
         self.run_indv()
@@ -393,8 +393,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         log(logger, "RXCROPMATURITY log:  output check: Prescribed Calendars")
         self._run_check_rxboth_run()
 
-    def _setup_case_rxboth(self, h1_inst):
-        self._setup_all(h1_inst)
+    def _setup_case_rxboth(self):
+        self._setup_all()
 
         # Add stuff specific to Prescribed Calendars run
         log(logger, "RXCROPMATURITY log:  modify user_nl files: Prescribed Calendars")
@@ -441,12 +441,12 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             self._prescribed_calendars_phase_outdir = case_rxboth.get_value("RUNDIR")
             self._check_rxboth_run_indir = self._prescribed_calendars_phase_outdir
 
-    def _setup_case_gddgen(self, h1_inst: bool, caseroot: str, case_gddgen: Case):
+    def _setup_case_gddgen(self, caseroot: str, case_gddgen: Case):
         os.chdir(self._path_gddgen)
         self._set_active_case(case_gddgen)
 
         # Set up stuff that applies to both tests
-        self._setup_all(h1_inst)
+        self._setup_all()
 
         # Add stuff specific to GDD-Generating run
         log(logger, "RXCROPMATURITY log:  modify user_nl files: generate GDDs")
@@ -548,12 +548,12 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         if error_message is not None:
             error(logger, error_message, error_type=RuntimeError)
 
-    def _setup_all(self, h1_inst: bool) -> None:
+    def _setup_all(self) -> None:
         log(logger, "RXCROPMATURITY log:  _setup_all start")
 
         # Set sowing dates file (and other crop calendar settings) for all runs
         log(logger, "RXCROPMATURITY log:  modify user_nl files: all tests")
-        self._modify_user_nl_allruns(h1_inst)
+        self._modify_user_nl_allruns()
         log(logger, "RXCROPMATURITY log:  _setup_all done")
 
     # Make a surface dataset that has every crop in every gridcell
@@ -674,7 +674,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             tool_path,
         )
 
-    def _modify_user_nl_allruns(self, h1_inst: bool) -> None:
+    def _modify_user_nl_allruns(self) -> None:
         nl_additions = [
             "cropcals_rx = .true.",
             "cropcals_rx_adapt = .false.",
@@ -697,8 +697,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             "hist_type1d_pertape(2) = 'PFTS'",
             "hist_dov2xy(2) = .false.",
         ]
-        if h1_inst:
-            nl_additions.append("hist_avgflag_pertape(2) = 'I'")
+        nl_additions.append("hist_avgflag_pertape(2) = 'I'")
         self._append_to_user_nl_clm(nl_additions)
 
     def _run_generate_gdds(self, input_dir: str):
