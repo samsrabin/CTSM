@@ -253,6 +253,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._prescribed_calendars_phase_outdir: str = None
 
         # Define other variables that will be set outside __init__()
+        self._caseroot_gddgen: str = None
+        self._caseroot_rxboth: str = None
         self._cfg_path: str = None
         self._checkrxboth_first_usable_year: int = None
         self._checkrxboth_last_usable_year: int = None
@@ -262,7 +264,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._generate_gdds_first_season: int = None
         self._generate_gdds_last_season: int = None
         self._lnd_in_path: str = None
-        self._path_gddgen: str = None
         self._run_startyear: int = None
         self._run_nyears: int = None
         self._this_conda_env: str = None
@@ -356,12 +357,12 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # (1) Set up GDD-generating run
         # -------------------------------------------------------------------
         # Create clone to be GDD-Generating case
-        case_rxboth, caseroot, case_gddgen = self._create_case_gddgen()
+        case_rxboth, case_gddgen = self._create_case_gddgen()
 
-        os.chdir(self._path_gddgen)
+        os.chdir(self._caseroot_gddgen)
         self._set_active_case(case_gddgen)
 
-        self._setup_case_gddgen(caseroot, case_gddgen)
+        self._setup_case_gddgen(case_gddgen)
 
         # Get the directories that scripts will use. Do this now, before running any cases, to fail
         # quickly if only doing an RXCROPMATURITYSCRIPTS test but there's no baseline available.
@@ -378,7 +379,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # -------------------------------------------------------------------
         # (3) Set up and perform Prescribed Calendars run
         # -------------------------------------------------------------------
-        os.chdir(caseroot)
+        os.chdir(self._caseroot_rxboth)
         self._set_active_case(case_rxboth)
 
         # Set up stuff that applies to both tests
@@ -441,8 +442,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             self._prescribed_calendars_phase_outdir = case_rxboth.get_value("RUNDIR")
             self._check_rxboth_run_indir = self._prescribed_calendars_phase_outdir
 
-    def _setup_case_gddgen(self, caseroot: str, case_gddgen: Case):
-        os.chdir(self._path_gddgen)
+    def _setup_case_gddgen(self, case_gddgen: Case):
+        os.chdir(self._caseroot_gddgen)
         self._set_active_case(case_gddgen)
 
         # Set up stuff that applies to both tests
@@ -474,8 +475,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
             # Copy needed file from original to gddgen directory
             shutil.copyfile(
-                os.path.join(caseroot, ".env_mach_specific.sh"),
-                os.path.join(self._path_gddgen, ".env_mach_specific.sh"),
+                os.path.join(self._caseroot_rxboth, ".env_mach_specific.sh"),
+                os.path.join(self._caseroot_gddgen, ".env_mach_specific.sh"),
             )
 
             # Make custom version of surface file
@@ -485,15 +486,15 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
     def _create_case_gddgen(self):
         log(logger, "RXCROPMATURITY log:  cloning setup")
         case_rxboth = self._case
-        caseroot: str = self._case.get_value("CASEROOT")
-        clone_path = f"{caseroot}.gddgen"
-        self._path_gddgen = clone_path
-        if os.path.exists(self._path_gddgen):
-            shutil.rmtree(self._path_gddgen)
+        self._caseroot_rxboth: str = self._case.get_value("CASEROOT")
+        clone_path = f"{self._caseroot_rxboth}.gddgen"
+        self._caseroot_gddgen = clone_path
+        if os.path.exists(self._caseroot_gddgen):
+            shutil.rmtree(self._caseroot_gddgen)
         log(logger, "RXCROPMATURITY log:  cloning")
         case_gddgen: Case = self._case.create_clone(clone_path, keepexe=True)
         log(logger, "RXCROPMATURITY log:  done cloning")
-        return case_rxboth, caseroot, case_gddgen
+        return case_rxboth, case_gddgen
 
     # Get sowing and harvest dates for this resolution.
     def _get_rx_dates(self) -> None:
@@ -575,7 +576,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         path, ext = os.path.splitext(self._fsurdat_in)
         _, filename_in_noext = os.path.split(path)
         self._fsurdat_out = os.path.join(
-            self._path_gddgen, f"{filename_in_noext}.all_crops_everywhere{ext}"
+            self._caseroot_gddgen, f"{filename_in_noext}.all_crops_everywhere{ext}"
         )
 
         # Make fsurdat for this test, if not already done
@@ -589,7 +590,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
             # Create configuration file for fsurdat_modifier
             self._cfg_path = os.path.join(
-                self._path_gddgen,
+                self._caseroot_gddgen,
                 "modify_fsurdat_allcropseverywhere.cfg",
             )
             self._create_config_file_evenlysplitcrop()
@@ -702,7 +703,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
     def _run_generate_gdds(self, input_dir: str):
         self._generate_gdds_outdir = os.path.join(
-            self._path_gddgen, "generate_gdds_out"
+            self._caseroot_gddgen, "generate_gdds_out"
         )
         os.makedirs(self._generate_gdds_outdir)
 
@@ -761,7 +762,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
     # Is flanduse_timeseries defined? If so, where is it?
     def _get_flanduse_timeseries_in(self, case: Case) -> None:
         case.create_namelists(component="lnd")
-        self._lnd_in_path = os.path.join(self._path_gddgen, "CaseDocs", "lnd_in")
+        self._lnd_in_path = os.path.join(self._caseroot_gddgen, "CaseDocs", "lnd_in")
         self._flanduse_timeseries_in = None
         with open(self._lnd_in_path, "r", encoding="utf8") as lnd_in:
             for line in lnd_in:
