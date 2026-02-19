@@ -208,7 +208,11 @@ def _get_seasons_for_generate_gdds(run_startyear: int, run_nyears: int) -> Tuple
     except ValueError as exc:
         min_run_nyears = first_season_offset + last_season_offset
         if run_nyears < min_run_nyears:
-            error(logger, f"run_nyears < minimum ({min_run_nyears})", error_type=ValueError)
+            error(
+                logger,
+                f"run_nyears < minimum ({min_run_nyears})",
+                error_type=ValueError,
+            )
         else:
             raise exc
 
@@ -249,12 +253,14 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._prescribed_calendars_phase_outdir: str = None
 
         # Define other variables that will be set outside __init__()
-
-        # Define other variables that will be set outside __init__()
         self._cfg_path: str = None
+        self._checkrxboth_first_usable_year: int = None
+        self._checkrxboth_last_usable_year: int = None
         self._flanduse_timeseries_in: str = None
         self._fsurdat_in: str = None
         self._fsurdat_out: str = None
+        self._generate_gdds_first_season: int = None
+        self._generate_gdds_last_season: int = None
         self._lnd_in_path: str = None
         self._path_gddgen: str = None
         self._run_startyear: int = None
@@ -644,8 +650,10 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
     def _run_check_rxboth_run(self) -> None:
 
-        first_usable_year, last_usable_year = get_usable_years_for_check_rxboth_run(
-            self._run_startyear, self._run_nyears, self._scriptsonly_test
+        self._checkrxboth_first_usable_year, self._checkrxboth_last_usable_year = (
+            get_usable_years_for_check_rxboth_run(
+                self._run_startyear, self._run_nyears, self._scriptsonly_test
+            )
         )
 
         tool_path = os.path.join(
@@ -654,8 +662,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         command = (
             f"python3 {tool_path} "
             + f"--directory {self._check_rxboth_run_indir} "
-            + f"-y1 {first_usable_year} "
-            + f"-yN {last_usable_year} "
+            + f"-y1 {self._checkrxboth_first_usable_year} "
+            + f"-yN {self._checkrxboth_last_usable_year} "
             + f"--rx-sdates-file {self._sdatefile} "
             + f"--rx-gdds-file {self._gdds_file} "
         )
@@ -700,7 +708,9 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         os.makedirs(self._generate_gdds_outdir)
 
         # Get arguments to generate_gdds.py
-        first_season, last_season = _get_seasons_for_generate_gdds(self._run_startyear, self._run_nyears)
+        self._generate_gdds_first_season, self._generate_gdds_last_season = (
+            _get_seasons_for_generate_gdds(self._run_startyear, self._run_nyears)
+        )
         sdates_file = self._sdatefile
         hdates_file = self._hdatefile
 
@@ -713,8 +723,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             [
                 f"python3 {tool_path}",
                 f"--input-dir {input_dir}",
-                f"--first-season {first_season}",
-                f"--last-season {last_season}",
+                f"--first-season {self._generate_gdds_first_season}",
+                f"--last-season {self._generate_gdds_last_season}",
                 f"--sdates-file {sdates_file}",
                 f"--hdates-file {hdates_file}",
                 "--output-dir generate_gdds_out",
