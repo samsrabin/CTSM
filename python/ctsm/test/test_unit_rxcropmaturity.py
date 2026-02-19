@@ -17,6 +17,7 @@ from ctsm import unit_testing
 from cime_config.SystemTests.rxcropmaturity import (
     _copy_extra_files_from_run_to_baseline,
     _get_baseline_dir_with_files_from_run,
+    _get_seasons_for_generate_gdds,
     BASELINE_SUBDIR_WITH_INPUTS,
     BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
 )
@@ -463,3 +464,18 @@ class TestGetBaselineDirWithFilesFromGddgenRun:
         # Should not match because we're looking for exact "-res f09", not "-res f09_g17"
         with pytest.raises(FileNotFoundError):
             _get_baseline_dir_with_files_from_run(which_script, baseline_dir, target_res)
+
+
+class TestGetSeasonsForGenerateGdds:
+    """Tests of _get_seasons_for_generate_gdds()"""
+
+    @pytest.mark.parametrize("run_startyear, run_nyears", [(1850, 31), (1850, 5), (1850, 4)])
+    def test_get_seasons_for_generate_gdds_valid(self, run_startyear, run_nyears):
+        """Make sure it doesn't fail with a valid setup"""
+        _get_seasons_for_generate_gdds(run_startyear, run_nyears)
+
+    @pytest.mark.parametrize("run_startyear, run_nyears", [(1850, 3), (1850, -1), (2000, 0)])
+    def test_get_seasons_for_generate_gdds_invalid(self, run_startyear, run_nyears):
+        """Make sure it does fail with an invalid setup"""
+        with pytest.raises(ValueError, match="run_nyears < minimum"):
+            _get_seasons_for_generate_gdds(run_startyear, run_nyears)

@@ -17,7 +17,7 @@ import os
 import re
 import shutil
 import glob
-from typing import List
+from typing import List, Tuple
 
 try:
     from . import systemtest_utils as stu
@@ -32,6 +32,9 @@ try:
     )
     from python.ctsm.crop_calendars.cropcal_constants import (
         FILE_PATTERN_FOR_CHECK_RXBOTH_RUN,
+    )
+    from python.ctsm.crop_calendars.cropcal_utils_1stparty import (
+        check_first_last_seasons,
     )
     from python.ctsm.ctsm_logging import error, log
 except ImportError:
@@ -53,6 +56,7 @@ except ImportError:
     )
     from ctsm.crop_calendars.cropcal_constants import FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
     from ctsm.machine_defaults import MACHINE_DEFAULTS
+    from ctsm.crop_calendars.cropcal_utils_1stparty import check_first_last_seasons
     from ctsm.ctsm_logging import error, log
 
 logger = logging.getLogger(__name__)
@@ -182,6 +186,33 @@ def _get_baseline_dir_with_files_from_run(
         )
 
     return baseline_dir_with_files_from_gddgen_run
+
+
+def _get_seasons_for_generate_gdds(run_startyear: int, run_nyears: int) -> Tuple[int]:
+    """
+    Get and check the seasons to be used by generate_gdds script
+    """
+    # It can take up to two years for all sowings to obey the prescribed dates.
+    first_season_offset = 2
+    first_season = run_startyear + first_season_offset
+
+    # You don't want to use the last year because some gridcells might not finish out the season
+    # (will happen after Jan. 1). Then I think I subtracted another year to be extra safe in case
+    # the model didn't complete its final calendar year.
+    last_season_offset = 2
+    last_season = run_startyear + run_nyears - last_season_offset
+
+    # Check that the seasons are valid inputs to generate_gdds
+    try:
+        check_first_last_seasons(first_season, last_season)
+    except ValueError as exc:
+        min_run_nyears = first_season_offset + last_season_offset
+        if run_nyears < min_run_nyears:
+            error(logger, f"run_nyears < minimum ({min_run_nyears})", error_type=ValueError)
+        else:
+            raise exc
+
+    return first_season, last_season
 
 
 class RXCROPMATURITYSHARED(SystemTestsCommon):
@@ -669,8 +700,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         os.makedirs(self._generate_gdds_outdir)
 
         # Get arguments to generate_gdds.py
-        first_season = self._run_startyear + 2
-        last_season = self._run_startyear + self._run_nyears - 2
+        first_season, last_season = _get_seasons_for_generate_gdds(self._run_startyear, self._run_nyears)
         sdates_file = self._sdatefile
         hdates_file = self._hdatefile
 

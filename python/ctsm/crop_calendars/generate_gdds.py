@@ -25,6 +25,7 @@ import ctsm.crop_calendars.generate_gdds_functions as gddfn  # pylint: disable=w
 from ctsm.crop_calendars.import_ds import (  # pylint: disable=wrong-import-position
     get_files_in_time_slice,  # pylint: disable=wrong-import-position
 )  # pylint: disable=wrong-import-position
+from ctsm.crop_calendars.cropcal_utils_1stparty import check_first_last_seasons  # pylint: disable=wrong-import-position
 
 # Functions here were written with too many positional arguments. At some point that should be
 # fixed. For now, we'll just disable the warning.
@@ -90,8 +91,7 @@ def _get_time_slice_lists(first_season, last_season):
     # Input checks
     if not all(isinstance(i, int) for i in [first_season, last_season]):
         raise TypeError("_get_time_slice_list() arguments must be integers")
-    if first_season > last_season:
-        raise ValueError(f"first_season ({first_season}) > last_season ({last_season})")
+    check_first_last_seasons(first_season, last_season)
 
     # Initialize list with None for each history file. Could avoid by starting with empty list and
     # doing .append(), but pylint gets confused by that for some reason.
