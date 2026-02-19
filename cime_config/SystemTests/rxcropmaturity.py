@@ -216,9 +216,12 @@ def _get_seasons_for_generate_gdds(run_startyear: int, run_nyears: int) -> Tuple
 def _get_usable_years_for_check_rxboth_run(
     run_startyear: int, run_nyears: int
 ) -> Tuple[int, int]:
-    """Get the first and last years to run through check_rxboth_run.py"""
-    first_usable_year = run_startyear + 2
-    last_usable_year = run_startyear + run_nyears - 2
+    """Get and check the first and last years to run through check_rxboth_run.py"""
+    # TODO: Can we actually use more years here? I don't think the last season needs to complete,
+    # so we should be able to use one more year than what was used for generate_gdds.
+    first_usable_year, last_usable_year = _get_seasons_for_generate_gdds(
+        run_startyear, run_nyears
+    )
     return first_usable_year, last_usable_year
 
 
