@@ -33,6 +33,7 @@ try:
     from python.ctsm.crop_calendars.cropcal_constants import (
         FILE_PATTERN_FOR_CHECK_RXBOTH_RUN,
     )
+    from python.ctsm.ctsm_logging import error
 except ImportError:
     import systemtest_utils as stu
     from CIME.SystemTests.system_tests_common import SystemTestsCommon
@@ -52,6 +53,7 @@ except ImportError:
     )
     from ctsm.crop_calendars.cropcal_constants import FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
     from ctsm.machine_defaults import MACHINE_DEFAULTS
+    from ctsm.ctsm_logging import error
 
 logger = logging.getLogger(__name__)
 
@@ -71,22 +73,29 @@ def _copy_extra_files_from_run_to_baseline(
     test's baseline directory, in a new subdirectory. If the file already exists at the top level
     of the baseline directory, this script will just softlink it into the subdirectory.
     """
+    basename_pattern = None
     if which_script == "generate_gdds":
         basename_pattern = "*clm2.h[12]i*.nc"
     elif which_script == "check_rxboth_run":
         basename_pattern = FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
     else:
-        raise ValueError(f"Unrecognized {which_script=}")
+        error(logger, f"Unrecognized {which_script=}", error_type=ValueError)
 
     if not os.path.exists(gddgen_out_dir):
-        raise FileNotFoundError(gddgen_out_dir)
+        msg = f"File not found: {gddgen_out_dir}"
+        error(logger, msg, error_type=FileNotFoundError)
     if not os.path.exists(baseline_dir):
-        raise FileNotFoundError(baseline_dir)
+        msg = f"File not found: {baseline_dir}"
+        error(logger, msg, error_type=FileNotFoundError)
 
     # Get files to copy
     file_list = glob.glob(pattern := os.path.join(gddgen_out_dir, basename_pattern))
     if not file_list:
-        raise FileNotFoundError(f"No files found matching pattern: '{pattern}'")
+        error(
+            logger,
+            f"No files found matching pattern: '{pattern}'",
+            error_type=FileNotFoundError,
+        )
 
     # Create subdir in baseline
     baseline_subdir = os.path.join(
@@ -146,7 +155,8 @@ def _get_baseline_dir_with_files_from_run(
     )
     gddgen_out_dir_list.sort()
     if not gddgen_out_dir_list:
-        raise FileNotFoundError(pattern)
+        msg = f"No files found matching pattern: {pattern}"
+        error(logger, msg, error_type=FileNotFoundError)
 
     # Find a case matching this case's grid
     baseline_dir_with_files_from_gddgen_run = None
@@ -157,14 +167,18 @@ def _get_baseline_dir_with_files_from_run(
             if not matches:
                 continue
             if len(matches) > 1:
-                raise RuntimeError(
-                    f"Expected at most 1 match for '-res {res}' in {lnd_in}; got {len(matches)}"
+                error(
+                    logger,
+                    f"Expected at most 1 match for '-res {res}' in {lnd_in}; got {len(matches)}",
+                    error_type=RuntimeError,
                 )
             baseline_dir_with_files_from_gddgen_run = d
             break
     if not baseline_dir_with_files_from_gddgen_run:
-        raise FileNotFoundError(
-            f"No tests found in {this_baseline_dir} with archived data matching res {res}"
+        error(
+            logger,
+            f"No tests found in {this_baseline_dir} with archived data matching res {res}",
+            error_type=FileNotFoundError,
         )
 
     return baseline_dir_with_files_from_gddgen_run
@@ -239,8 +253,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 "Only call RXCROPMATURITY with test cropMonthOutput "
                 + "to avoid potentially huge sets of daily outputs."
             )
-            logger.error(error_message)
-            raise RuntimeError(error_message)
+            error(logger, error_message, error_type=RuntimeError)
 
         # Get files with prescribed sowing and harvest dates
         self._get_rx_dates()
@@ -293,8 +306,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 + f"{stop_n_orig} {stop_option_orig[1:]}"
             )
         if error_message is not None:
-            logger.error(error_message)
-            raise RuntimeError(error_message)
+            error(logger, error_message, error_type=RuntimeError)
 
         # Get the number of complete years that will be run
         return int(stop_n)
@@ -488,8 +500,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         else:
             res_list = ["0.9x1.25", "1.9x2.5", "10x15"]
             error_message = f"ERROR: RXCROPMATURITY currently only supports resolutions: {', '.join(res_list)}"
-            logger.error(error_message)
-            raise RuntimeError(error_message)
+            error(logger, error_message, error_type=RuntimeError)
 
         # Ensure files exist
         error_message = None
@@ -498,8 +509,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         elif not os.path.exists(self._hdatefile):
             error_message = f"ERROR: Harvest date file not found: {self._sdatefile}"
         if error_message is not None:
-            logger.error(error_message)
-            raise RuntimeError(error_message)
+            error(logger, error_message, error_type=RuntimeError)
 
     def _setup_all(self, h1_inst: bool) -> None:
         logger.info("RXCROPMATURITY log:  _setup_all start")
@@ -522,8 +532,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                     break
         if self._fsurdat_in is None:
             error_message = "fsurdat not defined"
-            logger.error(error_message)
-            raise RuntimeError(error_message)
+            error(logger, error_message, error_type=RuntimeError)
 
         # Where we will save the fsurdat version for this test
         path, ext = os.path.splitext(self._fsurdat_in)
@@ -699,8 +708,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
                 "ERROR: Expected one matching prescribed maturity requirements file; found "
                 f"{n_files}: {generated_gdd_files}"
             )
-            logger.error(error_message)
-            raise RuntimeError(error_message)
+            error(logger, error_message, error_type=RuntimeError)
         self._gdds_file = generated_gdd_files[0]
 
     def _get_conda_env(self) -> None:

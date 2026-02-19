@@ -188,7 +188,7 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
                 self._which_script, nonexistent_dir, self.baseline_dir
             )
 
-        self.assertEqual(str(context.exception), nonexistent_dir)
+        self.assertTrue(str(context.exception).endswith(nonexistent_dir))
 
     def test_error_when_baseline_dir_missing(self):
         """Test that FileNotFoundError is raised when baseline_dir doesn't exist"""
@@ -199,7 +199,7 @@ class TestCopyFilesFromGddgenRunToBaseline(unittest.TestCase):
                 self._which_script, self.gddgen_out_dir, nonexistent_dir
             )
 
-        self.assertEqual(str(context.exception), nonexistent_dir)
+        self.assertTrue(str(context.exception).endswith(nonexistent_dir))
 
     def test_error_when_no_h1_h2_files_found(self):
         """Test that FileNotFoundError is raised when no h1/h2 files are found"""
