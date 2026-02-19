@@ -21,6 +21,7 @@ sys.path.insert(1, _CTSM_ROOT)
 
 
 # pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-order
 from ctsm import unit_testing
 
 from cime_config.SystemTests.rxcropmaturity import RXCROPMATURITY, BASELINE_SUBDIR_WITH_INPUTS
@@ -52,12 +53,11 @@ def fixture_use_tmp_scratch(tmp_path, monkeypatch):
         yield  # Restore the original environment afterward
 
 
-# TODO: Change this to allow it to run on any supported machine. See machine= line in _create_test.
-@pytest.mark.skipif(os.getenv("NCAR_HOST") != "derecho", reason="Test only runs on Derecho.")
-class TestGetDirsForScripts:
-    """Test RXCROPMATURITYSHARED._get_dirs_for_scripts()"""
+@pytest.fixture(name="create_my_test")
+def fixture_create_my_test(tmp_path):
+    """Fixture factory that returns a function to create a test case"""
 
-    def _create_test(self, systest, tmpdir: Path):
+    def _create_test(systest: str):
         # Create test name
         length = "Lm61"
         grid = TEST_GRID
@@ -79,13 +79,21 @@ class TestGetDirsForScripts:
         create_test.create_test(*create_test_args)
 
         # We're going to be working in the Prescribed Calendars case only
-        pattern = os.path.join(str(tmpdir), test_name + "*")
+        pattern = os.path.join(str(tmp_path), test_name + "*")
         dirs = glob.glob(pattern)
         dirs = [d for d in dirs if not d.endswith(".gddgen")]
         assert len(dirs) == 1
         caseroot = dirs[0]
 
         return caseroot
+
+    return _create_test
+
+
+# TODO: Change this to allow it to run on any supported machine. See machine= line in create_test.
+@pytest.mark.skipif(os.getenv("NCAR_HOST") != "derecho", reason="Test only runs on Derecho.")
+class TestGetDirsForScripts:
+    """Test RXCROPMATURITYSHARED._get_dirs_for_scripts()"""
 
     @mock.patch.object(RXCROPMATURITY, "_setup_case_gddgen")
     @mock.patch.object(RXCROPMATURITY, "_run_case_gddgen")
@@ -101,13 +109,14 @@ class TestGetDirsForScripts:
         _mock_run_indv,
         _mock_setup_case_rxboth,
         _mock_run_generate_gdds,
-        _mock_run_case_gdden,
+        _mock_run_case_gddgen,
         _mock_setup_case_gddgen,
         tmp_path,
         use_tmp_scratch,
+        create_my_test,
     ):  # pylint: disable=unused-argument
         """Test _get_dirs_for_scripts() for full RXCROPMATURITY test"""
-        caseroot = self._create_test("RXCROPMATURITY", tmp_path)
+        caseroot = create_my_test("RXCROPMATURITY")
         with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
             systest_obj = RXCROPMATURITY(rxboth_case)
             systest_obj.run_phase()
@@ -129,7 +138,7 @@ class TestGetDirsForScripts:
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "run_indv")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_run_check_rxboth_run")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_get_baseline_dir")
-    @mock.patch.object(RXCROPMATURITY, "_get_years_for_scripts")
+    @mock.patch.object(RXCROPMATURITYSCRIPTS, "_get_years_for_scripts")
     @mock.patch(
         "cime_config.SystemTests.rxcropmaturity.BASELINE_VERSION_OF_SCRIPT_INPUT_FILES",
         BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
@@ -142,10 +151,11 @@ class TestGetDirsForScripts:
         _mock_run_indv,
         _mock_setup_case_rxboth,
         _mock_run_generate_gdds,
-        _mock_run_case_gdden,
+        _mock_run_case_gddgen,
         _mock_setup_case_gddgen,
         tmp_path,
         use_tmp_scratch,
+        create_my_test,
     ):  # pylint: disable=unused-argument
         """Test _get_dirs_for_scripts() for RXCROPMATURITYSCRIPTS test"""
 
@@ -174,7 +184,7 @@ class TestGetDirsForScripts:
 
         # Create the test, doing everything through RUN except BUILD
         assert tmp_path.exists()
-        caseroot = self._create_test("RXCROPMATURITYSCRIPTS", tmp_path)
+        caseroot = create_my_test("RXCROPMATURITYSCRIPTS")
         with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
             systest_obj = RXCROPMATURITYSCRIPTS(rxboth_case)
             assert systest_obj._scriptsonly_test
