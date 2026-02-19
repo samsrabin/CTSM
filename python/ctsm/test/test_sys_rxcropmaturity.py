@@ -40,20 +40,12 @@ TEST_GRID = "f10_f10_mg37"
 TEST_RES = "10x15"
 
 
-@pytest.fixture(name="temp_dir")
-def fixture_temp_dir():
-    """Create a temporary directory and clean it up after the test"""
-    tmpdir = tempfile.mkdtemp()
-    yield tmpdir
-    shutil.rmtree(tmpdir)
-
-
 @pytest.fixture(name="use_tmp_scratch")
-def fixture_use_tmp_scratch(temp_dir, monkeypatch):
+def fixture_use_tmp_scratch(tmp_path, monkeypatch):
     """Temporarily set our environment's SCRATCH variable to be our temporary dir"""
     with mock.patch.dict(os.environ, clear=False):
         envvars = {
-            "SCRATCH": temp_dir,
+            "SCRATCH": str(tmp_path),
         }
         for k, v in envvars.items():
             monkeypatch.setenv(k, v)
@@ -65,7 +57,7 @@ def fixture_use_tmp_scratch(temp_dir, monkeypatch):
 class TestGetDirsForScripts:
     """Test RXCROPMATURITYSHARED._get_dirs_for_scripts()"""
 
-    def _create_test(self, systest, tmpdir):
+    def _create_test(self, systest, tmpdir: Path):
         # Create test name
         length = "Lm61"
         grid = TEST_GRID
@@ -86,7 +78,7 @@ class TestGetDirsForScripts:
             create_test_args = create_test.parse_command_line(sys.argv, "")
         create_test.create_test(*create_test_args)
 
-        pattern = os.path.join(tmpdir, test_name + "*")
+        pattern = os.path.join(str(tmpdir), test_name + "*")
         dirs = glob.glob(pattern)
         assert len(dirs) == 1
         caseroot = dirs[0]
@@ -106,11 +98,11 @@ class TestGetDirsForScripts:
         _mock_run_generate_gdds,
         _mock_run_case_gdden,
         _mock_setup_case_gddgen,
-        temp_dir,
+        tmp_path,
         use_tmp_scratch,
     ):  # pylint: disable=unused-argument
         """Test _get_dirs_for_scripts() for full RXCROPMATURITY test"""
-        caseroot = self._create_test("RXCROPMATURITY", temp_dir)
+        caseroot = self._create_test("RXCROPMATURITY", tmp_path)
         with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
             systest_obj = RXCROPMATURITY(rxboth_case)
             systest_obj.run_phase()
@@ -145,16 +137,13 @@ class TestGetDirsForScripts:
         _mock_run_generate_gdds,
         _mock_run_case_gdden,
         _mock_setup_case_gddgen,
-        temp_dir,
+        tmp_path,
         use_tmp_scratch,
     ):  # pylint: disable=unused-argument
         """Test _get_dirs_for_scripts() for RXCROPMATURITYSCRIPTS test"""
 
         # Define fake baseline dir
-        baseline_root = baseline_dir = os.path.join(
-            temp_dir,
-            "baseline_dir",
-        )
+        baseline_root = baseline_dir = str(tmp_path / "baseline_dir")
         mock_get_baseline_dir.return_value = baseline_root
         prev_test_baseline = os.path.join(
             baseline_root,
@@ -177,7 +166,8 @@ class TestGetDirsForScripts:
             )
 
         # Create the test, doing everything through RUN except BUILD
-        caseroot = self._create_test("RXCROPMATURITYSCRIPTS", temp_dir)
+        assert tmp_path.exists()
+        caseroot = self._create_test("RXCROPMATURITYSCRIPTS", tmp_path)
         with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
             systest_obj = RXCROPMATURITYSCRIPTS(rxboth_case)
             assert systest_obj._scriptsonly_test
