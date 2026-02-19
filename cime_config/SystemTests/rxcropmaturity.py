@@ -348,7 +348,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         if error_message is not None:
             error(logger, error_message, error_type=RuntimeError)
 
-        # Get the number of complete years that will be run
+        # Get the number of complete years that will be run. int() takes the floor.
         return int(stop_n)
 
     def run_phase(self) -> None:
