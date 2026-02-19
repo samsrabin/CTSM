@@ -33,7 +33,7 @@ try:
     from python.ctsm.crop_calendars.cropcal_constants import (
         FILE_PATTERN_FOR_CHECK_RXBOTH_RUN,
     )
-    from python.ctsm.ctsm_logging import error
+    from python.ctsm.ctsm_logging import error, log
 except ImportError:
     import systemtest_utils as stu
     from CIME.SystemTests.system_tests_common import SystemTestsCommon
@@ -53,7 +53,7 @@ except ImportError:
     )
     from ctsm.crop_calendars.cropcal_constants import FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
     from ctsm.machine_defaults import MACHINE_DEFAULTS
-    from ctsm.ctsm_logging import error
+    from ctsm.ctsm_logging import error, log
 
 logger = logging.getLogger(__name__)
 
@@ -353,14 +353,14 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # -------------------------------------------------------------------
         # (4) Check Prescribed Calendars run
         # -------------------------------------------------------------------
-        logger.info("RXCROPMATURITY log:  output check: Prescribed Calendars")
+        log(logger, "RXCROPMATURITY log:  output check: Prescribed Calendars")
         self._run_check_rxboth_run()
 
     def _setup_case_rxboth(self, h1_inst):
         self._setup_all(h1_inst)
 
         # Add stuff specific to Prescribed Calendars run
-        logger.info("RXCROPMATURITY log:  modify user_nl files: Prescribed Calendars")
+        log(logger, "RXCROPMATURITY log:  modify user_nl files: Prescribed Calendars")
         self._append_to_user_nl_clm(
             [
                 "generate_crop_gdds = .false.",
@@ -369,7 +369,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         )
 
     def _run_case_gdden(self):
-        logger.info("RXCROPMATURITY log:  Start GDD-Generating run")
+        log(logger, "RXCROPMATURITY log:  Start GDD-Generating run")
 
         # As per SSP test:
         # "No history files expected, set suffix=None to avoid compare error"
@@ -412,7 +412,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._setup_all(h1_inst)
 
         # Add stuff specific to GDD-Generating run
-        logger.info("RXCROPMATURITY log:  modify user_nl files: generate GDDs")
+        log(logger, "RXCROPMATURITY log:  modify user_nl files: generate GDDs")
         self._append_to_user_nl_clm(
             [
                 "stream_fldFileName_cultivar_gdds = ''",
@@ -442,20 +442,20 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             )
 
             # Make custom version of surface file
-            logger.info("RXCROPMATURITY log:  run fsurdat_modifier")
+            log(logger, "RXCROPMATURITY log:  run fsurdat_modifier")
             self._run_fsurdat_modifier()
 
     def _create_case_gddgen(self):
-        logger.info("RXCROPMATURITY log:  cloning setup")
+        log(logger, "RXCROPMATURITY log:  cloning setup")
         case_rxboth = self._case
         caseroot: str = self._case.get_value("CASEROOT")
         clone_path = f"{caseroot}.gddgen"
         self._path_gddgen = clone_path
         if os.path.exists(self._path_gddgen):
             shutil.rmtree(self._path_gddgen)
-        logger.info("RXCROPMATURITY log:  cloning")
+        log(logger, "RXCROPMATURITY log:  cloning")
         case_gddgen: Case = self._case.create_clone(clone_path, keepexe=True)
-        logger.info("RXCROPMATURITY log:  done cloning")
+        log(logger, "RXCROPMATURITY log:  done cloning")
         return case_rxboth, caseroot, case_gddgen
 
     # Get sowing and harvest dates for this resolution.
@@ -512,12 +512,12 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             error(logger, error_message, error_type=RuntimeError)
 
     def _setup_all(self, h1_inst: bool) -> None:
-        logger.info("RXCROPMATURITY log:  _setup_all start")
+        log(logger, "RXCROPMATURITY log:  _setup_all start")
 
         # Set sowing dates file (and other crop calendar settings) for all runs
-        logger.info("RXCROPMATURITY log:  modify user_nl files: all tests")
+        log(logger, "RXCROPMATURITY log:  modify user_nl files: all tests")
         self._modify_user_nl_allruns(h1_inst)
-        logger.info("RXCROPMATURITY log:  _setup_all done")
+        log(logger, "RXCROPMATURITY log:  _setup_all done")
 
     # Make a surface dataset that has every crop in every gridcell
     def _run_fsurdat_modifier(self) -> None:
@@ -566,7 +566,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             )
 
         # Modify namelist
-        logger.info("RXCROPMATURITY log:  modify user_nl files: new fsurdat")
+        log(logger, "RXCROPMATURITY log:  modify user_nl files: new fsurdat")
         self._append_to_user_nl_clm(
             [
                 f"fsurdat = '{self._fsurdat_out}'",
