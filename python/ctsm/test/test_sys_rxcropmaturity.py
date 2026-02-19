@@ -40,6 +40,19 @@ BASELINE_VERSION_OF_SCRIPT_INPUT_FILES = "blver"
 TEST_GRID = "f10_f10_mg37"
 TEST_RES = "10x15"
 
+# TODO: Change this to allow it to run on any supported machine. See machine= line in create_test.
+pytestmark = pytest.mark.skipif(
+    os.getenv("NCAR_HOST") != "derecho", reason="Test only runs on Derecho."
+)
+
+
+@pytest.fixture(autouse=True)
+def _mock_get_baseline_dir(tmp_path):
+    """Mock RXCROPMATURITYSCRIPTS._get_baseline_dir() for all tests in this module"""
+    baseline_root = str(tmp_path / "baseline_dir")
+    with mock.patch.object(RXCROPMATURITYSCRIPTS, "_get_baseline_dir", return_value=baseline_root):
+        yield baseline_root
+
 
 @pytest.fixture(name="use_tmp_scratch")
 def fixture_use_tmp_scratch(tmp_path, monkeypatch):
@@ -57,9 +70,8 @@ def fixture_use_tmp_scratch(tmp_path, monkeypatch):
 def fixture_create_my_test(tmp_path):
     """Fixture factory that returns a function to create a test case"""
 
-    def _create_test(systest: str):
+    def _create_test(systest: str, length: str = "Lm61"):
         # Create test name
-        length = "Lm61"
         grid = TEST_GRID
         compset = "IHistClm60BgcCrop"
         machine = "derecho"  # TODO: Change this to allow it to run on any supported machine
@@ -90,8 +102,39 @@ def fixture_create_my_test(tmp_path):
     return _create_test
 
 
-# TODO: Change this to allow it to run on any supported machine. See machine= line in create_test.
-@pytest.mark.skipif(os.getenv("NCAR_HOST") != "derecho", reason="Test only runs on Derecho.")
+@pytest.fixture(name="fake_baseline")
+def fixture_fake_baseline(tmp_path):
+    """Create and populate a fake baseline directory structure for testing"""
+    # Mock BASELINE_VERSION_OF_SCRIPT_INPUT_FILES for all tests using this fixture
+    with mock.patch(
+        "cime_config.SystemTests.rxcropmaturity.BASELINE_VERSION_OF_SCRIPT_INPUT_FILES",
+        BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
+    ):
+        # Define fake baseline dir
+        baseline_root = baseline_dir = str(tmp_path / "baseline_dir")
+        prev_test_baseline = os.path.join(
+            baseline_root,
+            BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
+            "prev_test",
+        )
+
+        # Create and fill fake baseline dir
+        lnd_in = os.path.join(prev_test_baseline, "CaseDocs", "lnd_in")
+        os.makedirs(os.path.dirname(lnd_in))
+        with open(lnd_in, "w", encoding="utf8") as f:
+            f.write(f"-res {TEST_RES}")
+        for d in ["generate_gdds", "check_rxboth_run"]:
+            os.makedirs(
+                os.path.join(
+                    prev_test_baseline,
+                    BASELINE_SUBDIR_WITH_INPUTS,
+                    d,
+                )
+            )
+
+        yield baseline_dir
+
+
 class TestGetDirsForScripts:
     """Test RXCROPMATURITYSHARED._get_dirs_for_scripts()"""
 
@@ -111,7 +154,6 @@ class TestGetDirsForScripts:
         _mock_run_generate_gdds,
         _mock_run_case_gddgen,
         _mock_setup_case_gddgen,
-        tmp_path,
         use_tmp_scratch,
         create_my_test,
     ):  # pylint: disable=unused-argument
@@ -137,16 +179,10 @@ class TestGetDirsForScripts:
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_setup_case_rxboth")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "run_indv")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_run_check_rxboth_run")
-    @mock.patch.object(RXCROPMATURITYSCRIPTS, "_get_baseline_dir")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_get_years_for_scripts")
-    @mock.patch(
-        "cime_config.SystemTests.rxcropmaturity.BASELINE_VERSION_OF_SCRIPT_INPUT_FILES",
-        BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
-    )
     def test_get_dirs_for_scripts_only(
         self,
         _mock_get_years_for_scripts,
-        mock_get_baseline_dir,
         _mock_run_check_rxboth_run,
         _mock_run_indv,
         _mock_setup_case_rxboth,
@@ -156,31 +192,9 @@ class TestGetDirsForScripts:
         tmp_path,
         use_tmp_scratch,
         create_my_test,
+        fake_baseline,
     ):  # pylint: disable=unused-argument
         """Test _get_dirs_for_scripts() for RXCROPMATURITYSCRIPTS test"""
-
-        # Define fake baseline dir
-        baseline_root = baseline_dir = str(tmp_path / "baseline_dir")
-        mock_get_baseline_dir.return_value = baseline_root
-        prev_test_baseline = os.path.join(
-            baseline_root,
-            BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
-            "prev_test",
-        )
-
-        # Create and fill fake baseline dir
-        lnd_in = os.path.join(prev_test_baseline, "CaseDocs", "lnd_in")
-        os.makedirs(os.path.dirname(lnd_in))
-        with open(lnd_in, "w", encoding="utf8") as f:
-            f.write(f"-res {TEST_RES}")
-        for d in ["generate_gdds", "check_rxboth_run"]:
-            os.makedirs(
-                os.path.join(
-                    prev_test_baseline,
-                    BASELINE_SUBDIR_WITH_INPUTS,
-                    d,
-                )
-            )
 
         # Create the test, doing everything through RUN except BUILD
         assert tmp_path.exists()
@@ -191,5 +205,40 @@ class TestGetDirsForScripts:
             systest_obj.run_phase()
 
         # Check that scripts will be using data from our fake baseline
-        assert systest_obj._generate_gdds_indir.startswith(baseline_dir)
-        assert systest_obj._check_rxboth_run_indir.startswith(baseline_dir)
+        assert systest_obj._generate_gdds_indir.startswith(fake_baseline)
+        assert systest_obj._check_rxboth_run_indir.startswith(fake_baseline)
+
+
+class TestRunLength:
+    """Test handling of RXCROPMATURITYSHARED run length"""
+
+    @pytest.mark.parametrize("length", ["Lm61", "Lm60", "Ly5"])
+    def test_rxcropmaturity_ok(
+        self, length, use_tmp_scratch, create_my_test
+    ):  # pylint: disable=unused-argument
+        """Test valid run lengths for RXCROPMATURITY test, ensuring no fail"""
+        systest = RXCROPMATURITY
+        caseroot = create_my_test(systest.__name__, length)
+        with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
+            systest(rxboth_case)
+
+    @pytest.mark.parametrize("length", ["Lm61", "Ld1"])
+    def test_rxcropmaturityscripts_ok(
+        self, length, use_tmp_scratch, create_my_test, fake_baseline
+    ):  # pylint: disable=unused-argument
+        """Test valid run lengths for RXCROPMATURITYSCRIPTS test, ensuring no fail"""
+        systest = RXCROPMATURITYSCRIPTS
+        caseroot = create_my_test(systest.__name__, length)
+        with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
+            systest(rxboth_case)
+
+    @pytest.mark.parametrize("length", ["Ld1", "Lm59", "Ld1824"])
+    def test_rxcropmaturity_too_short_error(
+        self, length, use_tmp_scratch, create_my_test
+    ):  # pylint: disable=unused-argument
+        """Test that error is thrown if RXCROPMATURITY test is too short"""
+        systest = RXCROPMATURITY
+        caseroot = create_my_test(systest.__name__, length)
+        with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
+            with pytest.raises(RuntimeError, match="RXCROPMATURITY must be run for at least"):
+                systest(rxboth_case)

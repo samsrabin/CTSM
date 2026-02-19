@@ -61,6 +61,17 @@ BASELINE_SUBDIR_WITH_INPUTS = "inputs_for_cropcal_script_tests"
 # See _get_baseline_dir_with_files_from_gddgen_run()
 BASELINE_VERSION_OF_SCRIPT_INPUT_FILES = "improve-rxcropmaturity-tests.7d9d830de"
 
+# It can take up to two years for all sowings to obey the prescribed dates.
+IGNORE_FIRST_N_YEARS = 2
+
+# For generate_gdds.py, you don't want to use the last year because some gridcells might not finish
+# out the season (will happen after Jan. 1). Then I think I subtracted another year to be extra safe
+# in case the model didn't complete its final calendar year.
+IGNORE_LAST_N_YEARS = 2
+
+# This will result in generate_gdds.py using just one season.
+MIN_RUN_NYEARS = IGNORE_FIRST_N_YEARS + IGNORE_LAST_N_YEARS
+
 
 def _copy_extra_files_from_run_to_baseline(
     which_script: str, gddgen_out_dir: str, baseline_dir: str
@@ -186,25 +197,17 @@ def _get_seasons_for_generate_gdds(run_startyear: int, run_nyears: int) -> Tuple
     """
     Get and check the seasons to be used by generate_gdds script
     """
-    # It can take up to two years for all sowings to obey the prescribed dates.
-    first_season_offset = 2
-    first_season = run_startyear + first_season_offset
-
-    # You don't want to use the last year because some gridcells might not finish out the season
-    # (will happen after Jan. 1). Then I think I subtracted another year to be extra safe in case
-    # the model didn't complete its final calendar year.
-    last_season_offset = 2
-    last_season = run_startyear + run_nyears - last_season_offset
+    first_season = run_startyear + IGNORE_FIRST_N_YEARS
+    last_season = run_startyear + run_nyears - IGNORE_LAST_N_YEARS
 
     # Check that the seasons are valid inputs to generate_gdds
     try:
         check_first_last_seasons(first_season, last_season)
     except ValueError as exc:
-        min_run_nyears = first_season_offset + last_season_offset
-        if run_nyears < min_run_nyears:
+        if run_nyears < MIN_RUN_NYEARS:
             error(
                 logger,
-                f"run_nyears < minimum ({min_run_nyears})",
+                f"run_nyears < minimum ({MIN_RUN_NYEARS})",
                 error_type=ValueError,
             )
         else:
@@ -231,7 +234,11 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
     """
 
     # pylint: disable=too-many-instance-attributes
-    def __init__(self, case: Case) -> None:
+    def __init__(self, case: Case = None) -> None:
+        # For testing, it's useful to get the name of the class without initializing it
+        if case is None:
+            return
+
         # initialize an object interface to the SMS system test
         SystemTestsCommon.__init__(self, case)
 
@@ -297,6 +304,12 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         # Get the number of complete years that will be run
         self._run_nyears = self._get_run_nyears()
+        
+        
+        
+        log(logger, f"{self._run_startyear=}")
+        log(logger, f"{self._run_nyears=}")
+        
 
         # Only allow RXCROPMATURITY to be called with test cropMonthOutput
         if casebaseid.split("-")[-1] != "cropMonthOutput":
@@ -350,15 +363,20 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             stop_n /= 12
             stop_option = "nyears"
         error_message = None
+        
+        # I think this was to ensure that we're putting at least two years of outputs through
+        # check_rxboth_run.py.
+        min_n_years_for_check_rxboth = MIN_RUN_NYEARS + 1
+        
         if "nyear" not in stop_option:
             error_message = (
                 f"STOP_OPTION ({stop_option_orig}) must be nsecond(s), nminute(s), "
                 + "nhour(s), nday(s), nmonth(s), or nyear(s)"
             )
-        elif not self._scriptsonly_test and stop_n < 5:
+        elif not self._scriptsonly_test and stop_n < min_n_years_for_check_rxboth:
             error_message = (
-                "RXCROPMATURITY must be run for at least 5 years; you requested "
-                + f"{stop_n_orig} {stop_option_orig[1:]}"
+                f"RXCROPMATURITY must be run for at least {min_n_years_for_check_rxboth} years;"
+                + f" you requested {stop_n_orig} {stop_option_orig[1:]}"
             )
         if error_message is not None:
             error(logger, error_message, error_type=RuntimeError)
