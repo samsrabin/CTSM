@@ -27,9 +27,6 @@ try:
     from cime.CIME.case import Case
     from cime.CIME.utils import safe_copy
     from python.ctsm.machine_defaults import MACHINE_DEFAULTS
-    from python.ctsm.crop_calendars.systemtest_helpers.utils import (
-        get_usable_years_for_check_rxboth_run,
-    )
     from python.ctsm.crop_calendars.cropcal_constants import (
         FILE_PATTERN_FOR_CHECK_RXBOTH_RUN,
     )
@@ -51,9 +48,6 @@ except ImportError:
     import sys
 
     sys.path.insert(1, _CTSM_PYTHON)
-    from ctsm.crop_calendars.systemtest_helpers.utils import (
-        get_usable_years_for_check_rxboth_run,
-    )
     from ctsm.crop_calendars.cropcal_constants import FILE_PATTERN_FOR_CHECK_RXBOTH_RUN
     from ctsm.machine_defaults import MACHINE_DEFAULTS
     from ctsm.crop_calendars.cropcal_utils_1stparty import check_first_last_seasons
@@ -217,6 +211,19 @@ def _get_seasons_for_generate_gdds(run_startyear: int, run_nyears: int) -> Tuple
             raise exc
 
     return first_season, last_season
+
+
+def _get_usable_years_for_check_rxboth_run(
+    run_startyear: int, run_nyears: int, scriptsonly_test: bool
+) -> Tuple[int, int]:
+    """Get the first and last years to run through check_rxboth_run.py"""
+    if scriptsonly_test:
+        first_usable_year = run_startyear + 1
+        last_usable_year = first_usable_year
+    else:
+        first_usable_year = run_startyear + 2
+        last_usable_year = run_startyear + run_nyears - 2
+    return first_usable_year, last_usable_year
 
 
 class RXCROPMATURITYSHARED(SystemTestsCommon):
@@ -454,7 +461,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             _get_seasons_for_generate_gdds(self._run_startyear, self._run_nyears)
         )
         self._checkrxboth_first_usable_year, self._checkrxboth_last_usable_year = (
-            get_usable_years_for_check_rxboth_run(
+            _get_usable_years_for_check_rxboth_run(
                 self._run_startyear, self._run_nyears, self._scriptsonly_test
             )
         )
