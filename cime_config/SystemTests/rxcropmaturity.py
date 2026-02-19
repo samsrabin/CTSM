@@ -373,7 +373,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # -------------------------------------------------------------------
         # (2) Perform GDD-generating run and generate prescribed GDDs file
         # -------------------------------------------------------------------
-        self._run_case_gdden()
+        self._run_case_gddgen()
 
         # Process outputs into new crop maturity requirements file
         self._run_generate_gdds(self._generate_gdds_indir)
@@ -408,7 +408,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
             ]
         )
 
-    def _run_case_gdden(self):
+    def _run_case_gddgen(self):
         log(logger, "RXCROPMATURITY log:  Start GDD-Generating run")
 
         # As per SSP test:

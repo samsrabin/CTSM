@@ -85,7 +85,7 @@ class TestGetDirsForScripts:
         return caseroot
 
     @mock.patch.object(RXCROPMATURITY, "_setup_case_gddgen")
-    @mock.patch.object(RXCROPMATURITY, "_run_case_gdden")
+    @mock.patch.object(RXCROPMATURITY, "_run_case_gddgen")
     @mock.patch.object(RXCROPMATURITY, "_run_generate_gdds")
     @mock.patch.object(RXCROPMATURITY, "_setup_case_rxboth")
     @mock.patch.object(RXCROPMATURITY, "run_indv")
@@ -118,7 +118,7 @@ class TestGetDirsForScripts:
         assert rxboth_case_name in Path(systest_obj._check_rxboth_run_indir).parts
 
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_setup_case_gddgen")
-    @mock.patch.object(RXCROPMATURITYSCRIPTS, "_run_case_gdden")
+    @mock.patch.object(RXCROPMATURITYSCRIPTS, "_run_case_gddgen")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_run_generate_gdds")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_setup_case_rxboth")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "run_indv")
