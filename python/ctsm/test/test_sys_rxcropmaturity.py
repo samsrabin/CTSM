@@ -78,10 +78,13 @@ class TestGetDirsForScripts:
             create_test_args = create_test.parse_command_line(sys.argv, "")
         create_test.create_test(*create_test_args)
 
+        # We're going to be working in the Prescribed Calendars case only
         pattern = os.path.join(str(tmpdir), test_name + "*")
         dirs = glob.glob(pattern)
+        dirs = [d for d in dirs if not d.endswith(".gddgen")]
         assert len(dirs) == 1
         caseroot = dirs[0]
+
         return caseroot
 
     @mock.patch.object(RXCROPMATURITY, "_setup_case_gddgen")
@@ -90,8 +93,10 @@ class TestGetDirsForScripts:
     @mock.patch.object(RXCROPMATURITY, "_setup_case_rxboth")
     @mock.patch.object(RXCROPMATURITY, "run_indv")
     @mock.patch.object(RXCROPMATURITY, "_run_check_rxboth_run")
+    @mock.patch.object(RXCROPMATURITY, "_get_years_for_scripts")
     def test_get_dirs_for_scripts_full(
         self,
+        _mock_get_years_for_scripts,
         _mock_run_check_rxboth_run,
         _mock_run_indv,
         _mock_setup_case_rxboth,
@@ -124,12 +129,14 @@ class TestGetDirsForScripts:
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "run_indv")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_run_check_rxboth_run")
     @mock.patch.object(RXCROPMATURITYSCRIPTS, "_get_baseline_dir")
+    @mock.patch.object(RXCROPMATURITY, "_get_years_for_scripts")
     @mock.patch(
         "cime_config.SystemTests.rxcropmaturity.BASELINE_VERSION_OF_SCRIPT_INPUT_FILES",
         BASELINE_VERSION_OF_SCRIPT_INPUT_FILES,
     )
     def test_get_dirs_for_scripts_only(
         self,
+        _mock_get_years_for_scripts,
         mock_get_baseline_dir,
         _mock_run_check_rxboth_run,
         _mock_run_indv,
