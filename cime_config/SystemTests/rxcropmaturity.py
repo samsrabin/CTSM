@@ -432,6 +432,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         # Set up GDD-generating run
         os.chdir(self._caseroot_gddgen)
         self._set_active_case(self._case_gddgen)
+        super().setup_phase(*args, **kwargs)
         self._setup_case_gddgen()
 
         # Set up Prescribed Calendars run
@@ -485,6 +486,8 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         self._skip_pnl = False
 
         # Run GDD-Generating case
+        os.chdir(self._caseroot_gddgen)
+        self._set_active_case(self._case_gddgen)
         self.run_indv(suffix=None, st_archive=True)
 
     # TODO: Move this to be module-level, since self isn't used
