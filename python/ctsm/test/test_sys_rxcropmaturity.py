@@ -7,8 +7,10 @@ import shutil
 import glob
 import os
 import sys
+import re
 from pathlib import Path
 from unittest import mock
+from typing import Tuple
 
 import pytest
 
@@ -25,6 +27,7 @@ sys.path.insert(1, _CTSM_ROOT)
 from ctsm import unit_testing
 
 from cime_config.SystemTests.rxcropmaturity import RXCROPMATURITY, BASELINE_SUBDIR_WITH_INPUTS
+from cime_config.SystemTests.rxcropmaturity import CASEDOC_WITH_STOP_INFO
 from cime_config.SystemTests.rxcropmaturityscripts import RXCROPMATURITYSCRIPTS
 
 from CIME.scripts import create_test
@@ -39,11 +42,39 @@ from CIME.case import Case
 BASELINE_VERSION_OF_SCRIPT_INPUT_FILES = "blver"
 TEST_GRID = "f10_f10_mg37"
 TEST_RES = "10x15"
+KNOWN_GOOD_LENGTH_STR = "Lm61"
 
 # TODO: Change this to allow it to run on any supported machine. See machine= line in create_test.
 pytestmark = pytest.mark.skipif(
     os.getenv("NCAR_HOST") != "derecho", reason="Test only runs on Derecho."
 )
+
+
+def parse_length_str(length_str: str) -> Tuple[int, str]:
+    """
+    Given a test run length str like Lm61 or Ly3, parse it into stop_n and stop_option
+    """
+
+    # Get stop_n
+    m = re.search(r"(\d+)", length_str)
+    assert m is not None, f"Couldn't get number from length_str: {length_str}"
+    n = len(m.groups())
+    assert n == 1, f"Expected 1 match group; found {n}"
+    stop_n = int(m.group(1))
+
+    # Get stop_option
+    assert(length_str[0] == "L")
+    stop_opt_code = length_str[1]
+    match stop_opt_code:
+        case "d":
+            stop_option = "ndays"
+        case "m":
+            stop_option = "nmonths"
+        case "y":
+            stop_option = "nyears"
+        case _:
+            raise ValueError(f"Unknown stop_option code: {stop_opt_code}")
+    return stop_n, stop_option
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +101,7 @@ def fixture_use_tmp_scratch(tmp_path, monkeypatch):
 def fixture_create_my_test(tmp_path):
     """Fixture factory that returns a function to create a test case"""
 
-    def _create_test(systest: str, length: str = "Lm61"):
+    def _create_test(systest: str, length: str = KNOWN_GOOD_LENGTH_STR):
         # Create test name
         grid = TEST_GRID
         compset = "IHistClm60BgcCrop"
@@ -119,6 +150,7 @@ def fixture_fake_baseline(tmp_path):
         )
 
         # Create and fill fake baseline dir
+        # First, write CaseDocs/lnd_in
         lnd_in = os.path.join(prev_test_baseline, "CaseDocs", "lnd_in")
         os.makedirs(os.path.dirname(lnd_in))
         with open(lnd_in, "w", encoding="utf8") as f:
@@ -131,6 +163,11 @@ def fixture_fake_baseline(tmp_path):
                     d,
                 )
             )
+        # Next, write whichever CaseDoc file has the run stop info
+        stop_n, stop_option = parse_length_str(KNOWN_GOOD_LENGTH_STR)
+        file_with_stop_info = os.path.join(os.path.dirname(lnd_in), CASEDOC_WITH_STOP_INFO)
+        with open(file_with_stop_info, "a", encoding="utf8") as f:
+            f.write(f"     stop_n = {stop_n}\n     stop_option = {stop_option}\n")
 
         yield baseline_dir
 
@@ -212,7 +249,7 @@ class TestGetDirsForScripts:
 class TestRunLength:
     """Test handling of RXCROPMATURITYSHARED run length"""
 
-    @pytest.mark.parametrize("length", ["Lm61", "Lm60", "Ly5"])
+    @pytest.mark.parametrize("length", [KNOWN_GOOD_LENGTH_STR, "Lm60", "Ly5"])
     def test_rxcropmaturity_ok(
         self, length, use_tmp_scratch, create_my_test
     ):  # pylint: disable=unused-argument
@@ -222,7 +259,7 @@ class TestRunLength:
         with Case(caseroot, read_only=False, non_local=False) as rxboth_case:
             systest(rxboth_case)
 
-    @pytest.mark.parametrize("length", ["Lm61", "Ld1"])
+    @pytest.mark.parametrize("length", [KNOWN_GOOD_LENGTH_STR, "Ld1"])
     def test_rxcropmaturityscripts_ok(
         self, length, use_tmp_scratch, create_my_test, fake_baseline
     ):  # pylint: disable=unused-argument

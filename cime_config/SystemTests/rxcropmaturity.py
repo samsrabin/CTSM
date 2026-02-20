@@ -72,6 +72,9 @@ IGNORE_LAST_N_YEARS = 2
 # This will result in generate_gdds.py using just one season.
 MIN_RUN_NYEARS = IGNORE_FIRST_N_YEARS + IGNORE_LAST_N_YEARS
 
+# When looking in CaseDocs for run stop settings, this file will be searched.
+CASEDOC_WITH_STOP_INFO = "nuopc.runconfig"
+
 
 def _copy_extra_files_from_run_to_baseline(
     which_script: str, gddgen_out_dir: str, baseline_dir: str
@@ -228,6 +231,20 @@ def _get_usable_years_for_check_rxboth_run(
     return first_usable_year, last_usable_year
 
 
+# TODO: This functionality is also used in cime_config/SystemTests/fsurdatmodifyctsm.py and probably
+# elsewhere, plus other places here! It should be changed to a shared function with testing.
+def _get_setting_from_casedoc(casedoc_file_path: str, setting: str) -> str:
+    """Get setting from a CaseDocs file"""
+    with open(casedoc_file_path, "r", encoding="utf8") as f:
+        for line in f:
+            m = re.match(rf"\s*\b{setting}\b\s*=\s*[\"']?(.*)[\"']?", line)
+            if m:
+                n = len(m.groups())
+                assert n == 1, f"Expected 1 match for {setting} in {casedoc_file_path}; found {n}"
+                return m.group(1)
+    raise ValueError(f"Setting '{setting} not found in {casedoc_file_path}")
+
+
 class RXCROPMATURITYSHARED(SystemTestsCommon):
     """
     Parent class of RXCROPMATURITY and RXCROPMATURITYSCRIPTS SystemTests
@@ -302,15 +319,6 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         run_startdate: str = self._case.get_value("RUN_STARTDATE")
         self._run_startyear = int(run_startdate.split("-")[0])
 
-        # Get the number of complete years that will be run
-        self._run_nyears = self._get_run_nyears()
-        
-        
-        
-        log(logger, f"{self._run_startyear=}")
-        log(logger, f"{self._run_nyears=}")
-        
-
         # Only allow RXCROPMATURITY to be called with test cropMonthOutput
         if casebaseid.split("-")[-1] != "cropMonthOutput":
             error_message = (
@@ -330,6 +338,7 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
 
         # Directories and years to use in scripts
         self._get_dirs_for_scripts()
+        self._get_run_nyears()
         self._get_years_for_scripts()
 
         # Which conda environment should we use?
@@ -340,13 +349,14 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         Get the number of complete years that will be run, checking that it's enough for the scripts
         to work and be tested properly.
         """
+        # Get run stop_n and stop_option
+        stop_n, stop_option, basedir_with_stop_info = self._get_run_stop_info()
+        stop_n_orig = stop_n
+        stop_option_orig = stop_option
+
         # Ensure run length is at least 5 years. Minimum to produce one complete growing season
         # (i.e., two complete calendar years) actually 4 years, but that only gets you 1 season
         # usable for GDD generation, so you can't check for season-to-season consistency.
-        stop_n: int = self._case.get_value("STOP_N")
-        stop_option: str = self._case.get_value("STOP_OPTION")
-        stop_n_orig = stop_n
-        stop_option_orig = stop_option
         if "nsecond" in stop_option:
             stop_n /= 60
             stop_option = "nminutes"
@@ -371,18 +381,49 @@ class RXCROPMATURITYSHARED(SystemTestsCommon):
         if "nyear" not in stop_option:
             error_message = (
                 f"STOP_OPTION ({stop_option_orig}) must be nsecond(s), nminute(s), "
-                + "nhour(s), nday(s), nmonth(s), or nyear(s)"
+                + f"nhour(s), nday(s), nmonth(s), or nyear(s), not {stop_option_orig}"
             )
+            if self._scriptsonly_test:
+                error_message = error_message.replace(
+                    "must be", f"in baseline '{basedir_with_stop_info}'"
+                )
         elif not self._scriptsonly_test and stop_n < min_n_years_for_check_rxboth:
             error_message = (
                 f"RXCROPMATURITY must be run for at least {min_n_years_for_check_rxboth} years;"
                 + f" you requested {stop_n_orig} {stop_option_orig[1:]}"
             )
+            if self._scriptsonly_test:
+                error_message = error_message.replace(
+                    "you requested", f"baseline '{basedir_with_stop_info}' has"
+                )
         if error_message is not None:
             error(logger, error_message, error_type=RuntimeError)
 
         # Get the number of complete years that will be run. int() takes the floor.
-        return int(stop_n)
+        self._run_nyears = int(stop_n)
+
+    def _get_run_stop_info(self) -> Tuple[int, str, str]:
+        """Get run stop_n and stop_option"""
+        stop_n: int
+        stop_option: str
+        basedir_with_stop_info: str = None
+        if self._scriptsonly_test:
+            basedir_with_stop_info = self._generate_gdds_indir
+            file_with_stop_info = os.path.join(
+                basedir_with_stop_info, os.pardir, os.pardir, "CaseDocs", CASEDOC_WITH_STOP_INFO
+            )
+            if not os.path.exists(file_with_stop_info):
+                error(
+                    logger,
+                    f"Unable to get baseline length; missing file {file_with_stop_info}",
+                    error_type=FileNotFoundError,
+                )
+            stop_n = int(_get_setting_from_casedoc(file_with_stop_info, "stop_n"))
+            stop_option = _get_setting_from_casedoc(file_with_stop_info, "stop_option")
+        else:
+            stop_n = self._case.get_value("STOP_N")
+            stop_option = self._case.get_value("STOP_OPTION")
+        return stop_n, stop_option, basedir_with_stop_info
 
     def setup_phase(self, *args, **kwargs) -> None:
         # First, do standard case setup
