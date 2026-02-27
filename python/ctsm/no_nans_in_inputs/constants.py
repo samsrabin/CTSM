@@ -10,9 +10,9 @@ NEW_FILLVALUES_FILE = "new_fillvalues.json"  # File to save/load new fill values
 XML_FILE = "bld/namelist_files/namelist_defaults_ctsm.xml"  # CTSM namelist defaults XML
 OUR_PATH = "lnd/clm2/"  # String to be found in files we're responsible for
 try:
-    CESM_TOP = Path(__file__).resolve().parents[3]
+    DEFAULT_CTSM_ROOT = Path(__file__).resolve().parents[3]
 except IndexError:
-    CESM_TOP = Path.cwd()
+    DEFAULT_CTSM_ROOT = Path.cwd()
 
 # Filename suffix after fixing NaN fills
 NONANFILL_SUFFIX = "no_nan_fill"

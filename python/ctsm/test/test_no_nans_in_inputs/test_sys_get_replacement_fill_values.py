@@ -8,6 +8,7 @@ Tests functions that require file I/O.
 
 import os
 from unittest.mock import MagicMock, patch
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -72,22 +73,21 @@ class TestMain:
         return_value=set(),
     )
     @patch("os.path.exists", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.path.isdir", return_value=True)
     @patch(
         "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_nan_fill",
         return_value=(True, ["temp"]),
     )
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
     @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
-    @patch(
-        "ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files",
-        return_value=["user_nl_clm"],
-    )
     def test_main_happy_path(
         self,
-        mock_find_user_nl_files,
         mock_confirm_continue,
         mock_collect,
         mock_file_has_nan,
+        mock_isdir,
+        mock_isfile,
         mock_exists,
         mock_extract_from_usernl,
         mock_extract_from_xml,
@@ -101,7 +101,13 @@ class TestMain:
         # Make the mock dataset iterable
         mock_ds.__iter__.return_value = iter(["temp"])
 
-        result = main_func()
+        user_nl_abspath = os.path.join(str(tmp_path), "user_nl_clm")
+        with patch(
+            "ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files",
+            return_value=[user_nl_abspath],
+        ) as mock_find_user_nl_files:
+            result = main_func()
+            mock_find_user_nl_files.assert_called_once()
 
         assert result == 0
         assert mock_extract_from_xml.call_count == 2
@@ -110,7 +116,6 @@ class TestMain:
         path_to_test_file_abs = os.path.join(str(tmp_path), path_to_test_file_rel)
         mock_collect.assert_called_once()
         mock_check_write.assert_called_once()
-        mock_find_user_nl_files.assert_called_once()
 
         # Check the arguments passed to collect_new_fill_values
         args, kwargs = mock_collect.call_args
@@ -135,6 +140,8 @@ class TestMain:
         return_value={"lnd/clm2/test.nc"},
     )
     @patch("os.path.exists", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.path.isdir", return_value=True)
     @patch(
         "ctsm.no_nans_in_inputs.netcdf_utils.get_vars_with_nan_fills",
         return_value=["temp"],
@@ -148,6 +155,8 @@ class TestMain:
         mock_confirm_continue,
         mock_collect,
         mock_get_vars_with_nan,
+        mock_isdir,
+        mock_isfile,
         mock_exists,
         mock_extract,
         mock_check_write,
@@ -225,6 +234,12 @@ class TestMain:
         # Make the mock dataset iterable
         mock_ds.__iter__.return_value = iter(["temp"])
 
+        # In other tests we mock the os.path functions that check for file/dir existence. We don't
+        # want to do that here because there's one file in particular we want to throw a msg for
+        # not existing. So instead, here we'll create XML file, which would otherwise throw a
+        # FileNotFoundError we don't want.
+        Path(mock_xml_file_path).touch()
+
         result = main_func()
 
         assert result == 0
@@ -254,6 +269,9 @@ class TestMain:
         return_value={"lnd/clm2/test.nc"},
     )
     @patch("os.path.exists", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.path.isdir", return_value=True)
+    @patch("os.path.isabs", return_value=True)
     @patch(
         "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_nan_fill",
         return_value=(True, ["temp"]),
@@ -265,6 +283,9 @@ class TestMain:
         mock_confirm_continue,
         mock_collect,
         mock_file_has_nan,
+        mock_isabs,
+        mock_isdir,
+        mock_isfile,
         mock_exists,
         mock_extract,
         mock_check_write,

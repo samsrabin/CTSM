@@ -42,11 +42,11 @@ def fixture_mock_dir_with_usernl_files(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True, name="mock_cesm_top")
 def fixture_mock_cesm_top(tmp_path, monkeypatch):
     """
-    Auto-used fixture to mock CESM_TOP constant with a temporary path.
+    Auto-used fixture to mock DEFAULT_CTSM_ROOT constant with a temporary path.
     """
     # Monkeypatch
-    monkeypatch.setattr(constants, "CESM_TOP", str(tmp_path))
-    monkeypatch.setattr(replace_fill_values, "CESM_TOP", str(tmp_path))
+    monkeypatch.setattr(constants, "DEFAULT_CTSM_ROOT", str(tmp_path))
+    monkeypatch.setattr(replace_fill_values, "DEFAULT_CTSM_ROOT", str(tmp_path))
 
 
 @pytest.fixture(autouse=True, name="mock_progress_file")

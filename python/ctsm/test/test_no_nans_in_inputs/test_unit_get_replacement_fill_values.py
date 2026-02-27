@@ -2,12 +2,69 @@
 """
 Unit tests for get_replacement_fill_values.py script.
 """
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-few-public-methods
 
-from unittest.mock import MagicMock
+import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from ctsm.no_nans_in_inputs import namelist_utils
+from ctsm.no_nans_in_inputs.get_replacement_fill_values import main, _get_netcdf_files_to_check
+from ctsm.no_nans_in_inputs import get_replacement_fill_values
+
+
+class TestCtsmRoot:
+    """Test the --ctsm-root argument"""
+
+    @patch(
+        "ctsm.no_nans_in_inputs.get_replacement_fill_values._get_netcdf_files_to_check",
+        wraps=_get_netcdf_files_to_check,
+    )
+    @patch("ctsm.no_nans_in_inputs.get_replacement_fill_values._get_netcdfs_with_nan_fills")
+    @patch("ctsm.no_nans_in_inputs.get_replacement_fill_values._print_summary_before_collecting")
+    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue")
+    @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
+    def test_ctsm_root_arg(
+        self,
+        mock_collect_new_fill_values,
+        mock_confirm_continue,
+        mock_print_summary_before_collecting,
+        mock_get_netcdfs_with_nan_fills,
+        mock_get_netcdf_files_to_check,
+        monkeypatch,
+    ):
+        """
+        Test that --ctsm-root is used where we expect (i.e., _get_netcdf_files_to_check()) by
+        ensuring that that function throws an error if given nonexistent --ctsm-root.
+        """
+        nonexistent_ctsm_root = "/mwernerberbun"
+        assert os.path.isabs(nonexistent_ctsm_root)
+        assert not os.path.exists(nonexistent_ctsm_root)
+
+        # Make sure we have a relative XML path so that ctsm_root will be prepended
+        monkeypatch.setattr(get_replacement_fill_values, "XML_FILE", "abc123.xml")
+
+        # Make sure a FileNotFoundError is thrown given that nonexistent --ctsm-root
+        with patch(
+            "sys.argv", ["get_replacement_fill_values", "--ctsm-root", nonexistent_ctsm_root]
+        ):
+            with pytest.raises(FileNotFoundError, match=nonexistent_ctsm_root):
+                main()
+
+        # Make sure _get_netcdf_files_to_check() was called with our nonexistent ctsm_root as either
+        # a positional or a keyword argument.
+        args, kwargs = mock_get_netcdf_files_to_check.call_args
+        try:
+            assert nonexistent_ctsm_root in args
+        except Exception:  # pylint: disable=broad-exception-caught
+            assert ("ctsm_root", nonexistent_ctsm_root) in kwargs.items()
+
+        # Make sure that the functions following _get_netcdf_files_to_check() weren't called
+        mock_collect_new_fill_values.assert_not_called()
+        mock_confirm_continue.assert_not_called()
+        mock_print_summary_before_collecting.assert_not_called()
+        mock_get_netcdfs_with_nan_fills.assert_not_called()
 
 
 class TestHowNetcdfIsReferencedInFile:

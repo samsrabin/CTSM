@@ -24,7 +24,7 @@ from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-pos
 )
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
-    CESM_TOP,
+    DEFAULT_CTSM_ROOT,
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
     USER_REQ_DELETE,
@@ -134,7 +134,7 @@ def _process_one_file(
         for f in files_containing:
             if os.path.exists(f) and not os.path.isabs(f):
                 f = os.path.realpath(f)
-            f_rel = Path(f).relative_to(CESM_TOP)
+            f_rel = Path(f).relative_to(DEFAULT_CTSM_ROOT)
             print(f"{indent}{f_rel}")
         print("-" * SEP_LENGTH)
         if not confirm_continue():
@@ -282,7 +282,10 @@ def main() -> int:
     parser.add_argument(
         "--xml-file",
         default=XML_FILE,
-        help=f"Path to XML file to update with new paths (default: {XML_FILE})",
+        help=(
+            "Path to XML file to update with new paths, relative to CTSM root"
+            f" (default: {XML_FILE})"
+        )
     )
     args = parser.parse_args()
 

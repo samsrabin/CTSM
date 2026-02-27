@@ -12,7 +12,7 @@ This script:
 import argparse
 import os
 import sys
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 
 # Add the python directory to sys.path for direct script execution
@@ -22,6 +22,7 @@ if _CTSM_PYTHON not in sys.path:
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     ATTR,
+    DEFAULT_CTSM_ROOT,
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
     XML_FILE,
@@ -38,10 +39,8 @@ from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-impor
     file_has_nan_fill,
 )
 
-# File paths
-DIR_TO_SEARCH_FOR_USER_NL_FILES = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, "cime_config")
-)
+# Directory to search for user_nl_ files. Must be relative to CTSM root.
+DIR_TO_SEARCH_FOR_USER_NL_FILES = "cime_config"
 
 
 def _check_for_nanfill_in_netcdf(
@@ -98,7 +97,8 @@ def check_write_access(file_path: str) -> bool:
 
 def _get_netcdf_files_to_check(
     progress: NoNanFillValueProgress | None = None,
-) -> Tuple[set, List[str]]:
+    ctsm_root: str = DEFAULT_CTSM_ROOT,
+) -> Tuple[Set[str], List[str]]:
     if progress:
         netcdf_paths = set(progress.keys())
         files_referencing_netcdfs = set()
@@ -110,12 +110,35 @@ def _get_netcdf_files_to_check(
             files_referencing_netcdfs = files_referencing_netcdfs | set(fif.keys())
         files_referencing_netcdfs = list(files_referencing_netcdfs)
     else:
-        files_to_search = [XML_FILE]
-        files_to_search.extend(nlu.find_user_nl_files(DIR_TO_SEARCH_FOR_USER_NL_FILES))
+        # In production, we should only ever define these constants as paths relative to the CTSM
+        # root! However, unit/system tests may mock them to be absolute paths instead.
+        if os.path.isabs(XML_FILE):
+            xml_file_abs = XML_FILE
+        else:
+            xml_file_abs = os.path.join(ctsm_root, XML_FILE)
+        if os.path.isabs(DIR_TO_SEARCH_FOR_USER_NL_FILES):
+            dir_to_search_abs = DIR_TO_SEARCH_FOR_USER_NL_FILES
+        else:
+            dir_to_search_abs = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_USER_NL_FILES)
 
+        # Make sure the requested locations exist
+        if not os.path.isfile(xml_file_abs):
+            raise FileNotFoundError(xml_file_abs)
+        if not os.path.isdir(dir_to_search_abs):
+            raise FileNotFoundError(dir_to_search_abs)
+
+        # Get list of files to search for netCDF paths
+        files_to_search = [xml_file_abs]
+        files_to_search.extend(nlu.find_user_nl_files(dir_to_search_abs))
+
+        # Find all netCDF paths referenced in those files
         netcdf_paths = set()
         files_referencing_netcdfs = []
         for file_to_search in files_to_search:
+            # replace_fill_values will read directly from the JSON file and will not get --cesm-root
+            # option, so paths to namelist files need to be absolute
+            assert os.path.isabs(file_to_search), f"Got rel but expected abs: {file_to_search}"
+
             print(f"Extracting file paths from file: {file_to_search}")
             netcdf_paths_thisfile = nlu.extract_file_paths_from_file(file_to_search)
             print(f"Found {len(netcdf_paths_thisfile)} file paths in file")
@@ -196,6 +219,12 @@ def main() -> int:
         default=str(NEW_FILLVALUES_FILE),
         help=(f"JSON file where collected info will be saved. Default: '{NEW_FILLVALUES_FILE}'"),
     )
+    parser.add_argument(
+        "--ctsm-root",
+        type=str,
+        default=DEFAULT_CTSM_ROOT,
+        help=f"Path to root of CTSM directory with namelist files (default: {DEFAULT_CTSM_ROOT})",
+    )
     args = parser.parse_args()
 
     # Check write access to progress file before starting
@@ -217,7 +246,7 @@ def main() -> int:
     progress = NoNanFillValueProgress(progress_file=args.fillvalues_file)
     did_load_progress = bool(progress)
 
-    netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(progress)
+    netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(progress, args.ctsm_root)
 
     if not did_load_progress:
         _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs)
