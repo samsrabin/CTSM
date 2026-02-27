@@ -77,6 +77,7 @@ class TestMain:
         return_value=(True, ["temp"]),
     )
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
+    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
     @patch(
         "ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files",
         return_value=["user_nl_clm"],
@@ -84,6 +85,7 @@ class TestMain:
     def test_main_happy_path(
         self,
         mock_find_user_nl_files,
+        mock_confirm_continue,
         mock_collect,
         mock_file_has_nan,
         mock_exists,
@@ -138,10 +140,12 @@ class TestMain:
         return_value=["temp"],
     )
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
+    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
     @patch("ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files", return_value=[])
     def test_main_dry_run(
         self,
         mock_find_user_nl_files,
+        mock_confirm_continue,
         mock_collect,
         mock_get_vars_with_nan,
         mock_exists,
@@ -201,10 +205,12 @@ class TestMain:
         return_value=["temp"],
     )
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
+    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
     @patch("ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files", return_value=[])
     def test_main_missing_file(
         self,
         mock_find_user_nl_files,
+        mock_confirm_continue,
         mock_collect,
         mock_get_vars_with_nan,
         mock_extract,
@@ -253,8 +259,10 @@ class TestMain:
         return_value=(True, ["temp"]),
     )
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
+    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
     def test_main_with_delete_flag(
         self,
+        mock_confirm_continue,
         mock_collect,
         mock_file_has_nan,
         mock_exists,

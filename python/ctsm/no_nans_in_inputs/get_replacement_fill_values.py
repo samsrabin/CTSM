@@ -200,6 +200,11 @@ def main() -> int:
         for f in files_not_found:
             print(f"\t* Not found: '{f}'")
 
+    # Ask if user wants to continue
+    print("")
+    if not user_inputs.confirm_continue():
+        sys.exit("Exiting.")
+
     # Collect new fill values from user
     user_inputs.collect_new_fill_values(
         progress, delete_if_none_filled=args.delete_if_none_filled, dry_run=args.dry_run

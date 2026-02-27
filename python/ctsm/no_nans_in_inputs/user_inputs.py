@@ -67,7 +67,7 @@ def confirm_continue(prompt: str = "Continue? [Y/n]: "):
         if response in ("n", "no"):
             return False
 
-        print("Please enter 'y' or 'n'.")
+        print(f"Please enter 'y' or 'n', not {response}.")
 
 
 def _convert_and_validate_input(user_input: str, target_type: type) -> Any | None:

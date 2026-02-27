@@ -83,6 +83,7 @@ def test_integrate_get_replace(tmp_path, test_netcdf_file, create_mock_xml_file,
         with patch(
             "builtins.input",
             side_effect=[
+                "y",  # continue after printing summary
                 USER_REQ_DELETE,  # alphabetically 1st var
                 str(TEST_FILL_VALUE),  # alphabetically 2nd var
             ],
