@@ -12,6 +12,7 @@ This script:
 import argparse
 import os
 import sys
+from typing import List, Tuple
 
 
 # Add the python directory to sys.path for direct script execution
@@ -95,19 +96,32 @@ def check_write_access(file_path: str) -> bool:
     return os.access(parent or ".", os.W_OK)
 
 
-def _get_netcdf_files_to_check():
-    files_to_search = [XML_FILE]
-    files_to_search.extend(nlu.find_user_nl_files(DIR_TO_SEARCH_FOR_USER_NL_FILES))
+def _get_netcdf_files_to_check(
+    progress: NoNanFillValueProgress | None = None,
+) -> Tuple[set, List[str]]:
+    if progress:
+        netcdf_paths = set(progress.keys())
+        files_referencing_netcdfs = set()
+        for k in progress:
+            if "found_in_files" not in progress[k]:
+                # netCDF file k wasn't found
+                continue
+            fif: dict = progress[k]["found_in_files"]
+            files_referencing_netcdfs = files_referencing_netcdfs | set(fif.keys())
+        files_referencing_netcdfs = list(files_referencing_netcdfs)
+    else:
+        files_to_search = [XML_FILE]
+        files_to_search.extend(nlu.find_user_nl_files(DIR_TO_SEARCH_FOR_USER_NL_FILES))
 
-    netcdf_paths = set()
-    files_referencing_netcdfs = []
-    for file_to_search in files_to_search:
-        print(f"Extracting file paths from file: {file_to_search}")
-        netcdf_paths_thisfile = nlu.extract_file_paths_from_file(file_to_search)
-        print(f"Found {len(netcdf_paths_thisfile)} file paths in file")
-        if netcdf_paths_thisfile:
-            files_referencing_netcdfs.append(file_to_search)
-        netcdf_paths = netcdf_paths | netcdf_paths_thisfile
+        netcdf_paths = set()
+        files_referencing_netcdfs = []
+        for file_to_search in files_to_search:
+            print(f"Extracting file paths from file: {file_to_search}")
+            netcdf_paths_thisfile = nlu.extract_file_paths_from_file(file_to_search)
+            print(f"Found {len(netcdf_paths_thisfile)} file paths in file")
+            if netcdf_paths_thisfile:
+                files_referencing_netcdfs.append(file_to_search)
+            netcdf_paths = netcdf_paths | netcdf_paths_thisfile
     return netcdf_paths, files_referencing_netcdfs
 
 
@@ -161,44 +175,49 @@ def main() -> int:
             sys.exit(1)
         print(f"✓ Write access confirmed for {args.fillvalues_file}\n")
 
-    # Get list of files to search for netCDF that might have NaN fill values
-    netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check()
-
     # Load existing progress if available
     progress = NoNanFillValueProgress(progress_file=args.fillvalues_file)
+    did_load_progress = bool(progress)
 
-    print("\nFinding matches...")
+    netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(progress)
 
-    files_not_found = []
-    for netcdf_path in sorted(netcdf_paths):
-        print(f"Finding matches for: {netcdf_path}")
+    if not did_load_progress:
+        print("\nFinding matches...")
 
-        # Check that the file exists
-        abs_path = convert_to_absolute_path(netcdf_path)
-        if not os.path.exists(abs_path):
-            # TODO: Actually handle files that weren't found, if possible.
-            files_not_found.append(abs_path)
-            continue
-        # TODO: Check that the file is in CESM inputdata dir
+        files_not_found = []
+        for netcdf_path in sorted(netcdf_paths):
+            print(f"Finding matches for: {netcdf_path}")
 
-        print(f"Does exist, abs path: {abs_path}")
-        print("-" * SEP_LENGTH)
-        print(f"In XML/user_nl file:   {netcdf_path}")
-        print(f"Absolute: {abs_path}")
+            # Check that the file exists
+            abs_path = convert_to_absolute_path(netcdf_path)
+            if not os.path.exists(abs_path):
+                # TODO: Actually handle files that weren't found, if possible.
+                progress[abs_path] = {}
+                continue
+            # TODO: Check that the file is in CESM inputdata dir
 
-        # Check that the file actually has NaN _FillValue for at least one var
-        _check_for_nanfill_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
+            print(f"Does exist, abs path: {abs_path}")
+            print("-" * SEP_LENGTH)
+            print(f"In XML/user_nl file:   {netcdf_path}")
+            print(f"Absolute: {abs_path}")
+
+            # Check that the file actually has NaN _FillValue for at least one var
+            _check_for_nanfill_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
 
     print("-" * SEP_LENGTH)
 
     # Summary
     print("\nSummary:")
-    print(f"  {len(netcdf_paths)}\tTotal paths in XML and user_nl_ files")
+    if not did_load_progress:
+        # If we did load progress, this number may be misleading, because we'll only be including
+        # the netCDF files that DID have NaN fills.
+        print(f"  {len(netcdf_paths)}\tTotal paths in XML and user_nl_ files")
     print(f"  {len(progress)}\tFiles with NaN {ATTR}")
+    files_not_found = [k for k in progress if not progress[k]]
     print(f"  {len(files_not_found)}\tFiles not found")
     if files_not_found:
         for f in files_not_found:
-            print(f"\t* Not found: '{f}'")
+            print(f"    * Not found: '{f}'")
 
     # Ask if user wants to continue
     print("")

@@ -123,6 +123,9 @@ def _convert_fif_dict_sets(
         dest_type: Type to convert to
     """
     for abs_path in progress:
+        if "found_in_files" not in progress[abs_path]:
+            # abs_path wasn't found
+            continue
         fif_dict = progress[abs_path]["found_in_files"]
         for file_containing in fif_dict:
             fif_dict[file_containing] = dest_type(fif_dict[file_containing])
