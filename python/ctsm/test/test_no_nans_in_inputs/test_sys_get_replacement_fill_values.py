@@ -237,7 +237,7 @@ class TestMain:
         mock_collect.assert_called_once()
         args, _ = mock_collect.call_args
         progress = args[0]
-        assert progress == {}
+        assert progress == {path_to_test_file_abs: {}}
 
         # Check stdout
         stdout = capsys.readouterr().out
