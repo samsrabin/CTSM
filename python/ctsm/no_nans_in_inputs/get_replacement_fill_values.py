@@ -125,6 +125,44 @@ def _get_netcdf_files_to_check(
     return netcdf_paths, files_referencing_netcdfs
 
 
+def _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs):
+    print("\nFinding matches...")
+
+    for netcdf_path in sorted(netcdf_paths):
+        print(f"Finding matches for: {netcdf_path}")
+
+        # Check that the file exists
+        abs_path = convert_to_absolute_path(netcdf_path)
+        if not os.path.exists(abs_path):
+            # TODO: Actually handle files that weren't found, if possible.
+            progress[abs_path] = {}
+            continue
+        # TODO: Check that the file is in CESM inputdata dir
+
+        print(f"Does exist, abs path: {abs_path}")
+        print("-" * SEP_LENGTH)
+        print(f"In XML/user_nl file:   {netcdf_path}")
+        print(f"Absolute: {abs_path}")
+
+        # Check that the file actually has NaN _FillValue for at least one var
+        _check_for_nanfill_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
+
+
+def _print_summary_before_collecting(progress, did_load_progress, netcdf_paths):
+    print("-" * SEP_LENGTH)
+    print("\nSummary:")
+    if not did_load_progress:
+        # If we did load progress, this number may be misleading, because we'll only be including
+        # the netCDF files that DID have NaN fills.
+        print(f"  {len(netcdf_paths)}\tTotal paths in XML and user_nl_ files")
+    print(f"  {len(progress)}\tFiles with NaN {ATTR}")
+    files_not_found = [k for k in progress if not progress[k]]
+    print(f"  {len(files_not_found)}\tFiles not found")
+    if files_not_found:
+        for f in files_not_found:
+            print(f"    * Not found: '{f}'")
+
+
 def main() -> int:
     """
     Main function to find matching file paths and collect new fill values.
@@ -182,42 +220,10 @@ def main() -> int:
     netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(progress)
 
     if not did_load_progress:
-        print("\nFinding matches...")
-
-        files_not_found = []
-        for netcdf_path in sorted(netcdf_paths):
-            print(f"Finding matches for: {netcdf_path}")
-
-            # Check that the file exists
-            abs_path = convert_to_absolute_path(netcdf_path)
-            if not os.path.exists(abs_path):
-                # TODO: Actually handle files that weren't found, if possible.
-                progress[abs_path] = {}
-                continue
-            # TODO: Check that the file is in CESM inputdata dir
-
-            print(f"Does exist, abs path: {abs_path}")
-            print("-" * SEP_LENGTH)
-            print(f"In XML/user_nl file:   {netcdf_path}")
-            print(f"Absolute: {abs_path}")
-
-            # Check that the file actually has NaN _FillValue for at least one var
-            _check_for_nanfill_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
-
-    print("-" * SEP_LENGTH)
+        _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs)
 
     # Summary
-    print("\nSummary:")
-    if not did_load_progress:
-        # If we did load progress, this number may be misleading, because we'll only be including
-        # the netCDF files that DID have NaN fills.
-        print(f"  {len(netcdf_paths)}\tTotal paths in XML and user_nl_ files")
-    print(f"  {len(progress)}\tFiles with NaN {ATTR}")
-    files_not_found = [k for k in progress if not progress[k]]
-    print(f"  {len(files_not_found)}\tFiles not found")
-    if files_not_found:
-        for f in files_not_found:
-            print(f"    * Not found: '{f}'")
+    _print_summary_before_collecting(progress, did_load_progress, netcdf_paths)
 
     # Ask if user wants to continue
     print("")
