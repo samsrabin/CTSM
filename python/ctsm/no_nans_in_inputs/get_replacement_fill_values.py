@@ -11,6 +11,7 @@ This script:
 
 import argparse
 import os
+from pathlib import Path
 import sys
 from typing import List, Set, Tuple
 
@@ -23,6 +24,7 @@ if _CTSM_PYTHON not in sys.path:
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     ATTR,
     DEFAULT_CTSM_ROOT,
+    INDENT,
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
     XML_FILE,
@@ -32,7 +34,7 @@ from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-pos
 )
 import ctsm.no_nans_in_inputs.namelist_utils as nlu  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
-    convert_to_absolute_path,
+    convert_to_absolute_path, get_path_with_cesmdataroot
 )
 from ctsm.no_nans_in_inputs import user_inputs  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-import-position
@@ -67,7 +69,7 @@ def _check_for_nanfill_in_netcdf(
             raise RuntimeError(
                 f"Found no NaN fills in file but it was in progress dict: {abs_path}"
             )
-        print(f"No variable in file has NaN {ATTR}; skipping")
+        print(f"{INDENT}No variable in file has NaN {ATTR}; skipping")
 
 
 def check_write_access(file_path: str) -> bool:
@@ -99,16 +101,9 @@ def _get_netcdf_files_to_check(
     progress: NoNanFillValueProgress | None = None,
     ctsm_root: str = DEFAULT_CTSM_ROOT,
 ) -> Tuple[Set[str], List[str]]:
+    print(f"Searching namelist files in '{ctsm_root}' for netCDF paths...")
     if progress:
-        netcdf_paths = set(progress.keys())
-        files_referencing_netcdfs = set()
-        for k in progress:
-            if "found_in_files" not in progress[k]:
-                # netCDF file k wasn't found
-                continue
-            fif: dict = progress[k]["found_in_files"]
-            files_referencing_netcdfs = files_referencing_netcdfs | set(fif.keys())
-        files_referencing_netcdfs = list(files_referencing_netcdfs)
+        netcdf_paths, files_referencing_netcdfs = progress.get_nc_paths_and_files_referencing()
     else:
         # In production, we should only ever define these constants as paths relative to the CTSM
         # root! However, unit/system tests may mock them to be absolute paths instead.
@@ -139,51 +134,49 @@ def _get_netcdf_files_to_check(
             # option, so paths to namelist files need to be absolute
             assert os.path.isabs(file_to_search), f"Got rel but expected abs: {file_to_search}"
 
-            print(f"Extracting file paths from file: {file_to_search}")
             netcdf_paths_thisfile = nlu.extract_file_paths_from_file(file_to_search)
-            print(f"Found {len(netcdf_paths_thisfile)} file paths in file")
             if netcdf_paths_thisfile:
                 files_referencing_netcdfs.append(file_to_search)
             netcdf_paths = netcdf_paths | netcdf_paths_thisfile
+
+            try:
+                msg_path = Path(file_to_search).relative_to(ctsm_root)
+            except Exception:  # pylint: disable=broad-exception-caught
+                msg_path = file_to_search
+            print(f"{INDENT}Found {len(netcdf_paths_thisfile)} netCDF paths in '{msg_path}'")
     return netcdf_paths, files_referencing_netcdfs
 
 
 def _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs):
-    print("\nFinding matches...")
+    print("\nChecking those netCDF files for NaN fill...")
 
     for netcdf_path in sorted(netcdf_paths):
-        print(f"Finding matches for: {netcdf_path}")
+        # Get the absolute path; continue if already processed
+        abs_path = convert_to_absolute_path(netcdf_path)
+        if abs_path in progress:
+            continue
 
         # Check that the file exists
-        abs_path = convert_to_absolute_path(netcdf_path)
         if not os.path.exists(abs_path):
+            print(f"netCDF file not found: '{netcdf_path}'")
             # TODO: Actually handle files that weren't found, if possible.
             progress[abs_path] = {}
             continue
         # TODO: Check that the file is in CESM inputdata dir
 
-        print(f"Does exist, abs path: {abs_path}")
-        print("-" * SEP_LENGTH)
-        print(f"In XML/user_nl file:   {netcdf_path}")
-        print(f"Absolute: {abs_path}")
+        # Get path of netCDF file to display in messages
+        msg_path = get_path_with_cesmdataroot(abs_path)
 
         # Check that the file actually has NaN _FillValue for at least one var
+        print(f"{INDENT}Checking for NaN fill: '{msg_path}'")
         _check_for_nanfill_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
 
-
-def _print_summary_before_collecting(progress, did_load_progress, netcdf_paths):
-    print("-" * SEP_LENGTH)
-    print("\nSummary:")
-    if not did_load_progress:
-        # If we did load progress, this number may be misleading, because we'll only be including
-        # the netCDF files that DID have NaN fills.
-        print(f"  {len(netcdf_paths)}\tTotal paths in XML and user_nl_ files")
-    print(f"  {len(progress)}\tFiles with NaN {ATTR}")
-    files_not_found = [k for k in progress if not progress[k]]
-    print(f"  {len(files_not_found)}\tFiles not found")
-    if files_not_found:
-        for f in files_not_found:
-            print(f"    * Not found: '{f}'")
+        # Print message
+        msg = f"NaN fill values: '{msg_path}'"
+        if abs_path in progress:
+            print(f"{INDENT}⚠️ {msg}")
+        else:
+            print(f"{INDENT}✅ No {msg}")
 
 
 def main() -> int:
@@ -250,9 +243,9 @@ def main() -> int:
 
     if not did_load_progress:
         _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs)
-
-    # Summary
-    _print_summary_before_collecting(progress, did_load_progress, netcdf_paths)
+        print("\n" + "=" * SEP_LENGTH)
+        progress.print_summary(len(netcdf_paths))
+        print("=" * SEP_LENGTH)
 
     # Ask if user wants to continue
     print("")

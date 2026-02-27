@@ -22,7 +22,7 @@ class TestCtsmRoot:
         wraps=_get_netcdf_files_to_check,
     )
     @patch("ctsm.no_nans_in_inputs.get_replacement_fill_values._get_netcdfs_with_nan_fills")
-    @patch("ctsm.no_nans_in_inputs.get_replacement_fill_values._print_summary_before_collecting")
+    @patch("ctsm.no_nans_in_inputs.json_io.NoNanFillValueProgress.print_summary")
     @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue")
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
     def test_ctsm_root_arg(

@@ -14,7 +14,6 @@ from ctsm.no_nans_in_inputs import json_io
 from ctsm.no_nans_in_inputs import namelist_utils
 from ctsm.no_nans_in_inputs import replace_fill_values
 from ctsm.no_nans_in_inputs import shared
-from ctsm.no_nans_in_inputs import user_inputs
 
 
 @pytest.fixture(autouse=True, name="mock_inputdata_prefix")

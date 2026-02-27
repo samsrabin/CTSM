@@ -63,3 +63,10 @@ def convert_to_absolute_path(relative_path: str) -> str:
 
     # Otherwise, convert relative path to absolute
     return os.path.join(INPUTDATA_PREFIX, relative_path)
+
+
+def get_path_with_cesmdataroot(abs_path):
+    """Given a path, replace the env var CESMDATAROOT in the string with '$CESMDATAROOT'"""
+    if os.getenv("CESMDATAROOT"):
+        return abs_path.replace(os.getenv("CESMDATAROOT"), "$CESMDATAROOT").replace("//", "/")
+    return abs_path

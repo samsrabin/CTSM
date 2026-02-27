@@ -42,3 +42,6 @@ USERNL_NC_PATTERN = rf"""^(\s*\w+\s*=\s*)(['"])({ONE_OF_OUR_FILES}*)(['"])(.*)$"
 
 # netCDF variables that start with any of these strings should get a default fill value of -999
 VARSTARTS_TO_DEFAULT_NEG999 = ["fertl_", "irrig_", "crpbf_", "fharv_"]
+
+# Indentation for messages
+INDENT = "    "

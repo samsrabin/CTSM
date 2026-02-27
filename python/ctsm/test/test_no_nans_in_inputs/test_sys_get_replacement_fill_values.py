@@ -257,7 +257,7 @@ class TestMain:
         # Check stdout
         stdout = capsys.readouterr().out
         assert "1\tFiles not found" in stdout
-        assert f"Not found: '{path_to_test_file_abs}'" in stdout
+        assert f"netCDF file not found: '{path_to_test_file_rel}'" in stdout
 
     @patch("sys.argv", ["get_replacement_fill_values.py", "--delete-if-none-filled"])
     @patch(

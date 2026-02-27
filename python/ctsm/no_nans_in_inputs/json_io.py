@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 import sys
 from copy import deepcopy
-from typing import Type
+from typing import List, Set, Tuple, Type
 import json
 from collections import defaultdict
 
@@ -14,6 +14,14 @@ from collections import defaultdict
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 if _CTSM_PYTHON not in sys.path:
     sys.path.insert(1, _CTSM_PYTHON)
+
+from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
+    ATTR,
+    INDENT,
+)
+from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
+    get_path_with_cesmdataroot,
+)
 
 
 def create_empty_progress_dict_onefile():
@@ -47,19 +55,23 @@ class NoNanFillValueProgress(defaultdict):
                     # This is serialized as a list, but the code needs it as a set
                     progress = _convert_fif_dict_sets(progress, set)
 
-                    print(f"\nLoaded progress from {progress_file}")
+                    print(f"\nLoaded progress from {progress_file}:")
+                    self.update(progress)
+                    self.print_summary()
                     total_vars = _get_n_vars_in_progress(self)
-                    print(f"Already processed {total_vars} variable(s) in {len(self)} file(s)")
-                    if load_without_asking:
-                        self.update(progress)
+                    if total_vars:
+                        print(
+                            f"Already decided {total_vars} new fill values in {len(self)} file(s)"
+                        )
                     else:
+                        print("No new fill values decided so far")
+                    if not load_without_asking:
                         response = (
                             input("Continue from where you left off? [Y/n]: ").strip().lower()
                         )
                         if response and response not in ("y", "yes"):
                             print("Starting fresh...")
-                        else:
-                            self.update(progress)
+                            self.clear()
             except (IOError, OSError, json.JSONDecodeError) as e:
                 print(f"Warning: Could not load progress file: {e}", file=sys.stderr)
 
@@ -68,7 +80,7 @@ class NoNanFillValueProgress(defaultdict):
         super().__setitem__(str(key), value)
 
     def update(self, *args, **kwargs):
-        """Convert keys to str for update operations"""
+        """Convert keys to str for update operations (i.e., ensuring no keys are Path)"""
         # Handle dict or iterable of key/value pairs
         if args:
             other = args[0]
@@ -92,9 +104,9 @@ class NoNanFillValueProgress(defaultdict):
         try:
             with open(self.progress_file, "w", encoding="utf-8") as f:
                 json.dump(progress_out, f, indent=2)
-            print(f"  [Progress saved to {self.progress_file}]")
+            print(f"{INDENT}[Progress saved to {self.progress_file}]")
         except (IOError, OSError) as e:
-            print(f"  Warning: Could not save progress: {e}", file=sys.stderr)
+            print(f"{INDENT}Warning: Could not save progress: {e}", file=sys.stderr)
 
     def done_with_file(self, netcdf_path: str) -> None:
         """After we're done with a netCDF file, mark for removal from progress object/file"""
@@ -108,6 +120,35 @@ class NoNanFillValueProgress(defaultdict):
         for key in keys_to_remove:
             self.pop(key)
         self.save()
+
+    def get_nc_paths_and_files_referencing(self) -> Tuple[Set[str], List[str]]:
+        """
+        Get netCDF paths in this dict, as well as all the namelist files that reference netCDFs
+        """
+        netcdf_paths = set(self.keys())
+        files_referencing_netcdfs = set()
+        for k in self:
+            if "found_in_files" not in self[k]:
+                # netCDF file k wasn't found
+                continue
+            fif: dict = self[k]["found_in_files"]
+            files_referencing_netcdfs = files_referencing_netcdfs | set(fif.keys())
+        files_referencing_netcdfs = list(files_referencing_netcdfs)
+        return netcdf_paths, files_referencing_netcdfs
+
+    def print_summary(self, n_netcdfs_checked: int | None = None) -> None:
+        """Print summary of progress so far"""
+        if n_netcdfs_checked is not None:
+            print(
+                f"{n_netcdfs_checked}"
+                "\tTotal netCDF files referenced in XML and user_nl_ files"
+            )
+        print(f"{len(self)}\tFiles with NaN {ATTR}")
+        files_not_found = [k for k in self if not self[k]]
+        print(f"{len(files_not_found)}\tFiles not found")
+        if files_not_found:
+            for f in files_not_found:
+                print(f"\t* '{get_path_with_cesmdataroot(f)}'")
 
 
 def _convert_fif_dict_sets(
@@ -135,5 +176,6 @@ def _convert_fif_dict_sets(
 def _get_n_vars_in_progress(progress: NoNanFillValueProgress) -> int:
     n_vars = 0
     for file in progress.keys():
-        n_vars += len(progress[file]["new_fill_values"].keys())
+        if "new_fill_values" in progress[file]:
+            n_vars += len(progress[file]["new_fill_values"].keys())
     return n_vars

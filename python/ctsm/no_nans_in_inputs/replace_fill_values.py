@@ -35,6 +35,9 @@ from ctsm.no_nans_in_inputs import netcdf_utils  # pylint: disable=wrong-import-
 from ctsm.no_nans_in_inputs.user_inputs import (  # pylint: disable=wrong-import-position
     confirm_continue,
 )
+from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
+    get_path_with_cesmdataroot,
+)
 
 
 def get_output_filename(input_file: str) -> str:
@@ -107,17 +110,9 @@ def _process_one_file(
         # Print message (useful for a git commit) and wait for user to approve before continuing
         indent = "  "
         print("-" * SEP_LENGTH)
-        input_file_msg = input_file_abs
-        if os.getenv("CESMDATAROOT"):
-            input_file_msg = input_file_msg.replace(
-                os.getenv("CESMDATAROOT"), "$CESMDATAROOT"
-            ).replace("//", "/")
+        input_file_msg = get_path_with_cesmdataroot(input_file_abs)
         print(f"Removed NaN fill values from '{input_file_msg}'.\n")
-        output_file_msg = output_file
-        if os.getenv("CESMDATAROOT"):
-            output_file_msg = output_file_msg.replace(
-                os.getenv("CESMDATAROOT"), "$CESMDATAROOT"
-            ).replace("//", "/")
+        output_file_msg = get_path_with_cesmdataroot(output_file)
         print(f"Replaced with '{output_file_msg}'; new fill values:")
         vars_with_deleted_fill = []
         for var, fill_val in var_fillvalues.items():
@@ -134,6 +129,7 @@ def _process_one_file(
         for f in files_containing:
             if os.path.exists(f) and not os.path.isabs(f):
                 f = os.path.realpath(f)
+            # TODO: This will break now that "get" script has custom --ctsm-root
             f_rel = Path(f).relative_to(DEFAULT_CTSM_ROOT)
             print(f"{indent}{f_rel}")
         print("-" * SEP_LENGTH)
@@ -285,7 +281,7 @@ def main() -> int:
         help=(
             "Path to XML file to update with new paths, relative to CTSM root"
             f" (default: {XML_FILE})"
-        )
+        ),
     )
     args = parser.parse_args()
 
