@@ -27,7 +27,7 @@ class NoNanFillValueProgress(defaultdict):
     def __init__(
         self,
         default_factory=create_empty_progress_dict_onefile,
-        progress_file: str = "fkqenreqorni",
+        progress_file: str | None = None,
         load_without_asking: bool = False,
     ):
         """
