@@ -9,6 +9,7 @@ Tests functions that require file I/O.
 import os
 from unittest.mock import MagicMock, patch
 from pathlib import Path
+import logging
 
 import numpy as np
 import pytest
@@ -160,7 +161,7 @@ class TestMain:
         mock_exists,
         mock_extract,
         mock_check_write,
-        capsys,
+        caplog,
         tmp_path,
         mock_xml_file_path,
     ):  # pylint: disable=unused-argument
@@ -170,7 +171,8 @@ class TestMain:
         # Make the mock dataset iterable
         mock_ds.__iter__.return_value = iter(["temp"])
 
-        result = main_func()
+        with caplog.at_level(logging.DEBUG):
+            result = main_func()
 
         assert result == 0
         assert mock_extract.call_count == 2
@@ -197,8 +199,7 @@ class TestMain:
         assert kwargs["dry_run"]
 
         # Check stdout
-        stdout = capsys.readouterr().out
-        assert "Checking write access" not in stdout
+        assert "Checking write access" not in caplog.text
 
     @patch("sys.argv", ["get_replacement_fill_values.py"])
     @patch(
@@ -224,7 +225,7 @@ class TestMain:
         mock_get_vars_with_nan,
         mock_extract,
         mock_check_write,
-        capsys,
+        caplog,
         tmp_path,
         mock_xml_file_path,
     ):  # pylint: disable=unused-argument
@@ -240,7 +241,9 @@ class TestMain:
         # FileNotFoundError we don't want.
         Path(mock_xml_file_path).touch()
 
-        result = main_func()
+        with patch("sys.argv", ["get_replacement_fill_values", "--verbose"]):
+            with caplog.at_level(logging.DEBUG):
+                result = main_func()
 
         assert result == 0
         mock_extract.assert_called_once()
@@ -255,9 +258,8 @@ class TestMain:
         assert progress == {path_to_test_file_abs: {}}
 
         # Check stdout
-        stdout = capsys.readouterr().out
-        assert "1\tFiles not found" in stdout
-        assert f"netCDF file not found: '{path_to_test_file_rel}'" in stdout
+        assert "1\tFiles not found" in caplog.text
+        assert f"netCDF file not found: '{path_to_test_file_rel}'" in caplog.text
 
     @patch("sys.argv", ["get_replacement_fill_values.py", "--delete-if-none-filled"])
     @patch(

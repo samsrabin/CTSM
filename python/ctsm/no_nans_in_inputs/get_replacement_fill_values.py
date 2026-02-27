@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import sys
 from typing import List, Set, Tuple
+import logging
 
 
 # Add the python directory to sys.path for direct script execution
@@ -34,12 +35,27 @@ from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-pos
 )
 import ctsm.no_nans_in_inputs.namelist_utils as nlu  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
-    convert_to_absolute_path, get_path_with_cesmdataroot
+    convert_to_absolute_path,
+    get_path_with_cesmdataroot,
 )
 from ctsm.no_nans_in_inputs import user_inputs  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-import-position
     file_has_nan_fill,
 )
+from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
+    add_logging_args,
+    debug,
+    error,
+    info,
+    process_logging_args,
+    warn,
+)
+from ctsm import ctsm_logging
+
+# Set up logging
+logging.basicConfig(format="%(message)s", level=logging.DEBUG)
+ctsm_logging.skip_compose = True
+logger = logging.getLogger()
 
 # Directory to search for user_nl_ files. Must be relative to CTSM root.
 DIR_TO_SEARCH_FOR_USER_NL_FILES = "cime_config"
@@ -66,10 +82,12 @@ def _check_for_nanfill_in_netcdf(
         progress.save()
     else:
         if abs_path in progress:
-            raise RuntimeError(
-                f"Found no NaN fills in file but it was in progress dict: {abs_path}"
+            error(
+                logger,
+                f"Found no NaN fills in file but it was in progress dict: {abs_path}",
+                error_type=RuntimeError,
             )
-        print(f"{INDENT}No variable in file has NaN {ATTR}; skipping")
+        info(logger, f"{INDENT}No variable in file has NaN {ATTR}; skipping")
 
 
 def check_write_access(file_path: str) -> bool:
@@ -101,7 +119,7 @@ def _get_netcdf_files_to_check(
     progress: NoNanFillValueProgress | None = None,
     ctsm_root: str = DEFAULT_CTSM_ROOT,
 ) -> Tuple[Set[str], List[str]]:
-    print(f"Searching namelist files in '{ctsm_root}' for netCDF paths...")
+    warn(logger, f"Searching namelist files in '{ctsm_root}' for netCDF paths...")
     if progress:
         netcdf_paths, files_referencing_netcdfs = progress.get_nc_paths_and_files_referencing()
     else:
@@ -118,9 +136,9 @@ def _get_netcdf_files_to_check(
 
         # Make sure the requested locations exist
         if not os.path.isfile(xml_file_abs):
-            raise FileNotFoundError(xml_file_abs)
+            error(logger, f"{xml_file_abs} not found", error_type=FileNotFoundError)
         if not os.path.isdir(dir_to_search_abs):
-            raise FileNotFoundError(dir_to_search_abs)
+            error(logger, f"{dir_to_search_abs} not found", error_type=FileNotFoundError)
 
         # Get list of files to search for netCDF paths
         files_to_search = [xml_file_abs]
@@ -143,12 +161,12 @@ def _get_netcdf_files_to_check(
                 msg_path = Path(file_to_search).relative_to(ctsm_root)
             except Exception:  # pylint: disable=broad-exception-caught
                 msg_path = file_to_search
-            print(f"{INDENT}Found {len(netcdf_paths_thisfile)} netCDF paths in '{msg_path}'")
+            info(logger, f"{INDENT}Found {len(netcdf_paths_thisfile)} netCDF paths in '{msg_path}'")
     return netcdf_paths, files_referencing_netcdfs
 
 
 def _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs):
-    print("\nChecking those netCDF files for NaN fill...")
+    warn(logger, "\nChecking those netCDF files for NaN fill...")
 
     for netcdf_path in sorted(netcdf_paths):
         # Get the absolute path; continue if already processed
@@ -158,7 +176,7 @@ def _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdf
 
         # Check that the file exists
         if not os.path.exists(abs_path):
-            print(f"netCDF file not found: '{netcdf_path}'")
+            info(logger, f"netCDF file not found: '{netcdf_path}'")
             # TODO: Actually handle files that weren't found, if possible.
             progress[abs_path] = {}
             continue
@@ -168,15 +186,15 @@ def _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdf
         msg_path = get_path_with_cesmdataroot(abs_path)
 
         # Check that the file actually has NaN _FillValue for at least one var
-        print(f"{INDENT}Checking for NaN fill: '{msg_path}'")
+        info(logger, f"{INDENT}Checking for NaN fill: '{msg_path}'")
         _check_for_nanfill_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
 
         # Print message
         msg = f"NaN fill values: '{msg_path}'"
         if abs_path in progress:
-            print(f"{INDENT}⚠️ {msg}")
+            info(logger, f"{INDENT}⚠️ {msg}")
         else:
-            print(f"{INDENT}✅ No {msg}")
+            info(logger, f"{INDENT}✅ No {msg}")
 
 
 def main() -> int:
@@ -218,22 +236,21 @@ def main() -> int:
         default=DEFAULT_CTSM_ROOT,
         help=f"Path to root of CTSM directory with namelist files (default: {DEFAULT_CTSM_ROOT})",
     )
+    add_logging_args(parser)
     args = parser.parse_args()
+    process_logging_args(args)
 
     # Check write access to progress file before starting
     if not args.dry_run:
-        print("Checking write access for progress file...")
+        debug(logger, "Checking write access for progress file...")
         if not check_write_access(args.fillvalues_file):
-            print(
-                f"Error: No write access to create/update {args.fillvalues_file}", file=sys.stderr
-            )
+            msg = f"Error: No write access to create/update {args.fillvalues_file}\n"
             dir_str = os.path.dirname(args.fillvalues_file) or "."
-            print(
-                f"Please check permissions in directory: {dir_str}",
-                file=sys.stderr,
-            )
+            msg += f"Please check permissions in directory: {dir_str}"
+            error_type = PermissionError if logger.getEffectiveLevel() <= logging.DEBUG else None
+            error(logger, msg, error_type=error_type)
             sys.exit(1)
-        print(f"✓ Write access confirmed for {args.fillvalues_file}\n")
+        info(logger, f"✓ Write access confirmed for {args.fillvalues_file}\n")
 
     # Load existing progress if available
     progress = NoNanFillValueProgress(progress_file=args.fillvalues_file)
@@ -243,12 +260,12 @@ def main() -> int:
 
     if not did_load_progress:
         _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs)
-        print("\n" + "=" * SEP_LENGTH)
+        warn(logger, "\n" + "=" * SEP_LENGTH)
         progress.print_summary(len(netcdf_paths))
-        print("=" * SEP_LENGTH)
+        warn(logger, "=" * SEP_LENGTH)
 
     # Ask if user wants to continue
-    print("")
+    warn(logger, "")
     if not user_inputs.confirm_continue():
         sys.exit("Exiting.")
 

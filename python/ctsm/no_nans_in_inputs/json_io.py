@@ -9,6 +9,7 @@ from copy import deepcopy
 from typing import List, Set, Tuple, Type
 import json
 from collections import defaultdict
+import logging
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -22,6 +23,15 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
     get_path_with_cesmdataroot,
 )
+
+from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
+    error,
+    info,
+    warn,
+)
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def create_empty_progress_dict_onefile():
@@ -55,25 +65,26 @@ class NoNanFillValueProgress(defaultdict):
                     # This is serialized as a list, but the code needs it as a set
                     progress = _convert_fif_dict_sets(progress, set)
 
-                    print(f"\nLoaded progress from {progress_file}:")
+                    warn(logger, f"\nLoaded progress from {progress_file}:")
                     self.update(progress)
                     self.print_summary()
                     total_vars = _get_n_vars_in_progress(self)
                     if total_vars:
-                        print(
-                            f"Already decided {total_vars} new fill values in {len(self)} file(s)"
+                        warn(
+                            logger,
+                            f"Already decided {total_vars} new fill values in {len(self)} file(s)",
                         )
                     else:
-                        print("No new fill values decided so far")
+                        warn(logger, "No new fill values decided so far")
                     if not load_without_asking:
                         response = (
                             input("Continue from where you left off? [Y/n]: ").strip().lower()
                         )
                         if response and response not in ("y", "yes"):
-                            print("Starting fresh...")
+                            warn(logger, "Starting fresh...")
                             self.clear()
             except (IOError, OSError, json.JSONDecodeError) as e:
-                print(f"Warning: Could not load progress file: {e}", file=sys.stderr)
+                warn(logger, f"Warning: Could not load progress file: {e}", file=sys.stderr)
 
     def __setitem__(self, key, value):
         """Ensure all keys are strings"""
@@ -104,14 +115,18 @@ class NoNanFillValueProgress(defaultdict):
         try:
             with open(self.progress_file, "w", encoding="utf-8") as f:
                 json.dump(progress_out, f, indent=2)
-            print(f"{INDENT}[Progress saved to {self.progress_file}]")
+            info(logger, f"{INDENT}[Progress saved to {self.progress_file}]")
         except (IOError, OSError) as e:
-            print(f"{INDENT}Warning: Could not save progress: {e}", file=sys.stderr)
+            warn(logger, f"{INDENT}Warning: Could not save progress: {e}", file=sys.stderr)
 
     def done_with_file(self, netcdf_path: str) -> None:
         """After we're done with a netCDF file, mark for removal from progress object/file"""
         if netcdf_path not in self:
-            raise KeyError(netcdf_path)
+            error(
+                logger,
+                f"{netcdf_path} not a key in NoNanFillValueProgress object",
+                error_type=KeyError,
+            )
         self[netcdf_path] = None
 
     def cleanup(self) -> None:
@@ -139,16 +154,16 @@ class NoNanFillValueProgress(defaultdict):
     def print_summary(self, n_netcdfs_checked: int | None = None) -> None:
         """Print summary of progress so far"""
         if n_netcdfs_checked is not None:
-            print(
-                f"{n_netcdfs_checked}"
-                "\tTotal netCDF files referenced in XML and user_nl_ files"
+            warn(
+                logger,
+                f"{n_netcdfs_checked}" "\tTotal netCDF files referenced in XML and user_nl_ files",
             )
-        print(f"{len(self)}\tFiles with NaN {ATTR}")
+        warn(logger, f"{len(self)}\tFiles with NaN {ATTR}")
         files_not_found = [k for k in self if not self[k]]
-        print(f"{len(files_not_found)}\tFiles not found")
+        warn(logger, f"{len(files_not_found)}\tFiles not found")
         if files_not_found:
             for f in files_not_found:
-                print(f"\t* '{get_path_with_cesmdataroot(f)}'")
+                warn(logger, f"\t* '{get_path_with_cesmdataroot(f)}'")
 
 
 def _convert_fif_dict_sets(

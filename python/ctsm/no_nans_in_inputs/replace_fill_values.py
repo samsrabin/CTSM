@@ -13,6 +13,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+import logging
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -38,6 +39,17 @@ from ctsm.no_nans_in_inputs.user_inputs import (  # pylint: disable=wrong-import
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
     get_path_with_cesmdataroot,
 )
+from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
+    add_logging_args,
+    info,
+    process_logging_args,
+    setup_logging_pre_config,
+    warn,
+)
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(message)s", level=logging.WARNING)
 
 
 def get_output_filename(input_file: str) -> str:
@@ -79,13 +91,13 @@ def _process_one_file(
 ):
     # Print things to do for this file
     var_fillvalues = progress[input_file_abs]["new_fill_values"]
-    print(f"\nInput:  {input_file_abs}")
-    print(f"Output: {output_file}")
+    info(logger, f"\nInput:  {input_file_abs}")
+    info(logger, f"Output: {output_file}")
 
     # Build and print the ncatted command
     cmd = netcdf_utils.build_ncatted_command(input_file_abs, output_file, var_fillvalues)
-    print("\nCommand:")
-    print("  " + " ".join(cmd))
+    info(logger, "\nCommand:")
+    info(logger, "  " + " ".join(cmd))
 
     # Execute the command if not in dry-run mode
     if not dry_run:
@@ -109,30 +121,33 @@ def _process_one_file(
 
         # Print message (useful for a git commit) and wait for user to approve before continuing
         indent = "  "
-        print("-" * SEP_LENGTH)
+        warn(logger, "-" * SEP_LENGTH)
         input_file_msg = get_path_with_cesmdataroot(input_file_abs)
-        print(f"Removed NaN fill values from '{input_file_msg}'.\n")
+        warn(logger, f"Removed NaN fill values from '{input_file_msg}'.\n")
         output_file_msg = get_path_with_cesmdataroot(output_file)
-        print(f"Replaced with '{output_file_msg}'; new fill values:")
+        warn(logger, f"Replaced with '{output_file_msg}'; new fill values:")
         vars_with_deleted_fill = []
         for var, fill_val in var_fillvalues.items():
             if fill_val == USER_REQ_DELETE:
                 vars_with_deleted_fill.append(var)
             else:
-                print(f"{indent}{var}: {fill_val}")
+                warn(logger, f"{indent}{var}: {fill_val}")
         if vars_with_deleted_fill:
             if len(vars_with_deleted_fill) <= 10:
-                print(f"{indent}Deleted fill: {', '.join(vars_with_deleted_fill)}")
+                warn(logger, f"{indent}Deleted fill: {', '.join(vars_with_deleted_fill)}")
             else:
-                print(f"{indent}Deleted unused fill from {len(vars_with_deleted_fill)} variables")
-        print("\nPath updated in:")
+                warn(
+                    logger,
+                    f"{indent}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
+                )
+        warn(logger, "\nPath updated in:")
         for f in files_containing:
             if os.path.exists(f) and not os.path.isabs(f):
                 f = os.path.realpath(f)
             # TODO: This will break now that "get" script has custom --ctsm-root
             f_rel = Path(f).relative_to(DEFAULT_CTSM_ROOT)
-            print(f"{indent}{f_rel}")
-        print("-" * SEP_LENGTH)
+            warn(logger, f"{indent}{f_rel}")
+        warn(logger, "-" * SEP_LENGTH)
         if not confirm_continue():
             sys.exit("Exiting.")
         progress.done_with_file(input_file_abs)
@@ -157,21 +172,16 @@ def process_files(
         Number of files successfully processed
     """
     # Load the new fill values
-    print(f"Loading new fill values from {fillvalues_file}...")
+    warn(logger, f"Loading new fill values from {fillvalues_file}...")
     progress = NoNanFillValueProgress(progress_file=fillvalues_file, load_without_asking=True)
 
     total_files = len(progress)
     total_vars = sum(len(vars_dict) for vars_dict in progress.values())
-    print(f"Found {total_vars} variable(s) in {total_files} file(s)\n")
+    warn(logger, f"Found {total_vars} variable(s) in {total_files} file(s)\n")
 
     # Process each file
-    print("=" * SEP_LENGTH)
-    print("NCATTED COMMANDS")
-    print("=" * SEP_LENGTH)
-
     files_processed = 0
     files_to_process = list(progress.keys()).copy()
-
     for input_file_abs in files_to_process:
         output_file = get_output_filename(input_file_abs)
 
@@ -211,19 +221,19 @@ def skip_this_file(input_file: str, output_file: str, overwrite: bool) -> bool:
     """
     # Check if output is a symlink - never overwrite symlinks
     if os.path.islink(output_file):
-        print(f"\n{'!' * SEP_LENGTH}")
-        print("WARNING: Output file is a symlink - SKIPPING")
-        print(f"  Input:  {input_file}")
-        print(f"  Output: {output_file} -> {os.readlink(output_file)}")
-        print("  Symlinks will never be overwritten for safety")
-        print(f"{'!' * SEP_LENGTH}")
+        warn(logger, f"\n{'!' * SEP_LENGTH}")
+        warn(logger, "WARNING: Output file is a symlink - SKIPPING")
+        warn(logger, f"  Input:  {input_file}")
+        warn(logger, f"  Output: {output_file} -> {os.readlink(output_file)}")
+        warn(logger, "  Symlinks will never be overwritten for safety")
+        warn(logger, f"{'!' * SEP_LENGTH}")
         return True
 
     # Skip if output file already exists and overwrite is not enabled
     if os.path.exists(output_file) and not overwrite:
-        print(f"\nSkipping (output exists): {input_file}")
-        print(f"  Output: {output_file}")
-        print("  Use --overwrite to replace existing files")
+        warn(logger, f"\nSkipping (output exists): {input_file}")
+        warn(logger, f"  Output: {output_file}")
+        warn(logger, "  Use --overwrite to replace existing files")
         return True
 
     return False
@@ -239,10 +249,10 @@ def print_dry_run_summary(total_files: int, total_vars: int) -> None:
         total_files: Total number of files to process
         total_vars: Total number of variables to modify
     """
-    print("\n" + "=" * SEP_LENGTH)
-    print("\nSummary:")
-    print(f"  {total_files} file(s) will be processed")
-    print(f"  {total_vars} variable(s) will be modified")
+    warn(logger, "\n" + "=" * SEP_LENGTH)
+    warn(logger, "\nSummary:")
+    warn(logger, f"  {total_files} file(s) will be processed")
+    warn(logger, f"  {total_vars} variable(s) will be modified")
 
 
 def main() -> int:
@@ -283,7 +293,9 @@ def main() -> int:
             f" (default: {XML_FILE})"
         ),
     )
+    add_logging_args(parser)
     args = parser.parse_args()
+    process_logging_args(args)
 
     # Process the files
     process_files(

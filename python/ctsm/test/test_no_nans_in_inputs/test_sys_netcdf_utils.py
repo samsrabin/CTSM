@@ -4,6 +4,7 @@
 
 import os
 from unittest import mock
+import logging
 
 import pytest
 import numpy as np
@@ -90,30 +91,30 @@ class TestShowNcdumpForVariable:
         ds.close()
         return str(test_file)
 
-    def test_prints_matching_lines(self, test_netcdf_file, capsys):
+    def test_prints_matching_lines(self, test_netcdf_file, caplog):
         """Test that matching lines from ncdump are printed."""
-        show_ncdump_for_variable(test_netcdf_file, self.TEST_VAR)
-        captured = capsys.readouterr()
-        assert self.TEST_VAR in captured.out
-        assert "Lines matching" in captured.out
+        with caplog.at_level(logging.DEBUG):
+            show_ncdump_for_variable(test_netcdf_file, self.TEST_VAR)
+        assert self.TEST_VAR in caplog.text
+        assert "Lines matching" in caplog.text
 
-    def test_prints_no_match_message(self, test_netcdf_file, capsys):
+    def test_prints_no_match_message(self, test_netcdf_file, caplog):
         """Test that a message is printed when no lines match."""
-        show_ncdump_for_variable(test_netcdf_file, "nonexistent_var")
-        captured = capsys.readouterr()
-        assert "No lines found matching" in captured.out
+        with caplog.at_level(logging.DEBUG):
+            show_ncdump_for_variable(test_netcdf_file, "nonexistent_var")
+        assert "No lines found matching" in caplog.text
 
-    def test_none_file_path(self, capsys):
+    def test_none_file_path(self, caplog):
         """Test that None file path prints a message and returns."""
-        show_ncdump_for_variable(None, self.TEST_VAR)
-        captured = capsys.readouterr()
-        assert "No file path available" in captured.out
+        with caplog.at_level(logging.DEBUG):
+            show_ncdump_for_variable(None, self.TEST_VAR)
+        assert "No file path available" in caplog.text
 
-    def test_nonexistent_file(self, capsys):
+    def test_nonexistent_file(self, caplog):
         """Test that a nonexistent file prints an error."""
-        show_ncdump_for_variable("/nonexistent/file.nc", self.TEST_VAR)
-        captured = capsys.readouterr()
-        assert "Error running ncdump" in captured.out
+        with caplog.at_level(logging.DEBUG):
+            show_ncdump_for_variable("/nonexistent/file.nc", self.TEST_VAR)
+        assert "Error running ncdump" in caplog.text
 
 
 class TestGetVarInfo:

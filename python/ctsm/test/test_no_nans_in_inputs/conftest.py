@@ -15,6 +15,9 @@ from ctsm.no_nans_in_inputs import namelist_utils
 from ctsm.no_nans_in_inputs import replace_fill_values
 from ctsm.no_nans_in_inputs import shared
 
+from ctsm.ctsm_logging import setup_logging_for_tests
+setup_logging_for_tests()
+
 
 @pytest.fixture(autouse=True, name="mock_inputdata_prefix")
 def fixture_mock_inputdata_prefix(tmp_path, monkeypatch):

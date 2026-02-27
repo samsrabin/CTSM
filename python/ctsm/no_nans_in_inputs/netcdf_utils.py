@@ -5,6 +5,7 @@ import sys
 import re
 import subprocess
 from typing import Any, List, Tuple
+import logging
 
 import numpy as np
 import xarray as xr
@@ -16,6 +17,7 @@ if _CTSM_PYTHON not in sys.path:
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     ATTR,
+    INDENT,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
@@ -27,6 +29,15 @@ from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-posi
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     VARSTARTS_TO_DEFAULT_NEG999,
 )
+
+from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
+    error,
+    info,
+    warn,
+)
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def build_ncatted_command(
@@ -52,7 +63,11 @@ def build_ncatted_command(
     output_real = os.path.realpath(output_file)
 
     if input_real == output_real:
-        raise ValueError(f"Input and output files are the same: {input_file} -> {input_real}")
+        error(
+            logger,
+            f"Input and output files are the same: {input_file} -> {input_real}",
+            error_type=ValueError,
+        )
 
     # Open the input file to get actual data types
     ds = xr.open_dataset(input_file, **OPEN_DS_KWARGS)
@@ -65,6 +80,7 @@ def build_ncatted_command(
             cmd.extend(["-a", f"{ATTR},{var},d,,"])
         else:
             # Get the actual data type from the file
+            dtype = None
             if var in ds.data_vars:
                 dtype = ds[var].dtype
             elif var in ds.coords:
@@ -72,7 +88,7 @@ def build_ncatted_command(
             else:
                 # Variable not found - raise error
                 ds.close()
-                raise ValueError(f"Variable '{var}' not found in {input_file}")
+                error(logger, f"Variable '{var}' not found in {input_file}", error_type=ValueError)
 
             # Get the appropriate type code for ncatted
             type_code = _get_ncatted_type_code(dtype)
@@ -102,27 +118,30 @@ def execute_ncatted_command(cmd: list[str]) -> int:
     Raises:
         SystemExit: If ncatted command fails or is not found
     """
-    print("\nExecuting...")
+    info(logger, "\nExecuting...")
     files_processed = 0
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        print("  ✓ Success")
+        info(logger, f"{INDENT}✓ Success")
         if result.stdout:
-            print(f"  stdout: {result.stdout}")
+            info(logger, f"{INDENT}stdout: {result.stdout}")
         if result.stderr:
-            print(f"  stderr: {result.stderr}")
+            info(logger, f"{INDENT}stderr: {result.stderr}")
         files_processed = 1
 
     except subprocess.CalledProcessError as e:
-        print(f"  ✗ Error: ncatted failed with exit code {e.returncode}", file=sys.stderr)
+        msg = f"  ✗ Error: ncatted failed with exit code {e.returncode}"
         if e.stdout:
-            print(f"  stdout: {e.stdout}", file=sys.stderr)
+            msg += f"\n{INDENT}stdout: {e.stdout}"
         if e.stderr:
-            print(f"  stderr: {e.stderr}", file=sys.stderr)
+            msg += f"\n{INDENT}stderr: {e.stderr}"
+        error(logger, msg + f"\n{e}", subprocess.CalledProcessError)
         raise e
     except FileNotFoundError:
-        print("  ✗ Error: ncatted command not found", file=sys.stderr)
-        print("  Please ensure NCO (NetCDF Operators) is installed", file=sys.stderr)
+        msg = f"{INDENT}✗ Error: ncatted command not found\n"
+        msg += f"{INDENT}Please ensure NCO (NetCDF Operators) is installed"
+        error_type = INDENT if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error(logger, msg, error_type=error_type)
         sys.exit(7)
     return files_processed
 
@@ -166,17 +185,18 @@ def _get_ncatted_type_code(dtype: np.dtype) -> str:
 
     # Integer types - not allowed (NetCDF doesn't support NaN for integers)
     if any(x in dtype_str for x in ["int64", "int32", "int16", "int8", "int_", "byte"]):
-        raise ValueError(
+        msg = (
             f"Integer dtype detected: {dtype}. "
             "NetCDF does not allow NaN fill values for integer variables. So how'd this happen?"
         )
+        error(logger, msg, error_type=ValueError)
 
     # String/char
     if "str" in dtype_str or "char" in dtype_str or "U" in dtype_str or "S" in dtype_str:
         return "c"  # char
 
     # Unknown type - raise error
-    raise ValueError(f"Unknown dtype for ncatted: {dtype}")
+    error(logger, f"Unknown dtype for ncatted: {dtype}", error_type=ValueError)
 
 
 def get_var_info(
@@ -226,14 +246,14 @@ def get_var_info(
         default_fill = type(nanmin)(-999)
 
     # Print variable summary
-    print(f"\n  Variable: {var}")
-    print(f"    long_name: {long_name}")
-    print(f"    shape:     {shape}")
-    print(f"    units:     {units}")
-    print(f"    nanmin:    {nanmin}")
-    print(f"    nanmax:    {nanmax}")
+    warn(logger, f"\n  Variable: {var}")
+    warn(logger, f"{INDENT}long_name: {long_name}")
+    warn(logger, f"{INDENT}shape:     {shape}")
+    warn(logger, f"{INDENT}units:     {units}")
+    warn(logger, f"{INDENT}nanmin:    {nanmin}")
+    warn(logger, f"{INDENT}nanmax:    {nanmax}")
     if data_has_nan:
-        print(f"    WARNING: Data contains NaN values - cannot delete {ATTR}")
+        warn(logger, f"{INDENT}WARNING: Data contains NaN values - cannot delete {ATTR}")
 
     # Save and return info
     var_context = VarContext(
@@ -283,29 +303,29 @@ def show_ncdump_for_variable(file_path: str | None, var_name: str) -> None:
         var_name: Name of the variable to search for in ncdump output
     """
     if not file_path:
-        print("    No file path available for ncdump")
-        print()
+        warn(logger, f"{INDENT}No file path available for ncdump")
+        warn(logger, "")
         return
 
     try:
-        print(f"    Running: ncdump -h {file_path}")
+        info(logger, f"{INDENT}Running: ncdump -h {file_path}")
         result = subprocess.run(
             ["ncdump", "-h", file_path], capture_output=True, text=True, check=True
         )
         # Filter lines containing the variable name
         matching_lines = [line for line in result.stdout.split("\n") if var_name in line]
         if matching_lines:
-            print(f"    Lines matching '{var_name}':")
+            info(logger, f"    Lines matching '{var_name}':")
             for line in matching_lines:
-                print(f"      {line}")
+                info(logger, f"      {line}")
         else:
-            print(f"    No lines found matching '{var_name}'")
+            info(logger, f"    No lines found matching '{var_name}'")
     except subprocess.CalledProcessError as e:
-        print(f"    Error running ncdump: {e}")
+        error(logger, f"    Error running ncdump: {e}", error_type=None)
     except FileNotFoundError:
-        print("    Error: ncdump command not found")
+        error(logger, "    Error: ncdump command not found", error_type=None)
 
-    print()  # Empty line for readability
+    error(logger, "", error_type=None)  # Empty line for readability
 
 
 def var_data_has_nan(da: xr.DataArray) -> bool:

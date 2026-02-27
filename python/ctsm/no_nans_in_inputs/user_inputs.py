@@ -5,6 +5,7 @@ Functions handling user inputs
 import os
 import sys
 from typing import Any
+import logging
 
 import numpy as np
 import xarray as xr
@@ -18,6 +19,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     ATTR,
     ERR_STR_SKIP_FILE,
     ERR_STR_SKIP_VAR,
+    INDENT,
     OPEN_DS_KWARGS,
     SEP_LENGTH,
     USER_REQ_DELETE,
@@ -36,6 +38,15 @@ from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-impor
 from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-position
     NoNanFillValueProgress,
 )
+
+from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
+    error,
+    info,
+    warn,
+)
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def confirm_continue(prompt: str = "Continue? [Y/n]: "):
@@ -67,7 +78,7 @@ def confirm_continue(prompt: str = "Continue? [Y/n]: "):
         if response in ("n", "no"):
             return False
 
-        print(f"Please enter 'y' or 'n', not {response}.")
+        error(logger, f"Please enter 'y' or 'n', not {response}.", error_type=None)
 
 
 def _convert_and_validate_input(user_input: str, target_type: type) -> Any | None:
@@ -90,11 +101,15 @@ def _convert_and_validate_input(user_input: str, target_type: type) -> Any | Non
         except TypeError:
             converted_value_is_nan = False
         if converted_value_is_nan:
-            raise ValueError(f"Input '{user_input}' would produce a NaN {ATTR}")
+            error(logger, f"Input '{user_input}' would produce a NaN {ATTR}", error_type=ValueError)
 
         return converted_value
     except (ValueError, TypeError) as e:
-        print(f"    Invalid input: {e}. Please enter a valid {target_type.__name__}.")
+        error(
+            logger,
+            f"{INDENT}Invalid input: {e}. Please enter a valid {target_type.__name__}.",
+            error_type=None,
+        )
         return None
 
 
@@ -119,7 +134,7 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
             prefix = "Would auto-delete"
         else:
             prefix = "Auto-deleting"
-        print(f"    {prefix} {ATTR} attribute, since no elements are filled")
+        warn(logger, f"{INDENT}{prefix} {ATTR} attribute, since no elements are filled")
         return USER_REQ_DELETE
 
     # TODO:  WARN AND ASK FOR CONFIRMATION IF TRYING TO SET FILL VALUE TO SOMETHING ALREADY PRESENT
@@ -141,7 +156,7 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
 
             # Skip variable if dry run
             if var_context.dry_run:
-                print(prompt)
+                info(logger, prompt)
                 return USER_REQ_SKIP_VAR
 
             user_input = input(prompt).strip()
@@ -189,13 +204,13 @@ def _handle_ctrl_c(ctrl_c_count: int, user_input: str | None, var_context: VarCo
     # If this is the second Ctrl-C or the user requested quit or dry run, exit
     if ctrl_c_count >= 2 or user_input == USER_REQ_QUIT or var_context.dry_run:
         if ctrl_c_count >= 2:
-            print("\n    [Ctrl-C pressed again - exiting]")
+            warn(logger, f"\n{INDENT}[Ctrl-C pressed again - exiting]")
         else:
-            print("\n    User requested quit")
+            warn(logger, f"\n{INDENT}User requested quit")
         raise KeyboardInterrupt
 
     # First Ctrl-C: show ncdump output for this variable
-    print("\n    [Ctrl-C detected - press again to exit]")
+    warn(logger, f"\n{INDENT}[Ctrl-C detected - press again to exit]")
     show_ncdump_for_variable(var_context.file_path, var_context.var_name)
     return ctrl_c_count
 
@@ -212,7 +227,7 @@ def _handle_empty_input(default_value: Any, allow_delete: bool) -> Any | None:
         The default value if one exists, or None if no default (help message already printed)
     """
     if default_value is not None:
-        print(f"    Using default: {default_value}")
+        warn(logger, f"{INDENT}Using default: {default_value}")
         return default_value
 
     # Build help message based on what's allowed
@@ -226,7 +241,7 @@ def _handle_empty_input(default_value: Any, allow_delete: bool) -> Any | None:
             f"'{USER_REQ_QUIT}' to save and exit",
         ]
     )
-    print(f"    Please enter a value (or {', '.join(options)}).")
+    error(logger, f"{INDENT}Please enter a value (or {', '.join(options)}).", error_type=None)
     return None
 
 
@@ -246,6 +261,8 @@ def _handle_special_command(input_str: str, allow_delete: bool) -> Any | None:
         ValueError: If user typed 'skip' or 'skipfile'
     """
     lower_input = input_str.lower()
+    # Do not use error() for raising special codes; those will be caught and handled by a try-except
+    # block and thus should not be printed to log file
     if lower_input == USER_REQ_QUIT:
         raise KeyboardInterrupt("User requested quit")
     if lower_input == USER_REQ_SKIP_VAR:
@@ -254,9 +271,13 @@ def _handle_special_command(input_str: str, allow_delete: bool) -> Any | None:
         raise ValueError(ERR_STR_SKIP_FILE)
     if lower_input == USER_REQ_DELETE:
         if not allow_delete:
-            print(f"    Error: Cannot delete {ATTR} - variable contains NaN values")
+            error(
+                logger,
+                f"{INDENT}Error: Cannot delete {ATTR} - variable contains NaN values",
+                error_type=None,
+            )
             return None
-        print(f"    Will delete {ATTR} attribute")
+        warn(logger, f"{INDENT}Will delete {ATTR} attribute")
         return USER_REQ_DELETE
     return None
 
@@ -286,9 +307,9 @@ def _collect_fill_values_one_path(
     Returns:
         Dictionary mapping absolute file paths to dictionaries of {variable_name: new_fill_value}
     """
-    print(f"\n{'=' * SEP_LENGTH}")
-    print(f"Processing: {abs_path}")
-    print(f"{'=' * SEP_LENGTH}")
+    warn(logger, f"\n{'=' * SEP_LENGTH}")
+    warn(logger, f"Processing: {abs_path}")
+    warn(logger, f"{'=' * SEP_LENGTH}")
 
     # Get dictionary for this file's fill values
     new_fill_values = progress[abs_path]["new_fill_values"]
@@ -302,7 +323,7 @@ def _collect_fill_values_one_path(
 
         # Skip variables we've already processed
         if var in new_fill_values:
-            print(f"\n  Variable: {var} [already processed, skipping]")
+            info(logger, f"\n{INDENT}Variable: {var} [already processed, skipping]")
             continue
 
         # Process this variable to get new fill value
@@ -312,14 +333,14 @@ def _collect_fill_values_one_path(
         except ValueError as e:
             # Check if this is the skip variable signal
             if str(e) == ERR_STR_SKIP_VAR:
-                print(f"    Skipping variable '{var}'")
+                warn(logger, f"{INDENT}Skipping variable '{var}'")
                 continue
             # Check if this is the skip file signal
             if str(e) == ERR_STR_SKIP_FILE:
-                print("    Skipping rest of file")
+                warn(logger, f"{INDENT}Skipping rest of file")
                 break
             # Otherwise re-raise
-            raise
+            error(logger, str(e), ValueError)
 
         if dry_run:
             continue
@@ -338,9 +359,9 @@ def _collect_fill_values_one_path(
     if not dry_run:
         n_fv_after = len(new_fill_values)
         n_new_fv = n_fv_after - n_fv_before
-        print(f"\n  Collected {n_new_fv} new fill value(s) for this file; {n_fv_after} total:")
+        info(logger, f"\n{INDENT}Collected {n_new_fv} new fill value(s) for this file; {n_fv_after} total:")
         for var, fill_val in new_fill_values.items():
-            print(f"    {var}: {fill_val}")
+            info(logger, f"{INDENT*2}{var}: {fill_val}")
 
     return progress
 
@@ -363,15 +384,13 @@ def collect_new_fill_values(
     Returns:
         Dictionary mapping absolute file paths to dictionaries of {variable_name: new_fill_value}
     """
-    print("\n" + "=" * SEP_LENGTH)
-    print("COLLECTING NEW FILL VALUES")
-    print("=" * SEP_LENGTH)
 
-    print(
+    msg = (
         f"\nCommands: Type a number for fill value, '{USER_REQ_DELETE}' to delete attribute, "
         f"'{USER_REQ_SKIP_VAR}' to skip variable, '{USER_REQ_SKIP_FILE}' to skip file, "
         f"'{USER_REQ_QUIT}' to save and exit"
     )
+    warn(logger, msg)
 
     try:
         for abs_path in progress:
@@ -383,7 +402,7 @@ def collect_new_fill_values(
             )
 
     except KeyboardInterrupt:
-        print("Exiting.")
+        warn(logger, "Exiting.")
         sys.exit(0)
 
     return progress

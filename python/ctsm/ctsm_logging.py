@@ -29,6 +29,7 @@ A guide to logging in ctsm python scripts:
 
 import inspect
 import logging
+import sys
 
 from ctsm.utils import datetime_string
 
@@ -37,6 +38,10 @@ logger = logging.getLogger(__name__)
 # In logfile lines, what should be used as spacing between the leading datetime string and the
 # message text?
 LOG_SPACING = " " * 4
+
+# Modules can set this to True in order to just log their messages directly, without the stuff
+# added in _compose_log_msg()
+skip_compose = False  #  pylint: disable=invalid-name
 
 
 def setup_logging_pre_config():
@@ -84,6 +89,18 @@ def add_logging_args(parser):
     )
 
 
+def logger_effectively_logs_to_file(logger_in: logging.Logger) -> bool:
+    """Return True if the logger is writing to a file, False otherwise"""
+    current = logger_in
+    while current:
+        if any(isinstance(h, logging.FileHandler) for h in current.handlers):
+            return True
+        if not current.propagate:
+            break
+        current = current.parent
+    return False
+
+
 def process_logging_args(args):
     """Configure logging based on the logging-related args added by add_logging_args"""
     root_logger = logging.getLogger()
@@ -112,28 +129,80 @@ def _compose_log_msg(string, frame_record=2):
     """
     Prepend the log/error string with reference information
     """
+    if skip_compose:
+        return string
+
     # Get name of the function that called log() or error()
     caller_name = inspect.stack()[frame_record][3]
 
     return datetime_string() + LOG_SPACING + caller_name + LOG_SPACING + string
 
 
-def log(logger_in, string):
+def debug(logger_in: logging.Logger, string: str):
+    """
+    Simultaneously print DEBUG messages to console and to log file
+    """
+    msg = _compose_log_msg(string)
+    if logger_in:
+        if logger_in.getEffectiveLevel() <= logging.DEBUG and logger_effectively_logs_to_file(
+            logger_in
+        ):
+            print(msg)
+        logger_in.debug(msg)
+    else:
+        print(msg)
+
+
+def info(*args, **kwargs):
+    """Alias for log()"""
+    log(*args, **kwargs)
+
+
+def log(logger_in: logging.Logger, string: str):
     """
     Simultaneously print INFO messages to console and to log file
     """
     msg = _compose_log_msg(string)
-    print(msg)
     if logger_in:
+        if logger_in.getEffectiveLevel() <= logging.INFO and logger_effectively_logs_to_file(
+            logger_in
+        ):
+            print(msg)
         logger_in.info(msg)
+    else:
+        print(msg)
 
 
-def error(logger_in, string, *, error_type=RuntimeError):
+def warn(logger_in: logging.Logger, string: str, **kwargs):
+    """
+    Simultaneously print WARNING messages to console and to log file
+    """
+    msg = _compose_log_msg(string)
+    if logger_in:
+        if logger_in.getEffectiveLevel() <= logging.WARNING and logger_effectively_logs_to_file(
+            logger_in
+        ):
+            print(msg, **kwargs)
+        logger_in.warning(msg)
+    else:
+        print(msg, **kwargs)
+
+
+def error(logger_in: logging.Logger, string: str, *, error_type: Exception = RuntimeError):
     """
     Simultaneously print ERROR messages to console and to log file
     """
     msg = _compose_log_msg(string)
-    print(msg)
     if logger_in:
+        if logger_in.getEffectiveLevel() <= logging.ERROR and logger_effectively_logs_to_file(
+            logger_in
+        ):
+            print(msg, file=sys.stderr)
         logger_in.error(msg)
-    raise error_type(string)
+    else:
+        print(msg, file=sys.stderr)
+    try:
+        raise error_type(string)
+    except TypeError:
+        # E.g., error_type=None
+        pass

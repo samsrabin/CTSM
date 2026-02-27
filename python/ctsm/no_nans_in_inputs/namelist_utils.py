@@ -8,6 +8,7 @@ import sys
 import tempfile
 from typing import List
 import xml.etree.ElementTree as ET
+import logging
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -15,6 +16,7 @@ if _CTSM_PYTHON not in sys.path:
     sys.path.insert(1, _CTSM_PYTHON)
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
+    INDENT,
     INPUTDATA_PREFIX,
     ONE_OF_OUR_FILES,
     OUR_PATH,
@@ -23,6 +25,14 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
     convert_to_absolute_path,
 )
+from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
+    error,
+    info,
+    warn,
+)
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def _check_usernl_file(usernl_file) -> None:
@@ -37,8 +47,10 @@ def _check_xml_file(xml_file) -> None:
     try:
         ET.parse(xml_file)
     except IOError as e:
-        print(
-            f"Error: The temporary output file could not be opened: '{xml_file}'", file=sys.stderr
+        error(
+            logger,
+            f"Error: The temporary output file could not be opened: '{xml_file}'",
+            error_type=None,
         )
         try:
             os.remove(xml_file)  # Because we created temp file with delete=False
@@ -46,9 +58,9 @@ def _check_xml_file(xml_file) -> None:
             pass
         raise e
     except ET.ParseError as e:
-        print("Output file is not well-formed. Contents:", file=sys.stderr)
+        error(logger, "Output file is not well-formed. Contents:", error_type=None)
         with open(xml_file, "r", encoding="utf8") as f:
-            print(str(f.read()), file=sys.stderr)
+            error(logger, str(f.read()), error_type=None)
         os.remove(xml_file)  # Because we created temp file with delete=False
         raise e
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -92,7 +104,8 @@ def _extract_file_path_list_from_usernl(usernl_file: str) -> set[str]:
             text = f.read()
         file_paths_list = [m.group(3) for m in re.finditer(USERNL_NC_PATTERN, text, re.MULTILINE)]
     except FileNotFoundError:
-        print(f"File not found: {usernl_file}", file=sys.stderr)
+        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error(logger, f"File not found: {usernl_file}", error_type=error_type)
         sys.exit(2)
     return file_paths_list
 
@@ -123,7 +136,8 @@ def _extract_file_path_set_from_usernl(usernl_file: str, exact: bool = False) ->
                 f = _replace_env_vars_in_netcdf_paths(f)
             file_paths.add(f)
     except FileNotFoundError:
-        print(f"File not found: {usernl_file}", file=sys.stderr)
+        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error(logger, f"File not found: {usernl_file}", error_type=error_type)
         sys.exit(3)
     return file_paths
 
@@ -146,10 +160,12 @@ def _extract_file_paths_from_xml(xml_file: str) -> set[str]:
     try:
         tree = ET.parse(xml_file)
     except ET.ParseError as parse_error:
-        print(f"Error parsing XML file: {parse_error}", file=sys.stderr)
+        error_type = ET.ParseError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error(logger, f"Error parsing XML file: {parse_error}", error_type=error_type)
         sys.exit(4)
     except FileNotFoundError:
-        print(f"XML file not found: {xml_file}", file=sys.stderr)
+        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error(logger, f"XML file not found: {xml_file}", error_type=error_type)
         sys.exit(5)
 
     root = tree.getroot()
@@ -194,7 +210,11 @@ def extract_file_paths_from_file(file_to_search: str, exact: bool = False) -> se
     elif basename.startswith("user_nl"):
         file_paths = _extract_file_path_set_from_usernl(file_to_search, exact)
     else:
-        raise NotImplementedError(f"Not sure how to get file paths from file: '{file_to_search}'")
+        error(
+            logger,
+            f"Not sure how to get file paths from file: '{file_to_search}'",
+            error_type=NotImplementedError,
+        )
     return file_paths
 
 
@@ -289,7 +309,7 @@ def _update_xml_file(xml_file: str, old_path: str, new_path: str) -> None:
     # Perform the substitution
     new_text, n_repl = pattern.subn(replacer, xml_file_contents)
     if n_repl == 0:
-        raise ValueError(f"No matches for '{old_path=}' found in '{xml_file}'")
+        error(logger, f"No matches for '{old_path=}' found in '{xml_file}'", error_type=ValueError)
 
     # Write the updated XML back to file, first stopping in a temp file for checks
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf8", delete=False) as tmp_path:
@@ -299,7 +319,7 @@ def _update_xml_file(xml_file: str, old_path: str, new_path: str) -> None:
     # function to stop.
     _check_xml_file(xml_file_tmp)
     move(xml_file_tmp, xml_file)
-    print(f"  Updated {xml_file}")
+    info(logger, f"{INDENT}Updated {xml_file}")
 
 
 def _update_usernl_file(usernl_file: str, old_path: str, new_path: str) -> None:
@@ -361,4 +381,8 @@ def update_text_file_referencing_netcdf(text_file: str, old_netcdf: str, new_net
     elif basename.startswith("user_nl"):
         _update_usernl_file(text_file, old_netcdf, new_netcdf)
     else:
-        raise NotImplementedError(f"Not sure how to replace file paths in file: '{text_file}'")
+        error(
+            logger,
+            f"Not sure how to replace file paths in file: '{text_file}'",
+            error_type=NotImplementedError,
+        )
