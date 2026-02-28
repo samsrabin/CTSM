@@ -119,10 +119,11 @@ def _get_netcdf_files_to_check(
     progress: NoNanFillValueProgress | None = None,
     ctsm_root: str = DEFAULT_CTSM_ROOT,
 ) -> Tuple[Set[str], List[str]]:
-    warn(logger, f"Searching namelist files in '{ctsm_root}' for netCDF paths...")
     if progress:
         netcdf_paths, files_referencing_netcdfs = progress.get_nc_paths_and_files_referencing()
     else:
+        warn(logger, f"Searching namelist files in '{ctsm_root}' for netCDF paths...")
+
         # In production, we should only ever define these constants as paths relative to the CTSM
         # root! However, unit/system tests may mock them to be absolute paths instead.
         if os.path.isabs(XML_FILE):
@@ -270,10 +271,10 @@ def main() -> int:
         progress.print_summary(len(netcdf_paths))
         warn(logger, "=" * SEP_LENGTH)
 
-    # Ask if user wants to continue
-    warn(logger, "")
-    if not user_inputs.confirm_continue():
-        sys.exit("Exiting.")
+        # Ask if user wants to continue
+        warn(logger, "")
+        if not user_inputs.confirm_continue():
+            sys.exit("Exiting.")
 
     # Collect new fill values from user
     user_inputs.collect_new_fill_values(
