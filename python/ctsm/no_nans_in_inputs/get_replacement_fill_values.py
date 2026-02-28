@@ -230,6 +230,12 @@ def main() -> int:
         default=str(NEW_FILLVALUES_FILE),
         help=(f"JSON file where collected info will be saved. Default: '{NEW_FILLVALUES_FILE}'"),
     )
+    # Hidden option to accept all suggested defaults without prompting the user
+    parser.add_argument(
+        "--accept-all-defaults",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument(
         "--ctsm-root",
         type=str,
@@ -271,7 +277,10 @@ def main() -> int:
 
     # Collect new fill values from user
     user_inputs.collect_new_fill_values(
-        progress, delete_if_none_filled=args.delete_if_none_filled, dry_run=args.dry_run
+        progress,
+        delete_if_none_filled=args.delete_if_none_filled,
+        dry_run=args.dry_run,
+        accept_all_defaults=args.accept_all_defaults,
     )
 
     return 0

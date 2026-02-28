@@ -187,3 +187,62 @@ class TestCollectNewFillValues:
         stdout = capsys.readouterr().out
         assert "Variable: temp" in stdout
         assert "new fill value(s)" not in stdout
+
+    def test_accept_all_defaults_with_default(self, tmp_path):
+        """When --accept-all-defaults is set and a default exists, it should be accepted."""
+        test_file = tmp_path / "test.nc"
+        var_name = "temp"
+        # Data that will produce a default of -999 (data contains NaN and nanmin >= 0)
+        self._create_test_netcdf(
+            test_file,
+            {
+                var_name: {
+                    "data": np.array([np.nan, 1.0], dtype=np.float32),
+                    "attrs": {ATTR: np.float32(np.nan), "long_name": "temperature"},
+                }
+            },
+        )
+
+        progress_file = tmp_path / "progress.json"
+        progress = NoNanFillValueProgress(progress_file=progress_file)
+        progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
+
+        # Run with accept_all_defaults True; since a default exists, it should be auto-accepted
+        result = collect_new_fill_values(progress, accept_all_defaults=True)
+
+        expected = NoNanFillValueProgress(progress_file=None)
+        expected[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        # default should be -999 (float)
+        expected[str(test_file)]["new_fill_values"] = {var_name: -999.0}
+        assert result == expected
+
+    @patch("builtins.input", side_effect=["-123.5"])
+    def test_accept_all_defaults_without_default_prompts(
+        self, mock_input, tmp_path
+    ):  # pylint: disable=unused-argument
+        """When --accept-all-defaults is set but no default exists, the user should still be prompted."""
+        test_file = tmp_path / "test2.nc"
+        var_name = "var_no_default"
+        # Create data that contains NaN and a negative nanmin so default remains None
+        self._create_test_netcdf(
+            test_file,
+            {
+                var_name: {
+                    "data": np.array([np.nan, -5.0], dtype=np.float32),
+                    "attrs": {ATTR: np.float32(np.nan), "long_name": "nod"},
+                }
+            },
+        )
+
+        progress_file = tmp_path / "progress2.json"
+        progress = NoNanFillValueProgress(progress_file=progress_file)
+        progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
+
+        # With accept_all_defaults True but no default, it should prompt and accept our patched
+        # input
+        result = collect_new_fill_values(progress, accept_all_defaults=True)
+
+        expected = NoNanFillValueProgress(progress_file=None)
+        expected[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        expected[str(test_file)]["new_fill_values"] = {var_name: -123.5}
+        assert result == expected

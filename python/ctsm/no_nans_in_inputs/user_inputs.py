@@ -287,6 +287,7 @@ def _collect_fill_values_one_path(
     delete_if_none_filled: bool,
     abs_path: str,
     dry_run: bool,
+    accept_all_defaults: bool = False,
 ) -> NoNanFillValueProgress:
     """
     Interactively collect new fill values for variables in one file with NaN fill values.
@@ -328,19 +329,26 @@ def _collect_fill_values_one_path(
 
         # Process this variable to get new fill value
         var_context, config = get_var_info(var, ds, abs_path, delete_if_none_filled, dry_run)
-        try:
-            new_fill_value = _get_fill_value_from_user(var_context, config)
-        except ValueError as e:
-            # Check if this is the skip variable signal
-            if str(e) == ERR_STR_SKIP_VAR:
-                warn(logger, f"{INDENT}Skipping variable '{var}'")
-                continue
-            # Check if this is the skip file signal
-            if str(e) == ERR_STR_SKIP_FILE:
-                warn(logger, f"{INDENT}Skipping rest of file")
-                break
-            # Otherwise re-raise
-            error(logger, str(e), ValueError)
+
+        # If accept_all_defaults is set and a default exists, accept it automatically.
+        # If no default exists, still prompt the user (don't skip).
+        if accept_all_defaults and config.default_value is not None:
+            new_fill_value = config.default_value
+            warn(logger, f"{INDENT}Accepting default for '{var}': {new_fill_value}")
+        else:
+            try:
+                new_fill_value = _get_fill_value_from_user(var_context, config)
+            except ValueError as e:
+                # Check if this is the skip variable signal
+                if str(e) == ERR_STR_SKIP_VAR:
+                    warn(logger, f"{INDENT}Skipping variable '{var}'")
+                    continue
+                # Check if this is the skip file signal
+                if str(e) == ERR_STR_SKIP_FILE:
+                    warn(logger, f"{INDENT}Skipping rest of file")
+                    break
+                # Otherwise re-raise
+                error(logger, str(e), error_type=ValueError)
 
         if dry_run:
             continue
@@ -359,7 +367,10 @@ def _collect_fill_values_one_path(
     if not dry_run:
         n_fv_after = len(new_fill_values)
         n_new_fv = n_fv_after - n_fv_before
-        info(logger, f"\n{INDENT}Collected {n_new_fv} new fill value(s) for this file; {n_fv_after} total:")
+        info(
+            logger,
+            f"\n{INDENT}Collected {n_new_fv} new fill value(s) for this file; {n_fv_after} total:",
+        )
         for var, fill_val in new_fill_values.items():
             info(logger, f"{INDENT*2}{var}: {fill_val}")
 
@@ -370,6 +381,7 @@ def collect_new_fill_values(
     progress: NoNanFillValueProgress,
     delete_if_none_filled: bool = False,
     dry_run: bool = False,
+    accept_all_defaults: bool = False,
 ) -> NoNanFillValueProgress:
     """
     Interactively collect new fill values for variables with NaN fill values, looping through files.
@@ -399,6 +411,7 @@ def collect_new_fill_values(
                 delete_if_none_filled=delete_if_none_filled,
                 abs_path=abs_path,
                 dry_run=dry_run,
+                accept_all_defaults=accept_all_defaults,
             )
 
     except KeyboardInterrupt:

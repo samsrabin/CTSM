@@ -304,6 +304,54 @@ class TestMain:
         assert "delete_if_none_filled" in kwargs
         assert kwargs["delete_if_none_filled"]
 
+    @pytest.mark.parametrize(
+        "argv,expected",
+        [
+            (["get_replacement_fill_values.py", "--accept-all-defaults"], True),
+            (["get_replacement_fill_values.py"], False),
+        ],
+    )
+    @patch(
+        "ctsm.no_nans_in_inputs.get_replacement_fill_values.check_write_access",
+        return_value=True,
+    )
+    @patch(
+        "ctsm.no_nans_in_inputs.namelist_utils._extract_file_paths_from_xml",
+        return_value={"lnd/clm2/test.nc"},
+    )
+    @patch("os.path.exists", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.path.isdir", return_value=True)
+    @patch("os.path.isabs", return_value=True)
+    @patch(
+        "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_nan_fill",
+        return_value=(True, ["temp"]),
+    )
+    @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
+    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
+    def test_main_accept_all_defaults_flag_param(
+        self,
+        mock_confirm_continue,
+        mock_collect,
+        mock_file_has_nan,
+        mock_isabs,
+        mock_isdir,
+        mock_isfile,
+        mock_exists,
+        mock_extract,
+        mock_check_write,
+        argv,
+        expected,
+    ):  # pylint: disable=unused-argument
+        """Ensure --accept-all-defaults is forwarded to collect_new_fill_values (parametrized)."""
+        with patch("sys.argv", argv):
+            result = main_func()
+        assert result == 0
+        mock_collect.assert_called_once()
+        _, kwargs = mock_collect.call_args
+        assert "accept_all_defaults" in kwargs
+        assert kwargs["accept_all_defaults"] is expected
+
     @patch("sys.argv", ["get_replacement_fill_values.py"])
     @patch(
         "ctsm.no_nans_in_inputs.get_replacement_fill_values.check_write_access",

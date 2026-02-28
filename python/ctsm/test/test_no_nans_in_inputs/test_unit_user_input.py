@@ -2,7 +2,9 @@
 Unit tests of user_input (anything not touching filesystem)
 """
 
-from unittest.mock import patch
+# pylint: disable=protected-access
+
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -16,6 +18,7 @@ from ctsm.no_nans_in_inputs.constants import (
 )
 from ctsm.no_nans_in_inputs.shared import FillValueConfig, VarContext
 from ctsm.no_nans_in_inputs.user_inputs import _get_fill_value_from_user, confirm_continue
+from ctsm.no_nans_in_inputs import user_inputs
 
 # Test constants used in multiple tests
 TEST_VAR_NAME = "test_var"
@@ -223,3 +226,76 @@ class TestConfirmContinue:
         # First input invalid, second input 'n'
         with patch("builtins.input", side_effect=["maybe", user_in]):
             assert confirm_continue() is expected
+
+
+def test_collect_new_fill_values_forwards_accept_all_defaults():
+    """collect_new_fill_values should forward accept_all_defaults to the per-file handler."""
+    # Create a simple progress-like dict with two file keys
+    progress = {"/path/one": {}, "/path/two": {}}
+
+    mock_handler = MagicMock(return_value=progress)
+    with patch.object(user_inputs, "_collect_fill_values_one_path", mock_handler):
+        user_inputs.collect_new_fill_values(progress, accept_all_defaults=True)
+
+    # Should be called once per path and accept_all_defaults should be forwarded
+    assert mock_handler.call_count == 2
+    for call in mock_handler.call_args_list:
+        kwargs = call.kwargs
+        assert kwargs.get("accept_all_defaults") is True
+
+
+def test__collect_fill_values_one_path_auto_accepts_default():
+    """If accept_all_defaults is True and a default exists, it should be used without prompting."""
+
+    # Fake progress object: dict-like with a no-op save()
+    class FakeProgress(dict):
+        # pylint: disable=missing-class-docstring,too-few-public-methods
+        def save(self):
+            # pylint: disable=missing-docstring
+            pass
+
+    abs_path = "/fake/path.nc"
+    var_name = "v1"
+    progress = FakeProgress()
+    progress[abs_path] = {"vars_with_nan_fills": [var_name], "new_fill_values": {}}
+
+    # Patch get_var_info to return a VarContext and a FillValueConfig with a default
+    fake_var_context = VarContext(
+        var_name=var_name, target_type=float, file_path=abs_path, dry_run=False
+    )
+    default_value = 1987.1986
+    fake_config = FillValueConfig(
+        default_value=default_value, allow_delete=True, delete_if_none_filled=False
+    )
+
+    with patch(
+        "ctsm.no_nans_in_inputs.user_inputs.get_var_info",
+        return_value=(fake_var_context, fake_config),
+    ):
+        # Patch xr.open_dataset to return a dummy object with close()
+        class DummyDS:
+            # pylint: disable=missing-class-docstring,too-few-public-methods
+            def close(self):
+                # pylint: disable=missing-docstring
+                pass
+
+        with patch("xarray.open_dataset", return_value=DummyDS()):
+            # Patch the interactive prompt to raise if called (it should not be)
+            with patch(
+                "ctsm.no_nans_in_inputs.user_inputs._get_fill_value_from_user"
+            ) as mock_prompt:
+                mock_prompt.side_effect = AssertionError(
+                    "_get_fill_value_from_user should not be called"
+                )
+
+                # Run the function
+                result = user_inputs._collect_fill_values_one_path(
+                    progress=progress,
+                    delete_if_none_filled=False,
+                    abs_path=abs_path,
+                    dry_run=False,
+                    accept_all_defaults=True,
+                )
+
+    # Check that the default was recorded
+    assert result[abs_path]["new_fill_values"][var_name] == default_value
