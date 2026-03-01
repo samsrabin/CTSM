@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 import logging
+from subprocess import CalledProcessError
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -42,15 +43,19 @@ from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-posi
 )
 from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     add_logging_args,
+    error,
     info,
     process_logging_args,
     setup_logging_pre_config,
     warn,
 )
+from ctsm import ctsm_logging
+from ctsm.git_utils import get_git_diff, get_git_toplevel
 
 # Set up logging
-logger = logging.getLogger(__name__)
-logging.basicConfig(format="%(message)s", level=logging.WARNING)
+logging.basicConfig(format="%(message)s", level=logging.DEBUG)
+ctsm_logging.skip_compose = True
+logger = logging.getLogger()
 
 
 def get_output_filename(input_file: str) -> str:
@@ -134,8 +139,29 @@ def _print_and_wait(
 ) -> None:
     """Print info and a message useful for a git commit, then wait for user to continue"""
 
-    # Which netCDF file did we replace?
+    ctsm_root = None
+    try:
+        ctsm_root = os.path.commonpath(files_containing)
+        ctsm_root = get_git_toplevel(ctsm_root)
+        msg = f"== git diff {ctsm_root} "
+        warn(logger, msg + "=" * max(0, SEP_LENGTH - len(msg)))
+        get_git_diff(repo_root=ctsm_root, capture_output=False)
+    except CalledProcessError as e:
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            error(logger, str(e), error_type=CalledProcessError)
+        else:
+            warn(logger, "[git diff failed]")
+    except Exception as e:  # pylint:disable=broad-exception-caught
+        exc_type = type(e)
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            error(logger, str(e), error_type=exc_type)
+        else:
+            warn(logger,  f"[unable to do git diff due to {exc_type}]")
+    warn(logger, "=" * SEP_LENGTH)
+
     warn(logger, "-" * SEP_LENGTH)
+
+    # Which netCDF file did we replace?
     input_file_msg = get_path_with_cesmdataroot(input_file_abs)
     warn(logger, f"Removed NaN fill values from '{input_file_msg}'.\n")
     output_file_msg = get_path_with_cesmdataroot(output_file)
@@ -162,9 +188,12 @@ def _print_and_wait(
     for f in files_containing:
         if os.path.exists(f) and not os.path.isabs(f):
             f = os.path.realpath(f)
-            # TODO: This will break now that "get" script has custom --ctsm-root
-        f_rel = Path(f).relative_to(DEFAULT_CTSM_ROOT)
+        if ctsm_root:
+            f_rel = Path(f).relative_to(ctsm_root)
+        else:
+            f_rel = f
         warn(logger, f"{INDENT}{f_rel}")
+
     warn(logger, "-" * SEP_LENGTH)
 
     # Wait for user to confirm or not

@@ -2,6 +2,7 @@
 
 import logging
 import subprocess
+from pathlib import Path
 
 from ctsm.path_utils import path_to_ctsm_root
 
@@ -59,3 +60,54 @@ def get_ctsm_git_describe():
     """
     label = subprocess.check_output(["git", "-C", path_to_ctsm_root(), "describe"]).strip().decode()
     return label
+
+
+def get_git_diff(
+    repo_root: Path = Path(path_to_ctsm_root()),
+    diff_args: list = None,
+    capture_output: bool = True,
+    check: bool = True,
+    text: bool = True,
+    **kwargs,
+) -> None:
+    """
+    Get git diff for a repository. Default settings make it behave like other functions in this
+    module (i.e., check result and capture stdout as text), but any keyword arg can be passed
+    through to subprocess.run().
+    """
+    # Get the actual root of the repo
+
+    cmd = [
+        "git",
+        "-c",
+        "core.pager=cat",
+        "-C",
+        str(repo_root),
+        "diff",
+    ]
+    if diff_args:
+        if isinstance(diff_args, str):
+            diff_args = [diff_args]
+        cmd += diff_args
+
+    result = subprocess.run(cmd, capture_output=capture_output, check=check, text=text, **kwargs)
+    return result
+
+
+def get_git_toplevel(repo_root: Path = path_to_ctsm_root()):
+    repo_root_orig = repo_root
+
+    if isinstance(repo_root, str):
+        repo_root = Path(repo_root)
+
+    if not repo_root.exists():
+        raise FileNotFoundError(f"repo_root does not exist: '{repo_root}'")
+
+    while not (repo_root / ".git").is_dir():
+        if repo_root == Path("/"):
+            raise RuntimeError(f"'{repo_root_orig}' does not seem to be (in) a git repo")
+        repo_root = repo_root.parent
+
+    if isinstance(repo_root_orig, str):
+        repo_root = str(repo_root)
+    return repo_root

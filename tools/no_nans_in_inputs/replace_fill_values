@@ -5,6 +5,7 @@ For description and instructions, please see README.
 
 import os
 import sys
+import logging
 
 _CTSM_PYTHON = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                             os.pardir,
@@ -14,6 +15,11 @@ sys.path.insert(1, _CTSM_PYTHON)
 
 # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.replace_fill_values import main
+
+# Set up logging
+from ctsm import ctsm_logging
+ctsm_logging.setup_logging(level=logging.DEBUG)
+logging.basicConfig(format="%(message)s")
 
 if __name__ == "__main__":
     main()
