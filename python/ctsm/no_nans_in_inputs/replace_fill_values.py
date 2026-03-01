@@ -26,6 +26,7 @@ from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-pos
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     DEFAULT_CTSM_ROOT,
+    INDENT,
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
     USER_REQ_DELETE,
@@ -132,7 +133,6 @@ def _print_and_wait(
     input_file_abs: str, output_file: str, var_fillvalues: dict, files_containing: list
 ) -> None:
     """Print info and a message useful for a git commit, then wait for user to continue"""
-    indent = "  "
 
     # Which netCDF file did we replace?
     warn(logger, "-" * SEP_LENGTH)
@@ -147,14 +147,14 @@ def _print_and_wait(
         if fill_val == USER_REQ_DELETE:
             vars_with_deleted_fill.append(var)
         else:
-            warn(logger, f"{indent}{var}: {fill_val}")
+            warn(logger, f"{INDENT}{var}: {fill_val}")
     if vars_with_deleted_fill:
         if len(vars_with_deleted_fill) <= 10:
-            warn(logger, f"{indent}Deleted fill: {', '.join(vars_with_deleted_fill)}")
+            warn(logger, f"{INDENT}Deleted fill: {', '.join(vars_with_deleted_fill)}")
         else:
             warn(
                 logger,
-                f"{indent}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
+                f"{INDENT}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
             )
 
     # Which files did we update the path in?
@@ -164,7 +164,7 @@ def _print_and_wait(
             f = os.path.realpath(f)
             # TODO: This will break now that "get" script has custom --ctsm-root
         f_rel = Path(f).relative_to(DEFAULT_CTSM_ROOT)
-        warn(logger, f"{indent}{f_rel}")
+        warn(logger, f"{INDENT}{f_rel}")
     warn(logger, "-" * SEP_LENGTH)
 
     # Wait for user to confirm or not
