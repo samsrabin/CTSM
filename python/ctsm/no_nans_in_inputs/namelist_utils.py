@@ -69,9 +69,12 @@ def _check_xml_file(xml_file) -> None:
 
 
 def find_user_nl_files(dir_to_search: str) -> list[str]:
-    """Find all user_nl_* files in CTSM repo"""
-    pattern = os.path.join(f"{dir_to_search}", "**", "user_nl_*")
-    return glob.glob(pattern, recursive=True)
+    """Find all user_nl_* and shell_commands files in directory"""
+    results = []
+    for basename in ["user_nl_*", "shell_commands"]:
+        pattern = os.path.join(f"{dir_to_search}", "**", basename)
+        results += glob.glob(pattern, recursive=True)
+    return results
 
 
 def _replace_env_vars_in_netcdf_paths(netcdf_path_in: str) -> str:
@@ -113,15 +116,15 @@ def _extract_file_path_list_from_usernl(usernl_file: str) -> set[str]:
 
 def _extract_file_path_set_from_usernl(usernl_file: str, exact: bool = False) -> set[str]:
     """
-    Extract all unique file paths from a user_nl file.
+    Extract all unique file paths from a user_nl or shell_commands file.
 
     Args:
-        usernl_file (str): Path to the user_nl file
+        usernl_file (str): Path to the user_nl or shell_commands file
         exact (bool): Whether returned file paths should be exactly as they were in the usernl file.
                       Default False.
 
     Returns:
-        Set of file paths found in the user_nl file
+        Set of file paths found in the user_nl or shell_commands file
 
     Raises:
         SystemExit: If usernl_file is not found
@@ -208,7 +211,7 @@ def extract_file_paths_from_file(file_to_search: str, exact: bool = False) -> se
     if ext == ".xml":
         # Doesn't need "exact" arg because no replacement happens
         file_paths = _extract_file_paths_from_xml(file_to_search)
-    elif basename.startswith("user_nl"):
+    elif basename.startswith("user_nl") or basename == "shell_commands":
         file_paths = _extract_file_path_set_from_usernl(file_to_search, exact)
     else:
         error(
@@ -325,12 +328,12 @@ def _update_xml_file(xml_file: str, old_path: str, new_path: str) -> None:
 
 def _update_usernl_file(usernl_file: str, old_path: str, new_path: str) -> None:
     """
-    Replace a file path in a user_nl file.
+    Replace a file path in a user_nl or shell_commands file.
 
     Replaces all occurrences of old_path with new_path throughout the file.
 
     Args:
-        usernl_file: Path to the user_nl file to update
+        usernl_file: Path to the user_nl or shell_commands file to update
         old_path: Old file path to replace (can be relative or absolute)
         new_path: New file path to use (can be relative or absolute)
     """
@@ -379,7 +382,7 @@ def update_text_file_referencing_netcdf(text_file: str, old_netcdf: str, new_net
     _, ext = os.path.splitext(basename)
     if ext == ".xml":
         _update_xml_file(text_file, old_netcdf, new_netcdf)
-    elif basename.startswith("user_nl"):
+    elif basename.startswith("user_nl") or basename == "shell_commands":
         _update_usernl_file(text_file, old_netcdf, new_netcdf)
     else:
         error(
