@@ -308,6 +308,9 @@ def _collect_fill_values_one_path(
     Returns:
         Dictionary mapping absolute file paths to dictionaries of {variable_name: new_fill_value}
     """
+    if "new_fill_values" not in progress[abs_path]:
+        return progress
+
     warn(logger, f"\n{'=' * SEP_LENGTH}")
     warn(logger, f"Processing: {abs_path}")
     warn(logger, f"{'=' * SEP_LENGTH}")
