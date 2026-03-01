@@ -84,6 +84,7 @@ def get_git_diff(
         "-C",
         str(repo_root),
         "diff",
+        "--color",
     ]
     if diff_args:
         if isinstance(diff_args, str):
