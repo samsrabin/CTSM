@@ -46,3 +46,28 @@ def make_link(src, dst):
         pass
     else:
         os.symlink(src, dst)
+
+
+def check_write_access(file_path: str) -> bool:
+    """
+    Check if user has write access to create/update a file.
+
+    Args:
+        file_path: Path to the file to check
+
+    Returns:
+        True if user has write access, False otherwise
+    """
+    # Get the directory where the file would be created
+    directory = os.path.dirname(file_path) or "."
+
+    # Check if directory exists and is writable
+    if os.path.exists(directory):
+        return os.access(directory, os.W_OK)
+
+    # If directory doesn't exist, check parent directories
+    parent = os.path.dirname(directory)
+    while parent and not os.path.exists(parent):
+        parent = os.path.dirname(parent)
+
+    return os.access(parent or ".", os.W_OK)

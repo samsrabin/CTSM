@@ -51,6 +51,7 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
 )
 from ctsm import ctsm_logging
 from ctsm.git_utils import get_git_diff, get_git_toplevel
+from ctsm.os_utils import check_write_access  # pylint: disable=wrong-import-position
 
 # Set up logging
 logging.basicConfig(format="%(message)s", level=logging.DEBUG)
@@ -95,6 +96,10 @@ def _process_one_file(
     files_processed: list,
     dry_run: bool,
 ):
+
+    # Check whether we can process the file
+    _check_ok_to_process(input_file_abs)
+
     # Print things to do for this file
     var_fillvalues = progress[input_file_abs]["new_fill_values"]
     info(logger, f"\nInput:  {input_file_abs}")
@@ -134,6 +139,33 @@ def _process_one_file(
     return files_processed
 
 
+def _check_ok_to_process(input_file_abs: str) -> bool:
+    """Check whether it's okay to process a netCDF file"""
+
+    # File doesn't exist
+    if not os.path.exists(input_file_abs):
+        err_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error(logger, f"File not found: '{input_file_abs}'", error_type=err_type)
+        if not confirm_continue():
+            sys.exit("Exiting.")
+        return False
+
+    # User doesn't have write access in directory
+    dirname, basename = os.path.split(input_file_abs)
+    if not check_write_access(dirname):
+        err_type = PermissionError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error(
+            logger,
+            f"User can't replace '{basename}': No write perms in '{dirname}'",
+            error_type=err_type,
+        )
+        if not confirm_continue():
+            sys.exit("Exiting.")
+        return False
+
+    return True
+
+
 def _print_and_wait(
     input_file_abs: str, output_file: str, var_fillvalues: dict, files_containing: list
 ) -> None:
@@ -156,7 +188,7 @@ def _print_and_wait(
         if logger.getEffectiveLevel() <= logging.DEBUG:
             error(logger, str(e), error_type=exc_type)
         else:
-            warn(logger,  f"[unable to do git diff due to {exc_type}]")
+            warn(logger, f"[unable to do git diff due to {exc_type}]")
     warn(logger, "=" * SEP_LENGTH)
 
     warn(logger, "-" * SEP_LENGTH)

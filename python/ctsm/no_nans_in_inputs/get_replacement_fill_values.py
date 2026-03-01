@@ -50,7 +50,8 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     process_logging_args,
     warn,
 )
-from ctsm import ctsm_logging
+from ctsm import ctsm_logging  # pylint: disable=wrong-import-position
+from ctsm.os_utils import check_write_access  # pylint: disable=wrong-import-position
 
 # Set up logging
 logging.basicConfig(format="%(message)s", level=logging.DEBUG)
@@ -90,29 +91,7 @@ def _check_for_nanfill_in_netcdf(
         info(logger, f"{INDENT}No variable in file has NaN {ATTR}; skipping")
 
 
-def check_write_access(file_path: str) -> bool:
-    """
-    Check if we have write access to create/update a file.
 
-    Args:
-        file_path: Path to the file to check
-
-    Returns:
-        True if we have write access, False otherwise
-    """
-    # Get the directory where the file would be created
-    directory = os.path.dirname(file_path) or "."
-
-    # Check if directory exists and is writable
-    if os.path.exists(directory):
-        return os.access(directory, os.W_OK)
-
-    # If directory doesn't exist, check parent directories
-    parent = os.path.dirname(directory)
-    while parent and not os.path.exists(parent):
-        parent = os.path.dirname(parent)
-
-    return os.access(parent or ".", os.W_OK)
 
 
 def _get_netcdf_files_to_check(
