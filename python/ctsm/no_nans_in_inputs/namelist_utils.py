@@ -81,6 +81,7 @@ def _replace_env_vars_in_netcdf_paths(netcdf_path_in: str) -> str:
     netcdf_path_out = netcdf_path_in
     netcdf_path_out = netcdf_path_out.replace("$DIN_LOC_ROOT", INPUTDATA_PREFIX)
     netcdf_path_out = netcdf_path_out.replace("${DIN_LOC_ROOT}", INPUTDATA_PREFIX)
+    netcdf_path_out = netcdf_path_out.replace("//", "/")
     return netcdf_path_out
 
 
@@ -181,7 +182,7 @@ def _extract_file_paths_from_xml(xml_file: str) -> set[str]:
                 # Split by whitespace and look for the path
                 for token in text.split():
                     if OUR_PATH in token:
-                        file_paths.add(token)
+                        file_paths.add(token.replace("//", "/"))
 
     return file_paths
 
