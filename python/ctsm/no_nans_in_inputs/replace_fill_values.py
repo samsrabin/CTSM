@@ -119,40 +119,57 @@ def _process_one_file(
                     file_containing_netcdf, netcdf_path_in, netcdf_path_out
                 )
 
-        # Print message (useful for a git commit) and wait for user to approve before continuing
-        indent = "  "
-        warn(logger, "-" * SEP_LENGTH)
-        input_file_msg = get_path_with_cesmdataroot(input_file_abs)
-        warn(logger, f"Removed NaN fill values from '{input_file_msg}'.\n")
-        output_file_msg = get_path_with_cesmdataroot(output_file)
-        warn(logger, f"Replaced with '{output_file_msg}'; new fill values:")
-        vars_with_deleted_fill = []
-        for var, fill_val in var_fillvalues.items():
-            if fill_val == USER_REQ_DELETE:
-                vars_with_deleted_fill.append(var)
-            else:
-                warn(logger, f"{indent}{var}: {fill_val}")
-        if vars_with_deleted_fill:
-            if len(vars_with_deleted_fill) <= 10:
-                warn(logger, f"{indent}Deleted fill: {', '.join(vars_with_deleted_fill)}")
-            else:
-                warn(
-                    logger,
-                    f"{indent}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
-                )
-        warn(logger, "\nPath updated in:")
-        for f in files_containing:
-            if os.path.exists(f) and not os.path.isabs(f):
-                f = os.path.realpath(f)
-            # TODO: This will break now that "get" script has custom --ctsm-root
-            f_rel = Path(f).relative_to(DEFAULT_CTSM_ROOT)
-            warn(logger, f"{indent}{f_rel}")
-        warn(logger, "-" * SEP_LENGTH)
-        if not confirm_continue():
-            sys.exit("Exiting.")
+        # Print message and wait for user to approve before continuing
+        _print_and_wait(input_file_abs, output_file, var_fillvalues, files_containing)
+
+        # Update progress object and file
         progress.done_with_file(input_file_abs)
         progress.cleanup()
     return files_processed
+
+
+def _print_and_wait(
+    input_file_abs: str, output_file: str, var_fillvalues: dict, files_containing: list
+) -> None:
+    """Print info and a message useful for a git commit, then wait for user to continue"""
+    indent = "  "
+
+    # Which netCDF file did we replace?
+    warn(logger, "-" * SEP_LENGTH)
+    input_file_msg = get_path_with_cesmdataroot(input_file_abs)
+    warn(logger, f"Removed NaN fill values from '{input_file_msg}'.\n")
+    output_file_msg = get_path_with_cesmdataroot(output_file)
+    warn(logger, f"Replaced with '{output_file_msg}'; new fill values:")
+
+    # Which new fill values did we give it, and which namelist files was it referenced in?
+    vars_with_deleted_fill = []
+    for var, fill_val in var_fillvalues.items():
+        if fill_val == USER_REQ_DELETE:
+            vars_with_deleted_fill.append(var)
+        else:
+            warn(logger, f"{indent}{var}: {fill_val}")
+    if vars_with_deleted_fill:
+        if len(vars_with_deleted_fill) <= 10:
+            warn(logger, f"{indent}Deleted fill: {', '.join(vars_with_deleted_fill)}")
+        else:
+            warn(
+                logger,
+                f"{indent}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
+            )
+
+    # Which files did we update the path in?
+    warn(logger, "\nPath updated in:")
+    for f in files_containing:
+        if os.path.exists(f) and not os.path.isabs(f):
+            f = os.path.realpath(f)
+            # TODO: This will break now that "get" script has custom --ctsm-root
+        f_rel = Path(f).relative_to(DEFAULT_CTSM_ROOT)
+        warn(logger, f"{indent}{f_rel}")
+    warn(logger, "-" * SEP_LENGTH)
+
+    # Wait for user to confirm or not
+    if not confirm_continue():
+        sys.exit("Exiting.")
 
 
 def process_files(
