@@ -3,6 +3,7 @@
 import logging
 import subprocess
 from pathlib import Path
+from time import sleep
 
 from ctsm.path_utils import path_to_ctsm_root
 
@@ -92,6 +93,8 @@ def get_git_diff(
         cmd += diff_args
 
     result = subprocess.run(cmd, capture_output=capture_output, check=check, text=text, **kwargs)
+    if not capture_output:
+        sleep(0.1)
     return result
 
 

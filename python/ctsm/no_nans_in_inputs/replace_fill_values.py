@@ -98,7 +98,11 @@ def _process_one_file(
 ):
 
     # Check whether we can process the file
-    _check_ok_to_process(input_file_abs)
+    print("\n")
+    ok = _check_ok_to_process(input_file_abs)
+    print("\n")
+    if not ok:
+        return files_processed
 
     # Print things to do for this file
     var_fillvalues = progress[input_file_abs]["new_fill_values"]
@@ -171,6 +175,7 @@ def _print_and_wait(
 ) -> None:
     """Print info and a message useful for a git commit, then wait for user to continue"""
 
+    print("\n")
     ctsm_root = None
     try:
         ctsm_root = os.path.commonpath(files_containing)
@@ -178,6 +183,7 @@ def _print_and_wait(
         msg = f"== git diff {ctsm_root} "
         warn(logger, msg + "=" * max(0, SEP_LENGTH - len(msg)))
         get_git_diff(repo_root=ctsm_root, capture_output=False)
+
     except CalledProcessError as e:
         if logger.getEffectiveLevel() <= logging.DEBUG:
             error(logger, str(e), error_type=CalledProcessError)
@@ -195,9 +201,9 @@ def _print_and_wait(
 
     # Which netCDF file did we replace?
     input_file_msg = get_path_with_cesmdataroot(input_file_abs)
-    warn(logger, f"Removed NaN fill values from '{input_file_msg}'.\n")
+    warn(logger, f"Handled NaN fill values in '{input_file_msg}'.\n")
     output_file_msg = get_path_with_cesmdataroot(output_file)
-    warn(logger, f"Replaced with '{output_file_msg}'; new fill values:")
+    warn(logger, f"New file '{output_file_msg}'; fill values:")
 
     # Which new fill values did we give it, and which namelist files was it referenced in?
     vars_with_deleted_fill = []
