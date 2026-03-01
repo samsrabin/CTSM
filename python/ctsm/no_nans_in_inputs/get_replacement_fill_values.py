@@ -145,7 +145,7 @@ def _get_netcdf_files_to_check(
     return netcdf_paths, files_referencing_netcdfs
 
 
-def _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs):
+def _get_netcdfs_with_nan_fills(progress: NoNanFillValueProgress, netcdf_paths: Set[str], files_referencing_netcdfs: List[str]) -> None:
     warn(logger, "\nChecking those netCDF files for NaN fill...")
 
     for netcdf_path in sorted(netcdf_paths):
@@ -159,6 +159,7 @@ def _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdf
             info(logger, f"netCDF file not found: '{netcdf_path}'")
             # TODO: Actually handle files that weren't found, if possible.
             progress[abs_path] = {}
+            progress.save()
             continue
         # TODO: Check that the file is in CESM inputdata dir
 
