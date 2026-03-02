@@ -18,6 +18,8 @@ if _CTSM_PYTHON not in sys.path:
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     ATTR,
     INDENT,
+    INPUTDATA_PREFIX,
+    KNOWN_GOOD_FILES,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
@@ -157,6 +159,12 @@ def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
         bool: True if the file has any variable with NaN fill value attribute, False otherwise
         List[str]: Variables with NaN fill value attributes
     """
+    # These checks can take a long time (and even crash) for large files, so let's skip some large
+    # files that we know to be unaffected.
+    if os.path.relpath(abs_path, INPUTDATA_PREFIX) in KNOWN_GOOD_FILES:
+        warn(logger, f"Skipping known-good file: '{abs_path}'")
+        return False, []
+
     vars_with_nan_fills = get_vars_with_nan_fills(abs_path)
     return bool(vars_with_nan_fills), vars_with_nan_fills
 

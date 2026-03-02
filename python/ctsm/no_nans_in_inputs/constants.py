@@ -45,3 +45,20 @@ VARSTARTS_TO_DEFAULT_NEG999 = ["fertl_", "irrig_", "crpbf_", "fharv_"]
 
 # Indentation for messages
 INDENT = "    "
+
+# Skip these huge files that we already know, via `ncks --chk_nan`, to be okay. Paths relative to
+# INPUTDATA_PREFIX.
+KNOWN_GOOD_FILES = [
+    (
+        "lnd/clm2/urbandata/"
+        "CTSM52_tbuildmax_OlesonFeddema_2020_mpasa3p75_fromf09_simyr1849-2106_c20240502.nc"
+    ),
+    (
+        "lnd/clm2/surfdata_esmf/ctsm5.4.0/"
+        "landuse.timeseries_360x720cru_hist_1850-2023_78pfts_c251022.nc"
+    ),
+    (
+        "lnd/clm2/surfdata_esmf/ctsm5.3.0/"
+        "landuse.timeseries_360x720cru_SSP2-4.5_1850-2100_78pfts_c240908.nc"
+    ),
+]
