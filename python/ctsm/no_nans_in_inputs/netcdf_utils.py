@@ -182,16 +182,8 @@ def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
         List[str]: Variables with NaN fill value attributes
     """
     vars_with_nan_fills = get_vars_with_nan_fills(abs_path)
-    any_nan_fill = bool(vars_with_nan_fills)
-    if not any_nan_fill and file_has_nan_ncks_chk_nan(abs_path):
-        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
-        msg = (
-            "WARNING: Skipping file with NaN that wasn't caught by file_has_nan_fill():"
-            f" '{abs_path}'"
-        )
-        error(logger, msg, error_type=error_type)
 
-    return any_nan_fill, vars_with_nan_fills
+    return bool(vars_with_nan_fills), vars_with_nan_fills
 
 
 def _get_ncatted_type_code(dtype: np.dtype) -> str:

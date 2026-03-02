@@ -43,6 +43,7 @@ from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-posi
 from ctsm.no_nans_in_inputs import user_inputs  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-import-position
     file_has_nan_fill,
+    file_has_nan_ncks_chk_nan,
 )
 from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     add_logging_args,
@@ -86,6 +87,13 @@ def _check_for_nanfill_in_netcdf(
 
     # Return early if no problems found
     if not any_nan_fill:
+        if file_has_nan_ncks_chk_nan(abs_path):
+            error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+            msg = (
+                "WARNING: Skipping file with NaN that wasn't caught by file_has_nan_fill():"
+                f" '{abs_path}'"
+            )
+            error(logger, msg, error_type=error_type)
         if abs_path in progress:
             error(
                 logger,
