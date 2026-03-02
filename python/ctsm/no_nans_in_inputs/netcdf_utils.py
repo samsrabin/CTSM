@@ -148,6 +148,28 @@ def execute_ncatted_command(cmd: list[str]) -> int:
     return files_processed
 
 
+def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:
+    """
+    Use ncks --chk_nan to determine whether a netCDF file has a NaN
+    """
+    cmd = ["ncks", "--chk_nan", str(abs_path)]
+    if logger.getEffectiveLevel() <= logging.DEBUG:
+        stdout = None
+    else:
+        stdout = subprocess.DEVNULL
+    result = subprocess.run(cmd, check=False, stdout=stdout)
+
+    # We expect returncode 1 if NaN is found, 0 if not. Anything else is an unhandled error.
+    if result.returncode > 1:
+        error(
+            logger,
+            f"Unexpected error code {result.returncode} during ncks --chk_nan of '{abs_path}'",
+            error_type=NotImplementedError,
+        )
+
+    return bool(result.returncode)
+
+
 def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
     """
     Check if a netCDF file has any variable with NaN fill value attribute.
@@ -166,7 +188,16 @@ def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
         return False, []
 
     vars_with_nan_fills = get_vars_with_nan_fills(abs_path)
-    return bool(vars_with_nan_fills), vars_with_nan_fills
+    any_nan_fill = bool(vars_with_nan_fills)
+    if not any_nan_fill and file_has_nan_ncks_chk_nan(abs_path):
+        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        msg = (
+            "WARNING: Skipping file with NaN that wasn't caught by file_has_nan_fill():"
+            f" '{abs_path}'"
+        )
+        error(logger, msg, error_type=error_type)
+
+    return any_nan_fill, vars_with_nan_fills
 
 
 def _get_ncatted_type_code(dtype: np.dtype) -> str:
