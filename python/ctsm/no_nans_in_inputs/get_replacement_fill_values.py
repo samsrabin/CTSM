@@ -42,6 +42,8 @@ from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-posi
 )
 from ctsm.no_nans_in_inputs import user_inputs  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-import-position
+    file_has_mismatched_fill_missing,
+    file_has_nan_ncks_chk_nan,
     file_has_nan_fill,
     file_has_nan_ncks_chk_nan,
 )
@@ -65,12 +67,12 @@ logger = logging.getLogger()
 DIR_TO_SEARCH_FOR_USER_NL_FILES = "cime_config"
 
 
-def _check_for_nanfill_in_netcdf(
+def _check_for_nans_in_netcdf(
     files_referencing_netcdfs: list,
     progress: NoNanFillValueProgress,
     netcdf_path: str,
     abs_path: str,
-):
+) -> None:
 
     # These checks can take a long time (and even crash) for large files, so let's skip some large
     # files that we know to be unaffected.
@@ -84,9 +86,10 @@ def _check_for_nanfill_in_netcdf(
 
     # Check file for problems
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
+    any_mismatched_fill_missing, mismatches = file_has_mismatched_fill_missing(abs_path)
 
     # Return early if no problems found
-    if not any_nan_fill:
+    if not (any_nan_fill or any_mismatched_fill_missing):
         if file_has_nan_ncks_chk_nan(abs_path):
             error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
             msg = (
@@ -97,7 +100,7 @@ def _check_for_nanfill_in_netcdf(
         if abs_path in progress:
             error(
                 logger,
-                f"Found no NaN fills in file but it was in progress dict: {abs_path}",
+                f"Found no NaNs in file but it was in progress dict: {abs_path}",
                 error_type=RuntimeError,
             )
         info(logger, f"{INDENT}No variable in file has NaN {ATTR}; skipping")
@@ -115,7 +118,10 @@ def _check_for_nanfill_in_netcdf(
             fif_dict[file_to_search] = fif_dict[file_to_search] | set_of_how_this_netcdf_appears
 
     # Get list of variables in this file with issues
-    progress[abs_path]["vars_with_nan_fills"] = vars_with_nan_fills
+    if any_nan_fill:
+        progress[abs_path]["vars_with_nan_fills"] = vars_with_nan_fills
+    if any_mismatched_fill_missing:
+        progress[abs_path]["vars_with_mismatched_fill_missing"] = [x.var_name for x in mismatches]
 
     # Save
     progress.save()
@@ -198,7 +204,7 @@ def _get_netcdfs_with_nan_fills(
 
         # Check that the file actually has NaN _FillValue for at least one var
         info(logger, f"{INDENT}Checking for NaN fill: '{msg_path}'")
-        _check_for_nanfill_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
+        _check_for_nans_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
 
         # Print message
         msg = f"NaN fill values: '{msg_path}'"

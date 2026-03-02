@@ -4,11 +4,12 @@ import os
 import sys
 import re
 import subprocess
-from typing import Any, List, Tuple
+from typing import Any, List, NamedTuple, Tuple
 import logging
 
 import numpy as np
 import xarray as xr
+from netCDF4 import Dataset, Variable  # pylint: disable=no-name-in-module
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -137,7 +138,7 @@ def execute_ncatted_command(cmd: list[str]) -> int:
             msg += f"\n{INDENT}stdout: {e.stdout}"
         if e.stderr:
             msg += f"\n{INDENT}stderr: {e.stderr}"
-        error(logger, msg + f"\n{e}", subprocess.CalledProcessError)
+        error(logger, msg + f"\n{e}", error_type=subprocess.CalledProcessError)
         raise e
     except FileNotFoundError:
         msg = f"{INDENT}✗ Error: ncatted command not found\n"
@@ -146,6 +147,53 @@ def execute_ncatted_command(cmd: list[str]) -> int:
         error(logger, msg, error_type=error_type)
         sys.exit(7)
     return files_processed
+
+
+
+class FillValueMismatch(NamedTuple):
+    var_name: str
+    fill_value: object
+    missing_value: object
+
+
+def file_has_mismatched_fill_missing(nc_path: str) -> Tuple[bool, List[FillValueMismatch]]:
+    """
+    Return list of (var_name, fill_value, missing_value, dtype)
+    for variables where both attributes exist and do not match.
+    """
+
+    mismatches = []
+
+    with Dataset(nc_path, "r") as ds:
+        for name, var in ds.variables.items():
+            mismatch = var_has_mismatched_fill_missing(name, var)
+            if mismatch:
+                mismatches.append(mismatch)
+    return bool(mismatches), mismatches
+
+def var_has_mismatched_fill_missing(name: str, var: Variable) -> FillValueMismatch | None:
+    if not hasattr(var, "_FillValue") or not hasattr(var, "missing_value"):
+        return None
+
+    fill_val = var._FillValue  # pylint: disable=protected-access
+    missing_val = var.missing_value
+
+    # Convert both explicitly to the variable dtype
+    dtype = var.dtype
+    fill_cast = np.array(fill_val, dtype=dtype).item()
+    missing_cast = np.array(missing_val, dtype=dtype).item()
+
+    # Handle NaN safely
+    if np.issubdtype(dtype, np.floating):
+        equal = (np.isnan(fill_cast) and np.isnan(missing_cast)) or fill_cast == missing_cast
+    else:
+        equal = fill_cast == missing_cast
+
+    if not equal:
+        mismatch = FillValueMismatch(var_name=name, fill_value=fill_cast, missing_value=missing_cast)
+    else:
+        mismatch = None
+    return mismatch
 
 
 def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:

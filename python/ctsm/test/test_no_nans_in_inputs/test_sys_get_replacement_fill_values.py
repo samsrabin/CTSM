@@ -80,12 +80,17 @@ class TestMain:
         "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_nan_fill",
         return_value=(True, ["temp"]),
     )
+    @patch(
+        "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_mismatched_fill_missing",
+        return_value=(False, []),
+    )
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
     @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
     def test_main_happy_path(
         self,
         mock_confirm_continue,
         mock_collect,
+        mock_file_has_mismatch,
         mock_file_has_nan,
         mock_isdir,
         mock_isfile,
@@ -152,8 +157,13 @@ class TestMain:
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
     @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
     @patch("ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files", return_value=[])
+    @patch(
+        "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_mismatched_fill_missing",
+        return_value=(False, []),
+    )
     def test_main_dry_run(
         self,
+        mock_file_has_mismatch,
         mock_find_user_nl_files,
         mock_confirm_continue,
         mock_collect,

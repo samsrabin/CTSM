@@ -36,7 +36,12 @@ logger = logging.getLogger(__name__)
 
 def create_empty_progress_dict_onefile():
     """Return a dictionary for one netCDF file"""
-    return {"found_in_files": {}, "new_fill_values": {}, "vars_with_nan_fills": []}
+    return {
+        "found_in_files": {},
+        "new_fill_values": {},
+        "vars_with_nan_fills": [],
+        "vars_with_mismatched_fill_missing": [],
+    }
 
 
 class NoNanFillValueProgress(defaultdict):
