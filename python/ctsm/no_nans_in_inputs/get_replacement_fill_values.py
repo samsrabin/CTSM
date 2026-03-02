@@ -78,19 +78,9 @@ def _check_for_nanfill_in_netcdf(
         return
 
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
-    if any_nan_fill:
-        fif_dict = progress[abs_path]["found_in_files"]
-        for file_to_search in files_referencing_netcdfs:
-            set_of_how_this_netcdf_appears = nlu.how_netcdf_is_referenced_in_file(
-                file_to_search, netcdf_path
-            )
-            if set_of_how_this_netcdf_appears:
-                if file_to_search not in fif_dict:
-                    fif_dict[file_to_search] = set()
-                fif_dict[file_to_search] = fif_dict[file_to_search] | set_of_how_this_netcdf_appears
-        progress[abs_path]["vars_with_nan_fills"] = vars_with_nan_fills
-        progress.save()
-    else:
+
+    # Return early if no problems found
+    if not any_nan_fill:
         if abs_path in progress:
             error(
                 logger,
@@ -98,6 +88,24 @@ def _check_for_nanfill_in_netcdf(
                 error_type=RuntimeError,
             )
         info(logger, f"{INDENT}No variable in file has NaN {ATTR}; skipping")
+        return
+
+    # Get information for this file
+    fif_dict = progress[abs_path]["found_in_files"]
+    for file_to_search in files_referencing_netcdfs:
+        set_of_how_this_netcdf_appears = nlu.how_netcdf_is_referenced_in_file(
+            file_to_search, netcdf_path
+        )
+        if set_of_how_this_netcdf_appears:
+            if file_to_search not in fif_dict:
+                fif_dict[file_to_search] = set()
+            fif_dict[file_to_search] = fif_dict[file_to_search] | set_of_how_this_netcdf_appears
+
+    # Get list of variables in this file with issues
+    progress[abs_path]["vars_with_nan_fills"] = vars_with_nan_fills
+
+    # Save
+    progress.save()
 
 
 def _get_netcdf_files_to_check(
