@@ -322,9 +322,32 @@ def _collect_fill_values_one_path(
     # Open the dataset
     ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS)
 
-    # Loop through all variables
-    for var in progress[abs_path]["vars_with_nan_fills"]:
+    # Process all variables with NaN fill values
+    _process_vars_with_nan_fills(
+        progress, delete_if_none_filled, abs_path, dry_run, accept_all_defaults, new_fill_values, ds
+    )
 
+    # Close the dataset
+    ds.close()
+
+    # Print summary for this file
+    if not dry_run:
+        n_fv_after = len(new_fill_values)
+        n_new_fv = n_fv_after - n_fv_before
+        info(
+            logger,
+            f"\n{INDENT}Collected {n_new_fv} new fill value(s) for this file; {n_fv_after} total:",
+        )
+        for var, fill_val in new_fill_values.items():
+            info(logger, f"{INDENT*2}{var}: {fill_val}")
+
+    return progress
+
+
+def _process_vars_with_nan_fills(
+    progress, delete_if_none_filled, abs_path, dry_run, accept_all_defaults, new_fill_values, ds
+):
+    for var in progress[abs_path]["vars_with_nan_fills"]:
         # Skip variables we've already processed
         if var in new_fill_values:
             info(logger, f"\n{INDENT}Variable: {var} [already processed, skipping]")
@@ -362,22 +385,6 @@ def _collect_fill_values_one_path(
         # Save progress after each variable
         progress.save()
         progress[abs_path]["new_fill_values"] = new_fill_values
-
-    # Close the dataset
-    ds.close()
-
-    # Print summary for this file
-    if not dry_run:
-        n_fv_after = len(new_fill_values)
-        n_new_fv = n_fv_after - n_fv_before
-        info(
-            logger,
-            f"\n{INDENT}Collected {n_new_fv} new fill value(s) for this file; {n_fv_after} total:",
-        )
-        for var, fill_val in new_fill_values.items():
-            info(logger, f"{INDENT*2}{var}: {fill_val}")
-
-    return progress
 
 
 def collect_new_fill_values(
