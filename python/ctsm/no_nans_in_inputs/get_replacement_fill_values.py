@@ -77,6 +77,11 @@ def _check_for_nanfill_in_netcdf(
         warn(logger, f"Skipping known-good file: '{abs_path}'")
         return
 
+    # We can also skip any files that have already been processed
+    if abs_path in progress:
+        return
+
+    # Check file for problems
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
 
     # Return early if no problems found
