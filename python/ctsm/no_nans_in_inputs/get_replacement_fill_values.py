@@ -27,6 +27,8 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     DEFAULT_CTSM_ROOT,
     DIR_TO_SEARCH_FOR_XML_FILES,
     INDENT,
+    INPUTDATA_PREFIX,
+    KNOWN_GOOD_FILES,
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
 )
@@ -68,6 +70,13 @@ def _check_for_nanfill_in_netcdf(
     netcdf_path: str,
     abs_path: str,
 ):
+
+    # These checks can take a long time (and even crash) for large files, so let's skip some large
+    # files that we know to be unaffected.
+    if os.path.relpath(abs_path, INPUTDATA_PREFIX) in KNOWN_GOOD_FILES:
+        warn(logger, f"Skipping known-good file: '{abs_path}'")
+        return
+
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
     if any_nan_fill:
         fif_dict = progress[abs_path]["found_in_files"]
