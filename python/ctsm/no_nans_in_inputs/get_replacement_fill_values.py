@@ -182,7 +182,7 @@ def _get_netcdf_files_to_check(
 def _get_netcdfs_with_nan_fills(
     progress: NoNanFillValueProgress, netcdf_paths: Set[str], files_referencing_netcdfs: List[str]
 ) -> None:
-    warn(logger, "\nChecking those netCDF files for NaN fill...")
+    warn(logger, "\nChecking those netCDF files for NaNs...")
 
     for netcdf_path in sorted(netcdf_paths):
         # Get the absolute path; continue if already processed

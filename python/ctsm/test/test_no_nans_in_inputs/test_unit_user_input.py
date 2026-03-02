@@ -244,7 +244,7 @@ def test_collect_new_fill_values_forwards_accept_all_defaults():
         assert kwargs.get("accept_all_defaults") is True
 
 
-def test__collect_fill_values_one_path_auto_accepts_default():
+def test_collect_fill_values_one_path_auto_accepts_default():
     """If accept_all_defaults is True and a default exists, it should be used without prompting."""
 
     # Fake progress object: dict-like with a no-op save()
@@ -257,7 +257,11 @@ def test__collect_fill_values_one_path_auto_accepts_default():
     abs_path = "/fake/path.nc"
     var_name = "v1"
     progress = FakeProgress()
-    progress[abs_path] = {"vars_with_nan_fills": [var_name], "new_fill_values": {}}
+    progress[abs_path] = {
+        "vars_with_nan_fills": [var_name],
+        "new_fill_values": {},
+        "vars_with_mismatched_fill_missing": [],
+    }
 
     # Patch get_var_info to return a VarContext and a FillValueConfig with a default
     fake_var_context = VarContext(

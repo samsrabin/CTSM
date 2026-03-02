@@ -6,6 +6,10 @@ import os
 import sys
 from typing import Any
 import logging
+import warnings
+
+warnings.simplefilter("error")  # Treat all warnings as errors
+
 
 import numpy as np
 import xarray as xr
@@ -319,16 +323,13 @@ def _collect_fill_values_one_path(
     new_fill_values = progress[abs_path]["new_fill_values"]
     n_fv_before = len(new_fill_values)
 
-    # Open the dataset
-    ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS)
+    # Process all variables with mismatched fill vs. missing values
+    _process_vars_with_mismatched_fill_missing(progress, abs_path, accept_all_defaults, dry_run)
 
     # Process all variables with NaN fill values
     _process_vars_with_nan_fills(
-        progress, delete_if_none_filled, abs_path, dry_run, accept_all_defaults, new_fill_values, ds
+        progress, delete_if_none_filled, abs_path, dry_run, accept_all_defaults, new_fill_values
     )
-
-    # Close the dataset
-    ds.close()
 
     # Print summary for this file
     if not dry_run:
@@ -344,10 +345,125 @@ def _collect_fill_values_one_path(
     return progress
 
 
+def _process_vars_with_mismatched_fill_missing(
+    progress: NoNanFillValueProgress, abs_path: str, accept_all_defaults: bool, dry_run: bool
+) -> None:
+    vars_with_mismatched_fill_missing = progress[abs_path]["vars_with_mismatched_fill_missing"]
+    if not vars_with_mismatched_fill_missing:
+        return
+    new_fill_missing = progress[abs_path]["new_fill_missing"]
+
+    ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS, mask_and_scale=False)
+
+    for var in vars_with_mismatched_fill_missing:
+        # Skip variables we've already processed
+        if var in new_fill_missing:
+            info(logger, f"\n{INDENT}Variable: {var} [already processed, skipping]")
+            continue
+
+        da = ds[var]
+        fill = da.attrs["_FillValue"]
+        missing = da.attrs["missing_value"]
+
+        # Do any values match missing_value?
+        if np.isnan(missing):
+            any_missing = da.isnull().any()
+        else:
+            any_missing = (da == missing).any()
+
+        # Do any values match _FillValue?
+        if np.isnan(fill):
+            raise RuntimeError(
+                "Not sure how this will interact with _process_vars_with_nan_fills()"
+            )
+        any_fill = (da == fill).any()
+
+        if any_missing and any_fill:
+            msg = (
+                f"Variable {var} has elements with both fill value ({fill}) "
+                f"and missing value ({missing})"
+            )
+            error_type = (
+                NotImplementedError if logger.getEffectiveLevel() <= logging.DEBUG else None
+            )
+            error(logger, msg, error_type=error_type)
+            if not accept_all_defaults and not confirm_continue():
+                raise KeyboardInterrupt
+            continue
+
+        new_missing = None
+        new_fill = None
+        # TODO: Replace these with proper prompts rather than just asking whether to continue
+        if not any_missing:
+            msg = f"{INDENT}{var}: Setting missing_value ({missing}) to match _FillValue ({fill})"
+            warn(logger, msg)
+            new_missing = fill
+            new_fill = fill
+        elif not any_fill:
+            msg = f"{INDENT}{var}: Setting _FillValue ({fill}) to match missing_value ({missing})"
+            warn(logger, msg)
+            new_fill = missing
+            new_missing = missing
+
+        fixing = new_missing is not None
+        if not fixing:
+            msg = (
+                f"{INDENT}WARNING: variable {var} has both _FillValue ({fill}) "
+                f"and missing_value ({missing}); skipping",
+            )
+            error_type = (
+                NotImplementedError if logger.getEffectiveLevel() <= logging.DEBUG else None
+            )
+            error(logger, msg, error_type=error_type)
+
+        user_ok = accept_all_defaults or dry_run or confirm_continue()
+        if not user_ok:
+            raise KeyboardInterrupt
+
+        # Save
+        if fixing and not dry_run:
+            # This dict will be saved as progress[abs_path]["new_fill_missing"][var]
+            d = {
+                "_FillValue": new_fill,
+                "missing_value": new_missing,
+            }
+
+            # Handle types that aren't JSON-serializable
+            for k, v in d.items():
+                if isinstance(v, np.int32):
+                    d[k] = int(v)
+
+            new_fill_missing[var] = d
+            try:
+                progress.save()
+            except TypeError as e:
+                if "not JSON serializable" in str(e):
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        raise e
+                    msg = (
+                        f"{INDENT}WARNING: Variable {var} had fill or missing value not JSON "
+                        "serializable; skipping."
+                    )
+                    warn(logger, msg)
+                else:
+                    raise e
+    ds.close()
+
+
 def _process_vars_with_nan_fills(
-    progress, delete_if_none_filled, abs_path, dry_run, accept_all_defaults, new_fill_values, ds
+    progress: NoNanFillValueProgress,
+    delete_if_none_filled: bool,
+    abs_path: str,
+    dry_run: bool,
+    accept_all_defaults: bool,
+    new_fill_values: dict,
 ):
-    for var in progress[abs_path]["vars_with_nan_fills"]:
+    vars_with_nan_fills = progress[abs_path]["vars_with_nan_fills"]
+    if not vars_with_nan_fills:
+        return
+
+    ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS)
+    for var in vars_with_nan_fills:
         # Skip variables we've already processed
         if var in new_fill_values:
             info(logger, f"\n{INDENT}Variable: {var} [already processed, skipping]")
@@ -385,6 +501,7 @@ def _process_vars_with_nan_fills(
         # Save progress after each variable
         progress.save()
         progress[abs_path]["new_fill_values"] = new_fill_values
+    ds.close()
 
 
 def collect_new_fill_values(
@@ -416,13 +533,15 @@ def collect_new_fill_values(
 
     try:
         for abs_path in progress:
-            progress = _collect_fill_values_one_path(
-                progress=progress,
-                delete_if_none_filled=delete_if_none_filled,
-                abs_path=abs_path,
-                dry_run=dry_run,
-                accept_all_defaults=accept_all_defaults,
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
+                progress = _collect_fill_values_one_path(
+                    progress=progress,
+                    delete_if_none_filled=delete_if_none_filled,
+                    abs_path=abs_path,
+                    dry_run=dry_run,
+                    accept_all_defaults=accept_all_defaults,
+                )
 
     except KeyboardInterrupt:
         warn(logger, "Exiting.")

@@ -40,6 +40,7 @@ def create_empty_progress_dict_onefile():
         "found_in_files": {},
         "new_fill_values": {},
         "vars_with_nan_fills": [],
+        "new_fill_missing": {},
         "vars_with_mismatched_fill_missing": [],
     }
 
@@ -75,6 +76,7 @@ class NoNanFillValueProgress(defaultdict):
                     self.print_summary()
                     total_vars = _get_n_vars_in_progress(self)
                     if total_vars:
+                        # TODO: Also print progress so far for vars with mismatched fill/missing
                         warn(
                             logger,
                             f"Already decided {total_vars} new fill values in {len(self)} file(s)",
@@ -163,7 +165,7 @@ class NoNanFillValueProgress(defaultdict):
                 logger,
                 f"{n_netcdfs_checked}" "\tTotal netCDF files referenced in XML and user_nl_ files",
             )
-        warn(logger, f"{len(self)}\tFiles with NaN {ATTR}")
+        warn(logger, f"{len(self)}\tFiles with NaNs")
         files_not_found = [k for k in self if not self[k]]
         warn(logger, f"{len(files_not_found)}\tFiles not found")
         if files_not_found:
