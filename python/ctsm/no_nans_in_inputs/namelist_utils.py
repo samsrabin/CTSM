@@ -77,6 +77,15 @@ def find_user_nl_files(dir_to_search: str) -> list[str]:
     return results
 
 
+def find_xml_files(dir_to_search: str) -> list[str]:
+    """Find all XML files in directory"""
+    results = []
+    for basename in ["*xml"]:
+        pattern = os.path.join(f"{dir_to_search}", "**", basename)
+        results += glob.glob(pattern, recursive=True)
+    return results
+
+
 def _replace_env_vars_in_netcdf_paths(netcdf_path_in: str) -> str:
     """
     Given a path to a netCDF file, replace any environment variables like $DIN_LOC_ROOT

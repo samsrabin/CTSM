@@ -25,10 +25,10 @@ if _CTSM_PYTHON not in sys.path:
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     ATTR,
     DEFAULT_CTSM_ROOT,
+    DIR_TO_SEARCH_FOR_XML_FILES,
     INDENT,
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
-    XML_FILE,
 )
 from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-position
     NoNanFillValueProgress,
@@ -91,9 +91,6 @@ def _check_for_nanfill_in_netcdf(
         info(logger, f"{INDENT}No variable in file has NaN {ATTR}; skipping")
 
 
-
-
-
 def _get_netcdf_files_to_check(
     progress: NoNanFillValueProgress | None = None,
     ctsm_root: str = DEFAULT_CTSM_ROOT,
@@ -105,24 +102,25 @@ def _get_netcdf_files_to_check(
 
         # In production, we should only ever define these constants as paths relative to the CTSM
         # root! However, unit/system tests may mock them to be absolute paths instead.
-        if os.path.isabs(XML_FILE):
-            xml_file_abs = XML_FILE
+        if os.path.isabs(DIR_TO_SEARCH_FOR_XML_FILES):
+            dir_to_search_xml = DIR_TO_SEARCH_FOR_XML_FILES
         else:
-            xml_file_abs = os.path.join(ctsm_root, XML_FILE)
+            dir_to_search_xml = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_XML_FILES)
         if os.path.isabs(DIR_TO_SEARCH_FOR_USER_NL_FILES):
-            dir_to_search_abs = DIR_TO_SEARCH_FOR_USER_NL_FILES
+            dir_to_search_usernl_abs = DIR_TO_SEARCH_FOR_USER_NL_FILES
         else:
-            dir_to_search_abs = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_USER_NL_FILES)
+            dir_to_search_usernl_abs = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_USER_NL_FILES)
 
         # Make sure the requested locations exist
-        if not os.path.isfile(xml_file_abs):
-            error(logger, f"{xml_file_abs} not found", error_type=FileNotFoundError)
-        if not os.path.isdir(dir_to_search_abs):
-            error(logger, f"{dir_to_search_abs} not found", error_type=FileNotFoundError)
+        if not os.path.isdir(dir_to_search_xml):
+            error(logger, f"{dir_to_search_xml} not found", error_type=FileNotFoundError)
+        if not os.path.isdir(dir_to_search_usernl_abs):
+            error(logger, f"{dir_to_search_usernl_abs} not found", error_type=FileNotFoundError)
 
         # Get list of files to search for netCDF paths
-        files_to_search = [xml_file_abs]
-        files_to_search.extend(nlu.find_user_nl_files(dir_to_search_abs))
+        files_to_search = []
+        files_to_search.extend(nlu.find_xml_files(dir_to_search_xml))
+        files_to_search.extend(nlu.find_user_nl_files(dir_to_search_usernl_abs))
 
         # Find all netCDF paths referenced in those files
         netcdf_paths = set()
@@ -145,7 +143,9 @@ def _get_netcdf_files_to_check(
     return netcdf_paths, files_referencing_netcdfs
 
 
-def _get_netcdfs_with_nan_fills(progress: NoNanFillValueProgress, netcdf_paths: Set[str], files_referencing_netcdfs: List[str]) -> None:
+def _get_netcdfs_with_nan_fills(
+    progress: NoNanFillValueProgress, netcdf_paths: Set[str], files_referencing_netcdfs: List[str]
+) -> None:
     warn(logger, "\nChecking those netCDF files for NaN fill...")
 
     for netcdf_path in sorted(netcdf_paths):

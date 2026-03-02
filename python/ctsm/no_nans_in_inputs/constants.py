@@ -7,7 +7,7 @@ from pathlib import Path
 # File paths
 INPUTDATA_PREFIX = "/glade/campaign/cesm/cesmdata/cseg/inputdata/"
 NEW_FILLVALUES_FILE = "new_fillvalues.json"  # File to save/load new fill values
-XML_FILE = "bld/namelist_files/namelist_defaults_ctsm.xml"  # CTSM namelist defaults XML
+DIR_TO_SEARCH_FOR_XML_FILES = "bld/namelist_files"
 OUR_PATH = "lnd/clm2/"  # String to be found in files we're responsible for
 try:
     DEFAULT_CTSM_ROOT = Path(__file__).resolve().parents[3]

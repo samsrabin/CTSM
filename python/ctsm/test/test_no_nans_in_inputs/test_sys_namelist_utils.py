@@ -5,6 +5,7 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
+import logging
 
 import pytest
 
@@ -37,7 +38,7 @@ class TestUpdateXmlFile:
     """Test the _update_xml_file function."""
 
     @pytest.mark.parametrize("fn_to_test", [_update_xml_file, update_text_file_referencing_netcdf])
-    def test_update_xml_path(self, mock_xml_file_path, fn_to_test):
+    def test_update_xml_path(self, create_mock_xml_file, fn_to_test):
         """Test updating a file path in XML."""
         old_path = "lnd/clm2/paramdata/test_params.nc"
         new_path = "lnd/clm2/paramdata/test_params.no_nan_fill.nc"
@@ -55,12 +56,11 @@ we want to preserve!
     <surfdata>  lnd/clm2/surfdata/test_surf.nc </surfdata>
 </namelist_defaults>
 """
-        with open(mock_xml_file_path, "w", encoding="utf-8") as f:
-            f.write(xml_content)
+        xml_file = create_mock_xml_file(xml_content)
 
         # Get line with old_path before substitution
         line_before = None
-        with open(mock_xml_file_path, "r", encoding="utf8") as f:
+        with open(xml_file, "r", encoding="utf8") as f:
             n_line = -1
             for line in f.readlines():
                 n_line += 1
@@ -75,10 +75,10 @@ we want to preserve!
             "ctsm.no_nans_in_inputs.namelist_utils._check_xml_file",
             wraps=namelist_utils._check_xml_file,
         ) as mock_check_xml:
-            fn_to_test(mock_xml_file_path, old_path, new_path)
+            fn_to_test(xml_file, old_path, new_path)
 
         # Read and verify the updated XML
-        tree = ET.parse(mock_xml_file_path)
+        tree = ET.parse(xml_file)
         root = tree.getroot()
         paramfile = root.find("paramfile")
         assert paramfile is not None
@@ -91,14 +91,14 @@ we want to preserve!
         # Now check that comments and whitespace weren't affected
         # Get line after substitution
         line_after = None
-        with open(mock_xml_file_path, "r", encoding="utf8") as f:
+        with open(xml_file, "r", encoding="utf8") as f:
             n = -1
             for line_after in f.readlines():
                 n += 1
                 if n == n_line:
                     break
         if line_after is None:
-            raise RuntimeError(f"No lines read from {mock_xml_file_path=}")
+            raise RuntimeError(f"No lines read from {xml_file=}")
 
         # Make sure *something* happened on the line
         assert line_before != line_after
@@ -111,20 +111,19 @@ we want to preserve!
         # We should have checked the file
         assert mock_check_xml.call_count == 1
 
-    def test_update_xml_path_not_found(self, mock_xml_file_path):
+    def test_update_xml_path_not_found(self, create_mock_xml_file):
         """Test that updating non-existent path raises ValueError."""
         xml_content = """<?xml version="1.0"?>
 <namelist_defaults>
     <paramfile>lnd/clm2/paramdata/test_params.nc</paramfile>
 </namelist_defaults>
 """
-        with open(mock_xml_file_path, "w", encoding="utf-8") as f:
-            f.write(xml_content)
+        xml_file = create_mock_xml_file(xml_content)
 
         with pytest.raises(ValueError, match="No matches for"):
-            _update_xml_file(mock_xml_file_path, "nonexistent/path.nc", "new/path.nc")
+            _update_xml_file(xml_file, "nonexistent/path.nc", "new/path.nc")
 
-    def test_update_xml_with_multiple_same_tag(self, mock_xml_file_path):
+    def test_update_xml_with_multiple_same_tag(self, create_mock_xml_file):
         """Test updating path when multiple elements have the same tag name."""
         # Simulate the real XML structure with multiple paramfile elements
         xml_content = f"""<?xml version="1.0"?>
@@ -134,17 +133,16 @@ we want to preserve!
     <paramfile phys="{TEST_PHYS_CLM45}">{TEST_PARAM_CLM45}</paramfile>
 </namelist_defaults>
 """
-        with open(mock_xml_file_path, "w", encoding="utf-8") as f:
-            f.write(xml_content)
+        xml_file = create_mock_xml_file(xml_content)
 
         # Update one specific path
         old_path = TEST_PARAM_CLM60
         new_path = TEST_PARAM_CLM60.replace(".nc", ".no_nan_fill.nc")
 
-        _update_xml_file(mock_xml_file_path, old_path, new_path)
+        _update_xml_file(xml_file, old_path, new_path)
 
         # Read and verify the updated XML
-        tree = ET.parse(mock_xml_file_path)
+        tree = ET.parse(xml_file)
         root = tree.getroot()
 
         # Find all paramfile elements
@@ -162,7 +160,7 @@ we want to preserve!
         clm45_param = [p for p in paramfiles if p.get("phys") == TEST_PHYS_CLM45][0]
         assert clm45_param.text.strip() == TEST_PARAM_CLM45
 
-    def test_update_xml_replaces_across_different_tags(self, mock_xml_file_path):
+    def test_update_xml_replaces_across_different_tags(self, create_mock_xml_file):
         """Test that same path in different element types are all replaced."""
         # Create XML with same path in multiple different element types
         test_path = "lnd/clm2/test/shared_file.nc"
@@ -173,14 +171,13 @@ we want to preserve!
     <initdata>{test_path}</initdata>
 </namelist_defaults>
 """
-        with open(mock_xml_file_path, "w", encoding="utf-8") as f:
-            f.write(xml_content)
+        xml_file = create_mock_xml_file(xml_content, rel_path=test_path)
 
         new_path = test_path.replace(".nc", ".no_nan_fill.nc")
-        _update_xml_file(mock_xml_file_path, test_path, new_path)
+        _update_xml_file(xml_file, test_path, new_path)
 
         # Verify all three elements were updated
-        tree = ET.parse(mock_xml_file_path)
+        tree = ET.parse(xml_file)
         root = tree.getroot()
 
         paramfile = root.find("paramfile")
@@ -195,7 +192,7 @@ we want to preserve!
         assert initdata is not None
         assert initdata.text.strip() == new_path
 
-    def test_update_xml_replaces_across_same_tag_different_attrs(self, mock_xml_file_path):
+    def test_update_xml_replaces_across_same_tag_different_attrs(self, create_mock_xml_file):
         """
         Test that same path in elements with same tag but different attributes are all replaced.
         """
@@ -209,14 +206,13 @@ we want to preserve!
     <surfdata>lnd/clm2/surfdata/different_file.nc</surfdata>
 </namelist_defaults>
 """
-        with open(mock_xml_file_path, "w", encoding="utf-8") as f:
-            f.write(xml_content)
+        xml_file = create_mock_xml_file(xml_content, rel_path=test_path)
 
         new_path = test_path.replace(".nc", ".no_nan_fill.nc")
-        _update_xml_file(mock_xml_file_path, test_path, new_path)
+        _update_xml_file(xml_file, test_path, new_path)
 
         # Verify both paramfile elements were updated
-        tree = ET.parse(mock_xml_file_path)
+        tree = ET.parse(xml_file)
         root = tree.getroot()
 
         paramfiles = root.findall("paramfile")
@@ -468,14 +464,22 @@ class TestExtractFilePathsFromXml:
         result = _extract_file_paths_from_xml(xml_path)
         assert result == set()
 
-    def test_file_not_found_exits(self, capsys):
-        """Test that a missing XML file causes SystemExit."""
+    @pytest.mark.parametrize(
+        "log_level, expected_err_type",
+        [
+            (logging.DEBUG, FileNotFoundError),
+            (logging.INFO, SystemExit),
+        ],
+    )
+    def test_file_not_found_exits(self, caplog, log_level, expected_err_type):
+        """Test that a missing XML file causes SystemExit or error, depending on log level."""
         nonexistent_path = "/nonexistent/file.xml"
-        with pytest.raises(SystemExit):
-            _extract_file_paths_from_xml(nonexistent_path)
-        captured = capsys.readouterr()
-        assert nonexistent_path in captured.err
-        assert "not found" in captured.err
+        with caplog.at_level(log_level):
+            with pytest.raises(expected_err_type):
+                _extract_file_paths_from_xml(nonexistent_path)
+        captured = caplog.text
+        assert nonexistent_path in captured
+        assert "not found" in captured
 
     def test_handles_elements_with_attributes(self, create_mock_xml_file):
         """Test extracting paths from elements that have attributes."""

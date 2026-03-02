@@ -16,6 +16,7 @@ from ctsm.no_nans_in_inputs import replace_fill_values
 from ctsm.no_nans_in_inputs import shared
 
 from ctsm.ctsm_logging import setup_logging_for_tests
+
 setup_logging_for_tests()
 
 
@@ -39,6 +40,17 @@ def fixture_mock_dir_with_usernl_files(tmp_path, monkeypatch):
     monkeypatch.setattr(
         get_replacement_fill_values, "DIR_TO_SEARCH_FOR_USER_NL_FILES", str(tmp_path)
     )
+
+
+@pytest.fixture(autouse=True, name="mock_dir_to_search_for_xml_files")
+def fixture_mock_dir_with_xml_files(tmp_path, monkeypatch):
+    """
+    Auto-used fixture to mock DIR_TO_SEARCH_FOR_XML_FILES constant with a temporary path.
+    """
+    # Monkeypatch
+    monkeypatch.setattr(constants, "DIR_TO_SEARCH_FOR_XML_FILES", str(tmp_path))
+    monkeypatch.setattr(get_replacement_fill_values, "DIR_TO_SEARCH_FOR_XML_FILES", str(tmp_path))
+    monkeypatch.setattr(replace_fill_values, "DIR_TO_SEARCH_FOR_XML_FILES", str(tmp_path))
 
 
 @pytest.fixture(autouse=True, name="mock_cesm_top")
@@ -69,31 +81,10 @@ def fixture_mock_progress_file(tmp_path, monkeypatch):
     return str(test_progress)
 
 
-@pytest.fixture(autouse=True, name="mock_xml_file_path")
-def fixture_mock_xml_file_path(tmp_path, monkeypatch):
-    """
-    Auto-used fixture to mock XML_FILE constant with a temporary path.
-
-    This prevents tests from accidentally modifying the real XML file.
-    Does not create the file - use create_mock_xml_file fixture for that.
-    """
-    # Define the test XML file path (but don't create it yet)
-    test_xml = tmp_path / "test_namelist_defaults.xml"
-
-    # Monkeypatch the XML_FILE constant in both the constants module and replace_fill_values
-    monkeypatch.setattr(constants, "XML_FILE", str(test_xml))
-
-    # Also patch it in things that import XML_FILE
-    monkeypatch.setattr(get_replacement_fill_values, "XML_FILE", str(test_xml))
-    monkeypatch.setattr(replace_fill_values, "XML_FILE", str(test_xml))
-
-    return str(test_xml)
-
-
 @pytest.fixture(name="create_mock_xml_file")
-def fixture_create_mock_xml_file(mock_xml_file_path):
+def fixture_create_mock_xml_file(tmp_path):
     """
-    Factory fixture to create the mock XML file with given or default content.
+    Factory fixture to create a mock XML file with given or default content.
 
     Use this fixture in tests that need an actual XML file to exist.
     Call with no arguments for default content, or pass custom XML content.
@@ -114,7 +105,9 @@ we want to preserve!
 </namelist_defaults>
 """
 
-    def _create(content: str = default_content) -> str:
+    def _create(content: str = default_content, rel_path: str | Path = "test.xml") -> str:
+        mock_xml_file_path = tmp_path / Path(rel_path)
+        mock_xml_file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(mock_xml_file_path, "w", encoding="utf-8") as f:
             f.write(content)
         return mock_xml_file_path

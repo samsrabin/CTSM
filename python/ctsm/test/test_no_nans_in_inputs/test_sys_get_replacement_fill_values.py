@@ -94,13 +94,15 @@ class TestMain:
         mock_extract_from_xml,
         mock_check_write,
         tmp_path,
-        mock_xml_file_path,
+        create_mock_xml_file,
     ):  # pylint: disable=unused-argument
         """Test main function with a single matching file."""
         # Setup mock dataset
         mock_ds = MagicMock(spec=xr.Dataset)
         # Make the mock dataset iterable
         mock_ds.__iter__.return_value = iter(["temp"])
+
+        xml_file = str(create_mock_xml_file())
 
         user_nl_abspath = os.path.join(str(tmp_path), "user_nl_clm")
         with patch(
@@ -123,7 +125,7 @@ class TestMain:
         progress = args[0]
         assert len(progress) == 1
         expected_dict = create_empty_progress_dict_onefile()
-        expected_dict["found_in_files"] = {mock_xml_file_path: {path_to_test_file_rel}}
+        expected_dict["found_in_files"] = {xml_file: {path_to_test_file_rel}}
         expected_dict["vars_with_nan_fills"] = ["temp"]
         assert progress[path_to_test_file_abs] == expected_dict
         assert "delete_if_none_filled" in kwargs
@@ -163,13 +165,15 @@ class TestMain:
         mock_check_write,
         caplog,
         tmp_path,
-        mock_xml_file_path,
+        create_mock_xml_file,
     ):  # pylint: disable=unused-argument
         """Test main function with a single matching file under --dry-run"""
         # Setup mock dataset
         mock_ds = MagicMock(spec=xr.Dataset)
         # Make the mock dataset iterable
         mock_ds.__iter__.return_value = iter(["temp"])
+
+        xml_file = str(create_mock_xml_file())
 
         with caplog.at_level(logging.DEBUG):
             result = main_func()
@@ -189,7 +193,7 @@ class TestMain:
         args, kwargs = mock_collect.call_args
         progress = args[0]
         expected_dict = create_empty_progress_dict_onefile()
-        expected_dict["found_in_files"] = {mock_xml_file_path: {path_to_test_file_rel}}
+        expected_dict["found_in_files"] = {xml_file: {path_to_test_file_rel}}
         expected_dict["vars_with_nan_fills"] = ["temp"]
         assert len(progress) == 1
         assert progress[path_to_test_file_abs] == expected_dict
@@ -227,7 +231,7 @@ class TestMain:
         mock_check_write,
         caplog,
         tmp_path,
-        mock_xml_file_path,
+        create_mock_xml_file,
     ):  # pylint: disable=unused-argument
         """Test main function with a file that doesn't exist"""
         # Setup mock dataset
@@ -239,7 +243,7 @@ class TestMain:
         # want to do that here because there's one file in particular we want to throw a msg for
         # not existing. So instead, here we'll create XML file, which would otherwise throw a
         # FileNotFoundError we don't want.
-        Path(mock_xml_file_path).touch()
+        (tmp_path / "some.xml").touch()
 
         with patch("sys.argv", ["get_replacement_fill_values", "--verbose"]):
             with caplog.at_level(logging.DEBUG):

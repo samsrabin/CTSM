@@ -43,7 +43,7 @@ class TestCtsmRoot:
         assert not os.path.exists(nonexistent_ctsm_root)
 
         # Make sure we have a relative XML path so that ctsm_root will be prepended
-        monkeypatch.setattr(get_replacement_fill_values, "XML_FILE", "abc123.xml")
+        monkeypatch.setattr(get_replacement_fill_values, "DIR_TO_SEARCH_FOR_XML_FILES", "rel/path")
 
         # Make sure a FileNotFoundError is thrown given that nonexistent --ctsm-root
         with patch(

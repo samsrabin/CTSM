@@ -27,11 +27,11 @@ from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-pos
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     DEFAULT_CTSM_ROOT,
+    DIR_TO_SEARCH_FOR_XML_FILES,
     INDENT,
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
     USER_REQ_DELETE,
-    XML_FILE,
 )
 import ctsm.no_nans_in_inputs.namelist_utils as nlu  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs import netcdf_utils  # pylint: disable=wrong-import-position
@@ -370,11 +370,11 @@ def main() -> int:
         help="Overwrite existing output files (default: skip if output exists)",
     )
     parser.add_argument(
-        "--xml-file",
-        default=XML_FILE,
+        "--xml-dir",
+        default=DIR_TO_SEARCH_FOR_XML_FILES,
         help=(
-            "Path to XML file to update with new paths, relative to CTSM root"
-            f" (default: {XML_FILE})"
+            "Path to directory to find XML files to update with new paths, relative to CTSM root"
+            f" (default: {DIR_TO_SEARCH_FOR_XML_FILES})"
         ),
     )
     add_logging_args(parser)

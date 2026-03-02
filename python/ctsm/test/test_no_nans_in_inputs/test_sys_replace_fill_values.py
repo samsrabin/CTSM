@@ -63,7 +63,7 @@ class TestReplaceFullWorkflow:
         <paramfile>{input_file}</paramfile>
     </namelist_defaults>
     """
-        xml_file = create_mock_xml_file(xml_content)
+        xml_file = str(create_mock_xml_file(xml_content))
 
         # Create fillvalues JSON file
         fillvalues_file = tmp_path / "test_fillvalues.json"
