@@ -63,3 +63,6 @@ KNOWN_GOOD_FILES = [
     ),
     "lnd/clm2/surfdata_esmf/ctsm5.4.0/landuse.timeseries_0.9x1.25_hist_1850-2023_78pfts_c250428.nc"
 ]
+
+# String to save as key for netCDF path if no handled NaNs were detected
+NO_HANDLED_NANS = "NO HANDLED NANS DETECTED"

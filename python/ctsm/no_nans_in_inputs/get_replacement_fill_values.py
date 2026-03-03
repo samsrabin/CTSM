@@ -32,6 +32,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     INPUTDATA_PREFIX,
     KNOWN_GOOD_FILES,
     NEW_FILLVALUES_FILE,
+    NO_HANDLED_NANS,
     SEP_LENGTH,
 )
 from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-position
@@ -123,6 +124,8 @@ def _check_for_nans_in_netcdf(
                 error_type=RuntimeError,
             )
         _print_msg(progress, abs_path)
+        progress[abs_path] = NO_HANDLED_NANS
+        progress.save()
         return
 
     # Get information for this file

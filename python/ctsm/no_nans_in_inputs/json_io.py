@@ -19,6 +19,7 @@ if _CTSM_PYTHON not in sys.path:
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     ATTR,
     INDENT,
+    NO_HANDLED_NANS,
 )
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
     get_path_with_cesmdataroot,
@@ -165,7 +166,10 @@ class NoNanFillValueProgress(defaultdict):
                 logger,
                 f"{n_netcdfs_checked}" "\tTotal netCDF files referenced in XML and user_nl_ files",
             )
-        warn(logger, f"{len(self)}\tFiles with NaNs")
+        n_files_with_nans = 0
+        for k in self:
+            n_files_with_nans += int(self[k] != NO_HANDLED_NANS)
+        warn(logger, f"{n_files_with_nans}\tFiles with NaNs")
         files_not_found = [k for k in self if not self[k]]
         warn(logger, f"{len(files_not_found)}\tFiles not found")
         if files_not_found:
