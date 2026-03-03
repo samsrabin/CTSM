@@ -287,20 +287,28 @@ def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:
     """
     Use ncks --chk_nan to determine whether a netCDF file has a NaN
     """
-    cmd = ["ncks", "--chk_nan", str(abs_path)]
-    if logger.getEffectiveLevel() <= logging.DEBUG:
-        stdout = None
-    else:
-        stdout = subprocess.DEVNULL
-    result = subprocess.run(cmd, check=False, stdout=stdout)
+    # We'll check one variable at a time to reduce RAM usage
+    ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS)
+    var_list = list(ds)
+    ds.close()
 
-    # We expect returncode 1 if NaN is found, 0 if not. Anything else is an unhandled error.
-    if result.returncode > 1:
-        error(
-            logger,
-            f"Unexpected error code {result.returncode} during ncks --chk_nan of '{abs_path}'",
-            error_type=NotImplementedError,
-        )
+    for v in var_list:
+        cmd = ["ncks", "--chk_nan", "-v", v, str(abs_path)]
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            stdout = None
+        else:
+            stdout = subprocess.DEVNULL
+        result = subprocess.run(cmd, check=False, stdout=stdout)
+
+        # We expect returncode 1 if NaN is found, 0 if not. Anything else is an unhandled error.
+        if result.returncode > 1:
+            error(
+                logger,
+                f"Unexpected error code {result.returncode} during ncks --chk_nan of '{abs_path}'",
+                error_type=NotImplementedError,
+            )
+        elif result.returncode == 1:
+            break
 
     return bool(result.returncode)
 
