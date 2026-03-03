@@ -33,6 +33,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     NEW_FILLVALUES_FILE,
     SEP_LENGTH,
     USER_REQ_DELETE,
+    USER_REQ_SKIP_FILE,
 )
 import ctsm.no_nans_in_inputs.namelist_utils as nlu  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs import netcdf_utils  # pylint: disable=wrong-import-position
@@ -292,6 +293,11 @@ def process_files(
     files_processed = 0
     files_to_process = list(progress.keys()).copy()
     for input_file_abs in files_to_process:
+
+        # Skip file if the user requested skipping it
+        if progress[input_file_abs] == USER_REQ_SKIP_FILE:
+            continue
+
         # Get output filename
         suffix = get_output_suffix(progress, input_file_abs)
         output_file = get_output_filename(input_file_abs, suffix=suffix)

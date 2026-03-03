@@ -34,6 +34,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     NEW_FILLVALUES_FILE,
     NO_HANDLED_NANS,
     SEP_LENGTH,
+    USER_REQ_SKIP_FILE,
 )
 from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-position
     NoNanFillValueProgress,
@@ -208,11 +209,18 @@ def _get_netcdf_files_to_check(
     return netcdf_paths, files_referencing_netcdfs
 
 
+def _file_in_directory(my_file: Path | str, my_directory: Path | str) -> bool:
+    my_file = Path(my_file).resolve()
+    my_directory = Path(my_directory).resolve()
+    return my_directory in my_file.parents
+
+
 def _get_netcdfs_with_nan_fills(
     progress: NoNanFillValueProgress,
     netcdf_paths: Set[str] | str,
     files_referencing_netcdfs: List[str],
     warn_unhandled: bool,
+    skippable_list: List[str],
 ) -> None:
     warn(logger, "\nChecking those netCDF files for NaNs...")
 
@@ -221,8 +229,32 @@ def _get_netcdfs_with_nan_fills(
 
     for netcdf_path in sorted(netcdf_paths):
 
-        # Get the absolute path; continue if already processed
+        # Get the absolute path
+        # TODO: REALPATH
         abs_path = convert_to_absolute_path(netcdf_path)
+
+        # Did user request skipping this? If so, skip, unless it's already been processed.
+        do_skip = False
+        if abs_path not in progress or progress[abs_path] == USER_REQ_SKIP_FILE:
+            for skippable in skippable_list:
+                if os.path.isdir(skippable) and _file_in_directory(abs_path, skippable):
+                    do_skip = True
+                elif os.path.isfile(skippable) and abs_path == skippable:
+                    do_skip = True
+                if do_skip:
+                    progress[abs_path] = USER_REQ_SKIP_FILE
+                    progress.save()
+                    break
+        if do_skip:
+            continue
+
+        # User didn't request skipping, but it is marked as skipped in progress: Remove from
+        # progress and process it now.
+        if not do_skip and abs_path in progress and progress[abs_path] == USER_REQ_SKIP_FILE:
+            del progress[abs_path]
+            progress.save()
+
+        # Continue if already processed
         if abs_path in progress:
             continue
 
@@ -306,6 +338,12 @@ def main() -> int:
             " task getting killed."
         ),
     )
+    parser.add_argument(
+        "--skip",
+        action="append",
+        default=[],
+        help="Mark a file or dir (and all files therein, recursive) as skippable",
+    )
     add_logging_args(parser)
     args = parser.parse_args()
     process_logging_args(args)
@@ -328,7 +366,11 @@ def main() -> int:
     netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(args.ctsm_root)
 
     _get_netcdfs_with_nan_fills(
-        progress, netcdf_paths, files_referencing_netcdfs, args.warn_unhandled
+        progress,
+        netcdf_paths,
+        files_referencing_netcdfs,
+        args.warn_unhandled,
+        args.skip,
     )
     warn(logger, "\n" + "=" * SEP_LENGTH)
     progress.print_summary(len(netcdf_paths))
