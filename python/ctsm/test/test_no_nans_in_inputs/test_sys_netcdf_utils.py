@@ -238,7 +238,7 @@ class TestVarHasNanWithoutFill:
     """Tests for var_has_nan_without_fill covering simple and slicing branches."""
 
     def test_simple_detects_nan_and_no_nan(self):
-        """Small xarray DataArray: detect NaN and no-NaN correctly"""
+        """Small xarray DataArray: detect NaN and no-NaN correctly, with no fill value"""
         da_with_nan = xr.DataArray(np.array([1.0, np.nan]))
         assert var_has_nan_without_fill(da_with_nan, dims_to_slice_over=None)
 
