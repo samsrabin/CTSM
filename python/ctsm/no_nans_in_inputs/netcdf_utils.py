@@ -228,13 +228,55 @@ class FillValueMismatch(NamedTuple):
     missing_value: object
 
 
+def var_has_nan_without_fill(
+    da: xr.DataArray,
+    dims_to_slice_over: list,
+):
+    """
+    Best to sort dims_to_slice_over smallest -> largest so that we're always working with the
+    largest possible slice, for efficiency
+    """
+    # Check one slice at a time for some dimensions in order to reduce RAM usage
+    if (dims_to_slice_over is not None) and da.size > 1e8:
+        dim = dims_to_slice_over[0]
+        if len(dims_to_slice_over) > 1:
+            dims_to_slice_over = dims_to_slice_over[1:]
+        else:
+            dims_to_slice_over = None
+        if dim in da.dims:
+            for i in range(da.sizes[dim]):
+                da_i = da.isel({dim: i}, drop=True)
+                info(
+                    logger, f"{INDENT*4}Slicing over {dim} {i+1}/{da.sizes[dim]}; size {da_i.size}"
+                )
+                any_raw_null = var_has_nan_without_fill(da_i, dims_to_slice_over=dims_to_slice_over)
+                if any_raw_null:
+                    break
+            return any_raw_null
+        if dims_to_slice_over and len(dims_to_slice_over) > 1:
+            any_raw_null = var_has_nan_without_fill(da, dims_to_slice_over=dims_to_slice_over)
+            return any_raw_null
+        any_raw_null = da.isnull().any()
+    else:
+        any_raw_null = da.isnull().any()
+    return any_raw_null
+
+
 def file_has_nan_without_fill(nc_path: str) -> Tuple[bool, List[str]]:
     vars_with_nan_without_fill = []
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
-        ds = xr.open_dataset(nc_path, **OPEN_DS_KWARGS)
+        ds = xr.open_dataset(nc_path, **OPEN_DS_KWARGS, mask_and_scale=False)
+
+        # # Best to sort dims_to_slice_over smallest -> largest so that we're always working with the
+        # # largest possible slice, for efficiency.
+        # dims_sorted = sorted(ds.sizes.items(), key=lambda kv: kv[1])
+        # dims_to_slice_over = [dim for dim, size in dims_sorted]
+        dims_to_slice_over = ["time"] if "time" in ds.dims else None
+
         for v in ds:
-            if ATTR not in ds[v].attrs and ds[v].isnull().any():
+            info(logger, f"{INDENT*3}Checking {v}")
+            if var_has_nan_without_fill(ds[v], dims_to_slice_over=dims_to_slice_over):
                 vars_with_nan_without_fill.append(v)
         ds.close()
     return bool(vars_with_nan_without_fill), vars_with_nan_without_fill

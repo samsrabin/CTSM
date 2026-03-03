@@ -61,4 +61,5 @@ KNOWN_GOOD_FILES = [
         "lnd/clm2/surfdata_esmf/ctsm5.3.0/"
         "landuse.timeseries_360x720cru_SSP2-4.5_1850-2100_78pfts_c240908.nc"
     ),
+    "lnd/clm2/surfdata_esmf/ctsm5.4.0/landuse.timeseries_0.9x1.25_hist_1850-2023_78pfts_c250428.nc"
 ]

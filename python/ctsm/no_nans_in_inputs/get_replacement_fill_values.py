@@ -72,6 +72,7 @@ def _check_for_nans_in_netcdf(
     progress: NoNanFillValueProgress,
     netcdf_path: str,
     abs_path: str,
+    warn_unhandled: bool,
 ) -> None:
 
     # These checks can take a long time (and even crash) for large files, so let's skip some large
@@ -81,22 +82,25 @@ def _check_for_nans_in_netcdf(
         return
 
     # We can also skip any files that have already been processed
+    msg_path = get_path_with_cesmdataroot(abs_path)
     if abs_path in progress:
         return
 
     # Check file for problems
+    info(logger, f"{INDENT}Checking: '{msg_path}'")
+    info(logger, f"{INDENT*2}Checking for NaN fill")
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
+    info(logger, f"{INDENT*2}Checking for mismatched fill/missing")
     any_mismatched_fill_missing, mismatches = file_has_mismatched_fill_missing(abs_path)
+    info(logger, f"{INDENT*2}Checking for NaNs without fill")
     any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(abs_path)
 
     # Return early if no problems found
     if not (any_nan_fill or any_mismatched_fill_missing or any_nan_without_fill):
-        if file_has_nan_ncks_chk_nan(abs_path):
+        if warn_unhandled and file_has_nan_ncks_chk_nan(abs_path):
+            info(logger, f"{INDENT*2}Checking for unhandled NaNs")
             error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
-            msg = (
-                "WARNING: Skipping file with NaN that wasn't caught:"
-                f" '{abs_path}'"
-            )
+            msg = "WARNING: Skipping file with NaN that wasn't caught:" f" '{abs_path}'"
             error(logger, msg, error_type=error_type)
         if abs_path in progress:
             error(
@@ -104,7 +108,6 @@ def _check_for_nans_in_netcdf(
                 f"Found no NaNs in file but it was in progress dict: {abs_path}",
                 error_type=RuntimeError,
             )
-        info(logger, f"{INDENT}No variable in file has NaN {ATTR}; skipping")
         return
 
     # Get information for this file
@@ -184,7 +187,10 @@ def _get_netcdf_files_to_check(
 
 
 def _get_netcdfs_with_nan_fills(
-    progress: NoNanFillValueProgress, netcdf_paths: Set[str], files_referencing_netcdfs: List[str]
+    progress: NoNanFillValueProgress,
+    netcdf_paths: Set[str],
+    files_referencing_netcdfs: List[str],
+    warn_unhandled: bool,
 ) -> None:
     warn(logger, "\nChecking those netCDF files for NaNs...")
 
@@ -207,8 +213,9 @@ def _get_netcdfs_with_nan_fills(
         msg_path = get_path_with_cesmdataroot(abs_path)
 
         # Check that the file actually has NaN _FillValue for at least one var
-        info(logger, f"{INDENT}Checking for NaN fill: '{msg_path}'")
-        _check_for_nans_in_netcdf(files_referencing_netcdfs, progress, netcdf_path, abs_path)
+        _check_for_nans_in_netcdf(
+            files_referencing_netcdfs, progress, netcdf_path, abs_path, warn_unhandled
+        )
 
         # Print message
         msg = f"NaN fill values: '{msg_path}'"
@@ -263,6 +270,14 @@ def main() -> int:
         default=DEFAULT_CTSM_ROOT,
         help=f"Path to root of CTSM directory with namelist files (default: {DEFAULT_CTSM_ROOT})",
     )
+    parser.add_argument(
+        "--warn-unhandled",
+        action="store_true",
+        help=(
+            "Warn if a file seems to have an unhandled NaN. Increases memory usage; may result in"
+            " task getting killed."
+        ),
+    )
     add_logging_args(parser)
     args = parser.parse_args()
     process_logging_args(args)
@@ -286,7 +301,9 @@ def main() -> int:
     netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(progress, args.ctsm_root)
 
     if not did_load_progress:
-        _get_netcdfs_with_nan_fills(progress, netcdf_paths, files_referencing_netcdfs)
+        _get_netcdfs_with_nan_fills(
+            progress, netcdf_paths, files_referencing_netcdfs, args.warn_unhandled
+        )
         warn(logger, "\n" + "=" * SEP_LENGTH)
         progress.print_summary(len(netcdf_paths))
         warn(logger, "=" * SEP_LENGTH)
