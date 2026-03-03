@@ -159,54 +159,50 @@ def _print_msg(progress, abs_path):
 
 
 def _get_netcdf_files_to_check(
-    progress: NoNanFillValueProgress | None = None,
     ctsm_root: str = DEFAULT_CTSM_ROOT,
 ) -> Tuple[Set[str], List[str]]:
-    if progress:
-        netcdf_paths, files_referencing_netcdfs = progress.get_nc_paths_and_files_referencing()
+    warn(logger, f"Searching namelist files in '{ctsm_root}' for netCDF paths...")
+
+    # In production, we should only ever define these constants as paths relative to the CTSM
+    # root! However, unit/system tests may mock them to be absolute paths instead.
+    if os.path.isabs(DIR_TO_SEARCH_FOR_XML_FILES):
+        dir_to_search_xml = DIR_TO_SEARCH_FOR_XML_FILES
     else:
-        warn(logger, f"Searching namelist files in '{ctsm_root}' for netCDF paths...")
+        dir_to_search_xml = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_XML_FILES)
+    if os.path.isabs(DIR_TO_SEARCH_FOR_USER_NL_FILES):
+        dir_to_search_usernl_abs = DIR_TO_SEARCH_FOR_USER_NL_FILES
+    else:
+        dir_to_search_usernl_abs = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_USER_NL_FILES)
 
-        # In production, we should only ever define these constants as paths relative to the CTSM
-        # root! However, unit/system tests may mock them to be absolute paths instead.
-        if os.path.isabs(DIR_TO_SEARCH_FOR_XML_FILES):
-            dir_to_search_xml = DIR_TO_SEARCH_FOR_XML_FILES
-        else:
-            dir_to_search_xml = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_XML_FILES)
-        if os.path.isabs(DIR_TO_SEARCH_FOR_USER_NL_FILES):
-            dir_to_search_usernl_abs = DIR_TO_SEARCH_FOR_USER_NL_FILES
-        else:
-            dir_to_search_usernl_abs = os.path.join(ctsm_root, DIR_TO_SEARCH_FOR_USER_NL_FILES)
+    # Make sure the requested locations exist
+    if not os.path.isdir(dir_to_search_xml):
+        error(logger, f"{dir_to_search_xml} not found", error_type=FileNotFoundError)
+    if not os.path.isdir(dir_to_search_usernl_abs):
+        error(logger, f"{dir_to_search_usernl_abs} not found", error_type=FileNotFoundError)
 
-        # Make sure the requested locations exist
-        if not os.path.isdir(dir_to_search_xml):
-            error(logger, f"{dir_to_search_xml} not found", error_type=FileNotFoundError)
-        if not os.path.isdir(dir_to_search_usernl_abs):
-            error(logger, f"{dir_to_search_usernl_abs} not found", error_type=FileNotFoundError)
+    # Get list of files to search for netCDF paths
+    files_to_search = []
+    files_to_search.extend(nlu.find_xml_files(dir_to_search_xml))
+    files_to_search.extend(nlu.find_user_nl_files(dir_to_search_usernl_abs))
 
-        # Get list of files to search for netCDF paths
-        files_to_search = []
-        files_to_search.extend(nlu.find_xml_files(dir_to_search_xml))
-        files_to_search.extend(nlu.find_user_nl_files(dir_to_search_usernl_abs))
+    # Find all netCDF paths referenced in those files
+    netcdf_paths = set()
+    files_referencing_netcdfs = []
+    for file_to_search in files_to_search:
+        # replace_fill_values will read directly from the JSON file and will not get --cesm-root
+        # option, so paths to namelist files need to be absolute
+        assert os.path.isabs(file_to_search), f"Got rel but expected abs: {file_to_search}"
 
-        # Find all netCDF paths referenced in those files
-        netcdf_paths = set()
-        files_referencing_netcdfs = []
-        for file_to_search in files_to_search:
-            # replace_fill_values will read directly from the JSON file and will not get --cesm-root
-            # option, so paths to namelist files need to be absolute
-            assert os.path.isabs(file_to_search), f"Got rel but expected abs: {file_to_search}"
+        netcdf_paths_thisfile = nlu.extract_file_paths_from_file(file_to_search)
+        if netcdf_paths_thisfile:
+            files_referencing_netcdfs.append(file_to_search)
+        netcdf_paths = netcdf_paths | netcdf_paths_thisfile
 
-            netcdf_paths_thisfile = nlu.extract_file_paths_from_file(file_to_search)
-            if netcdf_paths_thisfile:
-                files_referencing_netcdfs.append(file_to_search)
-            netcdf_paths = netcdf_paths | netcdf_paths_thisfile
-
-            try:
-                msg_path = Path(file_to_search).relative_to(ctsm_root)
-            except Exception:  # pylint: disable=broad-exception-caught
-                msg_path = file_to_search
-            info(logger, f"{INDENT}Found {len(netcdf_paths_thisfile)} netCDF paths in '{msg_path}'")
+        try:
+            msg_path = Path(file_to_search).relative_to(ctsm_root)
+        except Exception:  # pylint: disable=broad-exception-caught
+            msg_path = file_to_search
+        info(logger, f"{INDENT}Found {len(netcdf_paths_thisfile)} netCDF paths in '{msg_path}'")
     return netcdf_paths, files_referencing_netcdfs
 
 
@@ -326,22 +322,20 @@ def main() -> int:
 
     # Load existing progress if available
     progress = NoNanFillValueProgress(progress_file=args.fillvalues_file)
-    did_load_progress = bool(progress)
 
-    netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(progress, args.ctsm_root)
+    netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(args.ctsm_root)
 
-    if not did_load_progress:
-        _get_netcdfs_with_nan_fills(
-            progress, netcdf_paths, files_referencing_netcdfs, args.warn_unhandled
-        )
-        warn(logger, "\n" + "=" * SEP_LENGTH)
-        progress.print_summary(len(netcdf_paths))
-        warn(logger, "=" * SEP_LENGTH)
+    _get_netcdfs_with_nan_fills(
+        progress, netcdf_paths, files_referencing_netcdfs, args.warn_unhandled
+    )
+    warn(logger, "\n" + "=" * SEP_LENGTH)
+    progress.print_summary(len(netcdf_paths))
+    warn(logger, "=" * SEP_LENGTH)
 
-        # Ask if user wants to continue
-        warn(logger, "")
-        if not user_inputs.confirm_continue():
-            sys.exit("Exiting.")
+    # Ask if user wants to continue
+    warn(logger, "")
+    if not user_inputs.confirm_continue():
+        sys.exit("Exiting.")
 
     # Collect new fill values from user
     user_inputs.collect_new_fill_values(
