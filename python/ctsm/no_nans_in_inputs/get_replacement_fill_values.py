@@ -85,7 +85,6 @@ def _check_for_nans_in_netcdf(
     # Check that the file exists
     if not os.path.exists(abs_path):
         info(logger, f"netCDF file not found: '{netcdf_path}'")
-        # TODO: Actually handle files that weren't found, if possible.
         progress[abs_path] = {}
         progress.save()
         return
