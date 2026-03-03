@@ -8,8 +8,6 @@ from typing import Any
 import logging
 import warnings
 
-warnings.simplefilter("error")  # Treat all warnings as errors
-
 
 import numpy as np
 import xarray as xr
