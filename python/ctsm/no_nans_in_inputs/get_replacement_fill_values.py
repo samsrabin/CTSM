@@ -17,6 +17,7 @@ from pathlib import Path
 import sys
 from typing import List, Set, Tuple
 import logging
+import json
 
 
 # Add the python directory to sys.path for direct script execution
@@ -30,7 +31,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     DIR_TO_SEARCH_FOR_XML_FILES,
     INDENT,
     INPUTDATA_PREFIX,
-    KNOWN_GOOD_FILES,
+    KNOWN_GOOD_FILES_FILE,
     NEW_FILLVALUES_FILE,
     NO_HANDLED_NANS,
     SEP_LENGTH,
@@ -77,6 +78,7 @@ def _check_for_nans_in_netcdf(
     netcdf_path: str,
     abs_path: str,
     warn_unhandled: bool,
+    known_good_files_list: List[str],
 ) -> None:
 
     # Skip files already processed
@@ -94,11 +96,11 @@ def _check_for_nans_in_netcdf(
     # Get path of netCDF file to display in messages
     msg_path = get_path_with_cesmdataroot(abs_path)
 
-    # These checks can take a long time (and even crash) for large files, so let's skip some large
-    # files that we know to be unaffected.
-    if os.path.relpath(abs_path, INPUTDATA_PREFIX) in KNOWN_GOOD_FILES:
-        warn(logger, f"Skipping known-good file: '{abs_path}'")
-        _print_msg(progress, abs_path)
+    # Skip files that we know to be unaffected
+    if os.path.relpath(abs_path, INPUTDATA_PREFIX) in known_good_files_list:
+        info(logger, f"Skipping known-good file: '{abs_path}'")
+        progress[abs_path] = NO_HANDLED_NANS
+        progress.save()
         return
 
     # Check file for problems
@@ -126,6 +128,8 @@ def _check_for_nans_in_netcdf(
         _print_msg(progress, abs_path)
         progress[abs_path] = NO_HANDLED_NANS
         progress.save()
+        known_good_files_list.append(abs_path)
+        _save_known_good_files(known_good_files_list)
         return
 
     # Get information for this file
@@ -221,6 +225,7 @@ def _get_netcdfs_with_nan_fills(
     files_referencing_netcdfs: List[str],
     warn_unhandled: bool,
     skippable_list: List[str],
+    known_good_files_list: List[str],
 ) -> None:
     warn(logger, "\nChecking those netCDF files for NaNs...")
 
@@ -275,13 +280,19 @@ def _get_netcdfs_with_nan_fills(
                     netcdf_path,
                     globbed_abs_path,
                     warn_unhandled,
+                    known_good_files_list,
                 )
 
         # If no shell vars, just check the file directly
         else:
             # Check that the file actually has NaN _FillValue for at least one var
             _check_for_nans_in_netcdf(
-                files_referencing_netcdfs, progress, netcdf_path, abs_path, warn_unhandled
+                files_referencing_netcdfs,
+                progress,
+                netcdf_path,
+                abs_path,
+                warn_unhandled,
+                known_good_files_list,
             )
 
 
@@ -363,6 +374,16 @@ def main() -> int:
     # Load existing progress if available
     progress = NoNanFillValueProgress(progress_file=args.fillvalues_file)
 
+    # Load list of known-good files
+    if not os.path.exists(KNOWN_GOOD_FILES_FILE) and progress:
+        known_good_files_list = [f for f in progress if progress[f] == NO_HANDLED_NANS]
+        _save_known_good_files(known_good_files_list)
+    if os.path.exists(KNOWN_GOOD_FILES_FILE):
+        with open(KNOWN_GOOD_FILES_FILE, "r", encoding="utf8") as f:
+            known_good_files_list = json.load(f)
+    else:
+        known_good_files_list = []
+
     netcdf_paths, files_referencing_netcdfs = _get_netcdf_files_to_check(args.ctsm_root)
 
     _get_netcdfs_with_nan_fills(
@@ -371,6 +392,7 @@ def main() -> int:
         files_referencing_netcdfs,
         args.warn_unhandled,
         args.skip,
+        known_good_files_list,
     )
     warn(logger, "\n" + "=" * SEP_LENGTH)
     progress.print_summary(len(netcdf_paths))
@@ -390,6 +412,15 @@ def main() -> int:
     )
 
     return 0
+
+
+def _save_known_good_files(known_good_files_list):
+    # Sort and get relative to INPUTDATA_PREFIX
+    known_good_files_list.sort()
+    # known_good_files_list = [os.path.realpath(f) for f in known_good_files_list]
+    known_good_files_list = [os.path.relpath(f, INPUTDATA_PREFIX) for f in known_good_files_list]
+    with open(KNOWN_GOOD_FILES_FILE, "w", encoding="utf8") as f:
+        json.dump(known_good_files_list, f, indent=INDENT)
 
 
 if __name__ == "__main__":

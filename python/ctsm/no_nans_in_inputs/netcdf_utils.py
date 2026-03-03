@@ -21,7 +21,6 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     ATTR,
     INDENT,
     INPUTDATA_PREFIX,
-    KNOWN_GOOD_FILES,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
