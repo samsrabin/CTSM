@@ -14,6 +14,7 @@ from ctsm.no_nans_in_inputs.constants import (
 )
 from ctsm.no_nans_in_inputs.user_inputs import collect_new_fill_values
 from ctsm.no_nans_in_inputs.json_io import NoNanFillValueProgress
+from ctsm.no_nans_in_inputs import netcdf_utils
 
 
 class TestCollectNewFillValues:
@@ -217,8 +218,12 @@ class TestCollectNewFillValues:
         assert result == expected
 
     @patch("builtins.input", side_effect=["-123.5"])
+    @patch(
+        "ctsm.no_nans_in_inputs.netcdf_utils.FillValueConfig.get_default_value",
+        return_value=None,
+    )
     def test_accept_all_defaults_without_default_prompts(
-        self, mock_input, tmp_path
+        self, mock_get_default, mock_input, tmp_path
     ):  # pylint: disable=unused-argument
         """When --accept-all-defaults is set but no default exists, the user should still be prompted."""
         test_file = tmp_path / "test2.nc"

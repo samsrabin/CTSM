@@ -20,14 +20,18 @@ class FillValueConfig:
     """Configuration for how the fill value prompt should behave.
 
     Attributes:
-        default_value: Optional default value to use if user presses enter
+        _default_value: Optional default value to use if user presses enter
         allow_delete: Whether to allow deleting the fill value attribute
         delete_if_none_filled: If True, automatically use delete when it's the default
     """
 
-    default_value: Any = None
+    _default_value: Any = None
     allow_delete: bool = True
     delete_if_none_filled: bool = False
+
+    def get_default_value(self):
+        """Get the default value. Functionized so we can mock it in testing."""
+        return self._default_value
 
 
 @dataclass

@@ -457,13 +457,26 @@ def get_var_info(
     # Suggest delete if data has no NaN values
     if not data_has_nan:
         default_fill = USER_REQ_DELETE
+    elif np.isnan(nanmin):
+        # The data is all filled anyway
+        default_fill = -999
     elif (
         nanmin >= 0
         or nanmin == -1
         or any(var.startswith(x) for x in VARSTARTS_TO_DEFAULT_NEG999)
-        or ("/surfdata_map/" in abs_path and bool(re.match(r"[a-z0-9]{5}_to_[a-z0-9]{5}", var)))
     ):
         default_fill = _get_negative_default(nanmin)
+    else:
+        default_fill = -(10 ** (np.ceil(np.log10(max(np.abs([nanmin, nanmax])))) + 1) - 1)
+
+    # Checks of numeric defaults
+    if not isinstance(default_fill, str):
+        # Ensure default is the right type
+        default_fill = type(nanmin)(default_fill)
+
+        # Ensure default is less than minimum
+        if not np.isnan(nanmin) and default_fill >= nanmin:
+            error(logger, f"Failed to get default < {nanmin=}", error_type=RuntimeError)
 
     # Print variable summary
     warn(logger, f"\n  Variable: {var}")
@@ -480,7 +493,7 @@ def get_var_info(
         var_name=var, target_type=type(nanmin), file_path=abs_path, dry_run=dry_run
     )
     config = FillValueConfig(
-        default_value=default_fill,
+        _default_value=default_fill,
         allow_delete=not data_has_nan,
         delete_if_none_filled=delete_if_none_filled,
     )

@@ -131,7 +131,7 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
         ValueError: If user types 'skip' or 'skipfile'
     """
     # If delete_if_none_filled is enabled and default is delete, use it automatically
-    if config.delete_if_none_filled and config.default_value == USER_REQ_DELETE:
+    if config.delete_if_none_filled and config.get_default_value() == USER_REQ_DELETE:
         if var_context.dry_run:
             prefix = "Would auto-delete"
         else:
@@ -149,8 +149,8 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
         try:
             # Build prompt with default value if available
             prompt = f"    New fill value for '{var_context.var_name}'"
-            if config.default_value is not None:
-                prompt += f" [default: {config.default_value}]"
+            if config.get_default_value() is not None:
+                prompt += f" [default: {config.get_default_value()}]"
             if not var_context.dry_run:
                 prompt += ": "
             elif config.delete_if_none_filled:
@@ -175,7 +175,7 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
                     return converted
             else:
                 # Empty input - use default or show help
-                empty_result = _handle_empty_input(config.default_value, config.allow_delete)
+                empty_result = _handle_empty_input(config.get_default_value(), config.allow_delete)
                 if empty_result is not None:
                     return empty_result
 
@@ -472,8 +472,8 @@ def _process_vars_with_nan_fills(
 
         # If accept_all_defaults is set and a default exists, accept it automatically.
         # If no default exists, still prompt the user (don't skip).
-        if accept_all_defaults and config.default_value is not None:
-            new_fill_value = config.default_value
+        if accept_all_defaults and config.get_default_value() is not None:
+            new_fill_value = config.get_default_value()
             warn(logger, f"{INDENT}Accepting default for '{var}': {new_fill_value}")
         else:
             try:

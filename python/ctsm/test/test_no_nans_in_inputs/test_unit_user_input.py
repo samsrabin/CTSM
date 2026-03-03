@@ -88,20 +88,20 @@ class TestGetFillValueFromUser:
         default = 1.5e36
         monkeypatch.setattr("builtins.input", lambda _: "")
         result = _get_fill_value_from_user(
-            DEFAULT_VAR_CONTEXT, FillValueConfig(default_value=default)
+            DEFAULT_VAR_CONTEXT, FillValueConfig(_default_value=default)
         )
         assert result == default
 
     def test_default_delete_on_empty_input(self, monkeypatch):
         """Test that empty input uses delete as default."""
         monkeypatch.setattr("builtins.input", lambda _: "")
-        config = FillValueConfig(default_value=USER_REQ_DELETE)
+        config = FillValueConfig(_default_value=USER_REQ_DELETE)
         result = _get_fill_value_from_user(DEFAULT_VAR_CONTEXT, config)
         assert result == USER_REQ_DELETE
 
     def test_auto_delete_when_default_is_delete(self):
         """Test that delete_if_none_filled auto-deletes without prompting."""
-        config = FillValueConfig(default_value=USER_REQ_DELETE, delete_if_none_filled=True)
+        config = FillValueConfig(_default_value=USER_REQ_DELETE, delete_if_none_filled=True)
         result = _get_fill_value_from_user(DEFAULT_VAR_CONTEXT, config)
         assert result == USER_REQ_DELETE
 
@@ -110,7 +110,7 @@ class TestGetFillValueFromUser:
         entered_value = 0.0
         default = -888.0
         monkeypatch.setattr("builtins.input", lambda _: str(entered_value))
-        config = FillValueConfig(default_value=default, delete_if_none_filled=True)
+        config = FillValueConfig(_default_value=default, delete_if_none_filled=True)
         result = _get_fill_value_from_user(DEFAULT_VAR_CONTEXT, config)
         assert result == entered_value
 
@@ -269,7 +269,7 @@ def test_collect_fill_values_one_path_auto_accepts_default():
     )
     default_value = 1987.1986
     fake_config = FillValueConfig(
-        default_value=default_value, allow_delete=True, delete_if_none_filled=False
+        _default_value=default_value, allow_delete=True, delete_if_none_filled=False
     )
 
     with patch(

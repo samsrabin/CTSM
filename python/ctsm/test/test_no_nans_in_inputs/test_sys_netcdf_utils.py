@@ -138,7 +138,7 @@ class TestGetVarInfo:
         _, config = get_var_info(
             TEST_VAR_NAME, ds, "/path/to/file", delete_if_none_filled=False, dry_run=dry_run
         )
-        assert config.default_value == USER_REQ_DELETE
+        assert config._default_value == USER_REQ_DELETE
         assert config.allow_delete is True
 
     @pytest.mark.parametrize("dry_run", [False, True])
@@ -149,7 +149,7 @@ class TestGetVarInfo:
         _, config = get_var_info(
             TEST_VAR_NAME, ds, "/path/to/file", delete_if_none_filled=False, dry_run=dry_run
         )
-        assert config.default_value != USER_REQ_DELETE
+        assert config._default_value != USER_REQ_DELETE
         assert config.allow_delete is False
 
     @pytest.mark.parametrize("data_min", [10.0, 0.0, -1.0])
@@ -160,7 +160,7 @@ class TestGetVarInfo:
         _, config = get_var_info(
             TEST_VAR_NAME, ds, "/path/to/file", delete_if_none_filled=False, dry_run=False
         )
-        assert config.default_value == -999
+        assert config._default_value == -999
 
     def test_special_varname_prefix_defaults_to_neg999(self):
         """Test if var name starts with special prefix like 'fertl_', default is -999."""
@@ -170,32 +170,7 @@ class TestGetVarInfo:
         _, config = get_var_info(
             var_name, ds, "/path/to/file", delete_if_none_filled=False, dry_run=False
         )
-        assert config.default_value == -999
-
-    @pytest.mark.parametrize(
-        "abs_path, expected",
-        [
-            ("/some/path/surfdata_map/file.nc", -999),
-            ("/some/path/surfdata_map.nc", None),
-        ],
-    )
-    def test_surfdata_map_defaults_to_neg999(self, abs_path, expected):
-        """Test that a variable in a surfdata_map dir defaults to -999."""
-        var_name = "grid1_to_grid2"
-        data = np.array([[-50.0, 20.0], [np.nan, 40.0]])
-        ds = self._create_test_dataset(data, var_name, "Mapping", "none")
-        _, config = get_var_info(var_name, ds, abs_path, delete_if_none_filled=False, dry_run=False)
-        assert config.default_value == expected
-
-    @pytest.mark.parametrize("dry_run", [False, True])
-    def test_no_special_case_no_default(self, dry_run):
-        """If no special condition is met, there should be no default value."""
-        data = np.array([[-50.0, -20.0], [np.nan, -10.0]])
-        ds = self._create_test_dataset(data, TEST_VAR_NAME, "Test Variable", "test_units")
-        _, config = get_var_info(
-            TEST_VAR_NAME, ds, "/path/to/file", delete_if_none_filled=False, dry_run=dry_run
-        )
-        assert config.default_value is None
+        assert config._default_value == -999
 
     def test_returns_correct_var_context(self):
         """Ensure VarContext is returned with correct info."""
