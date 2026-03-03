@@ -93,7 +93,7 @@ class NoNanFillValueProgress(defaultdict):
                             warn(logger, "Starting fresh...")
                             self.clear()
             except (IOError, OSError, json.JSONDecodeError) as e:
-                warn(logger, f"Warning: Could not load progress file: {e}", file=sys.stderr)
+                error(logger, f"Warning: Could not load progress file: {e}", error_type=type(e))
 
     def __setitem__(self, key, value):
         """Ensure all keys are strings"""
