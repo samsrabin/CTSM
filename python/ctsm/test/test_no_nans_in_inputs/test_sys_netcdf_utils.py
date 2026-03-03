@@ -18,8 +18,8 @@ from ctsm.no_nans_in_inputs.constants import (
     VARSTARTS_TO_DEFAULT_NEG999,
 )
 from ctsm.no_nans_in_inputs.netcdf_utils import (
-    build_ncatted_command,
-    execute_ncatted_command,
+    _build_ncatted_command,
+    _execute_ncatted_command,
     get_var_info,
     get_vars_with_nan_fills,
     show_ncdump_for_variable,
@@ -233,7 +233,7 @@ class TestVarDataHasNan:
 
 
 class TestBuildNcattedCommand:
-    """Test the build_ncatted_command function."""
+    """Test the _build_ncatted_command function."""
 
     @pytest.fixture
     def test_netcdf_file(self, tmp_path):
@@ -265,7 +265,7 @@ class TestBuildNcattedCommand:
     def test_delete_attribute(self, test_netcdf_file):
         """Test building command to delete an attribute."""
         var_fillvalues = {TEST_VAR_TEMP: USER_REQ_DELETE}
-        cmd = build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
 
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
@@ -276,7 +276,7 @@ class TestBuildNcattedCommand:
     def test_modify_float_attribute(self, test_netcdf_file):
         """Test building command to modify a float attribute."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
 
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
@@ -286,7 +286,7 @@ class TestBuildNcattedCommand:
     def test_modify_double_attribute(self, test_netcdf_file):
         """Test building command to modify a double (float64) attribute."""
         var_fillvalues = {TEST_VAR_PRESSURE: TEST_FILL_VALUE}
-        cmd = build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
 
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
@@ -296,7 +296,7 @@ class TestBuildNcattedCommand:
     def test_multiple_variables(self, test_netcdf_file):
         """Test building command with multiple variables."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE, TEST_VAR_PRESSURE: USER_REQ_DELETE}
-        cmd = build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
 
         # Should have two -a flags
         assert cmd.count(NCATTED_FLAG) == 2
@@ -307,13 +307,13 @@ class TestBuildNcattedCommand:
         """Test that missing variable raises ValueError."""
         var_fillvalues = {"nonexistent_var": TEST_FILL_VALUE}
         with pytest.raises(ValueError, match="not found"):
-            build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+            _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
 
     def test_same_input_output(self, test_netcdf_file):
         """Test that same input and output files raises ValueError."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
         with pytest.raises(ValueError, match="Input and output files are the same"):
-            build_ncatted_command(test_netcdf_file, test_netcdf_file, var_fillvalues, var_fillmissing={})
+            _build_ncatted_command(test_netcdf_file, test_netcdf_file, var_fillvalues, var_fillmissing={})
 
     def test_output_already_exists(self, test_netcdf_file, tmp_path):
         """Test that existing output file is detected."""
@@ -327,12 +327,12 @@ class TestBuildNcattedCommand:
 
         # Building command should still work - skip logic is in main()
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = build_ncatted_command(test_netcdf_file, str(output_file), var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(test_netcdf_file, str(output_file), var_fillvalues, var_fillmissing={})
         assert NCATTED_CMD in cmd
 
 
 class TestExecuteCommand:
-    """Test the execute_ncatted_command function."""
+    """Test the _execute_ncatted_command function."""
 
     @pytest.fixture(name="create_test_nc")
     def fixture_create_test_nc(self, tmp_path):
@@ -384,15 +384,15 @@ class TestExecuteCommand:
         ],
     )
     def test_execute_preserves_format(self, tmp_path, create_test_nc, netcdf_format):
-        """Test execute_ncatted_command preserves NetCDF format from input to output."""
+        """Test _execute_ncatted_command preserves NetCDF format from input to output."""
         # Create input file with specified format
         input_file = create_test_nc(netcdf_format=netcdf_format)
 
         # Build and execute the command without XML update (because we're not testing that here)
         output_file = str(tmp_path / "test_output.nc")
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
-        files_processed = execute_ncatted_command(cmd)
+        cmd = _build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
+        files_processed = _execute_ncatted_command(cmd)
 
         # Should have processed 1 file
         assert files_processed == 1
@@ -428,15 +428,15 @@ class TestExecuteCommand:
         ],
     )
     def test_execute_different_data(self, tmp_path, create_test_nc, first_value, expect_filled):
-        """Test execute_ncatted_command with different data values."""
+        """Test _execute_ncatted_command with different data values."""
         # Create input file with specified value first
         input_file = create_test_nc(first_value=first_value)
 
         # Build and execute the command without XML update (because we're not testing that here)
         output_file = str(tmp_path / "test_output.nc")
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
-        execute_ncatted_command(cmd)
+        cmd = _build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
+        _execute_ncatted_command(cmd)
 
         # Verify the output file is valid NetCDF with correct fill value. mask_and_scale True means
         # that the variable's DataArray's _FillValue attribute will be populated and any filled

@@ -43,7 +43,7 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
 logger = logging.getLogger(__name__)
 
 
-def build_ncatted_command(
+def _build_ncatted_command(
     input_file: str,
     output_file: str,
     var_fillvalues: dict[str, Any],
@@ -112,6 +112,15 @@ def build_ncatted_command(
     return cmd
 
 
+def build_nco_commands(
+    input_file: str,
+    output_file: str,
+    var_fillvalues: dict[str, Any],
+    var_fillmissing: dict[str, dict[str:Any]],
+) -> List[list[str]]:
+    return [_build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing)]
+
+
 def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
     # Get the actual data type from the file
     dtype = None
@@ -129,7 +138,7 @@ def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
     return type_code
 
 
-def execute_ncatted_command(cmd: list[str]) -> int:
+def _execute_ncatted_command(cmd: list[str]) -> int:
     """
     Runs the ncatted command to create the output file with modified fill values.
 
@@ -168,6 +177,19 @@ def execute_ncatted_command(cmd: list[str]) -> int:
         error(logger, msg, error_type=error_type)
         sys.exit(7)
     return files_processed
+
+
+def execute_nco_commands(cmd_list: List[list[str]]) -> int:
+    for cmd in cmd_list:
+        nco_util = cmd[0]
+        if nco_util == "ncatted":
+            result = _execute_ncatted_command(cmd)
+        else:
+            result = None
+            error(logger, f"No function available for {nco_util=}", error_type=NotImplementedError)
+        if not result:
+            error(logger, "Unhandled nco command failure", error_type=NotImplementedError)
+    return result
 
 
 class FillValueMismatch(NamedTuple):
@@ -280,9 +302,7 @@ def _get_ncatted_type_code(dtype: np.dtype, allow_int=False) -> str:
         return "f"  # float
 
     # Integer types - not allowed (NetCDF doesn't support NaN for integers)
-    if any(
-        x in dtype_str for x in ["int64", "int32", "int16", "int8", "int_", "byte"]
-    ):
+    if any(x in dtype_str for x in ["int64", "int32", "int16", "int8", "int_", "byte"]):
         if not allow_int:
             msg = (
                 f"Integer dtype detected: {dtype}. "

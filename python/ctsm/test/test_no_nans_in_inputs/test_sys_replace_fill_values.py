@@ -20,7 +20,7 @@ from ctsm.no_nans_in_inputs.replace_fill_values import (
     get_output_filename,
     main,
 )
-from ctsm.no_nans_in_inputs.netcdf_utils import build_ncatted_command
+from ctsm.no_nans_in_inputs.netcdf_utils import _build_ncatted_command
 
 
 # Test constants
@@ -93,7 +93,7 @@ class TestReplaceFullWorkflow:
             progress_file=str(fillvalues_file), load_without_asking=True
         )
         var_fillvalues = fillvalues[input_file]["new_fill_values"]
-        cmd = build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
 
         # Execute the command
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)

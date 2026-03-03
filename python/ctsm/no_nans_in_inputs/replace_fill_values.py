@@ -130,16 +130,17 @@ def _process_one_file(
     # Build and print the ncatted command
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
-        cmd = netcdf_utils.build_ncatted_command(
+        cmd_list = netcdf_utils.build_nco_commands(
             input_file_abs, output_file, var_fillvalues, var_fillmissing
         )
-    info(logger, "\nCommand:")
-    info(logger, "  " + " ".join(cmd))
+    info(logger, "\nCommands:")
+    for cmd in cmd_list:
+        info(logger, INDENT + " ".join(cmd))
 
     # Execute the command if not in dry-run mode
     if not dry_run:
         try:
-            files_processed += netcdf_utils.execute_ncatted_command(cmd)
+            files_processed += netcdf_utils.execute_nco_commands(cmd_list)
         except Exception:  # pylint: disable=broad-exception-caught
             if not confirm_continue():
                 sys.exit("Exiting.")
