@@ -6,6 +6,7 @@ import re
 import subprocess
 from typing import Any, List, NamedTuple, Tuple
 import logging
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -65,25 +66,6 @@ def _build_ncatted_command(
     Raises:
         ValueError: If input and output files are the same, or if variable not found
     """
-    # Ensure input and output files are different (resolve symlinks)
-    input_real = os.path.realpath(input_file)
-    output_real = os.path.realpath(output_file)
-
-    if input_real == output_real:
-        error(
-            logger,
-            f"Input and output files are the same: {input_file} -> {input_real}",
-            error_type=ValueError,
-        )
-
-    # ncatted command will probably fail if any variable is in both these dicts
-    for var in var_fillvalues:
-        if var in var_fillmissing:
-            error(
-                logger,
-                f"Variable {var} is in both var_fillvalues and var_fillmissing",
-                error_type=NotImplementedError,
-            )
 
     cmd = ["ncatted", "-O"]  # -O flag to overwrite without prompting
 
@@ -112,13 +94,65 @@ def _build_ncatted_command(
     return cmd
 
 
+def _build_ncap2_command(
+    input_file: str,
+    output_file: str,
+    var_fillvalues: dict[str, Any],
+    vars_with_nan_without_fill: List[str],
+) -> list[str]:
+    """ncap2 command to set raw NaNs equal to the fill value"""
+
+    cmd = ["ncap2", "-O", "-s"]
+    ncap2_script_expr = ""
+    for var in vars_with_nan_without_fill:
+        new_fill = var_fillvalues[var]
+        # ncap2's isnan() is available in older nco versions, so we take advantage of the IEEE
+        # rule that NaN is the only value not equal to itself.
+        ncap2_script_expr += f"where({var}!={var}) {var}={new_fill}; "
+    cmd.append(ncap2_script_expr)
+    cmd += [input_file, output_file]
+    return cmd
+
+
 def build_nco_commands(
     input_file: str,
     output_file: str,
     var_fillvalues: dict[str, Any],
     var_fillmissing: dict[str, dict[str:Any]],
 ) -> List[list[str]]:
-    return [_build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing)]
+
+    # Ensure input and output files are different (resolve symlinks)
+    input_real = os.path.realpath(input_file)
+    output_real = os.path.realpath(output_file)
+    if input_real == output_real:
+        error(
+            logger,
+            f"Input and output files are the same: {input_file} -> {input_real}",
+            error_type=ValueError,
+        )
+
+    # ncatted command will probably fail if any variable is in both these dicts
+    for var in var_fillvalues:
+        if var in var_fillmissing:
+            error(
+                logger,
+                f"Variable {var} is in both var_fillvalues and var_fillmissing",
+                error_type=NotImplementedError,
+            )
+
+    # ncatted to replace NaN fill values
+    cmd_list = [_build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing)]
+
+    # Only needed for vars without fill value originally
+    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(input_file)
+    if any_nan_without_fill:
+        cmd_list.append(
+            _build_ncap2_command(
+                input_file, output_file, var_fillvalues, vars_with_nan_without_fill
+            )
+        )
+
+    return cmd_list
 
 
 def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
@@ -138,24 +172,25 @@ def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
     return type_code
 
 
-def _execute_ncatted_command(cmd: list[str]) -> int:
+def _execute_nco_command(cmd: list[str]) -> int:
     """
-    Runs the ncatted command to create the output file with modified fill values.
+    Runs the nco command to create the output file with modified fill values.
 
     Args:
-        cmd: ncatted command as list of arguments
+        cmd: nco command as list of arguments
 
     Returns:
         Number of files processed (1 on success, 0 on skip)
 
     Raises:
-        SystemExit: If ncatted command fails or is not found
+        SystemExit: If nco command fails or is not found
     """
     info(logger, "\nExecuting...")
+    nco_util = cmd[0]
     files_processed = 0
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        info(logger, f"{INDENT}✓ Success")
+        info(logger, f"{INDENT}✓ Successful {nco_util}")
         if result.stdout:
             info(logger, f"{INDENT}stdout: {result.stdout}")
         if result.stderr:
@@ -163,7 +198,7 @@ def _execute_ncatted_command(cmd: list[str]) -> int:
         files_processed = 1
 
     except subprocess.CalledProcessError as e:
-        msg = f"  ✗ Error: ncatted failed with exit code {e.returncode}"
+        msg = f"  ✗ Error: {nco_util} failed with exit code {e.returncode}"
         if e.stdout:
             msg += f"\n{INDENT}stdout: {e.stdout}"
         if e.stderr:
@@ -171,7 +206,7 @@ def _execute_ncatted_command(cmd: list[str]) -> int:
         error(logger, msg + f"\n{e}", error_type=subprocess.CalledProcessError)
         raise e
     except FileNotFoundError:
-        msg = f"{INDENT}✗ Error: ncatted command not found\n"
+        msg = f"{INDENT}✗ Error: {nco_util} command not found\n"
         msg += f"{INDENT}Please ensure NCO (NetCDF Operators) is installed"
         error_type = INDENT if logger.getEffectiveLevel() <= logging.DEBUG else None
         error(logger, msg, error_type=error_type)
@@ -181,12 +216,7 @@ def _execute_ncatted_command(cmd: list[str]) -> int:
 
 def execute_nco_commands(cmd_list: List[list[str]]) -> int:
     for cmd in cmd_list:
-        nco_util = cmd[0]
-        if nco_util == "ncatted":
-            result = _execute_ncatted_command(cmd)
-        else:
-            result = None
-            error(logger, f"No function available for {nco_util=}", error_type=NotImplementedError)
+        result = _execute_nco_command(cmd)
         if not result:
             error(logger, "Unhandled nco command failure", error_type=NotImplementedError)
     return result
@@ -196,6 +226,18 @@ class FillValueMismatch(NamedTuple):
     var_name: str
     fill_value: object
     missing_value: object
+
+
+def file_has_nan_without_fill(nc_path: str) -> Tuple[bool, List[str]]:
+    vars_with_nan_without_fill = []
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
+        ds = xr.open_dataset(nc_path, **OPEN_DS_KWARGS)
+        for v in ds:
+            if ATTR not in ds[v].attrs and ds[v].isnull().any():
+                vars_with_nan_without_fill.append(v)
+        ds.close()
+    return bool(vars_with_nan_without_fill), vars_with_nan_without_fill
 
 
 def file_has_mismatched_fill_missing(nc_path: str) -> Tuple[bool, List[FillValueMismatch]]:

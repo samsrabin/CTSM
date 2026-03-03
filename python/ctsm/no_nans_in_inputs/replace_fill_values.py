@@ -91,6 +91,8 @@ def get_output_filename(input_file: str, suffix: str = ".no_nan_fill") -> str:
 
 
 def get_output_suffix(progress: NoNanFillValueProgress, file_path: str) -> str:
+    if not progress[file_path]:
+        return ".SHOULD_SKIP"
     any_nan_fill = bool(progress[file_path]["new_fill_values"])
     any_mismatched_fill_missing = bool(progress[file_path]["new_fill_missing"])
     if any_nan_fill:

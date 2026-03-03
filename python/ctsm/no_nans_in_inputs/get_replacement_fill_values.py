@@ -45,7 +45,7 @@ from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-impor
     file_has_mismatched_fill_missing,
     file_has_nan_ncks_chk_nan,
     file_has_nan_fill,
-    file_has_nan_ncks_chk_nan,
+    file_has_nan_without_fill,
 )
 from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     add_logging_args,
@@ -87,13 +87,14 @@ def _check_for_nans_in_netcdf(
     # Check file for problems
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
     any_mismatched_fill_missing, mismatches = file_has_mismatched_fill_missing(abs_path)
+    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(abs_path)
 
     # Return early if no problems found
-    if not (any_nan_fill or any_mismatched_fill_missing):
+    if not (any_nan_fill or any_mismatched_fill_missing or any_nan_without_fill):
         if file_has_nan_ncks_chk_nan(abs_path):
             error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
             msg = (
-                "WARNING: Skipping file with NaN that wasn't caught by file_has_nan_fill():"
+                "WARNING: Skipping file with NaN that wasn't caught:"
                 f" '{abs_path}'"
             )
             error(logger, msg, error_type=error_type)
@@ -119,7 +120,10 @@ def _check_for_nans_in_netcdf(
 
     # Get list of variables in this file with issues
     if any_nan_fill:
-        progress[abs_path]["vars_with_nan_fills"] = vars_with_nan_fills
+        progress[abs_path]["vars_with_nan_fills"] += vars_with_nan_fills
+    if any_nan_without_fill:
+        # That's right: We will reuse the existing list
+        progress[abs_path]["vars_with_nan_fills"] += vars_with_nan_without_fill
     if any_mismatched_fill_missing:
         progress[abs_path]["vars_with_mismatched_fill_missing"] = [x.var_name for x in mismatches]
 
