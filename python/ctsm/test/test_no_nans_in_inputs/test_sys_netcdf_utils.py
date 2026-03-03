@@ -245,6 +245,20 @@ class TestVarHasNanWithoutFill:
         da_no_nan = xr.DataArray(np.array([0.0, 2.0, 3.0]))
         assert not var_has_nan_without_fill(da_no_nan, dims_to_slice_over=None)
 
+    def test_returns_false_nan_fillvalue_but_no_filled(self):
+        """Returns False if variable has NaN _FillValue but no filled elements"""
+        da = xr.DataArray(np.array([1.0, 2.0]), attrs={"_FillValue": np.nan})
+        assert not var_has_nan_without_fill(da, dims_to_slice_over=None)
+
+    def test_returns_false_nan_fillvalue_and_filled(self):
+        """Returns False if variable has NaN _FillValue and some filled elements"""
+        da = xr.DataArray(
+            np.array([np.nan, 2.0, 3.0], dtype=np.float32),
+            dims=["time"],
+            attrs={ATTR: np.float32(np.nan)},
+        )
+        assert not var_has_nan_without_fill(da, dims_to_slice_over=None)
+
     class _SmallFakeDataArray:
         """Small fake DataArray used as the result of isel() on a big array.
 

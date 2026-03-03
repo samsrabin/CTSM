@@ -236,6 +236,10 @@ def var_has_nan_without_fill(
     Best to sort dims_to_slice_over smallest -> largest so that we're always working with the
     largest possible slice, for efficiency
     """
+    # If variable has fill value, obviously this function should return False
+    if hasattr(da, "attrs") and ATTR in da.attrs:
+        return False
+
     # Check one slice at a time for some dimensions in order to reduce RAM usage
     if (dims_to_slice_over is not None) and da.size > 1e8:
         dim = dims_to_slice_over[0]
