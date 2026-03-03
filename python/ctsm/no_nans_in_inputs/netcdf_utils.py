@@ -464,7 +464,7 @@ def get_var_info(
         or any(var.startswith(x) for x in VARSTARTS_TO_DEFAULT_NEG999)
         or ("/surfdata_map/" in abs_path and bool(re.match(r"[a-z0-9]{5}_to_[a-z0-9]{5}", var)))
     ):
-        default_fill = type(nanmin)(-999)
+        default_fill = _get_negative_default(nanmin)
 
     # Print variable summary
     warn(logger, f"\n  Variable: {var}")
@@ -487,6 +487,15 @@ def get_var_info(
     )
 
     return var_context, config
+
+
+def _get_negative_default(nanmin):
+    default_fill = None
+    if not np.isneginf(nanmin):
+        default_fill = type(nanmin)(-999)
+        while default_fill >= nanmin:
+            default_fill = (default_fill - 1) * 10 + 1
+    return default_fill
 
 
 def get_vars_with_nan_fills(abs_path: str) -> List[str]:
