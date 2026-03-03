@@ -11,6 +11,8 @@ This script:
 
 import argparse
 import os
+import glob
+import re
 from pathlib import Path
 import sys
 from typing import List, Set, Tuple
@@ -75,15 +77,27 @@ def _check_for_nans_in_netcdf(
     warn_unhandled: bool,
 ) -> None:
 
+    # Skip files already processed
+    if abs_path in progress:
+        return
+
+    # Check that the file exists
+    if not os.path.exists(abs_path):
+        info(logger, f"netCDF file not found: '{netcdf_path}'")
+        # TODO: Actually handle files that weren't found, if possible.
+        progress[abs_path] = {}
+        progress.save()
+        return
+    # TODO: Check that the file is in CESM inputdata dir
+
+    # Get path of netCDF file to display in messages
+    msg_path = get_path_with_cesmdataroot(abs_path)
+
     # These checks can take a long time (and even crash) for large files, so let's skip some large
     # files that we know to be unaffected.
     if os.path.relpath(abs_path, INPUTDATA_PREFIX) in KNOWN_GOOD_FILES:
         warn(logger, f"Skipping known-good file: '{abs_path}'")
-        return
-
-    # We can also skip any files that have already been processed
-    msg_path = get_path_with_cesmdataroot(abs_path)
-    if abs_path in progress:
+        _print_msg(progress, abs_path)
         return
 
     # Check file for problems
@@ -108,6 +122,7 @@ def _check_for_nans_in_netcdf(
                 f"Found no NaNs in file but it was in progress dict: {abs_path}",
                 error_type=RuntimeError,
             )
+        _print_msg(progress, abs_path)
         return
 
     # Get information for this file
@@ -132,6 +147,15 @@ def _check_for_nans_in_netcdf(
 
     # Save
     progress.save()
+    _print_msg(progress, abs_path)
+
+
+def _print_msg(progress, abs_path):
+    msg = f"NaN fill values: '{get_path_with_cesmdataroot(abs_path)}'"
+    if abs_path in progress:
+        info(logger, f"{INDENT}⚠️ {msg}")
+    else:
+        info(logger, f"{INDENT}✅ No {msg}")
 
 
 def _get_netcdf_files_to_check(
@@ -188,41 +212,47 @@ def _get_netcdf_files_to_check(
 
 def _get_netcdfs_with_nan_fills(
     progress: NoNanFillValueProgress,
-    netcdf_paths: Set[str],
+    netcdf_paths: Set[str] | str,
     files_referencing_netcdfs: List[str],
     warn_unhandled: bool,
 ) -> None:
     warn(logger, "\nChecking those netCDF files for NaNs...")
 
+    if isinstance(netcdf_paths, str):
+        netcdf_paths = {netcdf_paths}
+
     for netcdf_path in sorted(netcdf_paths):
+
         # Get the absolute path; continue if already processed
         abs_path = convert_to_absolute_path(netcdf_path)
         if abs_path in progress:
             continue
 
-        # Check that the file exists
-        if not os.path.exists(abs_path):
-            info(logger, f"netCDF file not found: '{netcdf_path}'")
-            # TODO: Actually handle files that weren't found, if possible.
-            progress[abs_path] = {}
-            progress.save()
-            continue
-        # TODO: Check that the file is in CESM inputdata dir
+        # Replace any shell vars with wildcards and search through matching files
+        if "$" in netcdf_path:
+            glob_pattern = re.sub(r"\$(\w+|\{[^}]+\})", "*", abs_path)
+            matching_files = glob.glob(glob_pattern)
+            matching_files.sort()
+            if not matching_files:
+                warn(logger, f"WARNING: No files found corresponding to '{glob_pattern}'")
+                progress[abs_path] = {}
+                continue
+            for globbed_abs_path in matching_files:
+                # Check that the file actually has NaN _FillValue for at least one var
+                _check_for_nans_in_netcdf(
+                    files_referencing_netcdfs,
+                    progress,
+                    netcdf_path,
+                    globbed_abs_path,
+                    warn_unhandled,
+                )
 
-        # Get path of netCDF file to display in messages
-        msg_path = get_path_with_cesmdataroot(abs_path)
-
-        # Check that the file actually has NaN _FillValue for at least one var
-        _check_for_nans_in_netcdf(
-            files_referencing_netcdfs, progress, netcdf_path, abs_path, warn_unhandled
-        )
-
-        # Print message
-        msg = f"NaN fill values: '{msg_path}'"
-        if abs_path in progress:
-            info(logger, f"{INDENT}⚠️ {msg}")
+        # If no shell vars, just check the file directly
         else:
-            info(logger, f"{INDENT}✅ No {msg}")
+            # Check that the file actually has NaN _FillValue for at least one var
+            _check_for_nans_in_netcdf(
+                files_referencing_netcdfs, progress, netcdf_path, abs_path, warn_unhandled
+            )
 
 
 def main() -> int:
