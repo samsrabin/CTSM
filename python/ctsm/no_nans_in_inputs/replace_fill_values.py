@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 import logging
 from subprocess import CalledProcessError
+import warnings
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -59,7 +60,7 @@ ctsm_logging.skip_compose = True
 logger = logging.getLogger()
 
 
-def get_output_filename(input_file: str) -> str:
+def get_output_filename(input_file: str, suffix: str = ".no_nan_fill") -> str:
     """
     Generate output filename by adding .no_nan_fill before the extension.
 
@@ -80,13 +81,28 @@ def get_output_filename(input_file: str) -> str:
     # Find the last dot to split extension
     if "." in basename:
         name, ext = basename.rsplit(".", 1)
-        output_basename = f"{name}.no_nan_fill.{ext}"
+        output_basename = f"{name}{suffix}.{ext}"
     else:
         # No extension
-        output_basename = f"{basename}.no_nan_fill"
+        output_basename = f"{basename}{suffix}"
 
     # Reconstruct the full path
     return os.path.join(directory, output_basename)
+
+
+def get_output_suffix(progress: NoNanFillValueProgress, file_path: str) -> str:
+    any_nan_fill = bool(progress[file_path]["new_fill_values"])
+    any_mismatched_fill_missing = bool(progress[file_path]["new_fill_missing"])
+    if any_nan_fill:
+        if any_mismatched_fill_missing:
+            suffix = ".no_nan_fill_same_missing"
+        else:
+            suffix = ".no_nan_fill"
+    elif any_mismatched_fill_missing:
+        suffix = ".same_fill_missing"
+    else:
+        raise RuntimeError("???")
+    return suffix
 
 
 def _process_one_file(
@@ -95,6 +111,7 @@ def _process_one_file(
     output_file: str,
     files_processed: list,
     dry_run: bool,
+    suffix: str,
 ):
 
     # Check whether we can process the file
@@ -106,11 +123,16 @@ def _process_one_file(
 
     # Print things to do for this file
     var_fillvalues = progress[input_file_abs]["new_fill_values"]
+    var_fillmissing = progress[input_file_abs]["new_fill_missing"]
     info(logger, f"\nInput:  {input_file_abs}")
     info(logger, f"Output: {output_file}")
 
     # Build and print the ncatted command
-    cmd = netcdf_utils.build_ncatted_command(input_file_abs, output_file, var_fillvalues)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
+        cmd = netcdf_utils.build_ncatted_command(
+            input_file_abs, output_file, var_fillvalues, var_fillmissing
+        )
     info(logger, "\nCommand:")
     info(logger, "  " + " ".join(cmd))
 
@@ -129,7 +151,7 @@ def _process_one_file(
         ].items():
             files_containing.append(file_containing_netcdf)
             for netcdf_path_in in set_of_how_this_netcdf_appears:
-                netcdf_path_out = get_output_filename(netcdf_path_in)
+                netcdf_path_out = get_output_filename(netcdf_path_in, suffix)
                 nlu.update_text_file_referencing_netcdf(
                     file_containing_netcdf, netcdf_path_in, netcdf_path_out
                 )
@@ -267,7 +289,9 @@ def process_files(
     files_processed = 0
     files_to_process = list(progress.keys()).copy()
     for input_file_abs in files_to_process:
-        output_file = get_output_filename(input_file_abs)
+        # Get output filename
+        suffix = get_output_suffix(progress, input_file_abs)
+        output_file = get_output_filename(input_file_abs, suffix=suffix)
 
         # Check whether we're skipping this file
         if skip_this_file(input_file_abs, output_file, overwrite):
@@ -279,6 +303,7 @@ def process_files(
             output_file=output_file,
             files_processed=files_processed,
             dry_run=dry_run,
+            suffix=suffix,
         )
 
     # Only print summary in dry-run mode

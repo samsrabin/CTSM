@@ -93,7 +93,7 @@ class TestReplaceFullWorkflow:
             progress_file=str(fillvalues_file), load_without_asking=True
         )
         var_fillvalues = fillvalues[input_file]["new_fill_values"]
-        cmd = build_ncatted_command(input_file, output_file, var_fillvalues)
+        cmd = build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
 
         # Execute the command
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)

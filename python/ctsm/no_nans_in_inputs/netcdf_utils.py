@@ -44,7 +44,10 @@ logger = logging.getLogger(__name__)
 
 
 def build_ncatted_command(
-    input_file: str, output_file: str, var_fillvalues: dict[str, Any]
+    input_file: str,
+    output_file: str,
+    var_fillvalues: dict[str, Any],
+    var_fillmissing: dict[str, dict[str:Any]],
 ) -> list[str]:
     """
     Build ncatted command to modify or delete fill values.
@@ -54,6 +57,7 @@ def build_ncatted_command(
         output_file: Path to output NetCDF file
         var_fillvalues: Dictionary mapping variable names to new fill values
                         (or USER_REQ_DELETE to delete the attribute)
+        var_fillmissing: Dictionary mapping variable names to new fill/missing values
 
     Returns:
         Command as list of arguments for subprocess
@@ -72,40 +76,57 @@ def build_ncatted_command(
             error_type=ValueError,
         )
 
-    # Open the input file to get actual data types
-    ds = xr.open_dataset(input_file, **OPEN_DS_KWARGS)
+    # ncatted command will probably fail if any variable is in both these dicts
+    for var in var_fillvalues:
+        if var in var_fillmissing:
+            error(
+                logger,
+                f"Variable {var} is in both var_fillvalues and var_fillmissing",
+                error_type=NotImplementedError,
+            )
 
     cmd = ["ncatted", "-O"]  # -O flag to overwrite without prompting
 
+    ds = xr.open_dataset(input_file, **OPEN_DS_KWARGS)
     for var, fill_val in var_fillvalues.items():
         if fill_val == USER_REQ_DELETE:
             # Delete the attribute: -a attr_name,var_name,d,,
             cmd.extend(["-a", f"{ATTR},{var},d,,"])
         else:
-            # Get the actual data type from the file
-            dtype = None
-            if var in ds.data_vars:
-                dtype = ds[var].dtype
-            elif var in ds.coords:
-                dtype = ds[var].dtype
-            else:
-                # Variable not found - raise error
-                ds.close()
-                error(logger, f"Variable '{var}' not found in {input_file}", error_type=ValueError)
-
-            # Get the appropriate type code for ncatted
-            type_code = _get_ncatted_type_code(dtype)
+            type_code = _get_ncatted_dtype_and_type_code(input_file, var, ds)
 
             # Modify the attribute: -a attr_name,var_name,o,type,value
             cmd.extend(["-a", f"{ATTR},{var},o,{type_code},{fill_val}"])
+    ds.close()
 
-    # Close the dataset
+    ds = xr.open_dataset(input_file, **OPEN_DS_KWARGS, mask_and_scale=False)
+    for var, fillmissing_dict in var_fillmissing.items():
+        type_code = _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=True)
+        for attr, new_val in fillmissing_dict.items():
+            cmd.extend(["-a", f"{attr},{var},o,{type_code},{new_val}"])
     ds.close()
 
     # Add input and output files
     cmd.extend([input_file, output_file])
 
     return cmd
+
+
+def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
+    # Get the actual data type from the file
+    dtype = None
+    if var in ds.data_vars:
+        dtype = ds[var].dtype
+    elif var in ds.coords:
+        dtype = ds[var].dtype
+    else:
+        # Variable not found - raise error
+        ds.close()
+        error(logger, f"Variable '{var}' not found in {input_file}", error_type=ValueError)
+
+    # Get the appropriate type code for ncatted
+    type_code = _get_ncatted_type_code(dtype, allow_int)
+    return type_code
 
 
 def execute_ncatted_command(cmd: list[str]) -> int:
@@ -149,7 +170,6 @@ def execute_ncatted_command(cmd: list[str]) -> int:
     return files_processed
 
 
-
 class FillValueMismatch(NamedTuple):
     var_name: str
     fill_value: object
@@ -171,6 +191,7 @@ def file_has_mismatched_fill_missing(nc_path: str) -> Tuple[bool, List[FillValue
                 mismatches.append(mismatch)
     return bool(mismatches), mismatches
 
+
 def var_has_mismatched_fill_missing(name: str, var: Variable) -> FillValueMismatch | None:
     if not hasattr(var, "_FillValue") or not hasattr(var, "missing_value"):
         return None
@@ -190,7 +211,9 @@ def var_has_mismatched_fill_missing(name: str, var: Variable) -> FillValueMismat
         equal = fill_cast == missing_cast
 
     if not equal:
-        mismatch = FillValueMismatch(var_name=name, fill_value=fill_cast, missing_value=missing_cast)
+        mismatch = FillValueMismatch(
+            var_name=name, fill_value=fill_cast, missing_value=missing_cast
+        )
     else:
         mismatch = None
     return mismatch
@@ -234,7 +257,7 @@ def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
     return bool(vars_with_nan_fills), vars_with_nan_fills
 
 
-def _get_ncatted_type_code(dtype: np.dtype) -> str:
+def _get_ncatted_type_code(dtype: np.dtype, allow_int=False) -> str:
     """
     Get ncatted type code from numpy dtype.
 
@@ -257,12 +280,21 @@ def _get_ncatted_type_code(dtype: np.dtype) -> str:
         return "f"  # float
 
     # Integer types - not allowed (NetCDF doesn't support NaN for integers)
-    if any(x in dtype_str for x in ["int64", "int32", "int16", "int8", "int_", "byte"]):
-        msg = (
-            f"Integer dtype detected: {dtype}. "
-            "NetCDF does not allow NaN fill values for integer variables. So how'd this happen?"
-        )
-        error(logger, msg, error_type=ValueError)
+    if any(
+        x in dtype_str for x in ["int64", "int32", "int16", "int8", "int_", "byte"]
+    ):
+        if not allow_int:
+            msg = (
+                f"Integer dtype detected: {dtype}. "
+                "NetCDF does not allow NaN fill values for integer variables. So how'd this happen?"
+            )
+            error(logger, msg, error_type=ValueError)
+        elif dtype_str == "int32":
+            return "l"
+        elif dtype_str == "int16":
+            return "s"
+        else:
+            raise NotImplementedError(f"ncatted type code not known for type {dtype_str}")
 
     # String/char
     if "str" in dtype_str or "char" in dtype_str or "U" in dtype_str or "S" in dtype_str:
