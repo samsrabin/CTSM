@@ -19,11 +19,13 @@ from ctsm.no_nans_in_inputs.constants import (
 )
 from ctsm.no_nans_in_inputs.netcdf_utils import (
     _build_ncatted_command,
-    _execute_ncatted_command,
+    build_nco_commands,
+    _execute_nco_command,
     get_var_info,
     get_vars_with_nan_fills,
     show_ncdump_for_variable,
     var_data_has_nan,
+    var_has_nan_without_fill,
 )
 
 # Test constants
@@ -232,6 +234,208 @@ class TestVarDataHasNan:
         assert not var_data_has_nan(da)
 
 
+class TestVarHasNanWithoutFill:
+    """Tests for var_has_nan_without_fill covering simple and slicing branches."""
+
+    def test_simple_detects_nan_and_no_nan(self):
+        """Small xarray DataArray: detect NaN and no-NaN correctly"""
+        da_with_nan = xr.DataArray(np.array([1.0, np.nan]))
+        assert var_has_nan_without_fill(da_with_nan, dims_to_slice_over=None)
+
+        da_no_nan = xr.DataArray(np.array([0.0, 2.0, 3.0]))
+        assert not var_has_nan_without_fill(da_no_nan, dims_to_slice_over=None)
+
+    class _SmallFakeDataArray:
+        """Small fake DataArray used as the result of isel() on a big array.
+
+        Implements the minimal interface used by var_has_nan_without_fill.
+        """
+
+        def __init__(self, has_null: bool):
+            self.size = 1
+            self.dims = ()
+            self.sizes = {}
+            self._has_null = bool(has_null)
+
+        def isel(self, _indexers, drop=True):
+            return self
+
+        def isnull(self):
+            class _Any:
+                def __init__(self, val):
+                    self._val = val
+
+                def any(self):
+                    return self._val
+
+            return _Any(self._has_null)
+
+    class _BigFakeDataArray:
+        """Fake DataArray that simulates a very large array and slices into smaller
+        pieces. The constructor takes a list of booleans indicating whether each
+        slice contains a NaN.
+        """
+
+        def __init__(self, dim_name: str, sizes: dict, slice_nulls: list[bool]):
+            self.dims = (dim_name,)
+            self.sizes = dict(sizes)
+            # Keep slice null indicators; size will be provided via a property
+            self._slice_nulls = list(slice_nulls)
+
+        @property
+        def size(self):
+            # Simulate a very large array by returning a large size when accessed
+            return int(1e8) + 1
+
+        def isel(self, indexers, drop=True):
+            # indexers looks like {dim_name: idx}
+            dim, idx = next(iter(indexers.items()))
+            has_null = bool(self._slice_nulls[int(idx)])
+            return TestVarHasNanWithoutFill._SmallFakeDataArray(has_null)
+
+        def isnull(self):
+            any_null = any(self._slice_nulls)
+
+            class _Any:
+                def __init__(self, val):
+                    self._val = val
+
+                def any(self):
+                    return self._val
+
+            return _Any(any_null)
+
+    def test_slicing_branch_detects_nan_and_no_nan(self):
+        """Simulate the large-size slicing path: one case where a slice contains a
+        NaN (should return True), and one case where no slices have NaNs (should
+        return False).
+        """
+        big_with_nan = self._BigFakeDataArray("x", {"x": 3}, [False, True, False])
+        assert var_has_nan_without_fill(big_with_nan, dims_to_slice_over=["x"]) is True
+
+        big_no_nan = self._BigFakeDataArray("x", {"x": 3}, [False, False, False])
+        assert var_has_nan_without_fill(big_no_nan, dims_to_slice_over=["x"]) is False
+
+    def test_multi_dims_slicing(self):
+        """Test when dims_to_slice_over has multiple items and the first dim is
+        present in the DataArray: the function should slice over the first dim
+        and recursively evaluate the remaining dims (which for our fake slices
+        reduces to checking the slice's isnull()).
+        """
+        # Two slices, second slice contains a NaN; dims_to_slice_over has two items
+        big_multi_with_nan = self._BigFakeDataArray("x", {"x": 2}, [False, True])
+        assert var_has_nan_without_fill(big_multi_with_nan, dims_to_slice_over=["x", "y"]) is True
+
+        # Two slices, none have NaN
+        big_multi_no_nan = self._BigFakeDataArray("x", {"x": 2}, [False, False])
+        assert var_has_nan_without_fill(big_multi_no_nan, dims_to_slice_over=["x", "y"]) is False
+
+    def test_break_stops_iteration(self):
+        """If the first slice contains a NaN, the function should break and not
+        call isel() for subsequent indices.
+        """
+        calls = []
+
+        class TrackingBig:
+            def __init__(self, dim_name: str, sizes: dict, slice_nulls: list[bool]):
+                self.dims = (dim_name,)
+                self.sizes = dict(sizes)
+                self._slice_nulls = list(slice_nulls)
+
+            @property
+            def size(self):
+                return int(1e8) + 1
+
+            def isel(self, indexers, drop=True):
+                dim, idx = next(iter(indexers.items()))
+                idx = int(idx)
+                calls.append(idx)
+                # Return a small fake slice that reports True only for idx == 0.
+                if idx == 0:
+                    return TestVarHasNanWithoutFill._SmallFakeDataArray(True)
+                # If we ever get here, the function didn't break as expected
+                raise RuntimeError("isel called for idx>0; break did not occur")
+
+            def isnull(self):
+                # Fallback: report whether any slice would have a null
+                return TestVarHasNanWithoutFill._SmallFakeDataArray(any(self._slice_nulls)).isnull()
+
+        tb = TrackingBig("x", {"x": 3}, [True, True, True])
+        res = var_has_nan_without_fill(tb, dims_to_slice_over=["x"])
+        assert res is True
+        assert calls == [0]
+
+    def test_continues_until_true(self):
+        """Ensure the function continues scanning when early slices are False and
+        a later slice is True (i.e., it doesn't prematurely return False).
+        """
+        calls = []
+
+        class ContinueBig:
+            def __init__(self, dim_name: str, sizes: dict, slice_nulls: list[bool]):
+                self.dims = (dim_name,)
+                self.sizes = dict(sizes)
+                self._slice_nulls = list(slice_nulls)
+
+            @property
+            def size(self):
+                return int(1e8) + 1
+
+            def isel(self, indexers, drop=True):
+                dim, idx = next(iter(indexers.items()))
+                idx = int(idx)
+                calls.append(idx)
+                # Return small fake slice: True only for idx == 2
+                return TestVarHasNanWithoutFill._SmallFakeDataArray(idx == 2)
+
+            def isnull(self):
+                return TestVarHasNanWithoutFill._SmallFakeDataArray(any(self._slice_nulls)).isnull()
+
+        cb = ContinueBig("x", {"x": 3}, [False, False, True])
+        res = var_has_nan_without_fill(cb, dims_to_slice_over=["x"])
+        assert res is True
+        assert calls == [0, 1, 2]
+
+    def test_multi_dims_first_missing_falls_back_to_isnull(self):
+        """When the first dim in dims_to_slice_over is not present in da.dims,
+        the function should fall back to da.isnull().any() rather than trying
+        to slice or recurse.
+        """
+
+        class MissingDimBig:
+            def __init__(self, dim_name: str, sizes: dict, has_null: bool):
+                # Provide a different dim name so the first requested dim is missing
+                self.dims = (dim_name,)
+                self.sizes = dict(sizes)
+                self._has_null = bool(has_null)
+
+            @property
+            def size(self):
+                return int(1e8) + 1
+
+            def isel(self, indexers, drop=True):
+                # Should not be called in this path
+                raise RuntimeError("isel should not be called when first dim is missing")
+
+            def isnull(self):
+                class _Any:
+                    def __init__(self, val):
+                        self._val = val
+
+                    def any(self):
+                        return self._val
+
+                return _Any(self._has_null)
+
+        # dims_to_slice_over asks to slice over 'missing_dim' then 'x'; our object
+        # only has 'x' and reports True/False via isnull().any()
+        mb_true = MissingDimBig("x", {"x": 3}, True)
+        assert var_has_nan_without_fill(mb_true, dims_to_slice_over=["missing_dim", "x"]) is True
+
+        mb_false = MissingDimBig("x", {"x": 3}, False)
+        assert var_has_nan_without_fill(mb_false, dims_to_slice_over=["missing_dim", "x"]) is False
+
+
 class TestBuildNcattedCommand:
     """Test the _build_ncatted_command function."""
 
@@ -313,7 +517,7 @@ class TestBuildNcattedCommand:
         """Test that same input and output files raises ValueError."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
         with pytest.raises(ValueError, match="Input and output files are the same"):
-            _build_ncatted_command(test_netcdf_file, test_netcdf_file, var_fillvalues, var_fillmissing={})
+            build_nco_commands(test_netcdf_file, test_netcdf_file, var_fillvalues, var_fillmissing={})
 
     def test_output_already_exists(self, test_netcdf_file, tmp_path):
         """Test that existing output file is detected."""
@@ -332,7 +536,7 @@ class TestBuildNcattedCommand:
 
 
 class TestExecuteCommand:
-    """Test the _execute_ncatted_command function."""
+    """Test the _execute_nco_command function."""
 
     @pytest.fixture(name="create_test_nc")
     def fixture_create_test_nc(self, tmp_path):
@@ -384,7 +588,7 @@ class TestExecuteCommand:
         ],
     )
     def test_execute_preserves_format(self, tmp_path, create_test_nc, netcdf_format):
-        """Test _execute_ncatted_command preserves NetCDF format from input to output."""
+        """Test _execute_nco_command preserves NetCDF format from input to output."""
         # Create input file with specified format
         input_file = create_test_nc(netcdf_format=netcdf_format)
 
@@ -392,7 +596,7 @@ class TestExecuteCommand:
         output_file = str(tmp_path / "test_output.nc")
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
         cmd = _build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
-        files_processed = _execute_ncatted_command(cmd)
+        files_processed = _execute_nco_command(cmd)
 
         # Should have processed 1 file
         assert files_processed == 1
@@ -428,7 +632,7 @@ class TestExecuteCommand:
         ],
     )
     def test_execute_different_data(self, tmp_path, create_test_nc, first_value, expect_filled):
-        """Test _execute_ncatted_command with different data values."""
+        """Test _execute_nco_command with different data values."""
         # Create input file with specified value first
         input_file = create_test_nc(first_value=first_value)
 
@@ -436,7 +640,7 @@ class TestExecuteCommand:
         output_file = str(tmp_path / "test_output.nc")
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
         cmd = _build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
-        _execute_ncatted_command(cmd)
+        _execute_nco_command(cmd)
 
         # Verify the output file is valid NetCDF with correct fill value. mask_and_scale True means
         # that the variable's DataArray's _FillValue attribute will be populated and any filled
