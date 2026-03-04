@@ -83,6 +83,11 @@ def find_xml_files(dir_to_search: str) -> list[str]:
     for basename in ["*xml"]:
         pattern = os.path.join(f"{dir_to_search}", "**", basename)
         results += glob.glob(pattern, recursive=True)
+
+    # Exclude these XML files:
+    for basename in ["namelist_defaults_usr_files.xml"]:
+        results = [x for x in results if os.path.basename(x) != basename]
+
     return results
 
 
