@@ -191,7 +191,7 @@ def _check_ok_to_process(progress: NoNanFillValueProgress, input_file_abs: str) 
 
     # User doesn't have write access in directory
     dirname, basename = os.path.split(input_file_abs)
-    if not check_write_access(dirname):
+    if not check_write_access(input_file_abs):
         err_type = PermissionError if logger.getEffectiveLevel() <= logging.DEBUG else None
         error(
             logger,
