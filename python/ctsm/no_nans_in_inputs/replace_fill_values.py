@@ -94,30 +94,12 @@ def get_output_filename(input_file: str, suffix: str = ".no_nan_fill") -> str:
     return os.path.join(directory, output_basename)
 
 
-def get_output_suffix(progress: NoNanFillValueProgress, file_path: str) -> str:
-    if not progress[file_path] or isinstance(progress[file_path], str):
-        return ".SHOULD_SKIP"
-    any_nan_fill = bool(progress[file_path]["new_fill_values"])
-    any_mismatched_fill_missing = bool(progress[file_path]["new_fill_missing"])
-    if any_nan_fill:
-        if any_mismatched_fill_missing:
-            suffix = ".no_nan_fill_same_missing"
-        else:
-            suffix = ".no_nan_fill"
-    elif any_mismatched_fill_missing:
-        suffix = ".same_fill_missing"
-    else:
-        raise RuntimeError("???")
-    return suffix
-
-
 def _process_one_file(
     progress: NoNanFillValueProgress,
     input_file_abs: str,
     output_file: str,
     files_processed: list,
     dry_run: bool,
-    suffix: str,
 ):
 
     # Check whether we can process the file
@@ -158,7 +140,9 @@ def _process_one_file(
         ].items():
             files_containing.append(file_containing_netcdf)
             for netcdf_path_in in set_of_how_this_netcdf_appears:
-                netcdf_path_out = get_output_filename(netcdf_path_in, suffix)
+                netcdf_path_out = get_output_filename(
+                    netcdf_path_in, progress[input_file_abs]["suffix"]
+                )
                 nlu.update_text_file_referencing_netcdf(
                     file_containing_netcdf, netcdf_path_in, netcdf_path_out
                 )
@@ -352,8 +336,7 @@ def process_files(
             continue
 
         # Get output filename
-        suffix = get_output_suffix(progress, input_file_abs)
-        output_file = get_output_filename(input_file_abs, suffix=suffix)
+        output_file = get_output_filename(input_file_abs, suffix=progress[input_file_abs]["suffix"])
 
         # Check whether we're skipping this file
         if skip_this_file(input_file_abs, output_file, overwrite):
@@ -365,7 +348,6 @@ def process_files(
             output_file=output_file,
             files_processed=files_processed,
             dry_run=dry_run,
-            suffix=suffix,
         )
 
     # Only print summary in dry-run mode

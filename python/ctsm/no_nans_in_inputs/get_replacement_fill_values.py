@@ -153,9 +153,29 @@ def _check_for_nans_in_netcdf(
     if any_mismatched_fill_missing:
         progress[abs_path]["vars_with_mismatched_fill_missing"] = [x.var_name for x in mismatches]
 
+    # Get suffix for eventual new version of file
+    progress[abs_path]["suffix"] = _get_output_suffix(progress, abs_path)
+
     # Save
     progress.save()
     _print_msg(progress, abs_path)
+
+
+def _get_output_suffix(progress: NoNanFillValueProgress, file_path: str) -> str:
+    # if not progress[file_path] or isinstance(progress[file_path], str):
+    #     return ".SHOULD_SKIP"
+    any_nan_fill = bool(progress[file_path]["vars_with_nan_fills"])
+    any_mismatched_fill_missing = bool(progress[file_path]["vars_with_mismatched_fill_missing"])
+    if any_nan_fill:
+        if any_mismatched_fill_missing:
+            suffix = ".no_nan_fill_same_missing"
+        else:
+            suffix = ".no_nan_fill"
+    elif any_mismatched_fill_missing:
+        suffix = ".same_fill_missing"
+    else:
+        raise RuntimeError("???")
+    return suffix
 
 
 def _print_msg(progress, abs_path):
@@ -301,6 +321,21 @@ def _get_netcdfs_with_nan_fills(
                 msg = (
                     f"Only {n_to_fix}/{n_matched} files matching pattern"
                     f" '{glob_pattern}' need fixing. This is currently not handled."
+                )
+                error(logger, msg, error_type=error_type)
+                if not user_inputs.confirm_continue():
+                    sys.exit("Exiting.")
+                continue
+
+            # A similar problem will arise if all the files need fixing but they wouldn't receive
+            # the same suffix.
+            # TODO: Avoid this by giving all new files the same suffix regardless of changes made
+            if len({v["suffix"] for v in progress_tmp.values()}) > 1:
+                error_type = RuntimeError if logger.getEffectiveLevel() <= logging.DEBUG else None
+                msg = (
+                    f"ERROR: Not all {len(progress_tmp)} files matching pattern '{glob_pattern}'"
+                    " would get the same suffix, which would cause problems when using the"
+                    " namelist. Will skip fixing these files."
                 )
                 error(logger, msg, error_type=error_type)
                 if not user_inputs.confirm_continue():

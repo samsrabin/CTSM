@@ -44,6 +44,7 @@ def create_empty_progress_dict_onefile():
         "vars_with_nan_fills": [],
         "new_fill_missing": {},
         "vars_with_mismatched_fill_missing": [],
+        "suffix": None,
     }
 
 
@@ -185,6 +186,10 @@ class NoNanFillValueProgress(defaultdict):
         if files_not_found:
             for f in files_not_found:
                 warn(logger, f"\t* '{get_path_with_cesmdataroot(f)}'")
+
+    def any_need_fixing(self) -> None:
+        """Do any of the processed files need fixing?"""
+        return any(isinstance(v, dict) and bool(v) for v in self.values())
 
 
 def _convert_fif_dict_sets(
