@@ -60,6 +60,9 @@ logging.basicConfig(format="%(message)s", level=logging.DEBUG)
 ctsm_logging.skip_compose = True
 logger = logging.getLogger()
 
+# Maximum number of vars to list in message for each new fill value
+MAX_LISTED_VARS = 5
+
 
 def get_output_filename(input_file: str, suffix: str = ".no_nan_fill") -> str:
     """
@@ -92,7 +95,7 @@ def get_output_filename(input_file: str, suffix: str = ".no_nan_fill") -> str:
 
 
 def get_output_suffix(progress: NoNanFillValueProgress, file_path: str) -> str:
-    if not progress[file_path]:
+    if not progress[file_path] or isinstance(progress[file_path], str):
         return ".SHOULD_SKIP"
     any_nan_fill = bool(progress[file_path]["new_fill_values"])
     any_mismatched_fill_missing = bool(progress[file_path]["new_fill_missing"])
@@ -119,7 +122,7 @@ def _process_one_file(
 
     # Check whether we can process the file
     print("\n")
-    ok = _check_ok_to_process(input_file_abs)
+    ok = _check_ok_to_process(progress, input_file_abs)
     print("\n")
     if not ok:
         return files_processed
@@ -161,7 +164,9 @@ def _process_one_file(
                 )
 
         # Print message and wait for user to approve before continuing
-        _print_and_wait(input_file_abs, output_file, var_fillvalues, files_containing)
+        _print_and_wait(
+            input_file_abs, output_file, var_fillvalues, var_fillmissing, files_containing
+        )
 
         # Update progress object and file
         progress.done_with_file(input_file_abs)
@@ -169,8 +174,12 @@ def _process_one_file(
     return files_processed
 
 
-def _check_ok_to_process(input_file_abs: str) -> bool:
+def _check_ok_to_process(progress: NoNanFillValueProgress, input_file_abs: str) -> bool:
     """Check whether it's okay to process a netCDF file"""
+
+    # get_replacement_fill_values.py result was to NOT process
+    if isinstance(progress[input_file_abs], str):
+        return False
 
     # File doesn't exist
     if not os.path.exists(input_file_abs):
@@ -197,7 +206,11 @@ def _check_ok_to_process(input_file_abs: str) -> bool:
 
 
 def _print_and_wait(
-    input_file_abs: str, output_file: str, var_fillvalues: dict, files_containing: list
+    input_file_abs: str,
+    output_file: str,
+    var_fillvalues: dict,
+    var_fillmissing: dict,
+    files_containing: list,
 ) -> None:
     """Print info and a message useful for a git commit, then wait for user to continue"""
 
@@ -229,23 +242,63 @@ def _print_and_wait(
     input_file_msg = get_path_with_cesmdataroot(input_file_abs)
     warn(logger, f"Handled NaN fill values in '{input_file_msg}'.\n")
     output_file_msg = get_path_with_cesmdataroot(output_file)
-    warn(logger, f"New file '{output_file_msg}'; fill values:")
+    warn(logger, f"New file '{output_file_msg}'.")
 
-    # Which new fill values did we give it, and which namelist files was it referenced in?
-    vars_with_deleted_fill = []
-    for var, fill_val in var_fillvalues.items():
-        if fill_val == USER_REQ_DELETE:
-            vars_with_deleted_fill.append(var)
-        else:
-            warn(logger, f"{INDENT}{var}: {fill_val}")
-    if vars_with_deleted_fill:
-        if len(vars_with_deleted_fill) <= 10:
-            warn(logger, f"{INDENT}Deleted fill: {', '.join(vars_with_deleted_fill)}")
-        else:
-            warn(
-                logger,
-                f"{INDENT}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
-            )
+    # Which new fill values did we give it?
+    if var_fillvalues:
+        warn(logger, "Replaced NaN or missing fill values with:")
+        vars_with_deleted_fill = []
+        new_fill_dict = {}
+        for var, fill_val in var_fillvalues.items():
+            if fill_val == USER_REQ_DELETE:
+                vars_with_deleted_fill.append(var)
+            else:
+                if fill_val in new_fill_dict:
+                    new_fill_dict[fill_val].append(var)
+                else:
+                    new_fill_dict[fill_val] = [var]
+        new_fill_dict = dict(sorted(new_fill_dict.items()))  # Sort by key ascending
+        for fill_val, var_list in new_fill_dict.items():
+            n_vars = len(var_list)
+            if n_vars > MAX_LISTED_VARS:
+                n_others = n_vars - MAX_LISTED_VARS
+                var_list_txt = ", ".join(var_list[:MAX_LISTED_VARS]) + f", and {n_others} others"
+                if n_others == 1:
+                    var_list_txt = var_list_txt[:-1]
+            else:
+                var_list_txt = ", ".join(var_list)
+            warn(logger, f"{INDENT}{fill_val}: {var_list_txt}")
+        if vars_with_deleted_fill:
+            if len(vars_with_deleted_fill) <= MAX_LISTED_VARS:
+                warn(logger, f"{INDENT}Deleted fill: {', '.join(vars_with_deleted_fill)}")
+            else:
+                warn(
+                    logger,
+                    f"{INDENT}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
+                )
+
+    # Which variables got their _FillValue and missing_value harmonized?
+    if var_fillmissing:
+        warn(logger, "Harmonized _FillValue and missing_value to:")
+        new_fillmiss_dict = {}
+        for var, var_dict in var_fillmissing.items():
+            assert len(set(var_dict.values())) == 1
+            harmonized_val = list(var_dict.values())[0]
+            if harmonized_val in new_fillmiss_dict:
+                new_fillmiss_dict[harmonized_val].append(var)
+            else:
+                new_fillmiss_dict[harmonized_val] = [var]
+        new_fillmiss_dict = dict(sorted(new_fillmiss_dict.items()))  # Sort by key ascending
+        for harmonized_val, var_list in new_fillmiss_dict.items():
+            n_vars = len(var_list)
+            if n_vars > MAX_LISTED_VARS:
+                n_others = n_vars - MAX_LISTED_VARS
+                var_list_txt = ", ".join(var_list[:MAX_LISTED_VARS]) + f", and {n_others} others"
+                if n_others == 1:
+                    var_list_txt = var_list_txt[:-1]
+            else:
+                var_list_txt = ", ".join(var_list)
+            warn(logger, f"{INDENT}{harmonized_val}: {var_list_txt}")
 
     # Which files did we update the path in?
     warn(logger, "\nPath updated in:")

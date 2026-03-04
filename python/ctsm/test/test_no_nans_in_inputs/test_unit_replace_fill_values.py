@@ -12,6 +12,7 @@ import numpy as np
 
 from ctsm.no_nans_in_inputs.replace_fill_values import _check_ok_to_process, get_output_filename
 from ctsm.no_nans_in_inputs import netcdf_utils
+from ctsm.no_nans_in_inputs.json_io import NoNanFillValueProgress
 
 
 class TestGetOutputFilename:
@@ -121,9 +122,9 @@ class TestCheckOkToProcess:
 
         if expected is SystemExit:
             with pytest.raises(SystemExit):
-                _check_ok_to_process("/some/path/file.nc")
+                _check_ok_to_process(NoNanFillValueProgress(), "/some/path/file.nc")
         else:
-            assert _check_ok_to_process("/some/path/file.nc") is expected
+            assert _check_ok_to_process(NoNanFillValueProgress(), "/some/path/file.nc") is expected
 
     @pytest.mark.parametrize(
         "level,expected_err_type",
@@ -158,7 +159,7 @@ class TestCheckOkToProcess:
         )
 
         # Call function
-        _check_ok_to_process("/some/path/missing.nc")
+        _check_ok_to_process(NoNanFillValueProgress(), "/some/path/missing.nc")
 
         # Ensure error was called at least once
         assert mock_error.call_count >= 1
@@ -196,7 +197,7 @@ class TestCheckOkToProcess:
             "ctsm.no_nans_in_inputs.replace_fill_values.confirm_continue", lambda: True
         )
 
-        _check_ok_to_process("/some/path/file.nc")
+        _check_ok_to_process(NoNanFillValueProgress(), "/some/path/file.nc")
 
         # Ensure error was called at least once
         assert mock_error.call_count >= 1
