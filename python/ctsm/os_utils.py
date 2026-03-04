@@ -58,6 +58,9 @@ def check_write_access(file_path: str) -> bool:
     Returns:
         True if user has write access, False otherwise
     """
+    # This function is only designed to work with files, not directories
+    assert not os.path.isdir(file_path)
+
     # Get the directory where the file would be created
     directory = os.path.dirname(file_path) or "."
 
@@ -69,5 +72,7 @@ def check_write_access(file_path: str) -> bool:
     parent = os.path.dirname(directory)
     while parent and not os.path.exists(parent):
         parent = os.path.dirname(parent)
+    if not parent:
+        raise FileNotFoundError("No parent directory found")
 
     return os.access(parent or ".", os.W_OK)
