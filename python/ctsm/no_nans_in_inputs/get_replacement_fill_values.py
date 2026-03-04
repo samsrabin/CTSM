@@ -97,7 +97,8 @@ def _check_for_nans_in_netcdf(
     msg_path = get_path_with_cesmdataroot(abs_path)
 
     # Skip files that we know to be unaffected
-    if os.path.relpath(abs_path, INPUTDATA_PREFIX) in known_good_files_list:
+    path_rel_inputdata = os.path.relpath(abs_path, INPUTDATA_PREFIX)
+    if path_rel_inputdata in known_good_files_list:
         info(logger, f"Skipping known-good file: '{abs_path}'")
         progress[abs_path] = NO_HANDLED_NANS
         progress.save()
@@ -128,7 +129,7 @@ def _check_for_nans_in_netcdf(
         _print_msg(progress, abs_path)
         progress[abs_path] = NO_HANDLED_NANS
         progress.save()
-        known_good_files_list.append(abs_path)
+        known_good_files_list.append(path_rel_inputdata)
         _save_known_good_files(known_good_files_list)
         return
 
@@ -415,10 +416,7 @@ def main() -> int:
 
 
 def _save_known_good_files(known_good_files_list):
-    # Sort and get relative to INPUTDATA_PREFIX
     known_good_files_list.sort()
-    # known_good_files_list = [os.path.realpath(f) for f in known_good_files_list]
-    known_good_files_list = [os.path.relpath(f, INPUTDATA_PREFIX) for f in known_good_files_list]
     with open(KNOWN_GOOD_FILES_FILE, "w", encoding="utf8") as f:
         json.dump(known_good_files_list, f, indent=INDENT)
 
