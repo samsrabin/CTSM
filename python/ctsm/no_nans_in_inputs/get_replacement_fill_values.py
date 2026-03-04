@@ -273,16 +273,43 @@ def _get_netcdfs_with_nan_fills(
                 warn(logger, f"WARNING: No files found corresponding to '{glob_pattern}'")
                 progress[abs_path] = {}
                 continue
+            progress_tmp = NoNanFillValueProgress()
             for globbed_abs_path in matching_files:
                 # Check that the file actually has NaN _FillValue for at least one var
                 _check_for_nans_in_netcdf(
                     files_referencing_netcdfs,
-                    progress,
+                    progress_tmp,
                     netcdf_path,
                     globbed_abs_path,
                     warn_unhandled,
                     known_good_files_list,
                 )
+
+            # No files need fixing
+            if not progress_tmp.any_need_fixing():
+                continue
+
+            # If only SOME of the files matching the wildcards need fixing, you will need to make
+            # copies of the other files with the same added suffix. This is currently not handled in
+            # these scripts, so just skip such situations.
+            n_to_fix = sum(isinstance(v, dict) for v in progress_tmp.values())
+            n_matched = len(matching_files)
+            if n_to_fix != n_matched:
+                error_type = (
+                    NotImplementedError if logger.getEffectiveLevel() <= logging.DEBUG else None
+                )
+                msg = (
+                    f"Only {n_to_fix}/{n_matched} files matching pattern"
+                    f" '{glob_pattern}' need fixing. This is currently not handled."
+                )
+                error(logger, msg, error_type=error_type)
+                if not user_inputs.confirm_continue():
+                    sys.exit("Exiting.")
+                continue
+
+            # Save temporary progress dict to main one
+            progress.update(progress_tmp)
+            progress.save()
 
         # If no shell vars, just check the file directly
         else:

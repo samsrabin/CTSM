@@ -113,6 +113,10 @@ class NoNanFillValueProgress(defaultdict):
         for k, v in kwargs.items():
             self[str(k)] = v
 
+    def append(self, new_dict):
+        """Append another dict to this one"""
+        self.update(dict(self, **new_dict))
+
     def save(self) -> None:
         """
         Save progress to a JSON file.
