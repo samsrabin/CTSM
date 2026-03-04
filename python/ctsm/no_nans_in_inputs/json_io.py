@@ -117,6 +117,9 @@ class NoNanFillValueProgress(defaultdict):
         """
         Save progress to a JSON file.
         """
+        if not self.progress_file:
+            return
+
         # Can't serialize sets. deepcopy() is needed so that caller's progress isn't affected
         # .copy() isn't sufficient since we have nested mutables.
         progress_out = _convert_fif_dict_sets(deepcopy(self), list)
