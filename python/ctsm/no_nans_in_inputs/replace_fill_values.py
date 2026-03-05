@@ -129,11 +129,14 @@ def _process_one_file(
     # Execute the command if not in dry-run mode
     if not dry_run:
         try:
-            files_processed += netcdf_utils.execute_nco_commands(cmd_list)
-        except Exception:  # pylint: disable=broad-exception-caught
+            result = netcdf_utils.execute_nco_commands(cmd_list)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            error_type = type(Exception) if logger.getEffectiveLevel() <= logging.DEBUG else None
+            error(logger, str(e), error_type=error_type)
             if not confirm_continue():
                 sys.exit("Exiting.")
             return files_processed
+        files_processed += result
         # Update the XML file(s) with the new output path
         files_containing = []
         for file_containing_netcdf, set_of_how_this_netcdf_appears in progress[input_file_abs][
