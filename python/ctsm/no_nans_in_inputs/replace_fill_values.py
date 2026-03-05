@@ -31,6 +31,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     DIR_TO_SEARCH_FOR_XML_FILES,
     INDENT,
     NEW_FILLVALUES_FILE,
+    NO_HANDLED_NANS,
     SEP_LENGTH,
     USER_REQ_DELETE,
     USER_REQ_SKIP_FILE,
@@ -331,8 +332,8 @@ def process_files(
     files_to_process = list(progress.keys()).copy()
     for input_file_abs in files_to_process:
 
-        # Skip file if the user requested skipping it
-        if progress[input_file_abs] == USER_REQ_SKIP_FILE:
+        # Skip file if the user requested skipping it or there were no handled NaNs
+        if progress[input_file_abs] in [USER_REQ_SKIP_FILE, NO_HANDLED_NANS]:
             continue
 
         # Get output filename
