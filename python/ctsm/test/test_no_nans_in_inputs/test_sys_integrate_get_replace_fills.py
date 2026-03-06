@@ -2,6 +2,7 @@
 Tests of the integrated get_replacement_fill_values.py -> replace_fill_values.py pipeline
 """
 
+import itertools
 import os
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
@@ -26,7 +27,19 @@ from ctsm.no_nans_in_inputs.json_io import NoNanFillValueProgress
 TEST_VAR_TEMP = "temp"
 TEST_VAR_PRESSURE = "pressure"
 TEST_OUTPUT_FILE = "output.nc"
-TEST_FILL_VALUE = -123.4
+TEST_NEW_FILL = -123.4
+TEST_ORIG_FILLS = [np.nan, None]
+NETCDF_TYPES = [
+    "NETCDF4",
+    "NETCDF4_CLASSIC",
+    "NETCDF3_64BIT_OFFSET",
+    "NETCDF3_64BIT_DATA",
+    "NETCDF3_CLASSIC",
+]
+
+
+param_combos = [("abs",) + combo for combo in itertools.product(NETCDF_TYPES, TEST_ORIG_FILLS)]
+param_combos += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
 
 
 @pytest.fixture(name="test_netcdf_file")
@@ -62,24 +75,15 @@ def fixture_test_netcdf_file(tmp_path):
     return _create
 
 
-@pytest.mark.parametrize(
-    "abs_or_rel, nc_format",
-    [
-        ("abs", "NETCDF4"),
-        ("rel", "NETCDF4"),
-        ("abs", "NETCDF4_CLASSIC"),
-        ("abs", "NETCDF3_64BIT_OFFSET"),
-        ("abs", "NETCDF3_64BIT_DATA"),
-        ("abs", "NETCDF3_CLASSIC"),
-    ],
-)
-def test_integrate_getreplace_nan_nanfill(
-    tmp_path, test_netcdf_file, create_mock_xml_file, abs_or_rel, nc_format
+@pytest.mark.parametrize("abs_or_rel, nc_format, orig_fill", param_combos)
+def test_integrate_get_replace(
+    tmp_path, test_netcdf_file, create_mock_xml_file, abs_or_rel, nc_format, orig_fill
 ):
     """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
+    # pylint: disable=too-many-arguments, too-many-positional-arguments
 
     # Get the path to put in the XML
-    netcdf_path = test_netcdf_file(fill_value=np.nan, nc_format=nc_format)
+    netcdf_path = test_netcdf_file(fill_value=orig_fill, nc_format=nc_format)
     assert os.path.exists(netcdf_path)
     if abs_or_rel == "abs":
         netcdf_path_for_xml = netcdf_path
@@ -105,7 +109,7 @@ def test_integrate_getreplace_nan_nanfill(
             side_effect=[
                 "y",  # continue after printing summary
                 USER_REQ_DELETE,  # alphabetically 1st var
-                str(TEST_FILL_VALUE),  # alphabetically 2nd var
+                str(TEST_NEW_FILL),  # alphabetically 2nd var
             ],
         ):
             get_replacement_fill_values.main()
@@ -125,8 +129,9 @@ def test_integrate_getreplace_nan_nanfill(
     output_file = get_output_filename(str(netcdf_path))
     assert os.path.exists(output_file)
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
+    assert np.isnan(ds["temp"].values[0])
     assert FILL_ATTR in ds["temp"].encoding
-    assert ds["temp"].encoding[FILL_ATTR] == TEST_FILL_VALUE
+    assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
     assert np.isnan(ds["temp"].values[0])
     assert FILL_ATTR not in ds["pressure"].encoding
     assert get_netcdf_format(output_file) == nc_format
@@ -137,76 +142,6 @@ def test_integrate_getreplace_nan_nanfill(
     paramfile = root.find("paramfile")
     assert paramfile is not None
     assert paramfile.text == get_output_filename(netcdf_path_for_xml)
-
-    # Make sure the progress file is now empty
-    assert not NoNanFillValueProgress(progress_file=progress_file, load_without_asking=True)
-
-@pytest.mark.parametrize(
-    "nc_format",
-    [
-        "NETCDF4",
-        "NETCDF4_CLASSIC",
-        "NETCDF3_64BIT_OFFSET",
-        "NETCDF3_64BIT_DATA",
-        "NETCDF3_CLASSIC",
-    ],
-)
-def test_integrate_getreplace_nan_nofill(
-    tmp_path, test_netcdf_file, create_mock_xml_file, nc_format
-):
-    """Test the integrated get -> replace pipeline given a file with NaN values but no fill value"""
-
-    # Write the XML file
-    netcdf_path = test_netcdf_file(fill_value=None, nc_format=nc_format)
-    xml_content = f"""<?xml version="1.0"?>
-<namelist_defaults>
-    <paramfile>{netcdf_path}</paramfile>
-</namelist_defaults>
-"""
-    xml_file = create_mock_xml_file(xml_content)
-
-    # Call get_replacement_fill_values.py
-    progress_file = str(tmp_path / "progress.json")
-    assert not os.path.exists(progress_file)
-    with patch("sys.argv", ["get_replacement_fill_values.py", "--fillvalues-file", progress_file]):
-        with patch(
-            "builtins.input",
-            side_effect=[
-                "y",  # continue after printing summary
-                USER_REQ_DELETE,  # alphabetically 1st var
-                str(TEST_FILL_VALUE),  # alphabetically 2nd var
-            ],
-        ):
-            get_replacement_fill_values.main()
-
-    # Call replace_fill_values.py
-    with patch("sys.argv", ["replace_fill_values.py", "--fillvalues-file", progress_file]):
-        with patch(
-            "builtins.input",
-            side_effect=[
-                # "y",  # load progress without asking
-                "y",  # continue after replacing
-            ],
-        ):
-            replace_fill_values()
-
-    # Check the output file
-    output_file = get_output_filename(str(netcdf_path))
-    assert os.path.exists(output_file)
-    ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
-    assert np.isnan(ds["temp"].values[0])
-    assert FILL_ATTR in ds["temp"].encoding
-    assert ds["temp"].encoding[FILL_ATTR] == TEST_FILL_VALUE
-    assert np.isnan(ds["temp"].values[0])
-    assert FILL_ATTR not in ds["pressure"].encoding
-    assert get_netcdf_format(output_file) == nc_format
-
-    # Check that the XML points to the output file
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
-    paramfile = root.find("paramfile")
-    assert paramfile is not None
-    assert paramfile.text == get_output_filename(netcdf_path)
 
     # Make sure the progress file is now empty
     assert not NoNanFillValueProgress(progress_file=progress_file, load_without_asking=True)
