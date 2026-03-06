@@ -17,6 +17,7 @@ import logging
 from subprocess import CalledProcessError
 import warnings
 import tempfile
+from shutil import move
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -121,7 +122,7 @@ def _process_one_file(
     # Build and print the ncatted command
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
-        cmd_list = netcdf_utils.build_nco_commands(
+        cmd_list, result_file = netcdf_utils.build_nco_commands(
             input_file_abs, output_file, var_fillvalues, var_fillmissing, tmpdir,
         )
     info(logger, "\nCommands:")
@@ -138,6 +139,12 @@ def _process_one_file(
             if not confirm_continue():
                 sys.exit("Exiting.")
             return files_processed
+
+        # If we didn't convert to/from netCDF4, then we didn't actually create our output file, just
+        # a temporary one. Move that to our output location.
+        if result_file != output_file:
+            move(result_file, output_file)
+
         files_processed += result
         # Update the XML file(s) with the new output path
         files_containing = []

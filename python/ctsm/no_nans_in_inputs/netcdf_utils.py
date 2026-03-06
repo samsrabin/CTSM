@@ -26,6 +26,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     USER_REQ_DELETE,
 )
 
+from ctsm.netcdf_utils import get_netcdf_format  # pylint: disable-wrong-import-position
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
     FillValueConfig,
     VarContext,
@@ -42,6 +43,20 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def _build_nccopy_command(
+    input_file: str,
+    output_file: str,
+    nccopy_kind: str,
+) -> list[str]:
+    """
+    Build nccopy command to convert netCDF type.
+    """
+
+    cmd = ["nccopy", "-k", nccopy_kind, input_file, output_file]
+
+    return cmd
 
 
 def _build_ncatted_command(
@@ -122,6 +137,12 @@ def build_nco_commands(
     tmpdir: str,
 ) -> List[list[str]]:
 
+    # Ensure we're working with strings
+    if isinstance(input_file, Path):
+        input_file = str(input_file)
+    if isinstance(output_file, Path):
+        output_file = str(output_file)
+
     # Ensure input and output files are different (resolve symlinks)
     input_real = os.path.realpath(input_file)
     output_real = os.path.realpath(output_file)
@@ -131,6 +152,20 @@ def build_nco_commands(
             f"Input and output files are the same: {input_file} -> {input_real}",
             error_type=ValueError,
         )
+
+    # Some file types need special handling because they store data and metadata contiguously.
+    # Instead of working on them directly, we'll convert to netCDF4, then do our nco commands,
+    # then convert back. If we don't do this, our nco commands will take a LONG time, as they will
+    # need to rewrite the entire file for every changed variable.
+    match get_netcdf_format(input_file):
+        case "NETCDF3_64BIT_DATA":
+            nccopy_kind = "cdf5"
+        case _:
+            nccopy_kind = None
+    if nccopy_kind:
+        input_file_nc4 = _get_tmp_nc4_path(input_file, tmpdir)
+    else:
+        input_file_nc4 = input_file
 
     # ncatted command will probably fail if any variable is in both these dicts
     for var in var_fillvalues:
@@ -145,25 +180,39 @@ def build_nco_commands(
     if isinstance(tmpdir, Path):
         tmpdir = str(tmpdir)
 
-    # Do we need a temporary file for the ncatted command?
-    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(input_file)
-    if any_nan_without_fill:
-        ncatted_out = os.path.join(tmpdir, "tmp_ncatted.nc")
-    else:
-        ncatted_out = output_file
+    # nccopy to convert to netCDF4, if needed (see above). This has to actually get called before
+    # _build_ncatted_command() because that function will try to open the resulting netCDF4 file.
+    if nccopy_kind:
+        execute_nco_commands([_build_nccopy_command(input_file, input_file_nc4, "netCDF-4")])
+
+    # Always work on a temporary file so we don't pollute inputdata if a command fails. This will
+    # require a move operation after we're all done, but as long as the eventual output is on the
+    # same file system as our temporary file, it will be instantaneous.
+    nc_tmp = os.path.join(tmpdir, "tmp.nc")
+
+    # Now we'll start building (the other) commands
+    cmd_list = []
 
     # ncatted to replace NaN fill values
-    cmd_list = [_build_ncatted_command(input_file, ncatted_out, var_fillvalues, var_fillmissing)]
+    cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues, var_fillmissing))
 
     # Only needed for vars without fill value originally
+    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(input_file)
     if any_nan_without_fill:
+        # ncap2 writes a temporary file by default, so we don't need to worry about slowdowns when
+        # we call it with the same input and output
         cmd_list.append(
-            _build_ncap2_command(
-                ncatted_out, output_file, var_fillvalues, vars_with_nan_without_fill
-            )
+            _build_ncap2_command(nc_tmp, nc_tmp, var_fillvalues, vars_with_nan_without_fill)
         )
 
-    return cmd_list
+    # nccopy to convert back, if needed (see above)
+    if nccopy_kind:
+        cmd_list.append(_build_nccopy_command(nc_tmp, output_file, nccopy_kind))
+        result_file = output_file
+    else:
+        result_file = nc_tmp
+
+    return cmd_list, result_file
 
 
 def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
@@ -181,6 +230,18 @@ def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
     # Get the appropriate type code for ncatted
     type_code = _get_ncatted_type_code(dtype, allow_int)
     return type_code
+
+
+def _get_tmp_nc4_path(file_abs: str, tmpdir: str):
+    file_basename = os.path.basename(file_abs)
+    root, _ = os.path.splitext(file_basename)
+    ext = ".nc4"
+    file_tmp = os.path.join(tmpdir, root + ext)
+    # Make sure our temporary path doesn't match our original
+    while file_tmp == file_abs:
+        root, ext = os.path.splitext(file_tmp)
+        file_tmp = root + ".tmp" + ext
+    return file_tmp
 
 
 def _execute_nco_command(cmd: list[str]) -> int:

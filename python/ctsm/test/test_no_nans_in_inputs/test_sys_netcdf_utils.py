@@ -715,7 +715,7 @@ class TestBuildExecuteNcoCommands:
         var_fillmissing = {}
 
         # Build commands
-        cmd_list = build_nco_commands(
+        cmd_list, result_file = build_nco_commands(
             input_file=test_file_in,
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
@@ -730,8 +730,8 @@ class TestBuildExecuteNcoCommands:
         assert result == 1
 
         # Check output file
-        assert test_file_out.exists()
-        ds_out = xr.open_dataset(test_file_out, **OPEN_DS_KWARGS).compute()
+        assert os.path.exists(result_file)
+        ds_out = xr.open_dataset(result_file, **OPEN_DS_KWARGS).compute()
         assert var_name in ds_out
         print(ds_out[var_name])
         assert np.isnan(ds_out[var_name].values[nan_index])
@@ -772,7 +772,7 @@ class TestBuildExecuteNcoCommands:
         var_fillmissing = {}
 
         # Build commands
-        cmd_list = build_nco_commands(
+        cmd_list, result_file = build_nco_commands(
             input_file=test_file_in,
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
@@ -787,8 +787,8 @@ class TestBuildExecuteNcoCommands:
         assert result == 1
 
         # Check output file
-        assert test_file_out.exists()
-        ds_out = xr.open_dataset(test_file_out, **OPEN_DS_KWARGS).compute()
+        assert os.path.exists(result_file)
+        ds_out = xr.open_dataset(result_file, **OPEN_DS_KWARGS).compute()
         assert var_name in ds_out
         print(ds_out[var_name])
         assert np.isnan(ds_out[var_name].values[nan_index])
