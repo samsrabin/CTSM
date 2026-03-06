@@ -472,11 +472,7 @@ def get_var_info(
     elif np.isnan(nanmin):
         # The data is all filled anyway
         default_fill = -999
-    elif (
-        nanmin >= 0
-        or nanmin == -1
-        or any(var.startswith(x) for x in VARSTARTS_TO_DEFAULT_NEG999)
-    ):
+    elif nanmin >= 0 or nanmin == -1 or any(var.startswith(x) for x in VARSTARTS_TO_DEFAULT_NEG999):
         default_fill = _get_negative_default(nanmin)
     else:
         default_fill = -(10 ** (np.ceil(np.log10(max(np.abs([nanmin, nanmax])))) + 1) - 1)
