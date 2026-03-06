@@ -458,7 +458,9 @@ class TestBuildNcattedCommand:
     def test_delete_attribute(self, test_netcdf_file):
         """Test building command to delete an attribute."""
         var_fillvalues = {TEST_VAR_TEMP: USER_REQ_DELETE}
-        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+        )
 
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
@@ -469,7 +471,9 @@ class TestBuildNcattedCommand:
     def test_modify_float_attribute(self, test_netcdf_file):
         """Test building command to modify a float attribute."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+        )
 
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
@@ -479,7 +483,9 @@ class TestBuildNcattedCommand:
     def test_modify_double_attribute(self, test_netcdf_file):
         """Test building command to modify a double (float64) attribute."""
         var_fillvalues = {TEST_VAR_PRESSURE: TEST_FILL_VALUE}
-        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+        )
 
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
@@ -489,7 +495,9 @@ class TestBuildNcattedCommand:
     def test_multiple_variables(self, test_netcdf_file):
         """Test building command with multiple variables."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE, TEST_VAR_PRESSURE: USER_REQ_DELETE}
-        cmd = _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+        )
 
         # Should have two -a flags
         assert cmd.count(NCATTED_FLAG) == 2
@@ -500,13 +508,9 @@ class TestBuildNcattedCommand:
         """Test that missing variable raises ValueError."""
         var_fillvalues = {"nonexistent_var": TEST_FILL_VALUE}
         with pytest.raises(ValueError, match="not found"):
-            _build_ncatted_command(test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={})
-
-    def test_same_input_output(self, test_netcdf_file):
-        """Test that same input and output files raises ValueError."""
-        var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        with pytest.raises(ValueError, match="Input and output files are the same"):
-            build_nco_commands(test_netcdf_file, test_netcdf_file, var_fillvalues, var_fillmissing={})
+            _build_ncatted_command(
+                test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+            )
 
     def test_output_already_exists(self, test_netcdf_file, tmp_path):
         """Test that existing output file is detected."""
@@ -520,8 +524,22 @@ class TestBuildNcattedCommand:
 
         # Building command should still work - skip logic is in main()
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = _build_ncatted_command(test_netcdf_file, str(output_file), var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(
+            test_netcdf_file, str(output_file), var_fillvalues, var_fillmissing={}
+        )
         assert NCATTED_CMD in cmd
+
+
+class TestBuildNcoCommands:
+    """Tests of build_nco_commands()"""
+
+    def test_same_input_output(self, test_netcdf_file):
+        """Test that same input and output files raises ValueError."""
+        var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
+        with pytest.raises(ValueError, match="Input and output files are the same"):
+            build_nco_commands(
+                test_netcdf_file, test_netcdf_file, var_fillvalues, var_fillmissing={}
+            )
 
 
 class TestExecuteCommand:
