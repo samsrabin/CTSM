@@ -16,6 +16,7 @@ from pathlib import Path
 import logging
 from subprocess import CalledProcessError
 import warnings
+import tempfile
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
@@ -101,6 +102,7 @@ def _process_one_file(
     output_file: str,
     files_processed: list,
     dry_run: bool,
+    tmpdir: str,
 ):
 
     # Check whether we can process the file
@@ -120,7 +122,7 @@ def _process_one_file(
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
         cmd_list = netcdf_utils.build_nco_commands(
-            input_file_abs, output_file, var_fillvalues, var_fillmissing
+            input_file_abs, output_file, var_fillvalues, var_fillmissing, tmpdir,
         )
     info(logger, "\nCommands:")
     for cmd in cmd_list:
@@ -346,13 +348,15 @@ def process_files(
         if skip_this_file(input_file_abs, output_file, overwrite):
             continue
 
-        files_processed = _process_one_file(
-            progress=progress,
-            input_file_abs=input_file_abs,
-            output_file=output_file,
-            files_processed=files_processed,
-            dry_run=dry_run,
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            files_processed = _process_one_file(
+                progress=progress,
+                input_file_abs=input_file_abs,
+                output_file=output_file,
+                files_processed=files_processed,
+                dry_run=dry_run,
+                tmpdir=tmpdir,
+            )
 
     # Only print summary in dry-run mode
     if dry_run:

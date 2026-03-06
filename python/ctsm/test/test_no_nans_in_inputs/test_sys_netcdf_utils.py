@@ -533,12 +533,16 @@ class TestBuildNcattedCommand:
 class TestBuildNcoCommands:
     """Tests of build_nco_commands()"""
 
-    def test_same_input_output(self, test_netcdf_file):
+    def test_same_input_output(self, tmp_path, test_netcdf_file):
         """Test that same input and output files raises ValueError."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
         with pytest.raises(ValueError, match="Input and output files are the same"):
             build_nco_commands(
-                test_netcdf_file, test_netcdf_file, var_fillvalues, var_fillmissing={}
+                test_netcdf_file,
+                test_netcdf_file,
+                var_fillvalues,
+                var_fillmissing={},
+                tmpdir=tmp_path,
             )
 
 
@@ -716,6 +720,7 @@ class TestBuildExecuteNcoCommands:
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
             var_fillmissing=var_fillmissing,
+            tmpdir=tmp_path,
         )
 
         # Execute commands
@@ -772,6 +777,7 @@ class TestBuildExecuteNcoCommands:
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
             var_fillmissing=var_fillmissing,
+            tmpdir=tmp_path,
         )
 
         # Execute commands

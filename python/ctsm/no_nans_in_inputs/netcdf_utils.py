@@ -2,6 +2,7 @@
 
 import os
 import sys
+from pathlib import Path
 import re
 import subprocess
 from typing import Any, List, NamedTuple, Tuple
@@ -118,6 +119,7 @@ def build_nco_commands(
     output_file: str,
     var_fillvalues: dict[str, Any],
     var_fillmissing: dict[str, dict[str:Any]],
+    tmpdir: str,
 ) -> List[list[str]]:
 
     # Ensure input and output files are different (resolve symlinks)
@@ -139,15 +141,25 @@ def build_nco_commands(
                 error_type=NotImplementedError,
             )
 
+    # Coerce type, if needed
+    if isinstance(tmpdir, Path):
+        tmpdir = str(tmpdir)
+
+    # Do we need a temporary file for the ncatted command?
+    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(input_file)
+    if any_nan_without_fill:
+        ncatted_out = os.path.join(tmpdir, "tmp_ncatted.nc")
+    else:
+        ncatted_out = output_file
+
     # ncatted to replace NaN fill values
-    cmd_list = [_build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing)]
+    cmd_list = [_build_ncatted_command(input_file, ncatted_out, var_fillvalues, var_fillmissing)]
 
     # Only needed for vars without fill value originally
-    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(input_file)
     if any_nan_without_fill:
         cmd_list.append(
             _build_ncap2_command(
-                input_file, output_file, var_fillvalues, vars_with_nan_without_fill
+                ncatted_out, output_file, var_fillvalues, vars_with_nan_without_fill
             )
         )
 
@@ -184,7 +196,7 @@ def _execute_nco_command(cmd: list[str]) -> int:
     Raises:
         SystemExit: If nco command fails or is not found
     """
-    info(logger, "\nExecuting...")
+    info(logger, f"\nExecuting: {' '.join([str(x) for x in cmd])}")
     nco_util = cmd[0]
     files_processed = 0
     try:
