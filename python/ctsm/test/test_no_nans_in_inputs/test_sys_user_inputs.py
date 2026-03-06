@@ -8,7 +8,7 @@ import numpy as np
 import xarray as xr
 
 from ctsm.no_nans_in_inputs.constants import (
-    ATTR,
+    FILL_ATTR,
     USER_REQ_QUIT,
     USER_REQ_SKIP_FILE,
 )
@@ -44,7 +44,7 @@ class TestCollectNewFillValues:
             {
                 var_name: {
                     "data": np.array([1.0, 2.0], dtype=np.float32),
-                    "attrs": {ATTR: np.float32(np.nan), "long_name": "temperature"},
+                    "attrs": {FILL_ATTR: np.float32(np.nan), "long_name": "temperature"},
                 }
             },
         )
@@ -81,11 +81,11 @@ class TestCollectNewFillValues:
             {
                 "temp": {
                     "data": np.array([1.0], dtype=np.float32),
-                    "attrs": {ATTR: np.float32(np.nan)},
+                    "attrs": {FILL_ATTR: np.float32(np.nan)},
                 },
                 "precip": {
                     "data": np.array([2.0], dtype=np.float32),
-                    "attrs": {ATTR: np.float32(np.nan)},
+                    "attrs": {FILL_ATTR: np.float32(np.nan)},
                 },
             },
         )
@@ -109,11 +109,11 @@ class TestCollectNewFillValues:
         data = {
             "temp": {
                 "data": np.array([1.0], dtype=np.float32),
-                "attrs": {ATTR: np.float32(np.nan)},
+                "attrs": {FILL_ATTR: np.float32(np.nan)},
             },
             "precip": {
                 "data": np.array([2.0], dtype=np.float32),
-                "attrs": {ATTR: np.float32(np.nan)},
+                "attrs": {FILL_ATTR: np.float32(np.nan)},
             },
         }
         self._create_test_netcdf(
@@ -142,7 +142,7 @@ class TestCollectNewFillValues:
         var_name = "temp"
         self._create_test_netcdf(
             test_file,
-            {var_name: {"data": [1.0], "attrs": {ATTR: np.nan}}},
+            {var_name: {"data": [1.0], "attrs": {FILL_ATTR: np.nan}}},
         )
         progress = NoNanFillValueProgress(progress_file=None)
         progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
@@ -167,7 +167,7 @@ class TestCollectNewFillValues:
             {
                 var_name: {
                     "data": np.array([1.0, 2.0], dtype=np.float32),
-                    "attrs": {ATTR: np.float32(np.nan), "long_name": "temperature"},
+                    "attrs": {FILL_ATTR: np.float32(np.nan), "long_name": "temperature"},
                 }
             },
         )
@@ -199,7 +199,7 @@ class TestCollectNewFillValues:
             {
                 var_name: {
                     "data": np.array([np.nan, 1.0], dtype=np.float32),
-                    "attrs": {ATTR: np.float32(np.nan), "long_name": "temperature"},
+                    "attrs": {FILL_ATTR: np.float32(np.nan), "long_name": "temperature"},
                 }
             },
         )
@@ -234,7 +234,7 @@ class TestCollectNewFillValues:
             {
                 var_name: {
                     "data": np.array([np.nan, -5.0], dtype=np.float32),
-                    "attrs": {ATTR: np.float32(np.nan), "long_name": "nod"},
+                    "attrs": {FILL_ATTR: np.float32(np.nan), "long_name": "nod"},
                 }
             },
         )

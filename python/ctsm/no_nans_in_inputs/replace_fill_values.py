@@ -31,7 +31,9 @@ from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-pos
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     DEFAULT_CTSM_ROOT,
     DIR_TO_SEARCH_FOR_XML_FILES,
+    FILL_ATTR,
     INDENT,
+    MISSING_ATTR,
     NEW_FILLVALUES_FILE,
     NO_HANDLED_NANS,
     SEP_LENGTH,
@@ -276,7 +278,7 @@ def _print_and_wait(
 
     # Which variables got their _FillValue and missing_value harmonized?
     if var_fillmissing:
-        warn(logger, "Harmonized _FillValue and missing_value to:")
+        warn(logger, f"Harmonized {FILL_ATTR} and {MISSING_ATTR} to:")
         new_fillmiss_dict = {}
         for var, var_dict in var_fillmissing.items():
             assert len(set(var_dict.values())) == 1

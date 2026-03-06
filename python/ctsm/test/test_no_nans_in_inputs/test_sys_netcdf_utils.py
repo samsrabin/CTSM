@@ -12,7 +12,7 @@ import xarray as xr
 from netCDF4 import Dataset  # pylint: disable=no-name-in-module
 
 from ctsm.no_nans_in_inputs.constants import (
-    ATTR,
+    FILL_ATTR,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
     VARSTARTS_TO_DEFAULT_NEG999,
@@ -48,7 +48,7 @@ def fixture_test_netcdf_file(tmp_path):
             TEST_VAR_TEMP: xr.DataArray(
                 np.array([1.0, 2.0, 3.0], dtype=np.float32),
                 dims=["time"],
-                attrs={ATTR: np.float32(np.nan), "long_name": "temperature"},
+                attrs={FILL_ATTR: np.float32(np.nan), "long_name": "temperature"},
             ),
         }
     )
@@ -84,7 +84,7 @@ class TestGetVarsWithNanFills:
             }
         )
         # Use encoding to set (or suppress) the _FillValue
-        encoding = {var_name: {ATTR: fill_value}}
+        encoding = {var_name: {FILL_ATTR: fill_value}}
         ds.to_netcdf(str(test_file), encoding=encoding)
         vars_with_nan_fills = get_vars_with_nan_fills(str(test_file))
         assert (var_name in vars_with_nan_fills) == expected
@@ -222,7 +222,7 @@ class TestVarHasNanWithoutFill:
 
     def test_returns_false_nan_fillvalue_but_no_filled(self):
         """Returns False if variable has NaN _FillValue but no filled elements"""
-        da = xr.DataArray(np.array([1.0, 2.0]), attrs={"_FillValue": np.nan})
+        da = xr.DataArray(np.array([1.0, 2.0]), attrs={FILL_ATTR: np.nan})
         assert not var_has_nan_without_fill(da, dims_to_slice_over=None)
 
     def test_returns_false_nan_fillvalue_and_filled(self):
@@ -230,7 +230,7 @@ class TestVarHasNanWithoutFill:
         da = xr.DataArray(
             np.array([np.nan, 2.0, 3.0], dtype=np.float32),
             dims=["time"],
-            attrs={ATTR: np.float32(np.nan)},
+            attrs={FILL_ATTR: np.float32(np.nan)},
         )
         assert not var_has_nan_without_fill(da, dims_to_slice_over=None)
 
@@ -441,12 +441,12 @@ class TestBuildNcattedCommand:
                 TEST_VAR_TEMP: xr.DataArray(
                     np.array([1.0, 2.0, 3.0], dtype=np.float32),
                     dims=["time"],
-                    attrs={ATTR: np.float32(np.nan)},
+                    attrs={FILL_ATTR: np.float32(np.nan)},
                 ),
                 TEST_VAR_PRESSURE: xr.DataArray(
                     np.array([1000.0, 1010.0, 1020.0], dtype=np.float64),
                     dims=["time"],
-                    attrs={ATTR: np.float64(np.nan)},
+                    attrs={FILL_ATTR: np.float64(np.nan)},
                 ),
             }
         )
@@ -464,7 +464,7 @@ class TestBuildNcattedCommand:
 
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
-        assert f"{ATTR},{TEST_VAR_TEMP},d,," in cmd
+        assert f"{FILL_ATTR},{TEST_VAR_TEMP},d,," in cmd
         assert test_netcdf_file in cmd
         assert TEST_OUTPUT_FILE in cmd
 
@@ -478,7 +478,7 @@ class TestBuildNcattedCommand:
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
         # Should use 'f' for float32
-        assert f"{ATTR},{TEST_VAR_TEMP},o,f,{TEST_FILL_VALUE}" in cmd
+        assert f"{FILL_ATTR},{TEST_VAR_TEMP},o,f,{TEST_FILL_VALUE}" in cmd
 
     def test_modify_double_attribute(self, test_netcdf_file):
         """Test building command to modify a double (float64) attribute."""
@@ -490,7 +490,7 @@ class TestBuildNcattedCommand:
         assert NCATTED_CMD in cmd
         assert NCATTED_FLAG in cmd
         # Should use 'd' for float64
-        assert f"{ATTR},{TEST_VAR_PRESSURE},o,d,{TEST_FILL_VALUE}" in cmd
+        assert f"{FILL_ATTR},{TEST_VAR_PRESSURE},o,d,{TEST_FILL_VALUE}" in cmd
 
     def test_multiple_variables(self, test_netcdf_file):
         """Test building command with multiple variables."""
@@ -501,8 +501,8 @@ class TestBuildNcattedCommand:
 
         # Should have two -a flags
         assert cmd.count(NCATTED_FLAG) == 2
-        assert f"{ATTR},{TEST_VAR_TEMP},o,f,{TEST_FILL_VALUE}" in cmd
-        assert f"{ATTR},{TEST_VAR_PRESSURE},d,," in cmd
+        assert f"{FILL_ATTR},{TEST_VAR_TEMP},o,f,{TEST_FILL_VALUE}" in cmd
+        assert f"{FILL_ATTR},{TEST_VAR_PRESSURE},d,," in cmd
 
     def test_variable_not_found(self, test_netcdf_file):
         """Test that missing variable raises ValueError."""
@@ -571,13 +571,13 @@ class TestExecuteCommand:
                     ),
                 }
             )
-            ds.to_netcdf(test_nc, format=netcdf_format, encoding={TEST_VAR_TEMP: {ATTR: nan_fill}})
+            ds.to_netcdf(test_nc, format=netcdf_format, encoding={TEST_VAR_TEMP: {FILL_ATTR: nan_fill}})
             ds.close()
 
             # Check fill value
             ds = xr.open_dataset(test_nc, mask_and_scale=True, **OPEN_DS_KWARGS)
-            assert ATTR in ds[TEST_VAR_TEMP].encoding
-            assert np.isnan(ds[TEST_VAR_TEMP].encoding[ATTR])
+            assert FILL_ATTR in ds[TEST_VAR_TEMP].encoding
+            assert np.isnan(ds[TEST_VAR_TEMP].encoding[FILL_ATTR])
             ds.close()
 
             return test_nc
@@ -621,8 +621,8 @@ class TestExecuteCommand:
             **OPEN_DS_KWARGS,
         )
         assert TEST_VAR_TEMP in ds_out
-        assert ATTR in ds_out[TEST_VAR_TEMP].encoding
-        assert ds_out[TEST_VAR_TEMP].encoding[ATTR] == TEST_FILL_VALUE
+        assert FILL_ATTR in ds_out[TEST_VAR_TEMP].encoding
+        assert ds_out[TEST_VAR_TEMP].encoding[FILL_ATTR] == TEST_FILL_VALUE
         ds_out.close()
 
         # Verify formats match
@@ -659,8 +659,8 @@ class TestExecuteCommand:
         assert os.path.exists(output_file)
         ds_out = xr.open_dataset(output_file, mask_and_scale=True, **OPEN_DS_KWARGS)
         assert TEST_VAR_TEMP in ds_out
-        assert ATTR in ds_out[TEST_VAR_TEMP].encoding
-        assert ds_out[TEST_VAR_TEMP].encoding[ATTR] == TEST_FILL_VALUE
+        assert FILL_ATTR in ds_out[TEST_VAR_TEMP].encoding
+        assert ds_out[TEST_VAR_TEMP].encoding[FILL_ATTR] == TEST_FILL_VALUE
 
         # If we used a value we expect to be filled, then...
         if expect_filled:
@@ -700,13 +700,13 @@ class TestBuildExecuteNcoCommands:
         )
         print(ds[var_name])
         # Use encoding to set the _FillValue
-        encoding = {var_name: {ATTR: nan_fill_value}}
+        encoding = {var_name: {FILL_ATTR: nan_fill_value}}
         ds.to_netcdf(str(test_file_in), encoding=encoding)
         # Make sure that worked
         tmp = xr.open_dataset(test_file_in, **OPEN_DS_KWARGS).compute()
         print(tmp[var_name])
-        assert ATTR in tmp[var_name].encoding, str(tmp[var_name].encoding)
-        assert np.isnan(tmp[var_name].encoding[ATTR])
+        assert FILL_ATTR in tmp[var_name].encoding, str(tmp[var_name].encoding)
+        assert np.isnan(tmp[var_name].encoding[FILL_ATTR])
 
         # Set up other inputs for build_nco_commands
         test_file_out = tmp_path / "output.nc"
@@ -735,8 +735,8 @@ class TestBuildExecuteNcoCommands:
         assert var_name in ds_out
         print(ds_out[var_name])
         assert np.isnan(ds_out[var_name].values[nan_index])
-        assert ATTR in ds_out[var_name].encoding
-        assert ds_out[var_name].encoding[ATTR] == new_fillvalue
+        assert FILL_ATTR in ds_out[var_name].encoding
+        assert ds_out[var_name].encoding[FILL_ATTR] == new_fillvalue
 
     def test_fix_nan_without_fill(self, tmp_path):
         """Test fixing a file that had NaN but no fill value"""
@@ -758,12 +758,12 @@ class TestBuildExecuteNcoCommands:
         )
         print(ds[var_name])
         # Use encoding to SUPPRESS the _FillValue
-        encoding = {var_name: {ATTR: None}}
+        encoding = {var_name: {FILL_ATTR: None}}
         ds.to_netcdf(str(test_file_in), encoding=encoding)
         # Make sure that worked
         tmp = xr.open_dataset(test_file_in, **OPEN_DS_KWARGS).compute()
         print(tmp[var_name])
-        assert ATTR not in tmp[var_name].encoding, str(tmp[var_name].encoding)
+        assert FILL_ATTR not in tmp[var_name].encoding, str(tmp[var_name].encoding)
 
         # Set up other inputs for build_nco_commands
         test_file_out = tmp_path / "output.nc"
@@ -792,5 +792,5 @@ class TestBuildExecuteNcoCommands:
         assert var_name in ds_out
         print(ds_out[var_name])
         assert np.isnan(ds_out[var_name].values[nan_index])
-        assert ATTR in ds_out[var_name].encoding
-        assert ds_out[var_name].encoding[ATTR] == new_fillvalue
+        assert FILL_ATTR in ds_out[var_name].encoding
+        assert ds_out[var_name].encoding[FILL_ATTR] == new_fillvalue

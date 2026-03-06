@@ -12,7 +12,7 @@ import xarray as xr
 
 from ctsm.netcdf_utils import get_netcdf_format
 from ctsm.no_nans_in_inputs.constants import (
-    ATTR,
+    FILL_ATTR,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
@@ -44,12 +44,12 @@ def fixture_test_netcdf_file_nan_nanfill(tmp_path):
                 TEST_VAR_TEMP: xr.DataArray(
                     np.array([np.nan, 2.0, 3.0], dtype=np.float32),
                     dims=["time"],
-                    attrs={ATTR: np.float32(np.nan)},
+                    attrs={FILL_ATTR: np.float32(np.nan)},
                 ),
                 TEST_VAR_PRESSURE: xr.DataArray(
                     np.array([1000.0, 1010.0, 1020.0], dtype=np.float64),
                     dims=["time"],
-                    attrs={ATTR: np.float64(np.nan)},
+                    attrs={FILL_ATTR: np.float64(np.nan)},
                 ),
             }
         )
@@ -85,7 +85,7 @@ def fixture_test_netcdf_file_nan_nofill(tmp_path):
         )
         encoding = {}
         for v in ds:
-            encoding[v] = {ATTR: None}
+            encoding[v] = {FILL_ATTR: None}
         ds.to_netcdf(str(test_file), encoding=encoding, format=nc_format)
         ds.close()
 
@@ -157,10 +157,10 @@ def test_integrate_getreplace_nan_nanfill(
     output_file = get_output_filename(str(netcdf_path))
     assert os.path.exists(output_file)
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
-    assert ATTR in ds["temp"].encoding
-    assert ds["temp"].encoding[ATTR] == TEST_FILL_VALUE
+    assert FILL_ATTR in ds["temp"].encoding
+    assert ds["temp"].encoding[FILL_ATTR] == TEST_FILL_VALUE
     assert np.isnan(ds["temp"].values[0])
-    assert ATTR not in ds["pressure"].encoding
+    assert FILL_ATTR not in ds["pressure"].encoding
     assert get_netcdf_format(output_file) == nc_format
 
     # Check that the XML points to the output file
@@ -227,10 +227,10 @@ def test_integrate_getreplace_nan_nofill(
     assert os.path.exists(output_file)
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
     assert np.isnan(ds["temp"].values[0])
-    assert ATTR in ds["temp"].encoding
-    assert ds["temp"].encoding[ATTR] == TEST_FILL_VALUE
+    assert FILL_ATTR in ds["temp"].encoding
+    assert ds["temp"].encoding[FILL_ATTR] == TEST_FILL_VALUE
     assert np.isnan(ds["temp"].values[0])
-    assert ATTR not in ds["pressure"].encoding
+    assert FILL_ATTR not in ds["pressure"].encoding
     assert get_netcdf_format(output_file) == nc_format
 
     # Check that the XML points to the output file

@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from ctsm.no_nans_in_inputs.constants import ATTR, USER_REQ_DELETE, OPEN_DS_KWARGS
+from ctsm.no_nans_in_inputs.constants import FILL_ATTR, USER_REQ_DELETE, OPEN_DS_KWARGS
 from ctsm.no_nans_in_inputs.json_io import NoNanFillValueProgress
 from ctsm.no_nans_in_inputs.replace_fill_values import (
     get_output_filename,
@@ -45,12 +45,12 @@ class TestReplaceFullWorkflow:
                 TEST_VAR_TEMP: xr.DataArray(
                     np.array([1.0, 2.0, np.nan, 4.0], dtype=np.float32),
                     dims=["time"],
-                    attrs={ATTR: np.float32(np.nan)},
+                    attrs={FILL_ATTR: np.float32(np.nan)},
                 ),
                 TEST_VAR_PRESSURE: xr.DataArray(
                     np.array([1000.0, 1010.0, 1020.0, 1030.0], dtype=np.float64),
                     dims=["time"],
-                    attrs={ATTR: np.float64(np.nan)},
+                    attrs={FILL_ATTR: np.float64(np.nan)},
                 ),
             }
         )
@@ -111,14 +111,14 @@ class TestReplaceFullWorkflow:
 
         # Check temp variable - should have new fill value
         assert TEST_VAR_TEMP in ds_out
-        assert ATTR in ds_out[TEST_VAR_TEMP].encoding
-        assert ds_out[TEST_VAR_TEMP].encoding[ATTR] == TEST_FILL_VALUE
+        assert FILL_ATTR in ds_out[TEST_VAR_TEMP].encoding
+        assert ds_out[TEST_VAR_TEMP].encoding[FILL_ATTR] == TEST_FILL_VALUE
         # Data should be unchanged except fill value
         assert ds_out[TEST_VAR_TEMP].shape == (4,)
 
         # Check pressure variable - fill value should be deleted
         assert TEST_VAR_PRESSURE in ds_out
-        assert ATTR not in ds_out[TEST_VAR_PRESSURE].encoding
+        assert FILL_ATTR not in ds_out[TEST_VAR_PRESSURE].encoding
 
         ds_out.close()
 
@@ -208,8 +208,8 @@ class TestReplaceFullWorkflow:
             **OPEN_DS_KWARGS,
         )
         assert TEST_VAR_TEMP in ds_out
-        assert ATTR in ds_out[TEST_VAR_TEMP].encoding
-        assert ds_out[TEST_VAR_TEMP].encoding[ATTR] == TEST_FILL_VALUE
+        assert FILL_ATTR in ds_out[TEST_VAR_TEMP].encoding
+        assert ds_out[TEST_VAR_TEMP].encoding[FILL_ATTR] == TEST_FILL_VALUE
         ds_out.close()
 
         # Verify XML was updated

@@ -26,7 +26,7 @@ if _CTSM_PYTHON not in sys.path:
     sys.path.insert(1, _CTSM_PYTHON)
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
-    ATTR,
+    FILL_ATTR,
     DEFAULT_CTSM_ROOT,
     DIR_TO_SEARCH_FOR_XML_FILES,
     INDENT,

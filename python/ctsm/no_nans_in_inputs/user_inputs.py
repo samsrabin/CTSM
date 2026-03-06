@@ -18,10 +18,11 @@ if _CTSM_PYTHON not in sys.path:
     sys.path.insert(1, _CTSM_PYTHON)
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
-    ATTR,
+    FILL_ATTR,
     ERR_STR_SKIP_FILE,
     ERR_STR_SKIP_VAR,
     INDENT,
+    MISSING_ATTR,
     OPEN_DS_KWARGS,
     SEP_LENGTH,
     USER_REQ_DELETE,
@@ -103,7 +104,7 @@ def _convert_and_validate_input(user_input: str, target_type: type) -> Any | Non
         except TypeError:
             converted_value_is_nan = False
         if converted_value_is_nan:
-            error(logger, f"Input '{user_input}' would produce a NaN {ATTR}", error_type=ValueError)
+            error(logger, f"Input '{user_input}' would produce a NaN {FILL_ATTR}", error_type=ValueError)
 
         return converted_value
     except (ValueError, TypeError) as e:
@@ -136,7 +137,7 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
             prefix = "Would auto-delete"
         else:
             prefix = "Auto-deleting"
-        warn(logger, f"{INDENT}{prefix} {ATTR} attribute, since no elements are filled")
+        warn(logger, f"{INDENT}{prefix} {FILL_ATTR} attribute, since no elements are filled")
         return USER_REQ_DELETE
 
     # TODO:  WARN AND ASK FOR CONFIRMATION IF TRYING TO SET FILL VALUE TO SOMETHING ALREADY PRESENT
@@ -275,11 +276,11 @@ def _handle_special_command(input_str: str, allow_delete: bool) -> Any | None:
         if not allow_delete:
             error(
                 logger,
-                f"{INDENT}Error: Cannot delete {ATTR} - variable contains NaN values",
+                f"{INDENT}Error: Cannot delete {FILL_ATTR} - variable contains NaN values",
                 error_type=None,
             )
             return None
-        warn(logger, f"{INDENT}Will delete {ATTR} attribute")
+        warn(logger, f"{INDENT}Will delete {FILL_ATTR} attribute")
         return USER_REQ_DELETE
     return None
 
@@ -360,8 +361,8 @@ def _process_vars_with_mismatched_fill_missing(
             continue
 
         da = ds[var]
-        fill = da.attrs["_FillValue"]
-        missing = da.attrs["missing_value"]
+        fill = da.attrs[FILL_ATTR]
+        missing = da.attrs[MISSING_ATTR]
 
         # Do any values match missing_value?
         if np.isnan(missing):
@@ -393,12 +394,12 @@ def _process_vars_with_mismatched_fill_missing(
         new_fill = None
         # TODO: Replace these with proper prompts rather than just asking whether to continue
         if not any_missing:
-            msg = f"{INDENT}{var}: Setting missing_value ({missing}) to match _FillValue ({fill})"
+            msg = f"{INDENT}{var}: Setting {MISSING_ATTR} ({missing}) to match {FILL_ATTR} ({fill})"
             warn(logger, msg)
             new_missing = fill
             new_fill = fill
         elif not any_fill:
-            msg = f"{INDENT}{var}: Setting _FillValue ({fill}) to match missing_value ({missing})"
+            msg = f"{INDENT}{var}: Setting {FILL_ATTR} ({fill}) to match {MISSING_ATTR} ({missing})"
             warn(logger, msg)
             new_fill = missing
             new_missing = missing
@@ -406,8 +407,8 @@ def _process_vars_with_mismatched_fill_missing(
         fixing = new_missing is not None
         if not fixing:
             msg = (
-                f"{INDENT}WARNING: variable {var} has both _FillValue ({fill}) "
-                f"and missing_value ({missing}); skipping",
+                f"{INDENT}WARNING: variable {var} has both {FILL_ATTR} ({fill}) "
+                f"and {MISSING_ATTR} ({missing}); skipping",
             )
             error_type = (
                 NotImplementedError if logger.getEffectiveLevel() <= logging.DEBUG else None
@@ -422,8 +423,8 @@ def _process_vars_with_mismatched_fill_missing(
         if fixing and not dry_run:
             # This dict will be saved as progress[abs_path]["new_fill_missing"][var]
             d = {
-                "_FillValue": new_fill,
-                "missing_value": new_missing,
+                FILL_ATTR: new_fill,
+                MISSING_ATTR: new_missing,
             }
 
             # Handle types that aren't JSON-serializable

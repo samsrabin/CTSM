@@ -20,8 +20,9 @@ KNOWN_GOOD_FILES_FILE = Path(__file__).parent / "known_good.json"
 # Filename suffix after fixing NaN fills
 NONANFILL_SUFFIX = "no_nan_fill"
 
-# NetCDF attribute name
-ATTR = "_FillValue"
+# NetCDF attribute names
+FILL_ATTR = "_FillValue"
+MISSING_ATTR = "missing_value"
 
 # Special commands for user input
 USER_REQ_QUIT = "quit"

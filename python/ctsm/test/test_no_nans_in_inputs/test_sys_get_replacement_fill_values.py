@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from ctsm.no_nans_in_inputs.constants import ATTR
+from ctsm.no_nans_in_inputs.constants import FILL_ATTR
 from ctsm.no_nans_in_inputs.get_replacement_fill_values import (
     file_has_nan_fill,
     main as main_func,
@@ -50,7 +50,7 @@ class TestFileHasNanFill:
             }
         )
         # Use encoding to set (or suppress) the _FillValue
-        encoding = {"temp": {ATTR: fill_value}}
+        encoding = {"temp": {FILL_ATTR: fill_value}}
         ds.to_netcdf(str(test_file), encoding=encoding)
         any_nan_fill, vars_with_nan_fills = file_has_nan_fill(str(test_file))
         assert any_nan_fill == expected

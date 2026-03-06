@@ -19,9 +19,10 @@ if _CTSM_PYTHON not in sys.path:
     sys.path.insert(1, _CTSM_PYTHON)
 
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
-    ATTR,
+    FILL_ATTR,
     INDENT,
     INPUTDATA_PREFIX,
+    MISSING_ATTR,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
@@ -88,12 +89,12 @@ def _build_ncatted_command(
     for var, fill_val in var_fillvalues.items():
         if fill_val == USER_REQ_DELETE:
             # Delete the attribute: -a attr_name,var_name,d,,
-            cmd.extend(["-a", f"{ATTR},{var},d,,"])
+            cmd.extend(["-a", f"{FILL_ATTR},{var},d,,"])
         else:
             type_code = _get_ncatted_dtype_and_type_code(input_file, var, ds)
 
             # Modify the attribute: -a attr_name,var_name,o,type,value
-            cmd.extend(["-a", f"{ATTR},{var},o,{type_code},{fill_val}"])
+            cmd.extend(["-a", f"{FILL_ATTR},{var},o,{type_code},{fill_val}"])
     ds.close()
 
     ds = xr.open_dataset(input_file, **OPEN_DS_KWARGS, mask_and_scale=False)
@@ -309,7 +310,7 @@ def var_has_nan_without_fill(
     largest possible slice, for efficiency
     """
     # If variable has fill value, obviously this function should return False
-    if hasattr(da, "attrs") and ATTR in da.attrs:
+    if hasattr(da, "attrs") and FILL_ATTR in da.attrs:
         return False
 
     # Check one slice at a time for some dimensions in order to reduce RAM usage
@@ -375,10 +376,10 @@ def file_has_mismatched_fill_missing(nc_path: str) -> Tuple[bool, List[FillValue
 
 
 def var_has_mismatched_fill_missing(name: str, var: Variable) -> FillValueMismatch | None:
-    if not hasattr(var, "_FillValue") or not hasattr(var, "missing_value"):
+    if not hasattr(var, FILL_ATTR) or not hasattr(var, MISSING_ATTR):
         return None
 
-    fill_val = var._FillValue  # pylint: disable=protected-access
+    fill_val = getattr(var, FILL_ATTR)
     missing_val = var.missing_value
 
     # Convert both explicitly to the variable dtype
@@ -555,7 +556,7 @@ def get_var_info(
     warn(logger, f"{INDENT}nanmin:    {nanmin}")
     warn(logger, f"{INDENT}nanmax:    {nanmax}")
     if data_has_nan:
-        warn(logger, f"{INDENT}WARNING: Data contains NaN values - cannot delete {ATTR}")
+        warn(logger, f"{INDENT}WARNING: Data contains NaN values - cannot delete {FILL_ATTR}")
 
     # Save and return info
     var_context = VarContext(
@@ -594,10 +595,10 @@ def get_vars_with_nan_fills(abs_path: str) -> List[str]:
     # Regex breakdown:
     # ^\s* : Start of line and any leading whitespace
     # (\S+)       : Capture one or more non-whitespace characters (the variable name)
-    # :{ATTR}} : The attribute where fill value is stored
+    # :{FILL_ATTR}} : The attribute where fill value is stored
     # \s*=\s* : The equals sign with flexible surrounding whitespace
     # NaNf?\s*;    : The NaN/NaNf value and the closing semicolon
-    regex_pattern = rf"^\s*(\S+):{ATTR}\s*=\s*NaNf?\s*;"
+    regex_pattern = rf"^\s*(\S+):{FILL_ATTR}\s*=\s*NaNf?\s*;"
 
     # Use re.MULTILINE to treat each line in the string as a new start
     vars_with_nan_fills = re.findall(regex_pattern, ncdump_results, re.MULTILINE)
