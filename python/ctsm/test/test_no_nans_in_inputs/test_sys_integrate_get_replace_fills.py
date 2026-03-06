@@ -22,6 +22,7 @@ from ctsm.no_nans_in_inputs import get_replacement_fill_values
 from ctsm.no_nans_in_inputs.replace_fill_values import main as replace_fill_values
 from ctsm.no_nans_in_inputs.replace_fill_values import get_output_filename
 from ctsm.no_nans_in_inputs.json_io import NoNanFillValueProgress
+from ctsm.no_nans_in_inputs.netcdf_utils import file_has_nan_ncks_chk_nan
 
 # Test constants
 TEST_VAR_TEMP = "temp"
@@ -135,6 +136,7 @@ def test_integrate_get_replace(
     assert np.isnan(ds["temp"].values[0])
     assert FILL_ATTR not in ds["pressure"].encoding
     assert get_netcdf_format(output_file) == nc_format
+    assert not file_has_nan_ncks_chk_nan(output_file)
 
     # Check that the XML points to the output file
     tree = ET.parse(xml_file)
