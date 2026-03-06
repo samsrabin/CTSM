@@ -1,6 +1,6 @@
 """System tests of netcdf_utils (anything touching filesystem)"""
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods,protected-access
 
 import os
 from unittest import mock
@@ -21,6 +21,7 @@ from ctsm.no_nans_in_inputs.netcdf_utils import (
     _build_ncatted_command,
     build_nco_commands,
     _execute_nco_command,
+    execute_nco_commands,
     get_var_info,
     get_vars_with_nan_fills,
     show_ncdump_for_variable,
@@ -36,6 +37,24 @@ TEST_FILL_VALUE = -123.4
 NCATTED_CMD = "ncatted"
 NCATTED_FLAG = "-a"
 TEST_VAR_NAME = "test_var"
+
+
+@pytest.fixture(name="test_netcdf_file")
+def fixture_test_netcdf_file(tmp_path):
+    """Create a temporary NetCDF file for testing."""
+    test_file = tmp_path / "test.nc"
+    ds = xr.Dataset(
+        {
+            TEST_VAR_TEMP: xr.DataArray(
+                np.array([1.0, 2.0, 3.0], dtype=np.float32),
+                dims=["time"],
+                attrs={ATTR: np.float32(np.nan), "long_name": "temperature"},
+            ),
+        }
+    )
+    ds.to_netcdf(str(test_file))
+    ds.close()
+    return str(test_file)
 
 
 class TestGetVarsWithNanFills:
@@ -74,30 +93,11 @@ class TestGetVarsWithNanFills:
 class TestShowNcdumpForVariable:
     """Test the show_ncdump_for_variable function."""
 
-    TEST_VAR = "temp"
-
-    @pytest.fixture
-    def test_netcdf_file(self, tmp_path):
-        """Create a temporary NetCDF file for testing."""
-        test_file = tmp_path / "test.nc"
-        ds = xr.Dataset(
-            {
-                self.TEST_VAR: xr.DataArray(
-                    np.array([1.0, 2.0, 3.0], dtype=np.float32),
-                    dims=["time"],
-                    attrs={ATTR: np.float32(np.nan), "long_name": "temperature"},
-                ),
-            }
-        )
-        ds.to_netcdf(str(test_file))
-        ds.close()
-        return str(test_file)
-
     def test_prints_matching_lines(self, test_netcdf_file, caplog):
         """Test that matching lines from ncdump are printed."""
         with caplog.at_level(logging.DEBUG):
-            show_ncdump_for_variable(test_netcdf_file, self.TEST_VAR)
-        assert self.TEST_VAR in caplog.text
+            show_ncdump_for_variable(test_netcdf_file, TEST_VAR_TEMP)
+        assert TEST_VAR_TEMP in caplog.text
         assert "Lines matching" in caplog.text
 
     def test_prints_no_match_message(self, test_netcdf_file, caplog):
@@ -109,13 +109,13 @@ class TestShowNcdumpForVariable:
     def test_none_file_path(self, caplog):
         """Test that None file path prints a message and returns."""
         with caplog.at_level(logging.DEBUG):
-            show_ncdump_for_variable(None, self.TEST_VAR)
+            show_ncdump_for_variable(None, TEST_VAR_TEMP)
         assert "No file path available" in caplog.text
 
     def test_nonexistent_file(self, caplog):
         """Test that a nonexistent file prints an error."""
         with caplog.at_level(logging.DEBUG):
-            show_ncdump_for_variable("/nonexistent/file.nc", self.TEST_VAR)
+            show_ncdump_for_variable("/nonexistent/file.nc", TEST_VAR_TEMP)
         assert "Error running ncdump" in caplog.text
 
 
@@ -671,3 +671,120 @@ class TestExecuteCommand:
             assert ds_out[TEST_VAR_TEMP].values[0] == first_value
 
         ds_out.close()
+
+
+class TestBuildExecuteNcoCommands:
+    """Integrated tests of build_nco_commands() and execute_nco_commands()"""
+
+    def test_fix_nan_fill(self, tmp_path):
+        """Test fixing a file that had NaN fill"""
+        # Make test file
+        test_file_in = tmp_path / "test.nc"
+        var_name = "temp"
+        dtype = np.float32
+        data_array = np.array([1, 2], dtype=dtype)
+        nan_index = 0
+        nan_fill_value = dtype(np.nan)
+        data_array[nan_index] = nan_fill_value
+        ds = xr.Dataset(
+            {
+                var_name: xr.DataArray(
+                    data=data_array,
+                    dims=["time"],
+                ),
+            }
+        )
+        print(ds[var_name])
+        # Use encoding to set the _FillValue
+        encoding = {var_name: {ATTR: nan_fill_value}}
+        ds.to_netcdf(str(test_file_in), encoding=encoding)
+        # Make sure that worked
+        tmp = xr.open_dataset(test_file_in, **OPEN_DS_KWARGS).compute()
+        print(tmp[var_name])
+        assert ATTR in tmp[var_name].encoding, str(tmp[var_name].encoding)
+        assert np.isnan(tmp[var_name].encoding[ATTR])
+
+        # Set up other inputs for build_nco_commands
+        test_file_out = tmp_path / "output.nc"
+        new_fillvalue = dtype(-999)
+        var_fillvalues = {var_name: new_fillvalue}
+        var_fillmissing = {}
+
+        # Build commands
+        cmd_list = build_nco_commands(
+            input_file=test_file_in,
+            output_file=test_file_out,
+            var_fillvalues=var_fillvalues,
+            var_fillmissing=var_fillmissing,
+        )
+
+        # Execute commands
+        result = execute_nco_commands(cmd_list)
+
+        # One file should have been processed
+        assert result == 1
+
+        # Check output file
+        assert test_file_out.exists()
+        ds_out = xr.open_dataset(test_file_out, **OPEN_DS_KWARGS).compute()
+        assert var_name in ds_out
+        print(ds_out[var_name])
+        assert np.isnan(ds_out[var_name].values[nan_index])
+        assert ATTR in ds_out[var_name].encoding
+        assert ds_out[var_name].encoding[ATTR] == new_fillvalue
+
+    def test_fix_nan_without_fill(self, tmp_path):
+        """Test fixing a file that had NaN but no fill value"""
+        # Make test file
+        test_file_in = tmp_path / "test.nc"
+        var_name = "temp"
+        dtype = np.float32
+        data_array = np.array([1, 2], dtype=dtype)
+        nan_index = 0
+        nan_fill_value = dtype(np.nan)
+        data_array[nan_index] = nan_fill_value
+        ds = xr.Dataset(
+            {
+                var_name: xr.DataArray(
+                    data=data_array,
+                    dims=["time"],
+                ),
+            }
+        )
+        print(ds[var_name])
+        # Use encoding to SUPPRESS the _FillValue
+        encoding = {var_name: {ATTR: None}}
+        ds.to_netcdf(str(test_file_in), encoding=encoding)
+        # Make sure that worked
+        tmp = xr.open_dataset(test_file_in, **OPEN_DS_KWARGS).compute()
+        print(tmp[var_name])
+        assert ATTR not in tmp[var_name].encoding, str(tmp[var_name].encoding)
+
+        # Set up other inputs for build_nco_commands
+        test_file_out = tmp_path / "output.nc"
+        new_fillvalue = dtype(-999)
+        var_fillvalues = {var_name: new_fillvalue}
+        var_fillmissing = {}
+
+        # Build commands
+        cmd_list = build_nco_commands(
+            input_file=test_file_in,
+            output_file=test_file_out,
+            var_fillvalues=var_fillvalues,
+            var_fillmissing=var_fillmissing,
+        )
+
+        # Execute commands
+        result = execute_nco_commands(cmd_list)
+
+        # One file should have been processed
+        assert result == 1
+
+        # Check output file
+        assert test_file_out.exists()
+        ds_out = xr.open_dataset(test_file_out, **OPEN_DS_KWARGS).compute()
+        assert var_name in ds_out
+        print(ds_out[var_name])
+        assert np.isnan(ds_out[var_name].values[nan_index])
+        assert ATTR in ds_out[var_name].encoding
+        assert ds_out[var_name].encoding[ATTR] == new_fillvalue
