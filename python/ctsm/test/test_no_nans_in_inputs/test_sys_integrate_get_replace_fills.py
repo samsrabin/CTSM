@@ -48,7 +48,7 @@ param_combos += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
 def fixture_test_netcdf_file(tmp_path):
     """Create a temporary NetCDF file with filled values, NaN fill"""
 
-    def _create(*, fill_value: Any, missing_value: Any = None, nc_format: str):
+    def _create(*, fill_value: Any, missing_value: Any = None, nc_format: str = NETCDF_TYPES[0]):
         test_file = tmp_path / "lnd" / "clm2" / "test.nc"
         os.makedirs(os.path.dirname(str(test_file)))
 
@@ -94,8 +94,38 @@ def test_integrate_get_replace(
     """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
     # pylint: disable=too-many-arguments, too-many-positional-arguments
 
-    # Get the path to put in the XML
+    # Write netCDF
     netcdf_path = test_netcdf_file(fill_value=orig_fill, nc_format=nc_format)
+
+    # Write XML
+    netcdf_path, netcdf_path_for_xml, xml_file = _create_xml_and_netcdf(
+        tmp_path, create_mock_xml_file, abs_or_rel, netcdf_path
+    )
+
+    # Simulate user input
+    inputs_get = [
+        "y",  # continue after printing summary
+        USER_REQ_DELETE,  # alphabetically 1st var
+        str(TEST_NEW_FILL),  # alphabetically 2nd var
+    ]
+    inputs_replace = [
+        "y",  # continue after replacing
+    ]
+
+    # Call get_replacement_fill_values.py and do standard checks
+    output_file = _call_and_check(
+        tmp_path, nc_format, netcdf_path, netcdf_path_for_xml, xml_file, inputs_get, inputs_replace
+    )
+
+    # Extra checks
+    ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
+    assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
+
+
+def _create_xml_and_netcdf(tmp_path, create_mock_xml_file, abs_or_rel, netcdf_path):
+    # pylint: disable=too-many-arguments, too-many-positional-arguments
+
+    # Get the path to put in the XML
     assert os.path.exists(netcdf_path)
     if abs_or_rel == "abs":
         netcdf_path_for_xml = netcdf_path
@@ -111,30 +141,25 @@ def test_integrate_get_replace(
 </namelist_defaults>
 """
     xml_file = create_mock_xml_file(xml_content)
+    return netcdf_path, netcdf_path_for_xml, xml_file
 
-    # Call get_replacement_fill_values.py
+
+def _call_and_check(
+    tmp_path, nc_format, netcdf_path, netcdf_path_for_xml, xml_file, inputs_get, inputs_replace
+):
+    # pylint: disable=too-many-arguments, too-many-positional-arguments
     progress_file = str(tmp_path / "progress.json")
     assert not os.path.exists(progress_file)
     with patch("sys.argv", ["get_replacement_fill_values.py", "--fillvalues-file", progress_file]):
         with patch(
             "builtins.input",
-            side_effect=[
-                "y",  # continue after printing summary
-                USER_REQ_DELETE,  # alphabetically 1st var
-                str(TEST_NEW_FILL),  # alphabetically 2nd var
-            ],
+            side_effect=inputs_get,
         ):
             get_replacement_fill_values.main()
 
     # Call replace_fill_values.py
     with patch("sys.argv", ["replace_fill_values.py", "--fillvalues-file", progress_file]):
-        with patch(
-            "builtins.input",
-            side_effect=[
-                # "y",  # load progress without asking
-                "y",  # continue after replacing
-            ],
-        ):
+        with patch("builtins.input", side_effect=inputs_replace):
             replace_fill_values()
 
     # Check the output file
@@ -143,7 +168,6 @@ def test_integrate_get_replace(
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
     assert np.isnan(ds["temp"].values[0])
     assert FILL_ATTR in ds["temp"].encoding
-    assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
     assert np.isnan(ds["temp"].values[0])
     assert FILL_ATTR not in ds["pressure"].encoding
     assert get_netcdf_format(output_file) == nc_format
@@ -158,3 +182,5 @@ def test_integrate_get_replace(
 
     # Make sure the progress file is now empty
     assert not NoNanFillValueProgress(progress_file=progress_file, load_without_asking=True)
+
+    return output_file
