@@ -15,6 +15,7 @@ import xarray as xr
 from ctsm.netcdf_utils import get_netcdf_format
 from ctsm.no_nans_in_inputs.constants import (
     FILL_ATTR,
+    MISSING_ATTR,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
@@ -47,7 +48,7 @@ param_combos += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
 def fixture_test_netcdf_file(tmp_path):
     """Create a temporary NetCDF file with filled values, NaN fill"""
 
-    def _create(*, fill_value: Any, nc_format: str):
+    def _create(*, fill_value: Any, missing_value: Any = None, nc_format: str):
         test_file = tmp_path / "lnd" / "clm2" / "test.nc"
         os.makedirs(os.path.dirname(str(test_file)))
 
@@ -66,11 +67,21 @@ def fixture_test_netcdf_file(tmp_path):
                 ),
             }
         )
+
+        # Set missing_value, if doing so
+        if missing_value is not None:
+            for v in ds:
+                ds[v].attrs[MISSING_ATTR] = missing_value
+
+        # Get encoding to set fill value
         encoding = {}
         for v in ds:
             encoding[v] = {FILL_ATTR: type(ds[v].values[0])(fill_value)}
+
+        # Save and close
         ds.to_netcdf(str(test_file), format=nc_format, encoding=encoding)
         ds.close()
+
         return str(test_file)
 
     return _create
