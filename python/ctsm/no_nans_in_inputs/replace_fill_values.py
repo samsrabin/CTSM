@@ -113,8 +113,8 @@ def _process_one_file(
     # Print things to do for this file
     var_fillvalues = progress[input_file_abs]["new_fill_values"]
     var_fillmissing = progress[input_file_abs]["new_fill_missing"]
-    info(logger, f"\nInput:  {input_file_abs}")
-    info(logger, f"Output: {output_file}")
+    warn(logger, f"\nProcessing:  {input_file_abs}")
+    info(logger, f"{INDENT}Output: {output_file}")
 
     # Build and print the ncatted command
     with warnings.catch_warnings():
