@@ -44,16 +44,17 @@ def fixture_test_netcdf_file_nan_nanfill(tmp_path):
                 TEST_VAR_TEMP: xr.DataArray(
                     np.array([np.nan, 2.0, 3.0], dtype=np.float32),
                     dims=["time"],
-                    attrs={FILL_ATTR: np.float32(np.nan)},
                 ),
                 TEST_VAR_PRESSURE: xr.DataArray(
                     np.array([1000.0, 1010.0, 1020.0], dtype=np.float64),
                     dims=["time"],
-                    attrs={FILL_ATTR: np.float64(np.nan)},
                 ),
             }
         )
-        ds.to_netcdf(str(test_file), format=nc_format)
+        encoding = {}
+        for v in ds:
+            encoding[v] = {FILL_ATTR: type(ds[v].values[0])(np.nan)}
+        ds.to_netcdf(str(test_file), format=nc_format, encoding=encoding)
         ds.close()
         return str(test_file)
 
