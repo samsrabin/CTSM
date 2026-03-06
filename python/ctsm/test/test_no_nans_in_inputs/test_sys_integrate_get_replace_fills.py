@@ -5,6 +5,7 @@ Tests of the integrated get_replacement_fill_values.py -> replace_fill_values.py
 import os
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
+from typing import Any
 
 import pytest
 import numpy as np
@@ -28,11 +29,11 @@ TEST_OUTPUT_FILE = "output.nc"
 TEST_FILL_VALUE = -123.4
 
 
-@pytest.fixture(name="test_netcdf_file_nan_nanfill")
-def fixture_test_netcdf_file_nan_nanfill(tmp_path):
+@pytest.fixture(name="test_netcdf_file")
+def fixture_test_netcdf_file(tmp_path):
     """Create a temporary NetCDF file with filled values, NaN fill"""
 
-    def _create(nc_format: str):
+    def _create(*, fill_value: Any, nc_format: str):
         test_file = tmp_path / "lnd" / "clm2" / "test.nc"
         os.makedirs(os.path.dirname(str(test_file)))
 
@@ -53,43 +54,9 @@ def fixture_test_netcdf_file_nan_nanfill(tmp_path):
         )
         encoding = {}
         for v in ds:
-            encoding[v] = {FILL_ATTR: type(ds[v].values[0])(np.nan)}
+            encoding[v] = {FILL_ATTR: type(ds[v].values[0])(fill_value)}
         ds.to_netcdf(str(test_file), format=nc_format, encoding=encoding)
         ds.close()
-        return str(test_file)
-
-    return _create
-
-
-@pytest.fixture(name="test_netcdf_file_nan_nofill")
-def fixture_test_netcdf_file_nan_nofill(tmp_path):
-    """Create a temporary NetCDF file with NaN values, no fill"""
-
-    def _create(nc_format: str):
-        test_file = tmp_path / "lnd" / "clm2" / "test.nc"
-        os.makedirs(os.path.dirname(str(test_file)))
-
-        # Create a simple NetCDF file with float variables that have NaN fill values
-        # (NetCDF doesn't allow NaN for integer types, and our scripts only work on
-        # variables that already have NaN fill values)
-        ds = xr.Dataset(
-            {
-                TEST_VAR_TEMP: xr.DataArray(
-                    np.array([np.nan, 2.0, 3.0], dtype=np.float32),
-                    dims=["time"],
-                ),
-                TEST_VAR_PRESSURE: xr.DataArray(
-                    np.array([1000.0, 1010.0, 1020.0], dtype=np.float64),
-                    dims=["time"],
-                ),
-            }
-        )
-        encoding = {}
-        for v in ds:
-            encoding[v] = {FILL_ATTR: None}
-        ds.to_netcdf(str(test_file), encoding=encoding, format=nc_format)
-        ds.close()
-
         return str(test_file)
 
     return _create
@@ -107,12 +74,12 @@ def fixture_test_netcdf_file_nan_nofill(tmp_path):
     ],
 )
 def test_integrate_getreplace_nan_nanfill(
-    tmp_path, test_netcdf_file_nan_nanfill, create_mock_xml_file, abs_or_rel, nc_format
+    tmp_path, test_netcdf_file, create_mock_xml_file, abs_or_rel, nc_format
 ):
     """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
 
     # Get the path to put in the XML
-    netcdf_path = test_netcdf_file_nan_nanfill(nc_format)
+    netcdf_path = test_netcdf_file(fill_value=np.nan, nc_format=nc_format)
     assert os.path.exists(netcdf_path)
     if abs_or_rel == "abs":
         netcdf_path_for_xml = netcdf_path
@@ -185,12 +152,12 @@ def test_integrate_getreplace_nan_nanfill(
     ],
 )
 def test_integrate_getreplace_nan_nofill(
-    tmp_path, test_netcdf_file_nan_nofill, create_mock_xml_file, nc_format
+    tmp_path, test_netcdf_file, create_mock_xml_file, nc_format
 ):
     """Test the integrated get -> replace pipeline given a file with NaN values but no fill value"""
 
     # Write the XML file
-    netcdf_path = test_netcdf_file_nan_nofill(nc_format)
+    netcdf_path = test_netcdf_file(fill_value=None, nc_format=nc_format)
     xml_content = f"""<?xml version="1.0"?>
 <namelist_defaults>
     <paramfile>{netcdf_path}</paramfile>
