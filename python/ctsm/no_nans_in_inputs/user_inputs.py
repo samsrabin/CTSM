@@ -435,6 +435,11 @@ def _process_vars_with_mismatched_fill_missing(
             for k, v in d.items():
                 if isinstance(v, np.int32):
                     d[k] = int(v)
+                elif isinstance(v, np.float32):
+                    if round(v) == v:
+                        d[k] = int(v)
+                    else:
+                        d[k] = float(v)
 
             new_fill_missing[var] = d
             try:
