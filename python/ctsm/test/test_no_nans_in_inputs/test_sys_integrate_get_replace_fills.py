@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 import numpy as np
 import xarray as xr
+from netCDF4 import Dataset  # pylint: disable=no-name-in-module
 
 from ctsm.netcdf_utils import get_netcdf_format
 from ctsm.no_nans_in_inputs.constants import (
@@ -88,7 +89,7 @@ def fixture_test_netcdf_file(tmp_path):
 
 
 @pytest.mark.parametrize("abs_or_rel, nc_format, orig_fill", param_combos)
-def test_integrate_get_replace(
+def test_integrate_get_replace_hasnan_nanfill(
     tmp_path, test_netcdf_file, create_mock_xml_file, abs_or_rel, nc_format, orig_fill
 ):
     """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
@@ -114,12 +115,65 @@ def test_integrate_get_replace(
 
     # Call get_replacement_fill_values.py and do standard checks
     output_file = _call_and_check(
-        tmp_path, nc_format, netcdf_path, netcdf_path_for_xml, xml_file, inputs_get, inputs_replace
+        tmp_path,
+        nc_format,
+        netcdf_path,
+        netcdf_path_for_xml,
+        xml_file,
+        inputs_get,
+        inputs_replace,
+        suffix=".no_nan_fill",
     )
 
     # Extra checks
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
     assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
+    assert FILL_ATTR not in ds["pressure"].encoding
+
+
+@pytest.mark.parametrize("nc_format", NETCDF_TYPES)
+def test_integrate_get_replace_mismatch_fill_missing(
+    tmp_path, test_netcdf_file, create_mock_xml_file, nc_format
+):
+    """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
+    # pylint: disable=too-many-arguments, too-many-positional-arguments
+
+    # Write netCDF
+    netcdf_path = test_netcdf_file(fill_value=-999, missing_value=-9999, nc_format=nc_format)
+
+    # Write XML
+    netcdf_path, netcdf_path_for_xml, xml_file = _create_xml_and_netcdf(
+        tmp_path, create_mock_xml_file, "abs", netcdf_path
+    )
+
+    # Simulate user input
+    inputs_get = [
+        "y",  # continue after printing summary
+        "y",  # temp: ok to set missing and fill to the same thing
+        "y",  # pressure: same
+    ]
+    inputs_replace = [
+        "y",  # continue after replacing
+    ]
+
+    # Call get_replacement_fill_values.py and do standard checks
+    output_file = _call_and_check(
+        tmp_path,
+        nc_format,
+        netcdf_path,
+        netcdf_path_for_xml,
+        xml_file,
+        inputs_get,
+        inputs_replace,
+        suffix=".same_fill_missing",
+    )
+
+    # Extra checks
+    with Dataset(output_file, "r") as ds:
+        for var in ds.variables.values():
+            for attr in [FILL_ATTR, MISSING_ATTR]:
+                assert hasattr(var, attr)
+            assert getattr(var, FILL_ATTR) == getattr(var, MISSING_ATTR)
 
 
 def _create_xml_and_netcdf(tmp_path, create_mock_xml_file, abs_or_rel, netcdf_path):
@@ -145,7 +199,14 @@ def _create_xml_and_netcdf(tmp_path, create_mock_xml_file, abs_or_rel, netcdf_pa
 
 
 def _call_and_check(
-    tmp_path, nc_format, netcdf_path, netcdf_path_for_xml, xml_file, inputs_get, inputs_replace
+    tmp_path,
+    nc_format,
+    netcdf_path,
+    netcdf_path_for_xml,
+    xml_file,
+    inputs_get,
+    inputs_replace,
+    suffix,
 ):
     # pylint: disable=too-many-arguments, too-many-positional-arguments
     progress_file = str(tmp_path / "progress.json")
@@ -170,13 +231,12 @@ def _call_and_check(
                 replace_fill_values()
 
     # Check the output file
-    output_file = get_output_filename(str(netcdf_path))
-    assert os.path.exists(output_file)
+    output_file = get_output_filename(str(netcdf_path), suffix=suffix)
+    assert os.path.exists(output_file), f"File not found: {output_file=}"
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
     assert np.isnan(ds["temp"].values[0])
     assert FILL_ATTR in ds["temp"].encoding
     assert np.isnan(ds["temp"].values[0])
-    assert FILL_ATTR not in ds["pressure"].encoding
     assert get_netcdf_format(output_file) == nc_format
     assert not file_has_nan_ncks_chk_nan(output_file)
 
@@ -185,7 +245,7 @@ def _call_and_check(
     root = tree.getroot()
     paramfile = root.find("paramfile")
     assert paramfile is not None
-    assert paramfile.text == get_output_filename(netcdf_path_for_xml)
+    assert paramfile.text == get_output_filename(netcdf_path_for_xml, suffix=suffix)
 
     # Make sure the progress file is now empty
     assert not NoNanFillValueProgress(progress_file=progress_file, load_without_asking=True)
