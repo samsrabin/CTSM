@@ -74,7 +74,9 @@ def confirm_continue(prompt: str = "Continue? [Y/n]: "):
     - Any other input will reprompt until a valid response is given.
     """
     while True:
+        info(logger, f"Prompt: {prompt}")
         response = input(prompt).strip().lower()
+        info(logger, f"Input: {response}")
 
         if response in ("", "y", "yes"):
             return True
@@ -162,7 +164,9 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
                 info(logger, prompt)
                 return USER_REQ_SKIP_VAR
 
+            info(logger, f"Prompt: {prompt}")
             user_input = input(prompt).strip()
+            info(logger, f"Input: {user_input}")
 
             if user_input:
                 # Check for special commands first
