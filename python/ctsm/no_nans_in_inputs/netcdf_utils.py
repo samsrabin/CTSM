@@ -41,6 +41,7 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     info,
     warn,
 )
+from ctsm import ctsm_logging
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -281,7 +282,7 @@ def _execute_nco_command(cmd: list[str]) -> int:
     except FileNotFoundError:
         msg = f"{INDENT}✗ Error: {nco_util} command not found\n"
         msg += f"{INDENT}Please ensure NCO (NetCDF Operators) is installed"
-        error_type = INDENT if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error_type = INDENT if ctsm_logging.lte_debug(logger) else None
         error(logger, msg, error_type=error_type)
         sys.exit(7)
     return files_processed
@@ -413,7 +414,7 @@ def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:
 
     for v in var_list:
         cmd = ["ncks", "--chk_nan", "-v", v, str(abs_path)]
-        if logger.getEffectiveLevel() <= logging.DEBUG:
+        if ctsm_logging.lte_debug(logger):
             stdout = None
         else:
             stdout = subprocess.DEVNULL

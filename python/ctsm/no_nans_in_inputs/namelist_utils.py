@@ -30,6 +30,7 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     info,
     warn,
 )
+from ctsm import ctsm_logging  # pylint: disable=wrong-import-position
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -122,7 +123,7 @@ def _extract_file_path_list_from_usernl(usernl_file: str) -> set[str]:
             text = f.read()
         file_paths_list = [m.group(3) for m in re.finditer(USERNL_NC_PATTERN, text, re.MULTILINE)]
     except FileNotFoundError:
-        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error_type = FileNotFoundError if ctsm_logging.lte_debug(logger) else None
         error(logger, f"File not found: {usernl_file}", error_type=error_type)
         sys.exit(2)
     return file_paths_list
@@ -154,7 +155,7 @@ def _extract_file_path_set_from_usernl(usernl_file: str, exact: bool = False) ->
                 f = _replace_env_vars_in_netcdf_paths(f)
             file_paths.add(f)
     except FileNotFoundError:
-        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error_type = FileNotFoundError if ctsm_logging.lte_debug(logger) else None
         error(logger, f"File not found: {usernl_file}", error_type=error_type)
         sys.exit(3)
     return file_paths
@@ -178,11 +179,11 @@ def _extract_file_paths_from_xml(xml_file: str) -> set[str]:
     try:
         tree = ET.parse(xml_file)
     except ET.ParseError as parse_error:
-        error_type = ET.ParseError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error_type = ET.ParseError if ctsm_logging.lte_debug(logger) else None
         error(logger, f"Error parsing XML file: {parse_error}", error_type=error_type)
         sys.exit(4)
     except FileNotFoundError:
-        error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        error_type = FileNotFoundError if ctsm_logging.lte_debug(logger) else None
         error(logger, f"XML file not found: {xml_file}", error_type=error_type)
         sys.exit(5)
 

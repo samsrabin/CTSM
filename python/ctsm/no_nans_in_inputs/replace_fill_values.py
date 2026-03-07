@@ -136,7 +136,7 @@ def _process_one_file(
         try:
             result = netcdf_utils.execute_nco_commands(cmd_list)
         except Exception as e:  # pylint: disable=broad-exception-caught
-            error_type = type(Exception) if logger.getEffectiveLevel() <= logging.DEBUG else None
+            error_type = type(Exception) if ctsm_logging.lte_debug(logger) else None
             error(logger, str(e), error_type=error_type)
             if not confirm_continue():
                 sys.exit("Exiting.")
@@ -182,7 +182,7 @@ def _check_ok_to_process(progress: NoNanFillValueProgress, input_file_abs: str) 
 
     # File doesn't exist
     if not os.path.exists(input_file_abs):
-        err_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        err_type = FileNotFoundError if ctsm_logging.lte_debug(logger) else None
         error(logger, f"File not found: '{input_file_abs}'", error_type=err_type)
         if not confirm_continue():
             sys.exit("Exiting.")
@@ -191,7 +191,7 @@ def _check_ok_to_process(progress: NoNanFillValueProgress, input_file_abs: str) 
     # User doesn't have write access in directory
     dirname, basename = os.path.split(input_file_abs)
     if not check_write_access(input_file_abs):
-        err_type = PermissionError if logger.getEffectiveLevel() <= logging.DEBUG else None
+        err_type = PermissionError if ctsm_logging.lte_debug(logger) else None
         error(
             logger,
             f"User can't replace '{basename}': No write perms in '{dirname}'",
@@ -223,13 +223,13 @@ def _print_and_wait(
         get_git_diff(repo_root=ctsm_root, capture_output=False)
 
     except CalledProcessError as e:
-        if logger.getEffectiveLevel() <= logging.DEBUG:
+        if ctsm_logging.lte_debug(logger):
             error(logger, str(e), error_type=CalledProcessError)
         else:
             warn(logger, "[git diff failed]")
     except Exception as e:  # pylint:disable=broad-exception-caught
         exc_type = type(e)
-        if logger.getEffectiveLevel() <= logging.DEBUG:
+        if ctsm_logging.lte_debug(logger):
             error(logger, str(e), error_type=exc_type)
         else:
             warn(logger, f"[unable to do git diff due to {exc_type}]")

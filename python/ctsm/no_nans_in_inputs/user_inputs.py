@@ -47,6 +47,7 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     info,
     warn,
 )
+from ctsm import ctsm_logging  # pylint: disable=wrong-import-position
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -387,7 +388,7 @@ def _process_vars_with_mismatched_fill_missing(
                 f"and missing value ({missing})"
             )
             error_type = (
-                NotImplementedError if logger.getEffectiveLevel() <= logging.DEBUG else None
+                NotImplementedError if ctsm_logging.lte_debug(logger) else None
             )
             error(logger, msg, error_type=error_type)
             if not accept_all_defaults and not confirm_continue():
@@ -415,7 +416,7 @@ def _process_vars_with_mismatched_fill_missing(
                 f"and {MISSING_ATTR} ({missing}); skipping",
             )
             error_type = (
-                NotImplementedError if logger.getEffectiveLevel() <= logging.DEBUG else None
+                NotImplementedError if ctsm_logging.lte_debug(logger) else None
             )
             error(logger, msg, error_type=error_type)
 
@@ -446,7 +447,7 @@ def _process_vars_with_mismatched_fill_missing(
                 progress.save()
             except TypeError as e:
                 if "not JSON serializable" in str(e):
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                    if ctsm_logging.lte_debug(logger):
                         raise e
                     msg = (
                         f"{INDENT}WARNING: Variable {var} had fill or missing value not JSON "

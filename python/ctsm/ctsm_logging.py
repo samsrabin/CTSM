@@ -206,3 +206,9 @@ def error(logger_in: logging.Logger, string: str, *, error_type: Exception = Run
     except TypeError:
         # E.g., error_type=None
         pass
+
+def lte_debug(logger_in: logging.Logger) -> bool:
+    """
+    True if logger level is <= logging.DEBUG (i.e., as verbose or more)
+    """
+    return logger_in.getEffectiveLevel() <= logging.DEBUG

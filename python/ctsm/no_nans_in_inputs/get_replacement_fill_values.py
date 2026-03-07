@@ -117,7 +117,7 @@ def _check_for_nans_in_netcdf(
     if not (any_nan_fill or any_mismatched_fill_missing or any_nan_without_fill):
         if warn_unhandled and file_has_nan_ncks_chk_nan(abs_path):
             info(logger, f"{INDENT*2}Checking for unhandled NaNs")
-            error_type = FileNotFoundError if logger.getEffectiveLevel() <= logging.DEBUG else None
+            error_type = FileNotFoundError if ctsm_logging.lte_debug(logger) else None
             msg = "WARNING: Skipping file with NaN that wasn't caught:" f" '{abs_path}'"
             error(logger, msg, error_type=error_type)
         if abs_path in progress:
@@ -316,7 +316,7 @@ def _get_netcdfs_with_nan_fills(
             n_matched = len(matching_files)
             if n_to_fix != n_matched:
                 error_type = (
-                    NotImplementedError if logger.getEffectiveLevel() <= logging.DEBUG else None
+                    NotImplementedError if ctsm_logging.lte_debug(logger) else None
                 )
                 msg = (
                     f"Only {n_to_fix}/{n_matched} files matching pattern"
@@ -331,7 +331,7 @@ def _get_netcdfs_with_nan_fills(
             # the same suffix.
             # TODO: Avoid this by giving all new files the same suffix regardless of changes made
             if len({v["suffix"] for v in progress_tmp.values()}) > 1:
-                error_type = RuntimeError if logger.getEffectiveLevel() <= logging.DEBUG else None
+                error_type = RuntimeError if ctsm_logging.lte_debug(logger) else None
                 msg = (
                     f"ERROR: Not all {len(progress_tmp)} files matching pattern '{glob_pattern}'"
                     " would get the same suffix, which would cause problems when using the"
@@ -429,7 +429,7 @@ def main() -> int:
             msg = f"Error: No write access to create/update {args.fillvalues_file}\n"
             dir_str = os.path.dirname(args.fillvalues_file) or "."
             msg += f"Please check permissions in directory: {dir_str}"
-            error_type = PermissionError if logger.getEffectiveLevel() <= logging.DEBUG else None
+            error_type = PermissionError if ctsm_logging.lte_debug(logger) else None
             error(logger, msg, error_type=error_type)
             sys.exit(1)
         info(logger, f"✓ Write access confirmed for {args.fillvalues_file}\n")
