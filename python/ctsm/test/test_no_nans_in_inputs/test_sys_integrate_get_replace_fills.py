@@ -150,17 +150,24 @@ def _call_and_check(
     # pylint: disable=too-many-arguments, too-many-positional-arguments
     progress_file = str(tmp_path / "progress.json")
     assert not os.path.exists(progress_file)
-    with patch("sys.argv", ["get_replacement_fill_values.py", "--fillvalues-file", progress_file]):
+    with patch(
+        "sys.argv",
+        ["get_replacement_fill_values.py", "--debug", "--fillvalues-file", progress_file],
+    ):
         with patch(
             "builtins.input",
             side_effect=inputs_get,
         ):
-            get_replacement_fill_values.main()
+            with patch("ctsm.ctsm_logging.lte_debug", return_value=False):
+                get_replacement_fill_values.main()
 
     # Call replace_fill_values.py
-    with patch("sys.argv", ["replace_fill_values.py", "--fillvalues-file", progress_file]):
+    with patch(
+        "sys.argv", ["replace_fill_values.py", "--debug", "--fillvalues-file", progress_file]
+    ):
         with patch("builtins.input", side_effect=inputs_replace):
-            replace_fill_values()
+            with patch("ctsm.ctsm_logging.lte_debug", return_value=False):
+                replace_fill_values()
 
     # Check the output file
     output_file = get_output_filename(str(netcdf_path))
