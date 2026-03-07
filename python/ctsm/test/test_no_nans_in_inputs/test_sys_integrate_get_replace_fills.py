@@ -230,6 +230,10 @@ def _call_and_check(
     suffix,
 ):
     # pylint: disable=too-many-arguments, too-many-positional-arguments
+
+    # Not much point running this code on files without a problem
+    assert file_has_nan_ncks_chk_nan(netcdf_path)
+
     progress_file = str(tmp_path / "progress.json")
     assert not os.path.exists(progress_file)
     with patch(
