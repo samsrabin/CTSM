@@ -41,15 +41,27 @@ NETCDF_TYPES = [
 ]
 
 
-param_combos = [("abs",) + combo for combo in itertools.product(NETCDF_TYPES, TEST_ORIG_FILLS)]
-param_combos += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
+param_combos_hasnan_nanfill = [
+    ("abs",) + combo for combo in itertools.product(NETCDF_TYPES, TEST_ORIG_FILLS)
+]
+param_combos_hasnan_nanfill += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
+
+parama_combos_mismatch_fill_missing = [
+    combo for combo in itertools.product(NETCDF_TYPES, [np.nan, 0])
+]
 
 
 @pytest.fixture(name="test_netcdf_file")
 def fixture_test_netcdf_file(tmp_path):
     """Create a temporary NetCDF file with filled values, NaN fill"""
 
-    def _create(*, fill_value: Any, missing_value: Any = None, nc_format: str = NETCDF_TYPES[0]):
+    def _create(
+        *,
+        fill_value: Any,
+        missing_value: Any = None,
+        nc_format: str = NETCDF_TYPES[0],
+        temp0: Any = np.nan,
+    ):
         test_file = tmp_path / "lnd" / "clm2" / "test.nc"
         os.makedirs(os.path.dirname(str(test_file)))
 
@@ -59,7 +71,7 @@ def fixture_test_netcdf_file(tmp_path):
         ds = xr.Dataset(
             {
                 TEST_VAR_TEMP: xr.DataArray(
-                    np.array([np.nan, 2.0, 3.0], dtype=np.float32),
+                    np.array([temp0, 2.0, 3.0], dtype=np.float32),
                     dims=["time"],
                 ),
                 TEST_VAR_PRESSURE: xr.DataArray(
@@ -88,7 +100,7 @@ def fixture_test_netcdf_file(tmp_path):
     return _create
 
 
-@pytest.mark.parametrize("abs_or_rel, nc_format, orig_fill", param_combos)
+@pytest.mark.parametrize("abs_or_rel, nc_format, orig_fill", param_combos_hasnan_nanfill)
 def test_integrate_get_replace_hasnan_nanfill(
     tmp_path, test_netcdf_file, create_mock_xml_file, abs_or_rel, nc_format, orig_fill
 ):
@@ -129,17 +141,20 @@ def test_integrate_get_replace_hasnan_nanfill(
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
     assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
     assert FILL_ATTR not in ds["pressure"].encoding
+    assert np.isnan(ds["temp"].values[0])
 
 
-@pytest.mark.parametrize("nc_format", NETCDF_TYPES)
+@pytest.mark.parametrize("nc_format, temp0", parama_combos_mismatch_fill_missing)
 def test_integrate_get_replace_mismatch_fill_missing(
-    tmp_path, test_netcdf_file, create_mock_xml_file, nc_format
+    tmp_path, test_netcdf_file, create_mock_xml_file, nc_format, temp0
 ):
     """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
     # pylint: disable=too-many-arguments, too-many-positional-arguments
 
     # Write netCDF
-    netcdf_path = test_netcdf_file(fill_value=-999, missing_value=-9999, nc_format=nc_format)
+    netcdf_path = test_netcdf_file(
+        fill_value=-999, missing_value=-9999, nc_format=nc_format, temp0=temp0
+    )
 
     # Write XML
     netcdf_path, netcdf_path_for_xml, xml_file = _create_xml_and_netcdf(
@@ -174,6 +189,9 @@ def test_integrate_get_replace_mismatch_fill_missing(
             for attr in [FILL_ATTR, MISSING_ATTR]:
                 assert hasattr(var, attr)
             assert getattr(var, FILL_ATTR) == getattr(var, MISSING_ATTR)
+    if np.isnan(temp0):
+        ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
+        assert np.isnan(ds["temp"].values[0])
 
 
 def _create_xml_and_netcdf(tmp_path, create_mock_xml_file, abs_or_rel, netcdf_path):
@@ -234,9 +252,7 @@ def _call_and_check(
     output_file = get_output_filename(str(netcdf_path), suffix=suffix)
     assert os.path.exists(output_file), f"File not found: {output_file=}"
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
-    assert np.isnan(ds["temp"].values[0])
     assert FILL_ATTR in ds["temp"].encoding
-    assert np.isnan(ds["temp"].values[0])
     assert get_netcdf_format(output_file) == nc_format
     assert not file_has_nan_ncks_chk_nan(output_file)
 
