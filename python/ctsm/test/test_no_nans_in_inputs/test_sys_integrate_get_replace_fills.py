@@ -39,6 +39,8 @@ NETCDF_TYPES = [
     "NETCDF3_64BIT_DATA",
     "NETCDF3_CLASSIC",
 ]
+TEST_ORIG_FILL = -999
+TEST_ORIG_MISSING = -9999
 
 
 param_combos_hasnan_nanfill = [
@@ -47,7 +49,8 @@ param_combos_hasnan_nanfill = [
 param_combos_hasnan_nanfill += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
 
 parama_combos_mismatch_fill_missing = [
-    combo for combo in itertools.product(NETCDF_TYPES, [np.nan, 0])
+    combo
+    for combo in itertools.product(NETCDF_TYPES, [np.nan, 0, TEST_ORIG_MISSING, TEST_ORIG_FILL])
 ]
 
 
@@ -153,7 +156,7 @@ def test_integrate_get_replace_mismatch_fill_missing(
 
     # Write netCDF
     netcdf_path = test_netcdf_file(
-        fill_value=-999, missing_value=-9999, nc_format=nc_format, temp0=temp0
+        fill_value=TEST_ORIG_FILL, missing_value=TEST_ORIG_MISSING, nc_format=nc_format, temp0=temp0
     )
 
     # Write XML
@@ -237,7 +240,7 @@ def _call_and_check(
             "builtins.input",
             side_effect=inputs_get,
         ):
-            with patch("ctsm.ctsm_logging.lte_debug", return_value=False):
+            with patch("ctsm.ctsm_logging.lte_debug", return_value=True):
                 get_replacement_fill_values.main()
 
     # Call replace_fill_values.py

@@ -434,7 +434,7 @@ def _process_vars_with_mismatched_fill_missing(
 
             # Handle types that aren't JSON-serializable
             for k, v in d.items():
-                if isinstance(v, np.int32):
+                if isinstance(v, np.integer):
                     d[k] = int(v)
                 elif isinstance(v, np.float32):
                     if round(v) == v:
