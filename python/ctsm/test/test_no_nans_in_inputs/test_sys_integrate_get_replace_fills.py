@@ -16,7 +16,6 @@ from netCDF4 import Dataset  # pylint: disable=no-name-in-module
 from ctsm.netcdf_utils import get_netcdf_format
 from ctsm.no_nans_in_inputs.constants import (
     FILL_ATTR,
-    MISSING_ATTR,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
@@ -39,19 +38,12 @@ NETCDF_TYPES = [
     "NETCDF3_64BIT_DATA",
     "NETCDF3_CLASSIC",
 ]
-TEST_ORIG_FILL = -999
-TEST_ORIG_MISSING = -9999
 
 
-param_combos_hasnan_nanfill = [
+param_combos_nanfillornone = [
     ("abs",) + combo for combo in itertools.product(NETCDF_TYPES, TEST_ORIG_FILLS)
 ]
-param_combos_hasnan_nanfill += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
-
-parama_combos_mismatch_fill_missing = [
-    combo
-    for combo in itertools.product(NETCDF_TYPES, [np.nan, 0, TEST_ORIG_MISSING, TEST_ORIG_FILL])
-]
+param_combos_nanfillornone += [("rel", NETCDF_TYPES[0], TEST_ORIG_FILLS[0])]
 
 
 @pytest.fixture(name="test_netcdf_file")
@@ -61,7 +53,6 @@ def fixture_test_netcdf_file(tmp_path):
     def _create(
         *,
         fill_value: Any,
-        missing_value: Any = None,
         nc_format: str = NETCDF_TYPES[0],
         temp0: Any = np.nan,
     ):
@@ -84,11 +75,6 @@ def fixture_test_netcdf_file(tmp_path):
             }
         )
 
-        # Set missing_value, if doing so
-        if missing_value is not None:
-            for v in ds:
-                ds[v].attrs[MISSING_ATTR] = missing_value
-
         # Get encoding to set fill value
         encoding = {}
         for v in ds:
@@ -103,8 +89,8 @@ def fixture_test_netcdf_file(tmp_path):
     return _create
 
 
-@pytest.mark.parametrize("abs_or_rel, nc_format, orig_fill", param_combos_hasnan_nanfill)
-def test_integrate_get_replace_hasnan_nanfill(
+@pytest.mark.parametrize("abs_or_rel, nc_format, orig_fill", param_combos_nanfillornone)
+def test_integrate_get_replace_nanfillornone(
     tmp_path, test_netcdf_file, create_mock_xml_file, abs_or_rel, nc_format, orig_fill
 ):
     """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
@@ -145,56 +131,6 @@ def test_integrate_get_replace_hasnan_nanfill(
     assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
     assert FILL_ATTR not in ds["pressure"].encoding
     assert np.isnan(ds["temp"].values[0])
-
-
-@pytest.mark.parametrize("nc_format, temp0", parama_combos_mismatch_fill_missing)
-def test_integrate_get_replace_mismatch_fill_missing(
-    tmp_path, test_netcdf_file, create_mock_xml_file, nc_format, temp0
-):
-    """Test the integrated get -> replace pipeline for a file with NaN fill and filled values"""
-    # pylint: disable=too-many-arguments, too-many-positional-arguments
-
-    # Write netCDF
-    netcdf_path = test_netcdf_file(
-        fill_value=TEST_ORIG_FILL, missing_value=TEST_ORIG_MISSING, nc_format=nc_format, temp0=temp0
-    )
-
-    # Write XML
-    netcdf_path, netcdf_path_for_xml, xml_file = _create_xml_and_netcdf(
-        tmp_path, create_mock_xml_file, "abs", netcdf_path
-    )
-
-    # Simulate user input
-    inputs_get = [
-        "y",  # continue after printing summary
-        "y",  # temp: ok to set missing and fill to the same thing
-        "y",  # pressure: same
-    ]
-    inputs_replace = [
-        "y",  # continue after replacing
-    ]
-
-    # Call get_replacement_fill_values.py and do standard checks
-    output_file = _call_and_check(
-        tmp_path,
-        nc_format,
-        netcdf_path,
-        netcdf_path_for_xml,
-        xml_file,
-        inputs_get,
-        inputs_replace,
-        suffix=".same_fill_missing",
-    )
-
-    # Extra checks
-    with Dataset(output_file, "r") as ds:
-        for var in ds.variables.values():
-            for attr in [FILL_ATTR, MISSING_ATTR]:
-                assert hasattr(var, attr)
-            assert getattr(var, FILL_ATTR) == getattr(var, MISSING_ATTR)
-    if np.isnan(temp0):
-        ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
-        assert np.isnan(ds["temp"].values[0])
 
 
 def _create_xml_and_netcdf(tmp_path, create_mock_xml_file, abs_or_rel, netcdf_path):

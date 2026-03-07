@@ -33,7 +33,6 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     DIR_TO_SEARCH_FOR_XML_FILES,
     FILL_ATTR,
     INDENT,
-    MISSING_ATTR,
     NEW_FILLVALUES_FILE,
     NO_HANDLED_NANS,
     SEP_LENGTH,
@@ -117,7 +116,6 @@ def _process_one_file(
 
     # Print things to do for this file
     var_fillvalues = progress[input_file_abs]["new_fill_values"]
-    var_fillmissing = progress[input_file_abs]["new_fill_missing"]
     warn(logger, f"\nProcessing:  {input_file_abs}")
     info(logger, f"{INDENT}Output: {output_file}")
 
@@ -125,7 +123,7 @@ def _process_one_file(
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
         cmd_list, result_file = netcdf_utils.build_nco_commands(
-            input_file_abs, output_file, var_fillvalues, var_fillmissing, tmpdir,
+            input_file_abs, output_file, var_fillvalues, tmpdir,
         )
     info(logger, "\nCommands:")
     for cmd in cmd_list:
@@ -164,7 +162,7 @@ def _process_one_file(
 
         # Print message and wait for user to approve before continuing
         _print_and_wait(
-            input_file_abs, output_file, var_fillvalues, var_fillmissing, files_containing
+            input_file_abs, output_file, var_fillvalues, files_containing
         )
 
         # Update progress object and file
@@ -208,7 +206,6 @@ def _print_and_wait(
     input_file_abs: str,
     output_file: str,
     var_fillvalues: dict,
-    var_fillmissing: dict,
     files_containing: list,
 ) -> None:
     """Print info and a message useful for a git commit, then wait for user to continue"""
@@ -275,29 +272,6 @@ def _print_and_wait(
                     logger,
                     f"{INDENT}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
                 )
-
-    # Which variables got their _FillValue and missing_value harmonized?
-    if var_fillmissing:
-        warn(logger, f"Harmonized {FILL_ATTR} and {MISSING_ATTR} to:")
-        new_fillmiss_dict = {}
-        for var, var_dict in var_fillmissing.items():
-            assert len(set(var_dict.values())) == 1
-            harmonized_val = list(var_dict.values())[0]
-            if harmonized_val in new_fillmiss_dict:
-                new_fillmiss_dict[harmonized_val].append(var)
-            else:
-                new_fillmiss_dict[harmonized_val] = [var]
-        new_fillmiss_dict = dict(sorted(new_fillmiss_dict.items()))  # Sort by key ascending
-        for harmonized_val, var_list in new_fillmiss_dict.items():
-            n_vars = len(var_list)
-            if n_vars > MAX_LISTED_VARS:
-                n_others = n_vars - MAX_LISTED_VARS
-                var_list_txt = ", ".join(var_list[:MAX_LISTED_VARS]) + f", and {n_others} others"
-                if n_others == 1:
-                    var_list_txt = var_list_txt[:-1]
-            else:
-                var_list_txt = ", ".join(var_list)
-            warn(logger, f"{INDENT}{harmonized_val}: {var_list_txt}")
 
     # Which files did we update the path in?
     warn(logger, "\nPath updated in:")

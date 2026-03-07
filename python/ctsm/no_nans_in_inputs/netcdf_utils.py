@@ -22,7 +22,6 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     FILL_ATTR,
     INDENT,
     INPUTDATA_PREFIX,
-    MISSING_ATTR,
     OPEN_DS_KWARGS,
     USER_REQ_DELETE,
 )
@@ -65,7 +64,6 @@ def _build_ncatted_command(
     input_file: str,
     output_file: str,
     var_fillvalues: dict[str, Any],
-    var_fillmissing: dict[str, dict[str:Any]],
 ) -> list[str]:
     """
     Build ncatted command to modify or delete fill values.
@@ -75,7 +73,6 @@ def _build_ncatted_command(
         output_file: Path to output NetCDF file
         var_fillvalues: Dictionary mapping variable names to new fill values
                         (or USER_REQ_DELETE to delete the attribute)
-        var_fillmissing: Dictionary mapping variable names to new fill/missing values
 
     Returns:
         Command as list of arguments for subprocess
@@ -96,13 +93,6 @@ def _build_ncatted_command(
 
             # Modify the attribute: -a attr_name,var_name,o,type,value
             cmd.extend(["-a", f"{FILL_ATTR},{var},o,{type_code},{fill_val}"])
-    ds.close()
-
-    ds = xr.open_dataset(input_file, **OPEN_DS_KWARGS, mask_and_scale=False)
-    for var, fillmissing_dict in var_fillmissing.items():
-        type_code = _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=True)
-        for attr, new_val in fillmissing_dict.items():
-            cmd.extend(["-a", f"{attr},{var},o,{type_code},{new_val}"])
     ds.close()
 
     # Add input and output files
@@ -135,7 +125,6 @@ def build_nco_commands(
     input_file: str,
     output_file: str,
     var_fillvalues: dict[str, Any],
-    var_fillmissing: dict[str, dict[str:Any]],
     tmpdir: str,
 ) -> List[list[str]]:
 
@@ -169,15 +158,6 @@ def build_nco_commands(
     else:
         input_file_nc4 = input_file
 
-    # ncatted command will probably fail if any variable is in both these dicts
-    for var in var_fillvalues:
-        if var in var_fillmissing:
-            error(
-                logger,
-                f"Variable {var} is in both var_fillvalues and var_fillmissing",
-                error_type=NotImplementedError,
-            )
-
     # Coerce type, if needed
     if isinstance(tmpdir, Path):
         tmpdir = str(tmpdir)
@@ -196,7 +176,7 @@ def build_nco_commands(
     cmd_list = []
 
     # ncatted to replace NaN fill values
-    cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues, var_fillmissing))
+    cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues))
 
     # Only needed for vars without fill value originally
     any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(input_file)
@@ -296,12 +276,6 @@ def execute_nco_commands(cmd_list: List[list[str]]) -> int:
     return result
 
 
-class FillValueMismatch(NamedTuple):
-    var_name: str
-    fill_value: object
-    missing_value: object
-
-
 def var_has_nan_without_fill(
     da: xr.DataArray,
     dims_to_slice_over: list,
@@ -358,49 +332,6 @@ def file_has_nan_without_fill(nc_path: str) -> Tuple[bool, List[str]]:
                 vars_with_nan_without_fill.append(v)
         ds.close()
     return bool(vars_with_nan_without_fill), vars_with_nan_without_fill
-
-
-def file_has_mismatched_fill_missing(nc_path: str) -> Tuple[bool, List[FillValueMismatch]]:
-    """
-    Return list of (var_name, fill_value, missing_value, dtype)
-    for variables where both attributes exist and do not match.
-    """
-
-    mismatches = []
-
-    with Dataset(nc_path, "r") as ds:
-        for name, var in ds.variables.items():
-            mismatch = var_has_mismatched_fill_missing(name, var)
-            if mismatch:
-                mismatches.append(mismatch)
-    return bool(mismatches), mismatches
-
-
-def var_has_mismatched_fill_missing(name: str, var: Variable) -> FillValueMismatch | None:
-    if not hasattr(var, FILL_ATTR) or not hasattr(var, MISSING_ATTR):
-        return None
-
-    fill_val = getattr(var, FILL_ATTR)
-    missing_val = var.missing_value
-
-    # Convert both explicitly to the variable dtype
-    dtype = var.dtype
-    fill_cast = np.array(fill_val, dtype=dtype).item()
-    missing_cast = np.array(missing_val, dtype=dtype).item()
-
-    # Handle NaN safely
-    if np.issubdtype(dtype, np.floating):
-        equal = (np.isnan(fill_cast) and np.isnan(missing_cast)) or fill_cast == missing_cast
-    else:
-        equal = fill_cast == missing_cast
-
-    if not equal:
-        mismatch = FillValueMismatch(
-            var_name=name, fill_value=fill_cast, missing_value=missing_cast
-        )
-    else:
-        mismatch = None
-    return mismatch
 
 
 def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:

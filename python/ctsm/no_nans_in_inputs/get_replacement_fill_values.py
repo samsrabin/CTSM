@@ -47,7 +47,6 @@ from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-posi
 )
 from ctsm.no_nans_in_inputs import user_inputs  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-import-position
-    file_has_mismatched_fill_missing,
     file_has_nan_ncks_chk_nan,
     file_has_nan_fill,
     file_has_nan_without_fill,
@@ -108,13 +107,11 @@ def _check_for_nans_in_netcdf(
     info(logger, f"{INDENT}Checking: '{msg_path}'")
     info(logger, f"{INDENT*2}Checking for NaN fill")
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
-    info(logger, f"{INDENT*2}Checking for mismatched fill/missing")
-    any_mismatched_fill_missing, mismatches = file_has_mismatched_fill_missing(abs_path)
     info(logger, f"{INDENT*2}Checking for NaNs without fill")
     any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(abs_path)
 
     # Return early if no problems found
-    if not (any_nan_fill or any_mismatched_fill_missing or any_nan_without_fill):
+    if not (any_nan_fill or any_nan_without_fill):
         if warn_unhandled and file_has_nan_ncks_chk_nan(abs_path):
             info(logger, f"{INDENT*2}Checking for unhandled NaNs")
             error_type = FileNotFoundError if ctsm_logging.lte_debug(logger) else None
@@ -150,8 +147,6 @@ def _check_for_nans_in_netcdf(
     if any_nan_without_fill:
         # That's right: We will reuse the existing list
         progress[abs_path]["vars_with_nan_fills"] += vars_with_nan_without_fill
-    if any_mismatched_fill_missing:
-        progress[abs_path]["vars_with_mismatched_fill_missing"] = [x.var_name for x in mismatches]
 
     # Get suffix for eventual new version of file
     progress[abs_path]["suffix"] = _get_output_suffix(progress, abs_path)
@@ -162,17 +157,9 @@ def _check_for_nans_in_netcdf(
 
 
 def _get_output_suffix(progress: NoNanFillValueProgress, file_path: str) -> str:
-    # if not progress[file_path] or isinstance(progress[file_path], str):
-    #     return ".SHOULD_SKIP"
     any_nan_fill = bool(progress[file_path]["vars_with_nan_fills"])
-    any_mismatched_fill_missing = bool(progress[file_path]["vars_with_mismatched_fill_missing"])
     if any_nan_fill:
-        if any_mismatched_fill_missing:
-            suffix = ".no_nan_fill_same_missing"
-        else:
-            suffix = ".no_nan_fill"
-    elif any_mismatched_fill_missing:
-        suffix = ".same_fill_missing"
+        suffix = ".no_nan_fill"
     else:
         raise RuntimeError("???")
     return suffix

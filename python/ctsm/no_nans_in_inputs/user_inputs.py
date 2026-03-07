@@ -22,7 +22,6 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     ERR_STR_SKIP_FILE,
     ERR_STR_SKIP_VAR,
     INDENT,
-    MISSING_ATTR,
     OPEN_DS_KWARGS,
     SEP_LENGTH,
     USER_REQ_DELETE,
@@ -327,9 +326,6 @@ def _collect_fill_values_one_path(
     new_fill_values = progress[abs_path]["new_fill_values"]
     n_fv_before = len(new_fill_values)
 
-    # Process all variables with mismatched fill vs. missing values
-    _process_vars_with_mismatched_fill_missing(progress, abs_path, accept_all_defaults, dry_run)
-
     # Process all variables with NaN fill values
     _process_vars_with_nan_fills(
         progress, delete_if_none_filled, abs_path, dry_run, accept_all_defaults, new_fill_values
@@ -347,116 +343,6 @@ def _collect_fill_values_one_path(
             info(logger, f"{INDENT*2}{var}: {fill_val}")
 
     return progress
-
-
-def _process_vars_with_mismatched_fill_missing(
-    progress: NoNanFillValueProgress, abs_path: str, accept_all_defaults: bool, dry_run: bool
-) -> None:
-    vars_with_mismatched_fill_missing = progress[abs_path]["vars_with_mismatched_fill_missing"]
-    if not vars_with_mismatched_fill_missing:
-        return
-    new_fill_missing = progress[abs_path]["new_fill_missing"]
-
-    ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS, mask_and_scale=False)
-
-    for var in vars_with_mismatched_fill_missing:
-        # Skip variables we've already processed
-        if var in new_fill_missing:
-            info(logger, f"\n{INDENT}Variable: {var} [already processed, skipping]")
-            continue
-
-        da = ds[var]
-        fill = da.attrs[FILL_ATTR]
-        missing = da.attrs[MISSING_ATTR]
-
-        # Do any values match missing_value?
-        if np.isnan(missing):
-            any_missing = da.isnull().any()
-        else:
-            any_missing = (da == missing).any()
-
-        # Do any values match _FillValue?
-        if np.isnan(fill):
-            raise RuntimeError(
-                "Not sure how this will interact with _process_vars_with_nan_fills()"
-            )
-        any_fill = (da == fill).any()
-
-        if any_missing and any_fill:
-            msg = (
-                f"Variable {var} has elements with both fill value ({fill}) "
-                f"and missing value ({missing})"
-            )
-            error_type = (
-                NotImplementedError if ctsm_logging.lte_debug(logger) else None
-            )
-            error(logger, msg, error_type=error_type)
-            if not accept_all_defaults and not confirm_continue():
-                raise KeyboardInterrupt
-            continue
-
-        new_missing = None
-        new_fill = None
-        # TODO: Replace these with proper prompts rather than just asking whether to continue
-        if not any_missing:
-            msg = f"{INDENT}{var}: Setting {MISSING_ATTR} ({missing}) to match {FILL_ATTR} ({fill})"
-            warn(logger, msg)
-            new_missing = fill
-            new_fill = fill
-        elif not any_fill:
-            msg = f"{INDENT}{var}: Setting {FILL_ATTR} ({fill}) to match {MISSING_ATTR} ({missing})"
-            warn(logger, msg)
-            new_fill = missing
-            new_missing = missing
-
-        fixing = new_missing is not None
-        if not fixing:
-            msg = (
-                f"{INDENT}WARNING: variable {var} has both {FILL_ATTR} ({fill}) "
-                f"and {MISSING_ATTR} ({missing}); skipping",
-            )
-            error_type = (
-                NotImplementedError if ctsm_logging.lte_debug(logger) else None
-            )
-            error(logger, msg, error_type=error_type)
-
-        user_ok = accept_all_defaults or dry_run or confirm_continue()
-        if not user_ok:
-            raise KeyboardInterrupt
-
-        # Save
-        if fixing and not dry_run:
-            # This dict will be saved as progress[abs_path]["new_fill_missing"][var]
-            d = {
-                FILL_ATTR: new_fill,
-                MISSING_ATTR: new_missing,
-            }
-
-            # Handle types that aren't JSON-serializable
-            for k, v in d.items():
-                if isinstance(v, np.integer):
-                    d[k] = int(v)
-                elif isinstance(v, np.float32):
-                    if round(v) == v:
-                        d[k] = int(v)
-                    else:
-                        d[k] = float(v)
-
-            new_fill_missing[var] = d
-            try:
-                progress.save()
-            except TypeError as e:
-                if "not JSON serializable" in str(e):
-                    if ctsm_logging.lte_debug(logger):
-                        raise e
-                    msg = (
-                        f"{INDENT}WARNING: Variable {var} had fill or missing value not JSON "
-                        "serializable; skipping."
-                    )
-                    warn(logger, msg)
-                else:
-                    raise e
-    ds.close()
 
 
 def _process_vars_with_nan_fills(

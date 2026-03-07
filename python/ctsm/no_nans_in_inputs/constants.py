@@ -22,7 +22,6 @@ NONANFILL_SUFFIX = "no_nan_fill"
 
 # NetCDF attribute names
 FILL_ATTR = "_FillValue"
-MISSING_ATTR = "missing_value"
 
 # Special commands for user input
 USER_REQ_QUIT = "quit"

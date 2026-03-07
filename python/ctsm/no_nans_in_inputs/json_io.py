@@ -42,8 +42,6 @@ def create_empty_progress_dict_onefile():
         "found_in_files": {},
         "new_fill_values": {},
         "vars_with_nan_fills": [],
-        "new_fill_missing": {},
-        "vars_with_mismatched_fill_missing": [],
         "suffix": None,
     }
 
@@ -79,7 +77,6 @@ class NoNanFillValueProgress(defaultdict):
                     self.print_summary()
                     total_vars = _get_n_vars_in_progress(self)
                     if total_vars:
-                        # TODO: Also print progress so far for vars with mismatched fill/missing
                         warn(
                             logger,
                             f"Already decided {total_vars} new fill values in {len(self)} file(s)",

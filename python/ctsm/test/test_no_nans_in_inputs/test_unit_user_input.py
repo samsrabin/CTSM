@@ -260,7 +260,6 @@ def test_collect_fill_values_one_path_auto_accepts_default():
     progress[abs_path] = {
         "vars_with_nan_fills": [var_name],
         "new_fill_values": {},
-        "vars_with_mismatched_fill_missing": [],
     }
 
     # Patch get_var_info to return a VarContext and a FillValueConfig with a default

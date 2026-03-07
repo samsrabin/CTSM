@@ -459,7 +459,7 @@ class TestBuildNcattedCommand:
         """Test building command to delete an attribute."""
         var_fillvalues = {TEST_VAR_TEMP: USER_REQ_DELETE}
         cmd = _build_ncatted_command(
-            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues
         )
 
         assert NCATTED_CMD in cmd
@@ -472,7 +472,7 @@ class TestBuildNcattedCommand:
         """Test building command to modify a float attribute."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
         cmd = _build_ncatted_command(
-            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues
         )
 
         assert NCATTED_CMD in cmd
@@ -484,7 +484,7 @@ class TestBuildNcattedCommand:
         """Test building command to modify a double (float64) attribute."""
         var_fillvalues = {TEST_VAR_PRESSURE: TEST_FILL_VALUE}
         cmd = _build_ncatted_command(
-            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues
         )
 
         assert NCATTED_CMD in cmd
@@ -496,7 +496,7 @@ class TestBuildNcattedCommand:
         """Test building command with multiple variables."""
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE, TEST_VAR_PRESSURE: USER_REQ_DELETE}
         cmd = _build_ncatted_command(
-            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+            test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues
         )
 
         # Should have two -a flags
@@ -509,7 +509,7 @@ class TestBuildNcattedCommand:
         var_fillvalues = {"nonexistent_var": TEST_FILL_VALUE}
         with pytest.raises(ValueError, match="not found"):
             _build_ncatted_command(
-                test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues, var_fillmissing={}
+                test_netcdf_file, TEST_OUTPUT_FILE, var_fillvalues
             )
 
     def test_output_already_exists(self, test_netcdf_file, tmp_path):
@@ -525,7 +525,7 @@ class TestBuildNcattedCommand:
         # Building command should still work - skip logic is in main()
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
         cmd = _build_ncatted_command(
-            test_netcdf_file, str(output_file), var_fillvalues, var_fillmissing={}
+            test_netcdf_file, str(output_file), var_fillvalues
         )
         assert NCATTED_CMD in cmd
 
@@ -541,7 +541,6 @@ class TestBuildNcoCommands:
                 test_netcdf_file,
                 test_netcdf_file,
                 var_fillvalues,
-                var_fillmissing={},
                 tmpdir=tmp_path,
             )
 
@@ -606,7 +605,7 @@ class TestExecuteCommand:
         # Build and execute the command without XML update (because we're not testing that here)
         output_file = str(tmp_path / "test_output.nc")
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = _build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(input_file, output_file, var_fillvalues)
         files_processed = _execute_nco_command(cmd)
 
         # Should have processed 1 file
@@ -650,7 +649,7 @@ class TestExecuteCommand:
         # Build and execute the command without XML update (because we're not testing that here)
         output_file = str(tmp_path / "test_output.nc")
         var_fillvalues = {TEST_VAR_TEMP: TEST_FILL_VALUE}
-        cmd = _build_ncatted_command(input_file, output_file, var_fillvalues, var_fillmissing={})
+        cmd = _build_ncatted_command(input_file, output_file, var_fillvalues)
         _execute_nco_command(cmd)
 
         # Verify the output file is valid NetCDF with correct fill value. mask_and_scale True means
@@ -712,14 +711,12 @@ class TestBuildExecuteNcoCommands:
         test_file_out = tmp_path / "output.nc"
         new_fillvalue = dtype(-999)
         var_fillvalues = {var_name: new_fillvalue}
-        var_fillmissing = {}
 
         # Build commands
         cmd_list, result_file = build_nco_commands(
             input_file=test_file_in,
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
-            var_fillmissing=var_fillmissing,
             tmpdir=tmp_path,
         )
 
@@ -769,14 +766,12 @@ class TestBuildExecuteNcoCommands:
         test_file_out = tmp_path / "output.nc"
         new_fillvalue = dtype(-999)
         var_fillvalues = {var_name: new_fillvalue}
-        var_fillmissing = {}
 
         # Build commands
         cmd_list, result_file = build_nco_commands(
             input_file=test_file_in,
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
-            var_fillmissing=var_fillmissing,
             tmpdir=tmp_path,
         )
 
