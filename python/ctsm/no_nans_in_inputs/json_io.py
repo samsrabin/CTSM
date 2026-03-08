@@ -42,7 +42,6 @@ def create_empty_progress_dict_onefile():
         "found_in_files": {},
         "new_fill_values": {},
         "vars_with_nan_fills": [],
-        "suffix": None,
     }
 
 

@@ -35,6 +35,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
     INDENT,
     NEW_FILLVALUES_FILE,
     NO_HANDLED_NANS,
+    NONANFILL_SUFFIX,
     SEP_LENGTH,
     USER_REQ_DELETE,
     USER_REQ_SKIP_FILE,
@@ -68,7 +69,7 @@ logger = logging.getLogger()
 MAX_LISTED_VARS = 5
 
 
-def get_output_filename(input_file: str, suffix: str = ".no_nan_fill") -> str:
+def get_output_filename(input_file: str) -> str:
     """
     Generate output filename by adding .no_nan_fill before the extension.
 
@@ -89,10 +90,10 @@ def get_output_filename(input_file: str, suffix: str = ".no_nan_fill") -> str:
     # Find the last dot to split extension
     if "." in basename:
         name, ext = basename.rsplit(".", 1)
-        output_basename = f"{name}{suffix}.{ext}"
+        output_basename = f"{name}.{NONANFILL_SUFFIX}.{ext}"
     else:
         # No extension
-        output_basename = f"{basename}{suffix}"
+        output_basename = f"{basename}.{NONANFILL_SUFFIX}"
 
     # Reconstruct the full path
     return os.path.join(directory, output_basename)
@@ -153,9 +154,7 @@ def _process_one_file(
         ].items():
             files_containing.append(file_containing_netcdf)
             for netcdf_path_in in set_of_how_this_netcdf_appears:
-                netcdf_path_out = get_output_filename(
-                    netcdf_path_in, progress[input_file_abs]["suffix"]
-                )
+                netcdf_path_out = get_output_filename(netcdf_path_in)
                 nlu.update_text_file_referencing_netcdf(
                     file_containing_netcdf, netcdf_path_in, netcdf_path_out
                 )
@@ -325,7 +324,7 @@ def process_files(
             continue
 
         # Get output filename
-        output_file = get_output_filename(input_file_abs, suffix=progress[input_file_abs]["suffix"])
+        output_file = get_output_filename(input_file_abs)
 
         # Check whether we're skipping this file
         if skip_this_file(input_file_abs, output_file, overwrite):

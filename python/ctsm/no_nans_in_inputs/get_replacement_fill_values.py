@@ -148,22 +148,9 @@ def _check_for_nans_in_netcdf(
         # That's right: We will reuse the existing list
         progress[abs_path]["vars_with_nan_fills"] += vars_with_nan_without_fill
 
-    # Get suffix for eventual new version of file
-    progress[abs_path]["suffix"] = _get_output_suffix(progress, abs_path)
-
     # Save
     progress.save()
     _print_msg(progress, abs_path)
-
-
-def _get_output_suffix(progress: NoNanFillValueProgress, file_path: str) -> str:
-    any_nan_fill = bool(progress[file_path]["vars_with_nan_fills"])
-    if any_nan_fill:
-        suffix = ".no_nan_fill"
-    else:
-        raise RuntimeError("???")
-    return suffix
-
 
 def _print_msg(progress, abs_path):
     msg = f"NaN fill values: '{get_path_with_cesmdataroot(abs_path)}'"
@@ -308,21 +295,6 @@ def _get_netcdfs_with_nan_fills(
                 msg = (
                     f"Only {n_to_fix}/{n_matched} files matching pattern"
                     f" '{glob_pattern}' need fixing. This is currently not handled."
-                )
-                error(logger, msg, error_type=error_type)
-                if not user_inputs.confirm_continue():
-                    sys.exit("Exiting.")
-                continue
-
-            # A similar problem will arise if all the files need fixing but they wouldn't receive
-            # the same suffix.
-            # TODO: Avoid this by giving all new files the same suffix regardless of changes made
-            if len({v["suffix"] for v in progress_tmp.values()}) > 1:
-                error_type = RuntimeError if ctsm_logging.lte_debug(logger) else None
-                msg = (
-                    f"ERROR: Not all {len(progress_tmp)} files matching pattern '{glob_pattern}'"
-                    " would get the same suffix, which would cause problems when using the"
-                    " namelist. Will skip fixing these files."
                 )
                 error(logger, msg, error_type=error_type)
                 if not user_inputs.confirm_continue():

@@ -74,7 +74,6 @@ class TestReplaceFullWorkflow:
             TEST_VAR_TEMP: TEST_FILL_VALUE,
             TEST_VAR_PRESSURE: USER_REQ_DELETE,
         }
-        input_file_dict["suffix"] = ".no_nan_fill"
         fillvalues_data.save()
 
         return {

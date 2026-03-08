@@ -123,7 +123,6 @@ def test_integrate_get_replace_nanfillornone(
         xml_file,
         inputs_get,
         inputs_replace,
-        suffix=".no_nan_fill",
     )
 
     # Extra checks
@@ -163,7 +162,6 @@ def _call_and_check(
     xml_file,
     inputs_get,
     inputs_replace,
-    suffix,
 ):
     # pylint: disable=too-many-arguments, too-many-positional-arguments
 
@@ -192,7 +190,7 @@ def _call_and_check(
                 replace_fill_values()
 
     # Check the output file
-    output_file = get_output_filename(str(netcdf_path), suffix=suffix)
+    output_file = get_output_filename(str(netcdf_path))
     assert os.path.exists(output_file), f"File not found: {output_file=}"
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
     assert FILL_ATTR in ds["temp"].encoding
@@ -204,7 +202,7 @@ def _call_and_check(
     root = tree.getroot()
     paramfile = root.find("paramfile")
     assert paramfile is not None
-    assert paramfile.text == get_output_filename(netcdf_path_for_xml, suffix=suffix)
+    assert paramfile.text == get_output_filename(netcdf_path_for_xml)
 
     # Make sure the progress file is now empty
     assert not NoNanFillValueProgress(progress_file=progress_file, load_without_asking=True)
