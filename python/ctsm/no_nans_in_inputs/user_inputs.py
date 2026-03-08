@@ -72,7 +72,11 @@ def _convert_and_validate_input(user_input: str, target_type: type) -> Any | Non
         except TypeError:
             converted_value_is_nan = False
         if converted_value_is_nan:
-            error(logger, f"Input '{user_input}' would produce a NaN {FILL_ATTR}", error_type=ValueError)
+            error(
+                logger,
+                f"Input '{user_input}' would produce a NaN {FILL_ATTR}",
+                error_type=ValueError,
+            )
 
         return converted_value
     except (ValueError, TypeError) as e:
@@ -282,6 +286,11 @@ def _collect_fill_values_one_path(
         Dictionary mapping absolute file paths to dictionaries of {variable_name: new_fill_value}
     """
     if "new_fill_values" not in progress[abs_path]:
+        return progress
+    if (
+        "vars_to_give_fills" not in progress[abs_path]
+        or not progress[abs_path]["vars_to_give_fills"]
+    ):
         return progress
 
     warn(logger, f"\n{'=' * SEP_LENGTH}")
