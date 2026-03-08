@@ -4,14 +4,16 @@ Tests of the integrated get_replacement_fill_values.py -> replace_fill_values.py
 
 import itertools
 import os
+from pathlib import Path
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 from typing import Any
+import subprocess
+from shutil import copy2
 
 import pytest
 import numpy as np
 import xarray as xr
-from netCDF4 import Dataset  # pylint: disable=no-name-in-module
 
 from ctsm.netcdf_utils import get_netcdf_format
 from ctsm.no_nans_in_inputs.constants import (
@@ -23,7 +25,7 @@ from ctsm.no_nans_in_inputs import get_replacement_fill_values
 from ctsm.no_nans_in_inputs.replace_fill_values import main as replace_fill_values
 from ctsm.no_nans_in_inputs.replace_fill_values import get_output_filename
 from ctsm.no_nans_in_inputs.json_io import NoNanFillValueProgress
-from ctsm.no_nans_in_inputs.netcdf_utils import file_has_nan_ncks_chk_nan
+from ctsm.no_nans_in_inputs.netcdf_utils import _build_ncatted_command, file_has_nan_ncks_chk_nan
 
 # Test constants
 TEST_VAR_TEMP = "temp"
@@ -38,6 +40,7 @@ NETCDF_TYPES = [
     "NETCDF3_64BIT_DATA",
     "NETCDF3_CLASSIC",
 ]
+FILE_WITH_FILLED_AND_RAW_NANS = Path(__file__).parents[1] / "testinputs" / "filled_and_raw_nans.nc"
 
 
 param_combos_nanfillornone = [
@@ -109,6 +112,47 @@ def test_integrate_get_replace_nanfillornone(
         "y",  # continue after printing summary
         USER_REQ_DELETE,  # alphabetically 1st var
         str(TEST_NEW_FILL),  # alphabetically 2nd var
+    ]
+    inputs_replace = [
+        "y",  # continue after replacing
+    ]
+
+    # Call get_replacement_fill_values.py and do standard checks
+    output_file = _call_and_check(
+        tmp_path,
+        nc_format,
+        netcdf_path,
+        netcdf_path_for_xml,
+        xml_file,
+        inputs_get,
+        inputs_replace,
+    )
+
+    # Extra checks
+    ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
+    assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
+    assert FILL_ATTR not in ds["pressure"].encoding
+    assert np.isnan(ds["temp"].values[0])
+
+
+@pytest.mark.parametrize("nc_format", NETCDF_TYPES)
+def test_integrate_get_replace_rawnanwithokfill(tmp_path, create_mock_xml_file, nc_format):
+    """Test the integrated get -> replace pipeline for a file with non-NaN fill and raw NaN"""
+    # pylint: disable=too-many-arguments, too-many-positional-arguments
+
+    # Make temporary copy of netCDF with raw NaN
+    netcdf_path = tmp_path / "test.nc"
+    copy2(FILE_WITH_FILLED_AND_RAW_NANS, netcdf_path)
+
+    # Write XML
+    netcdf_path, netcdf_path_for_xml, xml_file = _create_xml_and_netcdf(
+        tmp_path, create_mock_xml_file, "abs", netcdf_path
+    )
+
+    # Simulate user input
+    inputs_get = [
+        "y",  # continue after printing summary
+        USER_REQ_DELETE,  # pressure
     ]
     inputs_replace = [
         "y",  # continue after replacing
