@@ -8,8 +8,6 @@ from pathlib import Path
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 from typing import Any
-import subprocess
-from shutil import copy2
 
 import pytest
 import numpy as np
@@ -25,7 +23,8 @@ from ctsm.no_nans_in_inputs import get_replacement_fill_values
 from ctsm.no_nans_in_inputs.replace_fill_values import main as replace_fill_values
 from ctsm.no_nans_in_inputs.replace_fill_values import get_output_filename
 from ctsm.no_nans_in_inputs.json_io import NoNanFillValueProgress
-from ctsm.no_nans_in_inputs.netcdf_utils import _build_ncatted_command, file_has_nan_ncks_chk_nan
+from ctsm.no_nans_in_inputs.netcdf_utils import file_has_nan_ncks_chk_nan
+from ctsm.no_nans_in_inputs.constants import OUR_PATH
 
 # Test constants
 TEST_VAR_TEMP = "temp"
@@ -140,9 +139,24 @@ def test_integrate_get_replace_rawnanwithokfill(tmp_path, create_mock_xml_file, 
     """Test the integrated get -> replace pipeline for a file with non-NaN fill and raw NaN"""
     # pylint: disable=too-many-arguments, too-many-positional-arguments
 
-    # Make temporary copy of netCDF with raw NaN
-    netcdf_path = tmp_path / "test.nc"
-    copy2(FILE_WITH_FILLED_AND_RAW_NANS, netcdf_path)
+    # We're going to be working on a copy of this known-bad file. Make sure it's actually bad!
+    assert file_has_nan_ncks_chk_nan(FILE_WITH_FILLED_AND_RAW_NANS)
+
+    # Make temporary copy of known-bad file (with raw NaN despite fill value)
+    netcdf_path = tmp_path / Path(OUR_PATH) / "test.nc"
+    netcdf_path.parent.mkdir(parents=True)
+    xr.open_dataset(
+        FILE_WITH_FILLED_AND_RAW_NANS, mask_and_scale=False, **OPEN_DS_KWARGS
+    ).to_netcdf(netcdf_path, format=nc_format)
+    # Check it
+    assert file_has_nan_ncks_chk_nan(netcdf_path)
+    assert get_netcdf_format(netcdf_path) == nc_format
+
+    # Set up for later checks
+    orig_fill = np.float64(1e36)
+    var = "aleafi"
+    assert xr.open_dataset(netcdf_path, **OPEN_DS_KWARGS)[var].encoding[FILL_ATTR] == orig_fill
+    assert xr.open_dataset(netcdf_path, mask_and_scale=False, **OPEN_DS_KWARGS)[var].isnull().any()
 
     # Write XML
     netcdf_path, netcdf_path_for_xml, xml_file = _create_xml_and_netcdf(
@@ -171,9 +185,8 @@ def test_integrate_get_replace_rawnanwithokfill(tmp_path, create_mock_xml_file, 
 
     # Extra checks
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
-    assert ds["temp"].encoding[FILL_ATTR] == TEST_NEW_FILL
-    assert FILL_ATTR not in ds["pressure"].encoding
-    assert np.isnan(ds["temp"].values[0])
+    assert ds[var].encoding[FILL_ATTR] == orig_fill
+    assert np.isnan(ds[var].values[0])
 
 
 def _create_xml_and_netcdf(tmp_path, create_mock_xml_file, abs_or_rel, netcdf_path):
@@ -237,7 +250,10 @@ def _call_and_check(
     output_file = get_output_filename(str(netcdf_path))
     assert os.path.exists(output_file), f"File not found: {output_file=}"
     ds = xr.open_dataset(output_file, **OPEN_DS_KWARGS)
-    assert FILL_ATTR in ds["temp"].encoding
+    for v in ds:
+        if v == TEST_VAR_PRESSURE:
+            continue
+        assert FILL_ATTR in ds[v].encoding
     assert get_netcdf_format(output_file) == nc_format
     assert not file_has_nan_ncks_chk_nan(output_file)
 

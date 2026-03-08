@@ -5,9 +5,10 @@ import sys
 from pathlib import Path
 import re
 import subprocess
-from typing import Any, List, NamedTuple, Tuple
+from typing import Any, Dict, List, NamedTuple, Tuple
 import logging
 import warnings
+from shutil import copyfile
 
 import numpy as np
 import xarray as xr
@@ -180,16 +181,37 @@ def build_nco_commands(
     cmd_list = []
 
     # ncatted to replace NaN fill values
-    cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues))
+    if var_fillvalues:
+        cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues))
+    elif not os.path.exists(nc_tmp):
+        copyfile(input_file_nc4, nc_tmp, follow_symlinks=True)
 
-    # Only needed for vars without fill value originally
+    # Only needed for vars with raw NaNs originally
     vars_with_rawnan_nofill = progress[input_file]["vars_with_rawnan_nofill"]
-    any_rawnan_nofill = bool(vars_with_rawnan_nofill)
-    if any_rawnan_nofill:
+    vars_with_rawnan_yesfill = progress[input_file]["vars_with_rawnan_yesfill"]
+    vars_with_rawnan = vars_with_rawnan_nofill + list(vars_with_rawnan_yesfill.keys())
+    any_rawnan = bool(vars_with_rawnan)
+    if any_rawnan:
+        # Get combined list of fill values, making sure no variable is in both the dicts
+        if vars_in_both := set(vars_with_rawnan_nofill) & set(vars_with_rawnan_yesfill.keys()):
+            msg = (
+                "Unexpected variable(s) in both var_fillvalues and vars_with_rawnan_yesfill: "
+                + ", ".join(vars_in_both)
+            )
+            error(logger, msg, error_type=AssertionError)
+
+        # Build dict of variables and their fill values for the ncap2 command, which sets raw NaNs
+        # in a variable to its fill value
+        var_fillvalues_for_ncap2 = {}
+        for k, v in var_fillvalues.items():
+            if k in vars_with_rawnan_nofill:
+                var_fillvalues_for_ncap2[k] = v
+        var_fillvalues_for_ncap2 = var_fillvalues_for_ncap2 | vars_with_rawnan_yesfill
+        assert len(var_fillvalues_for_ncap2) == len(vars_with_rawnan)
         # ncap2 writes a temporary file by default, so we don't need to worry about slowdowns when
         # we call it with the same input and output
         cmd_list.append(
-            _build_ncap2_command(nc_tmp, nc_tmp, var_fillvalues, vars_with_rawnan_nofill)
+            _build_ncap2_command(nc_tmp, nc_tmp, var_fillvalues_for_ncap2, vars_with_rawnan)
         )
 
     # nccopy to convert back, if needed (see above)
@@ -289,9 +311,11 @@ def var_has_rawnan(
     Best to sort dims_to_slice_over smallest -> largest so that we're always working with the
     largest possible slice, for efficiency
     """
-    # If variable has fill value, obviously this function should return False
-    if hasattr(da, "attrs") and FILL_ATTR in da.attrs:
-        return False
+    # Get fill value, if any
+    try:
+        fill_value = da.attrs[FILL_ATTR]
+    except KeyError:
+        fill_value = None
 
     # Check one slice at a time for some dimensions in order to reduce RAM usage
     if (dims_to_slice_over is not None) and da.size > 1e8:
@@ -306,21 +330,24 @@ def var_has_rawnan(
                 info(
                     logger, f"{INDENT*4}Slicing over {dim} {i+1}/{da.sizes[dim]}; size {da_i.size}"
                 )
-                any_raw_null = var_has_rawnan(da_i, dims_to_slice_over=dims_to_slice_over)
+                any_raw_null, fill_value = var_has_rawnan(
+                    da_i, dims_to_slice_over=dims_to_slice_over
+                )
                 if any_raw_null:
                     break
-            return any_raw_null
+            return any_raw_null, fill_value
         if dims_to_slice_over and len(dims_to_slice_over) > 1:
-            any_raw_null = var_has_rawnan(da, dims_to_slice_over=dims_to_slice_over)
-            return any_raw_null
+            any_raw_null, fill_value = var_has_rawnan(da, dims_to_slice_over=dims_to_slice_over)
+            return any_raw_null, fill_value
         any_raw_null = da.isnull().any()
     else:
         any_raw_null = da.isnull().any()
-    return any_raw_null
+    return any_raw_null, fill_value
 
 
-def file_has_rawnan(nc_path: str) -> Tuple[bool, List[str]]:
+def file_has_rawnan(nc_path: str) -> Tuple[bool, List[str], dict[str, Any]]:
     vars_with_rawnan_nofill = []
+    vars_with_rawnan_yesfill = {}
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
         ds = xr.open_dataset(nc_path, **OPEN_DS_KWARGS, mask_and_scale=False)
@@ -333,10 +360,15 @@ def file_has_rawnan(nc_path: str) -> Tuple[bool, List[str]]:
 
         for v in ds:
             info(logger, f"{INDENT*3}Checking {v}")
-            if var_has_rawnan(ds[v], dims_to_slice_over=dims_to_slice_over):
-                vars_with_rawnan_nofill.append(v)
+            has_rawnan, fill_value = var_has_rawnan(ds[v], dims_to_slice_over=dims_to_slice_over)
+            if has_rawnan:
+                if fill_value is None:
+                    vars_with_rawnan_nofill.append(v)
+                else:
+                    vars_with_rawnan_yesfill[v] = fill_value
         ds.close()
-    return bool(vars_with_rawnan_nofill), vars_with_rawnan_nofill
+    any_var_has_rawnan = bool(vars_with_rawnan_nofill) or bool(vars_with_rawnan_yesfill)
+    return any_var_has_rawnan, vars_with_rawnan_nofill, vars_with_rawnan_yesfill
 
 
 def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:

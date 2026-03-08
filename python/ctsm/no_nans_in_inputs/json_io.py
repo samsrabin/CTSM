@@ -11,6 +11,8 @@ import json
 from collections import defaultdict
 import logging
 
+import numpy as np
+
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 if _CTSM_PYTHON not in sys.path:
@@ -43,6 +45,7 @@ def create_empty_progress_dict_onefile():
         "new_fill_values": {},
         "vars_to_give_fills": [],
         "vars_with_rawnan_nofill": [],
+        "vars_with_rawnan_yesfill": {},
     }
 
 
@@ -125,6 +128,9 @@ class NoNanFillValueProgress(defaultdict):
         # Can't serialize sets. deepcopy() is needed so that caller's progress isn't affected
         # .copy() isn't sufficient since we have nested mutables.
         progress_out = _convert_fif_dict_sets(deepcopy(self), list)
+
+        # Handle types that aren't JSON-serializable
+        _handle_non_serializable_types(progress_out)
 
         try:
             with open(self.progress_file, "w", encoding="utf-8") as f:
@@ -217,3 +223,21 @@ def _get_n_vars_in_progress(progress: NoNanFillValueProgress) -> int:
         if "new_fill_values" in progress[file]:
             n_vars += len(progress[file]["new_fill_values"].keys())
     return n_vars
+
+
+def _handle_non_serializable_types(progress_out: NoNanFillValueProgress) -> None:
+    for progress_1file in progress_out.values():
+        if not isinstance(progress_1file, dict):
+            continue
+        # Loop through all dicts in this file's dict
+        for d in progress_1file.values():
+            if not isinstance(d, dict):
+                continue
+            for k, v in d.items():
+                if isinstance(v, np.integer):
+                    d[k] = int(v)
+                elif isinstance(v, np.float32):
+                    if np.round(v) == v:
+                        d[k] = int(v)
+                    else:
+                        d[k] = float(v)
