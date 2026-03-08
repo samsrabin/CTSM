@@ -26,7 +26,7 @@ from ctsm.no_nans_in_inputs.netcdf_utils import (
     get_vars_with_nan_fills,
     show_ncdump_for_variable,
     var_data_has_nan,
-    var_has_nan_without_fill,
+    var_has_rawnan_nofill,
 )
 
 # Test constants
@@ -210,20 +210,20 @@ class TestVarDataHasNan:
 
 
 class TestVarHasNanWithoutFill:
-    """Tests for var_has_nan_without_fill covering simple and slicing branches."""
+    """Tests for var_has_rawnan_nofill covering simple and slicing branches."""
 
     def test_simple_detects_nan_and_no_nan(self):
         """Small xarray DataArray: detect NaN and no-NaN correctly, with no fill value"""
         da_with_nan = xr.DataArray(np.array([1.0, np.nan]))
-        assert var_has_nan_without_fill(da_with_nan, dims_to_slice_over=None)
+        assert var_has_rawnan_nofill(da_with_nan, dims_to_slice_over=None)
 
         da_no_nan = xr.DataArray(np.array([0.0, 2.0, 3.0]))
-        assert not var_has_nan_without_fill(da_no_nan, dims_to_slice_over=None)
+        assert not var_has_rawnan_nofill(da_no_nan, dims_to_slice_over=None)
 
     def test_returns_false_nan_fillvalue_but_no_filled(self):
         """Returns False if variable has NaN _FillValue but no filled elements"""
         da = xr.DataArray(np.array([1.0, 2.0]), attrs={FILL_ATTR: np.nan})
-        assert not var_has_nan_without_fill(da, dims_to_slice_over=None)
+        assert not var_has_rawnan_nofill(da, dims_to_slice_over=None)
 
     def test_returns_false_nan_fillvalue_and_filled(self):
         """Returns False if variable has NaN _FillValue and some filled elements"""
@@ -232,12 +232,12 @@ class TestVarHasNanWithoutFill:
             dims=["time"],
             attrs={FILL_ATTR: np.float32(np.nan)},
         )
-        assert not var_has_nan_without_fill(da, dims_to_slice_over=None)
+        assert not var_has_rawnan_nofill(da, dims_to_slice_over=None)
 
     class _SmallFakeDataArray:
         """Small fake DataArray used as the result of isel() on a big array.
 
-        Implements the minimal interface used by var_has_nan_without_fill.
+        Implements the minimal interface used by var_has_rawnan_nofill.
         """
 
         def __init__(self, has_null: bool):
@@ -300,10 +300,10 @@ class TestVarHasNanWithoutFill:
         return False).
         """
         big_with_nan = self._BigFakeDataArray("x", {"x": 3}, [False, True, False])
-        assert var_has_nan_without_fill(big_with_nan, dims_to_slice_over=["x"]) is True
+        assert var_has_rawnan_nofill(big_with_nan, dims_to_slice_over=["x"]) is True
 
         big_no_nan = self._BigFakeDataArray("x", {"x": 3}, [False, False, False])
-        assert var_has_nan_without_fill(big_no_nan, dims_to_slice_over=["x"]) is False
+        assert var_has_rawnan_nofill(big_no_nan, dims_to_slice_over=["x"]) is False
 
     def test_multi_dims_slicing(self):
         """Test when dims_to_slice_over has multiple items and the first dim is
@@ -313,11 +313,11 @@ class TestVarHasNanWithoutFill:
         """
         # Two slices, second slice contains a NaN; dims_to_slice_over has two items
         big_multi_with_nan = self._BigFakeDataArray("x", {"x": 2}, [False, True])
-        assert var_has_nan_without_fill(big_multi_with_nan, dims_to_slice_over=["x", "y"]) is True
+        assert var_has_rawnan_nofill(big_multi_with_nan, dims_to_slice_over=["x", "y"]) is True
 
         # Two slices, none have NaN
         big_multi_no_nan = self._BigFakeDataArray("x", {"x": 2}, [False, False])
-        assert var_has_nan_without_fill(big_multi_no_nan, dims_to_slice_over=["x", "y"]) is False
+        assert var_has_rawnan_nofill(big_multi_no_nan, dims_to_slice_over=["x", "y"]) is False
 
     def test_break_stops_iteration(self):
         """If the first slice contains a NaN, the function should break and not
@@ -350,7 +350,7 @@ class TestVarHasNanWithoutFill:
                 return TestVarHasNanWithoutFill._SmallFakeDataArray(any(self._slice_nulls)).isnull()
 
         tb = TrackingBig("x", {"x": 3}, [True, True, True])
-        res = var_has_nan_without_fill(tb, dims_to_slice_over=["x"])
+        res = var_has_rawnan_nofill(tb, dims_to_slice_over=["x"])
         assert res is True
         assert calls == [0]
 
@@ -381,7 +381,7 @@ class TestVarHasNanWithoutFill:
                 return TestVarHasNanWithoutFill._SmallFakeDataArray(any(self._slice_nulls)).isnull()
 
         cb = ContinueBig("x", {"x": 3}, [False, False, True])
-        res = var_has_nan_without_fill(cb, dims_to_slice_over=["x"])
+        res = var_has_rawnan_nofill(cb, dims_to_slice_over=["x"])
         assert res is True
         assert calls == [0, 1, 2]
 
@@ -419,10 +419,10 @@ class TestVarHasNanWithoutFill:
         # dims_to_slice_over asks to slice over 'missing_dim' then 'x'; our object
         # only has 'x' and reports True/False via isnull().any()
         mb_true = MissingDimBig("x", {"x": 3}, True)
-        assert var_has_nan_without_fill(mb_true, dims_to_slice_over=["missing_dim", "x"]) is True
+        assert var_has_rawnan_nofill(mb_true, dims_to_slice_over=["missing_dim", "x"]) is True
 
         mb_false = MissingDimBig("x", {"x": 3}, False)
-        assert var_has_nan_without_fill(mb_false, dims_to_slice_over=["missing_dim", "x"]) is False
+        assert var_has_rawnan_nofill(mb_false, dims_to_slice_over=["missing_dim", "x"]) is False
 
 
 class TestBuildNcattedCommand:
@@ -735,7 +735,7 @@ class TestBuildExecuteNcoCommands:
         assert FILL_ATTR in ds_out[var_name].encoding
         assert ds_out[var_name].encoding[FILL_ATTR] == new_fillvalue
 
-    def test_fix_nan_without_fill(self, tmp_path):
+    def test_fix_rawnan_nofill(self, tmp_path):
         """Test fixing a file that had NaN but no fill value"""
         # Make test file
         test_file_in = tmp_path / "test.nc"

@@ -105,13 +105,13 @@ def _build_ncap2_command(
     input_file: str,
     output_file: str,
     var_fillvalues: dict[str, Any],
-    vars_with_nan_without_fill: List[str],
+    vars_with_rawnan_nofill: List[str],
 ) -> list[str]:
     """ncap2 command to set raw NaNs equal to the fill value"""
 
     cmd = ["ncap2", "-O", "-s"]
     ncap2_script_expr = ""
-    for var in vars_with_nan_without_fill:
+    for var in vars_with_rawnan_nofill:
         new_fill = var_fillvalues[var]
         # ncap2's isnan() is available in older nco versions, so we take advantage of the IEEE
         # rule that NaN is the only value not equal to itself.
@@ -179,12 +179,12 @@ def build_nco_commands(
     cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues))
 
     # Only needed for vars without fill value originally
-    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(input_file)
-    if any_nan_without_fill:
+    any_rawnan_nofill, vars_with_rawnan_nofill = file_has_rawnan_nofill(input_file)
+    if any_rawnan_nofill:
         # ncap2 writes a temporary file by default, so we don't need to worry about slowdowns when
         # we call it with the same input and output
         cmd_list.append(
-            _build_ncap2_command(nc_tmp, nc_tmp, var_fillvalues, vars_with_nan_without_fill)
+            _build_ncap2_command(nc_tmp, nc_tmp, var_fillvalues, vars_with_rawnan_nofill)
         )
 
     # nccopy to convert back, if needed (see above)
@@ -276,7 +276,7 @@ def execute_nco_commands(cmd_list: List[list[str]]) -> int:
     return result
 
 
-def var_has_nan_without_fill(
+def var_has_rawnan_nofill(
     da: xr.DataArray,
     dims_to_slice_over: list,
 ):
@@ -301,12 +301,12 @@ def var_has_nan_without_fill(
                 info(
                     logger, f"{INDENT*4}Slicing over {dim} {i+1}/{da.sizes[dim]}; size {da_i.size}"
                 )
-                any_raw_null = var_has_nan_without_fill(da_i, dims_to_slice_over=dims_to_slice_over)
+                any_raw_null = var_has_rawnan_nofill(da_i, dims_to_slice_over=dims_to_slice_over)
                 if any_raw_null:
                     break
             return any_raw_null
         if dims_to_slice_over and len(dims_to_slice_over) > 1:
-            any_raw_null = var_has_nan_without_fill(da, dims_to_slice_over=dims_to_slice_over)
+            any_raw_null = var_has_rawnan_nofill(da, dims_to_slice_over=dims_to_slice_over)
             return any_raw_null
         any_raw_null = da.isnull().any()
     else:
@@ -314,8 +314,8 @@ def var_has_nan_without_fill(
     return any_raw_null
 
 
-def file_has_nan_without_fill(nc_path: str) -> Tuple[bool, List[str]]:
-    vars_with_nan_without_fill = []
+def file_has_rawnan_nofill(nc_path: str) -> Tuple[bool, List[str]]:
+    vars_with_rawnan_nofill = []
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
         ds = xr.open_dataset(nc_path, **OPEN_DS_KWARGS, mask_and_scale=False)
@@ -328,10 +328,10 @@ def file_has_nan_without_fill(nc_path: str) -> Tuple[bool, List[str]]:
 
         for v in ds:
             info(logger, f"{INDENT*3}Checking {v}")
-            if var_has_nan_without_fill(ds[v], dims_to_slice_over=dims_to_slice_over):
-                vars_with_nan_without_fill.append(v)
+            if var_has_rawnan_nofill(ds[v], dims_to_slice_over=dims_to_slice_over):
+                vars_with_rawnan_nofill.append(v)
         ds.close()
-    return bool(vars_with_nan_without_fill), vars_with_nan_without_fill
+    return bool(vars_with_rawnan_nofill), vars_with_rawnan_nofill
 
 
 def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:

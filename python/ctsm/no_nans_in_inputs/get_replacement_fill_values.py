@@ -49,7 +49,7 @@ from ctsm.no_nans_in_inputs import user_inputs  # pylint: disable=wrong-import-p
 from ctsm.no_nans_in_inputs.netcdf_utils import (  # pylint: disable=wrong-import-position
     file_has_nan_ncks_chk_nan,
     file_has_nan_fill,
-    file_has_nan_without_fill,
+    file_has_rawnan_nofill,
 )
 from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     add_logging_args,
@@ -108,10 +108,10 @@ def _check_for_nans_in_netcdf(
     info(logger, f"{INDENT*2}Checking for NaN fill")
     any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
     info(logger, f"{INDENT*2}Checking for NaNs without fill")
-    any_nan_without_fill, vars_with_nan_without_fill = file_has_nan_without_fill(abs_path)
+    any_rawnan_nofill, vars_with_rawnan_nofill = file_has_rawnan_nofill(abs_path)
 
     # Return early if no problems found
-    if not (any_nan_fill or any_nan_without_fill):
+    if not (any_nan_fill or any_rawnan_nofill):
         if warn_unhandled and file_has_nan_ncks_chk_nan(abs_path):
             info(logger, f"{INDENT*2}Checking for unhandled NaNs")
             error_type = FileNotFoundError if ctsm_logging.lte_debug(logger) else None
@@ -144,9 +144,9 @@ def _check_for_nans_in_netcdf(
     # Get list of variables in this file with issues
     if any_nan_fill:
         progress[abs_path]["vars_with_nan_fills"] += vars_with_nan_fills
-    if any_nan_without_fill:
+    if any_rawnan_nofill:
         # That's right: We will reuse the existing list
-        progress[abs_path]["vars_with_nan_fills"] += vars_with_nan_without_fill
+        progress[abs_path]["vars_with_nan_fills"] += vars_with_rawnan_nofill
 
     # Save
     progress.save()
