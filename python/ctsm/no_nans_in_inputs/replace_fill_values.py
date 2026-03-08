@@ -141,6 +141,17 @@ def _process_one_file(
                 sys.exit("Exiting.")
             return files_processed
 
+        # Make sure it actually worked
+        if netcdf_utils.file_has_nan_ncks_chk_nan(result_file):
+            warn(
+                logger,
+                f"WARNING: Output file still has NaNs according to ncks --chk_nan: '{result_file}'",
+            )
+            if not confirm_continue():
+                if confirm_continue(prompt="Delete output file?"):
+                    os.remove(result_file)
+                sys.exit("Exiting")
+
         # If we didn't convert to/from netCDF4, then we didn't actually create our output file, just
         # a temporary one. Move that to our output location.
         if result_file != output_file:
