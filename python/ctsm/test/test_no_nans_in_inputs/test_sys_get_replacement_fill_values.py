@@ -85,7 +85,7 @@ class TestMain:
     #     return_value=(False, []),
     # )
     # @patch(
-    #     "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_rawnan_nofill",
+    #     "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_rawnan",
     #     return_value=(False, []),
     # )
     # @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
@@ -94,7 +94,7 @@ class TestMain:
     #     self,
     #     mock_confirm_continue,
     #     mock_collect,
-    #     mock_file_has_rawnan_nofill,
+    #     mock_file_has_rawnan,
     #     mock_file_has_mismatch,
     #     mock_file_has_nan,
     #     mock_isdir,
@@ -167,12 +167,12 @@ class TestMain:
     #     return_value=(False, []),
     # )
     # @patch(
-    #     "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_rawnan_nofill",
+    #     "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_rawnan",
     #     return_value=(False, []),
     # )
     # def test_main_dry_run(
     #     self,
-    #     mock_file_has_rawnan_nofill,
+    #     mock_file_has_rawnan,
     #     mock_file_has_mismatch,
     #     mock_find_user_nl_files,
     #     mock_confirm_continue,

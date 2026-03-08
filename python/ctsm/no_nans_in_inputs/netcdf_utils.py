@@ -179,7 +179,7 @@ def build_nco_commands(
     cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues))
 
     # Only needed for vars without fill value originally
-    any_rawnan_nofill, vars_with_rawnan_nofill = file_has_rawnan_nofill(input_file)
+    any_rawnan_nofill, vars_with_rawnan_nofill = file_has_rawnan(input_file)
     if any_rawnan_nofill:
         # ncap2 writes a temporary file by default, so we don't need to worry about slowdowns when
         # we call it with the same input and output
@@ -276,7 +276,7 @@ def execute_nco_commands(cmd_list: List[list[str]]) -> int:
     return result
 
 
-def var_has_rawnan_nofill(
+def var_has_rawnan(
     da: xr.DataArray,
     dims_to_slice_over: list,
 ):
@@ -301,12 +301,12 @@ def var_has_rawnan_nofill(
                 info(
                     logger, f"{INDENT*4}Slicing over {dim} {i+1}/{da.sizes[dim]}; size {da_i.size}"
                 )
-                any_raw_null = var_has_rawnan_nofill(da_i, dims_to_slice_over=dims_to_slice_over)
+                any_raw_null = var_has_rawnan(da_i, dims_to_slice_over=dims_to_slice_over)
                 if any_raw_null:
                     break
             return any_raw_null
         if dims_to_slice_over and len(dims_to_slice_over) > 1:
-            any_raw_null = var_has_rawnan_nofill(da, dims_to_slice_over=dims_to_slice_over)
+            any_raw_null = var_has_rawnan(da, dims_to_slice_over=dims_to_slice_over)
             return any_raw_null
         any_raw_null = da.isnull().any()
     else:
@@ -314,7 +314,7 @@ def var_has_rawnan_nofill(
     return any_raw_null
 
 
-def file_has_rawnan_nofill(nc_path: str) -> Tuple[bool, List[str]]:
+def file_has_rawnan(nc_path: str) -> Tuple[bool, List[str]]:
     vars_with_rawnan_nofill = []
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
@@ -328,7 +328,7 @@ def file_has_rawnan_nofill(nc_path: str) -> Tuple[bool, List[str]]:
 
         for v in ds:
             info(logger, f"{INDENT*3}Checking {v}")
-            if var_has_rawnan_nofill(ds[v], dims_to_slice_over=dims_to_slice_over):
+            if var_has_rawnan(ds[v], dims_to_slice_over=dims_to_slice_over):
                 vars_with_rawnan_nofill.append(v)
         ds.close()
     return bool(vars_with_rawnan_nofill), vars_with_rawnan_nofill
