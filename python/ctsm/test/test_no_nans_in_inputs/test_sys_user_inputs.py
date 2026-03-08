@@ -54,12 +54,12 @@ class TestCollectNewFillValues:
 
         progress_file = tmp_path / "progress.json"
         progress = NoNanFillValueProgress(progress_file=progress_file)
-        progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        progress[str(test_file)]["vars_to_give_fills"] = [var_name]
         result = collect_new_fill_values(progress)
 
         # Check final result
         expected_result[str(test_file)]["new_fill_values"] = {var_name: expected_fill_value}
-        expected_result[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        expected_result[str(test_file)]["vars_to_give_fills"] = [var_name]
         assert result == expected_result
 
         # Check what was saved
@@ -121,13 +121,13 @@ class TestCollectNewFillValues:
             data,
         )
         progress = NoNanFillValueProgress(progress_file=None)
-        progress[str(test_file)]["vars_with_nan_fills"] = data.keys()
+        progress[str(test_file)]["vars_to_give_fills"] = data.keys()
         result = collect_new_fill_values(progress)
 
         # 'temp' is processed, user enters so it saves, then precip is skipped
         expected_result = NoNanFillValueProgress(progress_file=None)
         expected_result[str(test_file)]["new_fill_values"] = {"temp": -100.0}
-        expected_result[str(test_file)]["vars_with_nan_fills"] = data.keys()
+        expected_result[str(test_file)]["vars_to_give_fills"] = data.keys()
         assert result == expected_result
         # Progress was saved only after temp
         mock_save.assert_called_once()
@@ -145,7 +145,7 @@ class TestCollectNewFillValues:
             {var_name: {"data": [1.0], "attrs": {FILL_ATTR: np.nan}}},
         )
         progress = NoNanFillValueProgress(progress_file=None)
-        progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        progress[str(test_file)]["vars_to_give_fills"] = [var_name]
         assert not progress[str(test_file)]["new_fill_values"]
 
         assert not os.path.exists(str(mock_progress_file))
@@ -173,7 +173,7 @@ class TestCollectNewFillValues:
         )
 
         progress = NoNanFillValueProgress(progress_file=None)
-        progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        progress[str(test_file)]["vars_to_give_fills"] = [var_name]
         result = collect_new_fill_values(progress, dry_run=True)
 
         # Check that nothing was saved
@@ -181,7 +181,7 @@ class TestCollectNewFillValues:
 
         # Check that result is what we expect
         expected = NoNanFillValueProgress(progress_file=None)
-        expected[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        expected[str(test_file)]["vars_to_give_fills"] = [var_name]
         assert result == expected
 
         # Check that result does print some info but not everything
@@ -206,13 +206,13 @@ class TestCollectNewFillValues:
 
         progress_file = tmp_path / "progress.json"
         progress = NoNanFillValueProgress(progress_file=progress_file)
-        progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        progress[str(test_file)]["vars_to_give_fills"] = [var_name]
 
         # Run with accept_all_defaults True; since a default exists, it should be auto-accepted
         result = collect_new_fill_values(progress, accept_all_defaults=True)
 
         expected = NoNanFillValueProgress(progress_file=None)
-        expected[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        expected[str(test_file)]["vars_to_give_fills"] = [var_name]
         # default should be -999 (float)
         expected[str(test_file)]["new_fill_values"] = {var_name: -999.0}
         assert result == expected
@@ -241,13 +241,13 @@ class TestCollectNewFillValues:
 
         progress_file = tmp_path / "progress2.json"
         progress = NoNanFillValueProgress(progress_file=progress_file)
-        progress[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        progress[str(test_file)]["vars_to_give_fills"] = [var_name]
 
         # With accept_all_defaults True but no default, it should prompt and accept our patched
         # input
         result = collect_new_fill_values(progress, accept_all_defaults=True)
 
         expected = NoNanFillValueProgress(progress_file=None)
-        expected[str(test_file)]["vars_with_nan_fills"] = [var_name]
+        expected[str(test_file)]["vars_to_give_fills"] = [var_name]
         expected[str(test_file)]["new_fill_values"] = {var_name: -123.5}
         assert result == expected

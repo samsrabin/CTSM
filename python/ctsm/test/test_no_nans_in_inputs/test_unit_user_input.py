@@ -258,7 +258,7 @@ def test_collect_fill_values_one_path_auto_accepts_default():
     var_name = "v1"
     progress = FakeProgress()
     progress[abs_path] = {
-        "vars_with_nan_fills": [var_name],
+        "vars_to_give_fills": [var_name],
         "new_fill_values": {},
     }
 

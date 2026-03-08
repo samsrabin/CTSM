@@ -106,7 +106,7 @@ def _check_for_nans_in_netcdf(
     # Check file for problems
     info(logger, f"{INDENT}Checking: '{msg_path}'")
     info(logger, f"{INDENT*2}Checking for NaN fill")
-    any_nan_fill, vars_with_nan_fills = file_has_nan_fill(abs_path)
+    any_nan_fill, vars_to_give_fills = file_has_nan_fill(abs_path)
     info(logger, f"{INDENT*2}Checking for NaNs without fill")
     any_rawnan_nofill, vars_with_rawnan_nofill = file_has_rawnan(abs_path)
 
@@ -143,10 +143,10 @@ def _check_for_nans_in_netcdf(
 
     # Get list of variables in this file with issues
     if any_nan_fill:
-        progress[abs_path]["vars_with_nan_fills"] += vars_with_nan_fills
+        progress[abs_path]["vars_to_give_fills"] += vars_to_give_fills
     if any_rawnan_nofill:
         # That's right: We will reuse the existing list
-        progress[abs_path]["vars_with_nan_fills"] += vars_with_rawnan_nofill
+        progress[abs_path]["vars_to_give_fills"] += vars_with_rawnan_nofill
         # But we also save it to its own list
         progress[abs_path]["vars_with_rawnan_nofill"] += vars_with_rawnan_nofill
 

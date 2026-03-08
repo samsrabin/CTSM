@@ -353,12 +353,12 @@ def _process_vars_with_nan_fills(
     accept_all_defaults: bool,
     new_fill_values: dict,
 ):
-    vars_with_nan_fills = progress[abs_path]["vars_with_nan_fills"]
-    if not vars_with_nan_fills:
+    vars_to_give_fills = progress[abs_path]["vars_to_give_fills"]
+    if not vars_to_give_fills:
         return
 
     ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS)
-    for var in vars_with_nan_fills:
+    for var in vars_to_give_fills:
         # Skip variables we've already processed
         if var in new_fill_values:
             info(logger, f"\n{INDENT}Variable: {var} [already processed, skipping]")

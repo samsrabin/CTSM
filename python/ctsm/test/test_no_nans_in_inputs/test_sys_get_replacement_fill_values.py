@@ -52,9 +52,9 @@ class TestFileHasNanFill:
         # Use encoding to set (or suppress) the _FillValue
         encoding = {"temp": {FILL_ATTR: fill_value}}
         ds.to_netcdf(str(test_file), encoding=encoding)
-        any_nan_fill, vars_with_nan_fills = file_has_nan_fill(str(test_file))
+        any_nan_fill, vars_to_give_fills = file_has_nan_fill(str(test_file))
         assert any_nan_fill == expected
-        assert len(vars_with_nan_fills) == int(expected)
+        assert len(vars_to_give_fills) == int(expected)
 
 
 class TestMain:
@@ -136,7 +136,7 @@ class TestMain:
     #     assert len(progress) == 1
     #     expected_dict = create_empty_progress_dict_onefile()
     #     expected_dict["found_in_files"] = {xml_file: {path_to_test_file_rel}}
-    #     expected_dict["vars_with_nan_fills"] = ["temp"]
+    #     expected_dict["vars_to_give_fills"] = ["temp"]
     #     assert progress[path_to_test_file_abs] == expected_dict
     #     assert "delete_if_none_filled" in kwargs
     #     assert not kwargs["delete_if_none_filled"]
@@ -214,7 +214,7 @@ class TestMain:
     #     progress = args[0]
     #     expected_dict = create_empty_progress_dict_onefile()
     #     expected_dict["found_in_files"] = {xml_file: {path_to_test_file_rel}}
-    #     expected_dict["vars_with_nan_fills"] = ["temp"]
+    #     expected_dict["vars_to_give_fills"] = ["temp"]
     #     assert len(progress) == 1
     #     assert progress[path_to_test_file_abs] == expected_dict
     #     assert "delete_if_none_filled" in kwargs

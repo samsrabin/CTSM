@@ -89,8 +89,8 @@ class TestGetVarsWithNanFills:
         # Use encoding to set (or suppress) the _FillValue
         encoding = {var_name: {FILL_ATTR: fill_value}}
         ds.to_netcdf(str(test_file), encoding=encoding)
-        vars_with_nan_fills = get_vars_with_nan_fills(str(test_file))
-        assert (var_name in vars_with_nan_fills) == expected
+        vars_to_give_fills = get_vars_with_nan_fills(str(test_file))
+        assert (var_name in vars_to_give_fills) == expected
 
 
 class TestShowNcdumpForVariable:

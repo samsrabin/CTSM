@@ -380,9 +380,9 @@ def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
         bool: True if the file has any variable with NaN fill value attribute, False otherwise
         List[str]: Variables with NaN fill value attributes
     """
-    vars_with_nan_fills = get_vars_with_nan_fills(abs_path)
+    vars_to_give_fills = get_vars_with_nan_fills(abs_path)
 
-    return bool(vars_with_nan_fills), vars_with_nan_fills
+    return bool(vars_to_give_fills), vars_to_give_fills
 
 
 def _get_ncatted_type_code(dtype: np.dtype, allow_int=False) -> str:
@@ -538,9 +538,9 @@ def get_vars_with_nan_fills(abs_path: str) -> List[str]:
     regex_pattern = rf"^\s*(\S+):{FILL_ATTR}\s*=\s*NaNf?\s*;"
 
     # Use re.MULTILINE to treat each line in the string as a new start
-    vars_with_nan_fills = re.findall(regex_pattern, ncdump_results, re.MULTILINE)
-    vars_with_nan_fills.sort()
-    return vars_with_nan_fills
+    vars_to_give_fills = re.findall(regex_pattern, ncdump_results, re.MULTILINE)
+    vars_to_give_fills.sort()
+    return vars_to_give_fills
 
 
 def show_ncdump_for_variable(file_path: str | None, var_name: str) -> None:
