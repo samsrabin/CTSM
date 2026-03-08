@@ -34,6 +34,9 @@ from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-posi
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     VARSTARTS_TO_DEFAULT_NEG999,
 )
+from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-position
+    NoNanFillValueProgress,
+)
 
 from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
     error,
@@ -126,6 +129,7 @@ def build_nco_commands(
     output_file: str,
     var_fillvalues: dict[str, Any],
     tmpdir: str,
+    progress: NoNanFillValueProgress,
 ) -> List[list[str]]:
 
     # Ensure we're working with strings
@@ -179,7 +183,8 @@ def build_nco_commands(
     cmd_list.append(_build_ncatted_command(input_file_nc4, nc_tmp, var_fillvalues))
 
     # Only needed for vars without fill value originally
-    any_rawnan_nofill, vars_with_rawnan_nofill = file_has_rawnan(input_file)
+    vars_with_rawnan_nofill = progress[input_file]["vars_with_rawnan_nofill"]
+    any_rawnan_nofill = bool(vars_with_rawnan_nofill)
     if any_rawnan_nofill:
         # ncap2 writes a temporary file by default, so we don't need to worry about slowdowns when
         # we call it with the same input and output

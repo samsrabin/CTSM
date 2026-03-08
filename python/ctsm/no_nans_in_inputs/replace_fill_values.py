@@ -124,7 +124,7 @@ def _process_one_file(
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
         cmd_list, result_file = netcdf_utils.build_nco_commands(
-            input_file_abs, output_file, var_fillvalues, tmpdir,
+            input_file_abs, output_file, var_fillvalues, tmpdir, progress,
         )
     info(logger, "\nCommands:")
     for cmd in cmd_list:

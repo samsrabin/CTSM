@@ -147,6 +147,8 @@ def _check_for_nans_in_netcdf(
     if any_rawnan_nofill:
         # That's right: We will reuse the existing list
         progress[abs_path]["vars_with_nan_fills"] += vars_with_rawnan_nofill
+        # But we also save it to its own list
+        progress[abs_path]["vars_with_rawnan_nofill"] += vars_with_rawnan_nofill
 
     # Save
     progress.save()

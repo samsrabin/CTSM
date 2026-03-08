@@ -28,6 +28,9 @@ from ctsm.no_nans_in_inputs.netcdf_utils import (
     var_data_has_nan,
     var_has_rawnan,
 )
+from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-position
+    NoNanFillValueProgress,
+)
 
 # Test constants
 TEST_VAR_TEMP = "temp"
@@ -542,6 +545,7 @@ class TestBuildNcoCommands:
                 test_netcdf_file,
                 var_fillvalues,
                 tmpdir=tmp_path,
+                progress=NoNanFillValueProgress(),
             )
 
 
@@ -718,6 +722,7 @@ class TestBuildExecuteNcoCommands:
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
             tmpdir=tmp_path,
+            progress=NoNanFillValueProgress(),
         )
 
         # Execute commands
@@ -773,6 +778,7 @@ class TestBuildExecuteNcoCommands:
             output_file=test_file_out,
             var_fillvalues=var_fillvalues,
             tmpdir=tmp_path,
+            progress=NoNanFillValueProgress(),
         )
 
         # Execute commands
