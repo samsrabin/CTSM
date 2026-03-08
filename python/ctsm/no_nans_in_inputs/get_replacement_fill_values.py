@@ -42,6 +42,7 @@ from ctsm.no_nans_in_inputs.json_io import (  # pylint: disable=wrong-import-pos
 )
 import ctsm.no_nans_in_inputs.namelist_utils as nlu  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
+    confirm_continue,
     convert_to_absolute_path,
     get_path_with_cesmdataroot,
 )
@@ -300,7 +301,7 @@ def _get_netcdfs_with_nan_fills(
                     f" '{glob_pattern}' need fixing. This is currently not handled."
                 )
                 error(logger, msg, error_type=error_type)
-                if not user_inputs.confirm_continue():
+                if not confirm_continue():
                     sys.exit("Exiting.")
                 continue
 
@@ -425,7 +426,7 @@ def main() -> int:
 
     # Ask if user wants to continue
     warn(logger, "")
-    if not user_inputs.confirm_continue():
+    if not confirm_continue():
         sys.exit("Exiting.")
 
     # Collect new fill values from user

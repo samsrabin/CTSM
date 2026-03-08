@@ -23,7 +23,7 @@ class TestCtsmRoot:
     )
     @patch("ctsm.no_nans_in_inputs.get_replacement_fill_values._get_netcdfs_with_nan_fills")
     @patch("ctsm.no_nans_in_inputs.json_io.NoNanFillValueProgress.print_summary")
-    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue")
+    @patch("ctsm.no_nans_in_inputs.shared.confirm_continue")
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
     def test_ctsm_root_arg(
         self,

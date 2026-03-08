@@ -1,5 +1,5 @@
 """
-Unit tests of user_input (anything not touching filesystem)
+Unit tests of user_inputs (anything not touching filesystem)
 """
 
 # pylint: disable=protected-access
@@ -17,7 +17,8 @@ from ctsm.no_nans_in_inputs.constants import (
     USER_REQ_SKIP_VAR,
 )
 from ctsm.no_nans_in_inputs.shared import FillValueConfig, VarContext
-from ctsm.no_nans_in_inputs.user_inputs import _get_fill_value_from_user, confirm_continue
+from ctsm.no_nans_in_inputs.user_inputs import _get_fill_value_from_user
+from ctsm.no_nans_in_inputs.shared import confirm_continue
 from ctsm.no_nans_in_inputs import user_inputs
 
 # Test constants used in multiple tests

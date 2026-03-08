@@ -89,7 +89,7 @@ class TestMain:
     #     return_value=(False, []),
     # )
     # @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
-    # @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
+    # @patch("ctsm.no_nans_in_inputs.shared.confirm_continue", return_value=True)
     # def test_main_happy_path(
     #     self,
     #     mock_confirm_continue,
@@ -160,7 +160,7 @@ class TestMain:
     #     return_value=["temp"],
     # )
     # @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
-    # @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
+    # @patch("ctsm.no_nans_in_inputs.shared.confirm_continue", return_value=True)
     # @patch("ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files", return_value=[])
     # @patch(
     #     "ctsm.no_nans_in_inputs.get_replacement_fill_values.file_has_mismatched_fill_missing",
@@ -239,7 +239,7 @@ class TestMain:
         return_value=["temp"],
     )
     @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
-    @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
+    @patch("ctsm.no_nans_in_inputs.get_replacement_fill_values.confirm_continue", return_value=True)
     @patch("ctsm.no_nans_in_inputs.namelist_utils.find_user_nl_files", return_value=[])
     def test_main_missing_file(
         self,
@@ -303,7 +303,7 @@ class TestMain:
     #     return_value=(True, ["temp"]),
     # )
     # @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
-    # @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
+    # @patch("ctsm.no_nans_in_inputs.shared.confirm_continue", return_value=True)
     # def test_main_with_delete_flag(
     #     self,
     #     mock_confirm_continue,
@@ -352,7 +352,7 @@ class TestMain:
     #     return_value=(True, ["temp"]),
     # )
     # @patch("ctsm.no_nans_in_inputs.user_inputs.collect_new_fill_values")
-    # @patch("ctsm.no_nans_in_inputs.user_inputs.confirm_continue", return_value=True)
+    # @patch("ctsm.no_nans_in_inputs.shared.confirm_continue", return_value=True)
     # def test_main_accept_all_defaults_flag_param(
     #     self,
     #     mock_confirm_continue,

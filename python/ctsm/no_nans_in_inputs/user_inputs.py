@@ -52,40 +52,6 @@ from ctsm import ctsm_logging  # pylint: disable=wrong-import-position
 logger = logging.getLogger(__name__)
 
 
-def confirm_continue(prompt: str = "Continue? [Y/n]: "):
-    """
-    Prompt the user for confirmation to continue, defaulting to 'Yes'.
-
-    Parameters
-    ----------
-    prompt : str
-        The message displayed to the user. Default is "Continue? [Y/n]: ".
-
-    Returns
-    -------
-    bool
-        True if the user confirms (Yes), False if the user declines (No).
-
-    Behavior
-    --------
-    - Pressing Enter defaults to Yes.
-    - Accepts 'y', 'yes' (case-insensitive) as Yes.
-    - Accepts 'n', 'no' (case-insensitive) as No.
-    - Any other input will reprompt until a valid response is given.
-    """
-    while True:
-        info(logger, f"Prompt: {prompt}")
-        response = input(prompt).strip().lower()
-        info(logger, f"Input: {response}")
-
-        if response in ("", "y", "yes"):
-            return True
-        if response in ("n", "no"):
-            return False
-
-        error(logger, f"Please enter 'y' or 'n', not {response}.", error_type=None)
-
-
 def _convert_and_validate_input(user_input: str, target_type: type) -> Any | None:
     """
     Convert user input to the target type and validate it's not NaN.

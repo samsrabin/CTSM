@@ -29,6 +29,7 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
 
 from ctsm.netcdf_utils import get_netcdf_format  # pylint: disable-wrong-import-position
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
+    confirm_continue,
     FillValueConfig,
     VarContext,
 )
@@ -220,6 +221,13 @@ def build_nco_commands(
         result_file = output_file
     else:
         result_file = nc_tmp
+
+    # We must be doing SOMETHING
+    if not cmd_list:
+        error_type = RuntimeError if ctsm_logging.lte_debug(logger) else None
+        error(logger, "Empty command list", error_type=error_type)
+        if not confirm_continue():
+            sys.exit("Exiting.")
 
     return cmd_list, result_file
 

@@ -4,15 +4,23 @@ import os
 import sys
 from dataclasses import dataclass
 from typing import Any
+import logging
 
 # Add the python directory to sys.path for direct script execution
 _CTSM_PYTHON = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 if _CTSM_PYTHON not in sys.path:
     sys.path.insert(1, _CTSM_PYTHON)
 
+from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
+    error,
+    info,
+)
 from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-position
     INPUTDATA_PREFIX,
 )
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -74,3 +82,37 @@ def get_path_with_cesmdataroot(abs_path):
     if os.getenv("CESMDATAROOT"):
         return abs_path.replace(os.getenv("CESMDATAROOT"), "$CESMDATAROOT").replace("//", "/")
     return abs_path
+
+
+def confirm_continue(prompt: str = "Continue? [Y/n]: "):
+    """
+    Prompt the user for confirmation to continue, defaulting to 'Yes'.
+
+    Parameters
+    ----------
+    prompt : str
+        The message displayed to the user. Default is "Continue? [Y/n]: ".
+
+    Returns
+    -------
+    bool
+        True if the user confirms (Yes), False if the user declines (No).
+
+    Behavior
+    --------
+    - Pressing Enter defaults to Yes.
+    - Accepts 'y', 'yes' (case-insensitive) as Yes.
+    - Accepts 'n', 'no' (case-insensitive) as No.
+    - Any other input will reprompt until a valid response is given.
+    """
+    while True:
+        info(logger, f"Prompt: {prompt}")
+        response = input(prompt).strip().lower()
+        info(logger, f"Input: {response}")
+
+        if response in ("", "y", "yes"):
+            return True
+        if response in ("n", "no"):
+            return False
+
+        error(logger, f"Please enter 'y' or 'n', not {response}.", error_type=None)

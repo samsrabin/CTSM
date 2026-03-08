@@ -42,10 +42,8 @@ from ctsm.no_nans_in_inputs.constants import (  # pylint: disable=wrong-import-p
 )
 import ctsm.no_nans_in_inputs.namelist_utils as nlu  # pylint: disable=wrong-import-position
 from ctsm.no_nans_in_inputs import netcdf_utils  # pylint: disable=wrong-import-position
-from ctsm.no_nans_in_inputs.user_inputs import (  # pylint: disable=wrong-import-position
-    confirm_continue,
-)
 from ctsm.no_nans_in_inputs.shared import (  # pylint: disable=wrong-import-position
+    confirm_continue,
     get_path_with_cesmdataroot,
 )
 from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
