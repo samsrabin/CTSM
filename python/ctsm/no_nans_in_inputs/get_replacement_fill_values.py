@@ -100,8 +100,6 @@ def _check_for_nans_in_netcdf(
     path_rel_inputdata = os.path.relpath(abs_path, INPUTDATA_PREFIX)
     if path_rel_inputdata in known_good_files_list:
         info(logger, f"Skipping known-good file: '{abs_path}'")
-        progress[abs_path] = NO_HANDLED_NANS
-        progress.save()
         return
 
     # Check file for problems
