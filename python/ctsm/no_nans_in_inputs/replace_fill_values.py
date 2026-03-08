@@ -135,7 +135,7 @@ def _process_one_file(
         try:
             result = netcdf_utils.execute_nco_commands(cmd_list)
         except Exception as e:  # pylint: disable=broad-exception-caught
-            error_type = type(Exception) if ctsm_logging.lte_debug(logger) else None
+            error_type = type(e) if ctsm_logging.lte_debug(logger) else None
             error(logger, str(e), error_type=error_type)
             if not confirm_continue():
                 sys.exit("Exiting.")
