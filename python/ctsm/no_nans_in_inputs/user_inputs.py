@@ -335,9 +335,11 @@ def _process_vars_with_nan_fills(
 
         # If accept_all_defaults is set and a default exists, accept it automatically.
         # If no default exists, still prompt the user (don't skip).
+        ask_user = True
         if accept_all_defaults and config.get_default_value() is not None:
             new_fill_value = config.get_default_value()
             warn(logger, f"{INDENT}Accepting default for '{var}': {new_fill_value}")
+            ask_user = False
         else:
             try:
                 new_fill_value = _get_fill_value_from_user(var_context, config)
@@ -359,10 +361,15 @@ def _process_vars_with_nan_fills(
         # Handle new fill value (or other user input)
         new_fill_values[var] = new_fill_value
 
-        # Save progress after each variable
-        progress.save()
+        # Save progress after each variable if user was asked. Otherwise, don't, to avoid hammering
+        # file system.
+        if ask_user:
+            progress.save()
         progress[abs_path]["new_fill_values"] = new_fill_values
     ds.close()
+    if not ask_user:
+        progress[abs_path]["new_fill_values"] = new_fill_values
+        progress.save()
 
 
 def collect_new_fill_values(
