@@ -384,9 +384,11 @@ def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:
     Use ncks --chk_nan to determine whether a netCDF file has a NaN
     """
     # We'll check one variable at a time to reduce RAM usage
-    ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS)
-    var_list = list(ds)
-    ds.close()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*has multiple fill values.*")
+        ds = xr.open_dataset(abs_path, **OPEN_DS_KWARGS)
+        var_list = list(ds)
+        ds.close()
 
     for v in var_list:
         cmd = ["ncks", "--chk_nan", "-v", v, str(abs_path)]
