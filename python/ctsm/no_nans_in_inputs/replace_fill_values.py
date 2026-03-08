@@ -170,7 +170,10 @@ def _process_one_file(
 
         # Print message and wait for user to approve before continuing
         _print_and_wait(
-            input_file_abs, output_file, var_fillvalues, files_containing
+            input_file_abs,
+            output_file, var_fillvalues,
+            files_containing,
+            progress[input_file_abs]["vars_with_rawnan_yesfill"],
         )
 
         # Update progress object and file
@@ -215,6 +218,7 @@ def _print_and_wait(
     output_file: str,
     var_fillvalues: dict,
     files_containing: list,
+    vars_with_rawnan_yesfill: dict,
 ) -> None:
     """Print info and a message useful for a git commit, then wait for user to continue"""
 
@@ -244,13 +248,13 @@ def _print_and_wait(
 
     # Which netCDF file did we replace?
     input_file_msg = get_path_with_cesmdataroot(input_file_abs)
-    warn(logger, f"Handled NaN fill values in '{input_file_msg}'.\n")
+    warn(logger, f"Handled NaNs in '{input_file_msg}'.\n")
     output_file_msg = get_path_with_cesmdataroot(output_file)
     warn(logger, f"New file '{output_file_msg}'.")
 
     # Which new fill values did we give it?
     if var_fillvalues:
-        warn(logger, "Replaced NaN or missing fill values with:")
+        warn(logger, "Set NaN or missing fill values to:")
         vars_with_deleted_fill = []
         new_fill_dict = {}
         for var, fill_val in var_fillvalues.items():
@@ -280,6 +284,15 @@ def _print_and_wait(
                     logger,
                     f"{INDENT}Deleted unused fill from {len(vars_with_deleted_fill)} variables",
                 )
+
+    # Which variables had raw NaNs set to an existing fill value?
+    if vars_with_rawnan_yesfill:
+        warn(logger, "Set raw NaNs to existing fill values in:")
+        if (n := len(vars_with_rawnan_yesfill)) > MAX_LISTED_VARS:
+            msg = f"{INDENT}{n} variables"
+        else:
+            msg = INDENT + ", ".join(list(vars_with_rawnan_yesfill.keys()))
+        warn(logger, msg)
 
     # Which files did we update the path in?
     warn(logger, "\nPath updated in:")
