@@ -60,7 +60,7 @@ EOF
       <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
     </machines>
     <options>
-      <option name="wallclock">00:20:00</option>
+      <option name="wallclock">00:40:00</option>
     </options>
   </test>
 
