@@ -4804,4 +4804,283 @@
   </test>
 
 
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_mlaidiff">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_parsun">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_parsha">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_taf">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_qaf">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_irrig_rate">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_irrig_rate_demand">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_totvegc_col">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_totvegc_col_13">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_totvegc_col_14">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_grainc_xfer_to_grainc">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_livestemc_to_litter">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_cpool_to_grainc">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_cpool_to_grainc_storage">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_cpool_grain_gr">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_cpool_grain_storage_gr">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_transfer_grain_gr">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_grainc_storage_to_xfer">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_grainn_xfer_to_grainn">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_livestemn_to_litter">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_npool_to_grainn">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_npool_to_grainn_storage">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_grainn_storage_to_xfer">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_aleaf">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_aleafi">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_astem">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_astemi">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_hdidx">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_cumvd">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_huileaf">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_fpg">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+    </options>
+  </test>
+
 </testlist>
