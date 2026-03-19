@@ -45,7 +45,13 @@ for var in $vars; do
     testmod_dir_base="finidat_ncap2_1var_${var}"
     testmod_dir="cime_config/testdefs/testmods_dirs/clm/$testmod_dir_base"
     mkdir -p $testmod_dir
-    echo "finidat = '$file2'" > $testmod_dir/user_nl_clm
+    cat <<EOF > $testmod_dir/user_nl_clm
+finidat = '$file2'
+use_init_interp = .true.
+init_interp_method = 'general'
+init_interp_fill_missing_urban_with_hd = .false.
+use_excess_ice_streams = .false.
+EOF
 
     # Put text in XML
     cat <<EOF >> $xml_file
