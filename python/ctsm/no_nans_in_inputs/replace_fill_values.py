@@ -450,14 +450,6 @@ def main() -> int:
         action="store_true",
         help="Overwrite existing output files (default: skip if output exists)",
     )
-    parser.add_argument(
-        "--xml-dir",
-        default=DIR_TO_SEARCH_FOR_XML_FILES,
-        help=(
-            "Path to directory to find XML files to update with new paths, relative to CTSM root"
-            f" (default: {DIR_TO_SEARCH_FOR_XML_FILES})"
-        ),
-    )
     add_logging_args(parser)
     args = parser.parse_args()
     process_logging_args(args)
