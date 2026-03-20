@@ -4804,6 +4804,17 @@
   </test>
 
 
+  <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var">
+    <machines>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
+      <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var_orig"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:40:00</option>
+      <option name="comment">As all the other tests in the finidat_ncap2_1var, except pointing to the original finidat file instead of a version with one variable changed.</option>
+    </options>
+  </test>
+
   <test name="SMS_D" grid="f10_f10_mg37" compset="I2000Clm60Bgc" testmods="clm/finidat_ncap2_1var_mlaidiff">
     <machines>
       <machine name="derecho" compiler="gnu" category="finidat_ncap2_1var"/>
