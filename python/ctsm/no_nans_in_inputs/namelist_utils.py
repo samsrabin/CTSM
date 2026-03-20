@@ -36,14 +36,14 @@ from ctsm import ctsm_logging  # pylint: disable=wrong-import-position
 logger = logging.getLogger(__name__)
 
 
-def _check_usernl_file(usernl_file) -> None:
+def _check_usernl_file(usernl_file: str) -> None:
     """Check user_nl_ file for validity"""
     # TODO: Add check of user_nl_ file validity
     # pylint: disable=unused-argument
     return
 
 
-def _check_xml_file(xml_file) -> None:
+def _check_xml_file(xml_file: str) -> None:
     """Check XML file for validity"""
     try:
         ET.parse(xml_file)
@@ -357,7 +357,7 @@ def _update_usernl_file(usernl_file: str, old_path: str, new_path: str) -> None:
         file_contents = f.read()
 
     # Function to replace any quoted instances of old_path with new_path
-    def replacer(match):
+    def replacer(match: re.Match) -> str:
         return (
             f"{match.group(1)}"  # Everything before opening apostrophe/quote (varname = )
             f"{match.group(2)}"  # Opening apostrophe/quote

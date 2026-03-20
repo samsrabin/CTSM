@@ -327,7 +327,7 @@ def _process_vars_with_nan_fills(
     dry_run: bool,
     accept_all_defaults: bool,
     new_fill_values: dict,
-):
+) -> None:
     vars_to_give_fills = progress[abs_path]["vars_to_give_fills"]
     if not vars_to_give_fills:
         return

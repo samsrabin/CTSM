@@ -73,7 +73,7 @@ DIR_TO_SEARCH_FOR_USER_NL_FILES = "cime_config"
 
 
 def _check_for_nans_in_netcdf(
-    files_referencing_netcdfs: list,
+    files_referencing_netcdfs: List[str],
     progress: NoNanFillValueProgress,
     netcdf_path: str,
     abs_path: str,
@@ -154,7 +154,7 @@ def _check_for_nans_in_netcdf(
     progress.save()
     _print_msg(progress, abs_path)
 
-def _print_msg(progress, abs_path):
+def _print_msg(progress: NoNanFillValueProgress, abs_path: str) -> None:
     msg = f"NaN fill values: '{get_path_with_cesmdataroot(abs_path)}'"
     if abs_path in progress:
         info(logger, f"{INDENT}⚠️ {msg}")
@@ -438,7 +438,7 @@ def main() -> int:
     return 0
 
 
-def _save_known_good_files(known_good_files_list):
+def _save_known_good_files(known_good_files_list: List[str]) -> None:
     known_good_files_list.sort()
     with open(KNOWN_GOOD_FILES_FILE, "w", encoding="utf8") as f:
         json.dump(known_good_files_list, f, indent=INDENT)

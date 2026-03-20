@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 import sys
 from copy import deepcopy
-from typing import List, Set, Tuple, Type
+from typing import Any, Callable, List, Set, Tuple, Type
 import json
 from collections import defaultdict
 import logging
@@ -38,7 +38,7 @@ from ctsm.ctsm_logging import (  # pylint: disable=wrong-import-position
 logger = logging.getLogger(__name__)
 
 
-def create_empty_progress_dict_onefile():
+def create_empty_progress_dict_onefile() -> dict:
     """Return a dictionary for one netCDF file"""
     return {
         "found_in_files": {},
@@ -54,10 +54,10 @@ class NoNanFillValueProgress(defaultdict):
 
     def __init__(
         self,
-        default_factory=create_empty_progress_dict_onefile,
+        default_factory: Callable = create_empty_progress_dict_onefile,
         progress_file: str | None = None,
         load_without_asking: bool = False,
-    ):
+    ) -> None:
         """
         Initialize our progress file: Either load an existing one or start a new one
         """
@@ -96,11 +96,11 @@ class NoNanFillValueProgress(defaultdict):
             except (IOError, OSError, json.JSONDecodeError) as e:
                 error(logger, f"Warning: Could not load progress file: {e}", error_type=type(e))
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: Any, value: Any) -> None:
         """Ensure all keys are strings"""
         super().__setitem__(str(key), value)
 
-    def update(self, *args, **kwargs):
+    def update(self, *args: Any, **kwargs: Any) -> None:
         """Convert keys to str for update operations (i.e., ensuring no keys are Path)"""
         # Handle dict or iterable of key/value pairs
         if args:
@@ -114,7 +114,7 @@ class NoNanFillValueProgress(defaultdict):
         for k, v in kwargs.items():
             self[str(k)] = v
 
-    def append(self, new_dict):
+    def append(self, new_dict: dict) -> None:
         """Append another dict to this one"""
         self.update(dict(self, **new_dict))
 
@@ -190,7 +190,7 @@ class NoNanFillValueProgress(defaultdict):
             for f in files_not_found:
                 warn(logger, f"\t* '{get_path_with_cesmdataroot(f)}'")
 
-    def any_need_fixing(self) -> None:
+    def any_need_fixing(self) -> bool:
         """Do any of the processed files need fixing?"""
         return any(isinstance(v, dict) and bool(v) for v in self.values())
 

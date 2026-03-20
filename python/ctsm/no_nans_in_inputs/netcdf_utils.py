@@ -132,7 +132,7 @@ def build_nco_commands(
     var_fillvalues: dict[str, Any],
     tmpdir: str,
     progress: NoNanFillValueProgress,
-) -> List[list[str]]:
+) -> Tuple[List[list[str]], str]:
 
     # Ensure we're working with strings
     if isinstance(input_file, Path):
@@ -232,7 +232,9 @@ def build_nco_commands(
     return cmd_list, result_file
 
 
-def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
+def _get_ncatted_dtype_and_type_code(
+    input_file: str, var: str, ds: xr.Dataset, allow_int: bool = False
+) -> str:
     # Get the actual data type from the file
     dtype = None
     if var in ds.data_vars:
@@ -249,7 +251,7 @@ def _get_ncatted_dtype_and_type_code(input_file, var, ds, allow_int=False):
     return type_code
 
 
-def _get_tmp_nc4_path(file_abs: str, tmpdir: str):
+def _get_tmp_nc4_path(file_abs: str, tmpdir: str) -> str:
     file_basename = os.path.basename(file_abs)
     root, _ = os.path.splitext(file_basename)
     ext = ".nc4"
@@ -313,8 +315,8 @@ def execute_nco_commands(cmd_list: List[list[str]]) -> int:
 
 def var_has_rawnan(
     da: xr.DataArray,
-    dims_to_slice_over: list,
-):
+    dims_to_slice_over: list[str] | None,
+) -> tuple[xr.DataArray, Any]:
     """
     Best to sort dims_to_slice_over smallest -> largest so that we're always working with the
     largest possible slice, for efficiency
@@ -550,7 +552,7 @@ def get_var_info(
     return var_context, config
 
 
-def _get_negative_default(nanmin):
+def _get_negative_default(nanmin: Any) -> Any:
     default_fill = None
     if not np.isneginf(nanmin):
         default_fill = type(nanmin)(-999)

@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 import logging
 from subprocess import CalledProcessError
+from typing import Any
 import warnings
 import tempfile
 from shutil import move
@@ -101,10 +102,10 @@ def _process_one_file(
     progress: NoNanFillValueProgress,
     input_file_abs: str,
     output_file: str,
-    files_processed: list,
+    files_processed: int,
     dry_run: bool,
     tmpdir: str,
-):
+) -> int:
 
     # Check whether we can process the file
     print("\n")
@@ -216,9 +217,9 @@ def _check_ok_to_process(progress: NoNanFillValueProgress, input_file_abs: str) 
 def _print_and_wait(
     input_file_abs: str,
     output_file: str,
-    var_fillvalues: dict,
-    files_containing: list,
-    vars_with_rawnan_yesfill: dict,
+    var_fillvalues: dict[str, Any],
+    files_containing: list[str],
+    vars_with_rawnan_yesfill: dict[str, Any],
 ) -> None:
     """Print info and a message useful for a git commit, then wait for user to continue"""
 

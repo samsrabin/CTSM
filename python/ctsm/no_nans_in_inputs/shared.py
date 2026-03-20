@@ -37,7 +37,7 @@ class FillValueConfig:
     allow_delete: bool = True
     delete_if_none_filled: bool = False
 
-    def get_default_value(self):
+    def get_default_value(self) -> Any:
         """Get the default value. Functionized so we can mock it in testing."""
         return self._default_value
 
@@ -77,14 +77,14 @@ def convert_to_absolute_path(relative_path: str) -> str:
     return os.path.join(INPUTDATA_PREFIX, relative_path)
 
 
-def get_path_with_cesmdataroot(abs_path):
+def get_path_with_cesmdataroot(abs_path: str) -> str:
     """Given a path, replace the env var CESMDATAROOT in the string with '$CESMDATAROOT'"""
     if os.getenv("CESMDATAROOT"):
         return abs_path.replace(os.getenv("CESMDATAROOT"), "$CESMDATAROOT").replace("//", "/")
     return abs_path
 
 
-def confirm_continue(prompt: str = "Continue? [Y/n]: "):
+def confirm_continue(prompt: str = "Continue? [Y/n]: ") -> bool:
     """
     Prompt the user for confirmation to continue, defaulting to 'Yes'.
 
