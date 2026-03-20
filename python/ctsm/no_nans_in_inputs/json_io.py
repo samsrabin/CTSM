@@ -58,8 +58,14 @@ class NoNanFillValueProgress(defaultdict):
         progress_file: str | None = None,
         load_without_asking: bool = False,
     ) -> None:
-        """
-        Initialize our progress file: Either load an existing one or start a new one
+        """Initialize the progress tracker, loading from an existing file if present.
+
+        Args:
+            default_factory (Callable): Factory for default dict values.
+                Default: create_empty_progress_dict_onefile.
+            progress_file (str | None): Path to JSON progress file to load/save. Default: None.
+            load_without_asking (bool): If True, load existing progress without prompting the
+                user to confirm. Default: False.
         """
         super().__init__(default_factory)
 
@@ -97,11 +103,21 @@ class NoNanFillValueProgress(defaultdict):
                 error(logger, f"Warning: Could not load progress file: {e}", error_type=type(e))
 
     def __setitem__(self, key: Any, value: Any) -> None:
-        """Ensure all keys are strings"""
+        """Ensure all keys are stored as strings.
+
+        Args:
+            key (Any): Key to set; will be coerced to str.
+            value (Any): Value to associate with the key.
+        """
         super().__setitem__(str(key), value)
 
     def update(self, *args: Any, **kwargs: Any) -> None:
-        """Convert keys to str for update operations (i.e., ensuring no keys are Path)"""
+        """Update the dict, converting all keys to str (ensuring no keys are Path objects).
+
+        Args:
+            *args (Any): Positional arguments; first may be a dict or iterable of (key, value) pairs.
+            **kwargs (Any): Keyword arguments to merge in.
+        """
         # Handle dict or iterable of key/value pairs
         if args:
             other = args[0]
@@ -115,13 +131,15 @@ class NoNanFillValueProgress(defaultdict):
             self[str(k)] = v
 
     def append(self, new_dict: dict) -> None:
-        """Append another dict to this one"""
+        """Merge another dict into this one.
+
+        Args:
+            new_dict (dict): Dictionary to merge in; its keys take precedence over existing ones.
+        """
         self.update(dict(self, **new_dict))
 
     def save(self) -> None:
-        """
-        Save progress to a JSON file.
-        """
+        """Save progress to a JSON file."""
         if not self.progress_file:
             return
 
@@ -140,7 +158,11 @@ class NoNanFillValueProgress(defaultdict):
             warn(logger, f"{INDENT}Warning: Could not save progress: {e}", file=sys.stderr)
 
     def done_with_file(self, netcdf_path: str) -> None:
-        """After we're done with a netCDF file, mark for removal from progress object/file"""
+        """Mark a netCDF file as done, flagging it for removal from the progress object and file.
+
+        Args:
+            netcdf_path (str): Absolute path to the netCDF file that has been processed.
+        """
         if netcdf_path not in self:
             error(
                 logger,
@@ -157,8 +179,12 @@ class NoNanFillValueProgress(defaultdict):
         self.save()
 
     def get_nc_paths_and_files_referencing(self) -> Tuple[Set[str], List[str]]:
-        """
-        Get netCDF paths in this dict, as well as all the namelist files that reference netCDFs
+        """Get netCDF paths in this dict and all namelist files that reference them.
+
+        Returns:
+            Tuple[Set[str], List[str]]: Tuple of (netcdf_paths, files_referencing_netcdfs), where
+                netcdf_paths is the set of all netCDF file paths tracked in this dict, and
+                files_referencing_netcdfs is the list of namelist/XML files that reference them.
         """
         netcdf_paths = set(self.keys())
         files_referencing_netcdfs = set()
@@ -172,7 +198,12 @@ class NoNanFillValueProgress(defaultdict):
         return netcdf_paths, files_referencing_netcdfs
 
     def print_summary(self, n_netcdfs_checked: int | None = None) -> None:
-        """Print summary of progress so far"""
+        """Print a summary of progress: files with NaNs, files not found, and optionally total checked.
+
+        Args:
+            n_netcdfs_checked (int | None): Total number of netCDF files checked, printed if provided.
+                Default: None.
+        """
         if n_netcdfs_checked is not None:
             warn(
                 logger,
@@ -198,14 +229,18 @@ class NoNanFillValueProgress(defaultdict):
 def _convert_fif_dict_sets(
     progress: NoNanFillValueProgress, dest_type: Type
 ) -> NoNanFillValueProgress:
-    """
-    The code needs the "found_in_files" dictionary to contain sets, but the JSON serializer can only
-    handle lists. This function allows the conversion of items in that dictionary between lists and
-    sets.
+    """Convert the "found_in_files" dict values between lists and sets.
+
+    The code needs "found_in_files" to contain sets, but the JSON serializer can only
+    handle lists. This function converts between the two representations.
 
     Args:
-        progress: Dictionary of found locations and collected fill values
-        dest_type: Type to convert to
+        progress (NoNanFillValueProgress): Progress dict whose "found_in_files" values will
+            be converted.
+        dest_type (Type): Type to convert to (e.g., set or list).
+
+    Returns:
+        NoNanFillValueProgress: The modified progress dict (same object, modified in-place).
     """
     for abs_path in progress:
         if "found_in_files" not in progress[abs_path]:
@@ -218,6 +253,14 @@ def _convert_fif_dict_sets(
 
 
 def _get_n_vars_in_progress(progress: NoNanFillValueProgress) -> int:
+    """Count the total number of new fill values decided across all files in a progress dict.
+
+    Args:
+        progress (NoNanFillValueProgress): Progress dict to count variables in.
+
+    Returns:
+        int: Total number of variables with decided fill values.
+    """
     n_vars = 0
     for file in progress.keys():
         if "new_fill_values" in progress[file]:
@@ -226,6 +269,14 @@ def _get_n_vars_in_progress(progress: NoNanFillValueProgress) -> int:
 
 
 def _handle_non_serializable_types(progress_out: NoNanFillValueProgress) -> None:
+    """Convert non-JSON-serializable numpy numeric types to native Python types, in-place.
+
+    Converts numpy integers and float32 values to Python int or float so the
+    progress dict can be serialized with json.dump.
+
+    Args:
+        progress_out (NoNanFillValueProgress): Progress dict to modify in-place.
+    """
     for progress_1file in progress_out.values():
         if not isinstance(progress_1file, dict):
             continue

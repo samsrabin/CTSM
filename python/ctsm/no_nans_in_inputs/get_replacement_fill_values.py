@@ -321,14 +321,13 @@ def _get_netcdfs_with_nan_fills(
 
 
 def main() -> int:
-    """
-    Main function to find matching file paths and collect new fill values.
+    """Main function to find matching file paths and collect new fill values.
 
     Parses command-line arguments, finds files with NaN fill values, and
     interactively collects replacement values from the user.
 
     Returns:
-        Exit code (0 for success)
+        int: Exit code (0 for success).
     """
 
     # Parse command-line arguments

@@ -53,15 +53,14 @@ logger = logging.getLogger(__name__)
 
 
 def _convert_and_validate_input(user_input: str, target_type: type) -> Any | None:
-    """
-    Convert user input to the target type and validate it's not NaN.
+    """Convert user input to the target type and validate it's not NaN.
 
     Args:
-        user_input: The user's input string (already stripped)
-        target_type: Type to convert the input to
+        user_input (str): The user's input string (already stripped).
+        target_type (type): Type to convert the input to.
 
     Returns:
-        Converted value, or None if conversion failed (error message already printed)
+        Any | None: Converted value, or None if conversion failed (error message already printed).
     """
     try:
         converted_value = target_type(user_input)
@@ -89,19 +88,19 @@ def _convert_and_validate_input(user_input: str, target_type: type) -> Any | Non
 
 
 def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) -> Any:
-    """
-    Prompt user for a new fill value and convert it to the target type.
+    """Prompt user for a new fill value and convert it to the target type.
 
     Args:
-        var_context: Context about the variable (name, type, file path)
-        config: Configuration for prompt behavior (default, allow_delete, auto-delete)
+        var_context (VarContext): Context about the variable (name, type, file path).
+        config (FillValueConfig): Configuration for prompt behavior (default, allow_delete,
+            auto-delete).
 
     Returns:
-        Converted fill value of the specified type, or USER_REQ_DELETE string
+        Any: Converted fill value of the specified type, or USER_REQ_DELETE string.
 
     Raises:
-        KeyboardInterrupt: If user presses Ctrl-C twice or types 'quit'
-        ValueError: If user types 'skip' or 'skipfile'
+        KeyboardInterrupt: If user presses Ctrl-C twice or types 'quit'.
+        ValueError: If user types 'skip' or 'skipfile'.
     """
     # If delete_if_none_filled is enabled and default is delete, use it automatically
     if config.delete_if_none_filled and config.get_default_value() == USER_REQ_DELETE:
@@ -159,22 +158,21 @@ def _get_fill_value_from_user(var_context: VarContext, config: FillValueConfig) 
 
 
 def _handle_ctrl_c(ctrl_c_count: int, user_input: str | None, var_context: VarContext) -> int:
-    """
-    Handle a KeyboardInterrupt (Ctrl-C) during user input.
+    """Handle a KeyboardInterrupt (Ctrl-C) during user input.
 
     On the first Ctrl-C, shows ncdump output for the variable.
     On the second Ctrl-C (or if user had typed 'quit'), re-raises.
 
     Args:
-        ctrl_c_count: Number of times Ctrl-C has been pressed (before incrementing)
-        user_input: The user's input before Ctrl-C (may be None)
-        var_context: Context about the variable being processed
+        ctrl_c_count (int): Number of times Ctrl-C has been pressed (before incrementing).
+        user_input (str | None): The user's input before Ctrl-C (may be None).
+        var_context (VarContext): Context about the variable being processed.
 
     Returns:
-        Updated ctrl_c_count
+        int: Updated ctrl_c_count.
 
     Raises:
-        KeyboardInterrupt: If this is the second Ctrl-C or user typed 'quit'
+        KeyboardInterrupt: If this is the second Ctrl-C or user typed 'quit'.
     """
     ctrl_c_count += 1
 
@@ -193,15 +191,15 @@ def _handle_ctrl_c(ctrl_c_count: int, user_input: str | None, var_context: VarCo
 
 
 def _handle_empty_input(default_value: Any, allow_delete: bool) -> Any | None:
-    """
-    Handle empty user input by returning the default or printing help.
+    """Handle empty user input by returning the default or printing help.
 
     Args:
-        default_value: Default value to use, or None if no default
-        allow_delete: Whether deleting the fill value is allowed (for help message)
+        default_value (Any): Default value to use, or None if no default.
+        allow_delete (bool): Whether deleting the fill value is allowed (for help message).
 
     Returns:
-        The default value if one exists, or None if no default (help message already printed)
+        Any | None: The default value if one exists, or None if no default (help message
+            already printed).
     """
     if default_value is not None:
         warn(logger, f"{INDENT}Using default: {default_value}")
@@ -223,19 +221,19 @@ def _handle_empty_input(default_value: Any, allow_delete: bool) -> Any | None:
 
 
 def _handle_special_command(input_str: str, allow_delete: bool) -> Any | None:
-    """
-    Check if user input is a special command and handle it.
+    """Check if user input is a special command and handle it.
 
     Args:
-        input_str: The user's input string (already stripped)
-        allow_delete: Whether deleting the fill value is allowed
+        input_str (str): The user's input string (already stripped).
+        allow_delete (bool): Whether deleting the fill value is allowed.
 
     Returns:
-        USER_REQ_DELETE if delete was requested and allowed, or None if not a special command
+        Any | None: USER_REQ_DELETE if delete was requested and allowed, or None if not a
+            special command.
 
     Raises:
-        KeyboardInterrupt: If user typed 'quit'
-        ValueError: If user typed 'skip' or 'skipfile'
+        KeyboardInterrupt: If user typed 'quit'.
+        ValueError: If user typed 'skip' or 'skipfile'.
     """
     lower_input = input_str.lower()
     # Do not use error() for raising special codes; those will be caught and handled by a try-except
@@ -266,8 +264,7 @@ def _collect_fill_values_one_path(
     dry_run: bool,
     accept_all_defaults: bool = False,
 ) -> NoNanFillValueProgress:
-    """
-    Interactively collect new fill values for variables in one file with NaN fill values.
+    """Interactively collect new fill values for variables in one file with NaN fill values.
 
     Opens the file, identifies variables with NaN fill values, displays their properties, and
     prompts the user to enter new fill values.
@@ -276,14 +273,17 @@ def _collect_fill_values_one_path(
     or 'skip' to skip a variable.
 
     Args:
-        progress_file: Path to save/load progress
-        progress: Dictionary of found locations and collected fill values (from progress_file)
-        delete_if_none_filled: If True, automatically use delete when it's the default
-        abs_path: Absolute path to the file.
-        dry_run: If true, just print vars to process (and defaults, if any).
+        progress (NoNanFillValueProgress): Progress dict of found locations and collected fill
+            values.
+        delete_if_none_filled (bool): If True, automatically delete fill value if no elements are
+            filled.
+        abs_path (str): Absolute path to the netCDF file.
+        dry_run (bool): If True, just print vars to process (and defaults, if any).
+        accept_all_defaults (bool): If True, automatically accept default fill values without
+            prompting. Default: False.
 
     Returns:
-        Dictionary mapping absolute file paths to dictionaries of {variable_name: new_fill_value}
+        NoNanFillValueProgress: Updated progress dict.
     """
     if "new_fill_values" not in progress[abs_path]:
         return progress
@@ -387,18 +387,21 @@ def collect_new_fill_values(
     dry_run: bool = False,
     accept_all_defaults: bool = False,
 ) -> NoNanFillValueProgress:
-    """
-    Interactively collect new fill values for variables with NaN fill values, looping through files.
+    """Interactively collect new fill values for variables, looping through files.
 
     See _collect_fill_values_one_path(), which processes individual files, for more information.
 
     Args:
-        matches: List of tuples (relative_path, absolute_path) for files to process
-        delete_if_none_filled: If True, automatically use delete when it's the default
-        dry_run: If true, just print vars to process (and defaults, if any).
+        progress (NoNanFillValueProgress): Progress dict of found locations and collected fill
+            values.
+        delete_if_none_filled (bool): If True, automatically use delete when it's the default.
+            Default: False.
+        dry_run (bool): If True, just print vars to process (and defaults, if any). Default: False.
+        accept_all_defaults (bool): If True, automatically accept default fill values without
+            prompting. Default: False.
 
     Returns:
-        Dictionary mapping absolute file paths to dictionaries of {variable_name: new_fill_value}
+        NoNanFillValueProgress: Updated progress dict.
     """
 
     msg = (

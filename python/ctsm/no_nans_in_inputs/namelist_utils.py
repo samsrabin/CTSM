@@ -37,14 +37,28 @@ logger = logging.getLogger(__name__)
 
 
 def _check_usernl_file(usernl_file: str) -> None:
-    """Check user_nl_ file for validity"""
+    """Check a user_nl_ file for validity.
+
+    Currently a placeholder — no checks are performed.
+
+    Args:
+        usernl_file (str): Path to the user_nl_ file to check.
+    """
     # TODO: Add check of user_nl_ file validity
     # pylint: disable=unused-argument
     return
 
 
 def _check_xml_file(xml_file: str) -> None:
-    """Check XML file for validity"""
+    """Check an XML file for validity.
+
+    Args:
+        xml_file (str): Path to the XML file to check.
+
+    Raises:
+        IOError: If the file cannot be opened.
+        ET.ParseError: If the file is not well-formed XML.
+    """
     try:
         ET.parse(xml_file)
     except IOError as e:
@@ -70,7 +84,14 @@ def _check_xml_file(xml_file: str) -> None:
 
 
 def find_user_nl_files(dir_to_search: str) -> list[str]:
-    """Find all user_nl_* and shell_commands files in directory"""
+    """Find all user_nl_* and shell_commands files in a directory, recursively.
+
+    Args:
+        dir_to_search (str): Root directory to search.
+
+    Returns:
+        list[str]: Paths to all matching files found.
+    """
     results = []
     for basename in ["user_nl_*", "shell_commands"]:
         pattern = os.path.join(f"{dir_to_search}", "**", basename)
@@ -79,7 +100,14 @@ def find_user_nl_files(dir_to_search: str) -> list[str]:
 
 
 def find_xml_files(dir_to_search: str) -> list[str]:
-    """Find all XML files in directory"""
+    """Find all XML files in a directory, recursively, excluding namelist_defaults_usr_files.xml.
+
+    Args:
+        dir_to_search (str): Root directory to search.
+
+    Returns:
+        list[str]: Paths to all matching XML files found.
+    """
     results = []
     for basename in ["*xml"]:
         pattern = os.path.join(f"{dir_to_search}", "**", basename)
@@ -93,8 +121,15 @@ def find_xml_files(dir_to_search: str) -> list[str]:
 
 
 def _replace_env_vars_in_netcdf_paths(netcdf_path_in: str) -> str:
-    """
-    Given a path to a netCDF file, replace any environment variables like $DIN_LOC_ROOT
+    """Replace environment variables in a netCDF file path with their literal values.
+
+    Replaces $DIN_LOC_ROOT and ${DIN_LOC_ROOT} with INPUTDATA_PREFIX.
+
+    Args:
+        netcdf_path_in (str): Path potentially containing environment variable references.
+
+    Returns:
+        str: Path with environment variables replaced and double slashes normalized.
     """
     netcdf_path_out = netcdf_path_in
     netcdf_path_out = netcdf_path_out.replace("$DIN_LOC_ROOT", INPUTDATA_PREFIX)
@@ -103,18 +138,19 @@ def _replace_env_vars_in_netcdf_paths(netcdf_path_in: str) -> str:
     return netcdf_path_out
 
 
-def _extract_file_path_list_from_usernl(usernl_file: str) -> set[str]:
-    """
-    Extract all file paths from a user_nl file.
+def _extract_file_path_list_from_usernl(usernl_file: str) -> list[str]:
+    """Extract all file paths from a user_nl file (may contain duplicates).
+
+    Finds all quoted strings containing OUR_PATH (lnd/clm2/); does not restrict to netCDF files.
 
     Args:
-        usernl_file (str): Path to the user_nl file
+        usernl_file (str): Path to the user_nl file.
 
     Returns:
-        List of file paths found in the user_nl file
+        list[str]: File paths found in the user_nl file (preserves order, may have duplicates).
 
     Raises:
-        SystemExit: If usernl_file is not found
+        SystemExit: If usernl_file is not found.
     """
 
     try:
@@ -130,19 +166,18 @@ def _extract_file_path_list_from_usernl(usernl_file: str) -> set[str]:
 
 
 def _extract_file_path_set_from_usernl(usernl_file: str, exact: bool = False) -> set[str]:
-    """
-    Extract all unique file paths from a user_nl or shell_commands file.
+    """Extract all unique file paths from a user_nl or shell_commands file.
 
     Args:
-        usernl_file (str): Path to the user_nl or shell_commands file
-        exact (bool): Whether returned file paths should be exactly as they were in the usernl file.
-                      Default False.
+        usernl_file (str): Path to the user_nl or shell_commands file.
+        exact (bool): If True, return paths exactly as written in the file (no env var
+            substitution). Default: False.
 
     Returns:
-        Set of file paths found in the user_nl or shell_commands file
+        set[str]: Unique file paths found in the file.
 
     Raises:
-        SystemExit: If usernl_file is not found
+        SystemExit: If usernl_file is not found.
     """
     file_paths = set()
 
@@ -162,17 +197,16 @@ def _extract_file_path_set_from_usernl(usernl_file: str, exact: bool = False) ->
 
 
 def _extract_file_paths_from_xml(xml_file: str) -> set[str]:
-    """
-    Extract all file paths from an XML file.
+    """Extract all file paths from an XML file.
 
     Args:
-        xml_file: Path to the XML file
+        xml_file (str): Path to the XML file.
 
     Returns:
-        Set of file paths found in the XML
+        set[str]: File paths found in the XML element text content.
 
     Raises:
-        SystemExit: If parsing fails or file is not found
+        SystemExit: If parsing fails or file is not found.
     """
     file_paths = set()
 
@@ -206,19 +240,18 @@ def _extract_file_paths_from_xml(xml_file: str) -> set[str]:
 
 
 def extract_file_paths_from_file(file_to_search: str, exact: bool = False) -> set[str]:
-    """
-    Extract all file paths from a file.
+    """Extract all file paths from an XML, user_nl_, or shell_commands file.
 
     Args:
-        file_to_search (str): Path to the file to search
-        exact (bool): Whether returned file paths should be exactly as they were in the usernl file.
-                      Default False.
+        file_to_search (str): Path to the file to search.
+        exact (bool): If True, return paths exactly as written in the file (no env var
+            substitution). Only applies to user_nl_ and shell_commands files. Default: False.
 
     Returns:
-        Set of file paths found in the file
+        set[str]: File paths found in the file.
 
     Raises:
-        NotImplementedError: If no function exists to process this file
+        NotImplementedError: If no function exists to process this file type.
     """
 
     basename = os.path.basename(file_to_search)
@@ -238,15 +271,15 @@ def extract_file_paths_from_file(file_to_search: str, exact: bool = False) -> se
 
 
 def how_netcdf_is_referenced_in_file(file_to_search: str, netcdf_path: str) -> List[str]:
-    """
-    Get list of ways a given netCDF file is referenced in a given text file
+    """Get the unique ways a given netCDF file is referenced in a given text file.
 
     Args:
-        file_to_search (str): Path to text file we're searching
-        netcdf_path (str): Path (relative or absolute) of netCDF file we're looking for
+        file_to_search (str): Path to the text file to search.
+        netcdf_path (str): Path (relative or absolute) of the netCDF file to look for.
 
     Returns:
-        Set[str]: Unique ways that netcdf_path is referenced in file_to_search
+        List[str]: Unique string forms in which netcdf_path appears in file_to_search
+            (e.g., with or without env var substitution).
     """
 
     # Convert netcdf_path to absolute
@@ -265,18 +298,18 @@ def how_netcdf_is_referenced_in_file(file_to_search: str, netcdf_path: str) -> L
 
 
 def _update_xml_file(xml_file: str, old_path: str, new_path: str) -> None:
-    """
-    Replace a file path in an XML file.
+    """Replace a file path in an XML file.
 
-    Replaces all occurrences of old_path with new_path throughout the file.
+    Replaces all occurrences of old_path with new_path in element text content,
+    leaving XML comments untouched.
 
     Args:
-        xml_file: Path to the XML file to update
-        old_path: Old file path to replace (can be relative or absolute)
-        new_path: New file path to use (can be relative or absolute)
+        xml_file (str): Path to the XML file to update.
+        old_path (str): Old file path to replace (can be relative or absolute).
+        new_path (str): New file path to use (can be relative or absolute).
 
     Raises:
-        ValueError: If old_path not found in XML, or if XML parsing/writing fails
+        ValueError: If old_path is not found in the XML.
     """
     with open(xml_file, "r", encoding="utf-8") as f:
         xml_file_contents = f.read()
@@ -312,13 +345,15 @@ def _update_xml_file(xml_file: str, old_path: str, new_path: str) -> None:
     )
 
     # Function to replace any quoted instances of old_path with new_path
-    def replacer(match: re.Match):
-        """
-        If group(1) is None, the match was the comment branch.
-        In that case, return the original text unchanged.
+    def replacer(match: re.Match) -> str:
+        """Return the replacement string, leaving XML comments unchanged.
 
-        Otherwise, reconstruct the match with NEW_PATH while
-        preserving the original surrounding whitespace.
+        Args:
+            match (re.Match): Regex match object; group(1) is None for comment branches.
+
+        Returns:
+            str: Original text if the match is a comment; otherwise the text with new_path
+                substituted in, preserving surrounding whitespace.
         """
         if match.group(1) is None:
             return match.group(0)  # leave comment untouched
@@ -342,15 +377,14 @@ def _update_xml_file(xml_file: str, old_path: str, new_path: str) -> None:
 
 
 def _update_usernl_file(usernl_file: str, old_path: str, new_path: str) -> None:
-    """
-    Replace a file path in a user_nl or shell_commands file.
+    """Replace a file path in a user_nl or shell_commands file.
 
     Replaces all occurrences of old_path with new_path throughout the file.
 
     Args:
-        usernl_file: Path to the user_nl or shell_commands file to update
-        old_path: Old file path to replace (can be relative or absolute)
-        new_path: New file path to use (can be relative or absolute)
+        usernl_file (str): Path to the user_nl or shell_commands file to update.
+        old_path (str): Old file path to replace (can be relative or absolute).
+        new_path (str): New file path to use (can be relative or absolute).
     """
     with open(usernl_file, "r", encoding="utf8") as f:
         # Get the existing file contents
@@ -385,13 +419,15 @@ def _update_usernl_file(usernl_file: str, old_path: str, new_path: str) -> None:
 
 
 def update_text_file_referencing_netcdf(text_file: str, old_netcdf: str, new_netcdf: str) -> None:
-    """
-    Replace path to a netCDF file in a text file
+    """Replace a netCDF file path in an XML, user_nl_, or shell_commands file.
 
     Args:
-        text_file: Path to the text file to update
-        old_path: Old file path to replace (can be relative or absolute)
-        new_path: New file path to use (can be relative or absolute)
+        text_file (str): Path to the text file to update.
+        old_netcdf (str): Old netCDF file path to replace (can be relative or absolute).
+        new_netcdf (str): New netCDF file path to use (can be relative or absolute).
+
+    Raises:
+        NotImplementedError: If the file type is not supported.
     """
     basename = os.path.basename(text_file)
     _, ext = os.path.splitext(basename)

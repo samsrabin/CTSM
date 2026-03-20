@@ -69,18 +69,13 @@ MAX_LISTED_VARS = 5
 
 
 def get_output_filename(input_file: str) -> str:
-    """
-    Generate output filename by adding .no_nan_fill before the extension.
+    """Generate output filename by adding a suffix to input filename.
 
     Args:
-        input_file: Path to the input file
+        input_file (str): Path to the input file.
 
     Returns:
-        Path to the output file
-
-    Examples:
-        /path/to/file.nc -> /path/to/file.no_nan_fill.nc
-        /path/to/file.tar.gz -> /path/to/file.no_nan_fill.tar.gz
+        str: Path to the output file.
     """
     # Split the path into directory, basename, and extension
     directory = os.path.dirname(input_file)
@@ -184,7 +179,15 @@ def _process_one_file(
 
 
 def _check_ok_to_process(progress: NoNanFillValueProgress, input_file_abs: str) -> bool:
-    """Check whether it's okay to process a netCDF file"""
+    """Check whether it's okay to process a netCDF file.
+
+    Args:
+        progress (NoNanFillValueProgress): Progress dict containing file processing state.
+        input_file_abs (str): Absolute path to the netCDF file to check.
+
+    Returns:
+        bool: True if the file can be processed, False if it should be skipped.
+    """
 
     # get_replacement_fill_values.py result was to NOT process
     if isinstance(progress[input_file_abs], str):
@@ -221,7 +224,16 @@ def _print_and_wait(
     files_containing: list[str],
     vars_with_rawnan_yesfill: dict[str, Any],
 ) -> None:
-    """Print info and a message useful for a git commit, then wait for user to continue"""
+    """Print info and a message useful for a git commit, then wait for user to continue.
+
+    Args:
+        input_file_abs (str): Absolute path to the input netCDF file.
+        output_file (str): Path to the output netCDF file.
+        var_fillvalues (dict[str, Any]): Mapping of variable names to new fill values.
+        files_containing (list[str]): List of namelist/XML files whose netCDF paths were updated.
+        vars_with_rawnan_yesfill (dict[str, Any]): Variables whose raw NaNs were set to an
+            existing fill value.
+    """
 
     print("\n")
     ctsm_root = None
@@ -318,16 +330,15 @@ def process_files(
     dry_run: bool = False,
     overwrite: bool = False,
 ) -> int:
-    """
-    Process files to replace fill values.
+    """Process files to replace fill values.
 
     Args:
-        fillvalues_file: Path to JSON file with new fill values
-        dry_run: If True, show commands without executing (default: False)
-        overwrite: If True, overwrite existing output files (default: False)
+        fillvalues_file (str): Path to JSON file with new fill values.
+        dry_run (bool): If True, show commands without executing. Default: False.
+        overwrite (bool): If True, overwrite existing output files. Default: False.
 
     Returns:
-        Number of files successfully processed
+        int: Number of files successfully processed.
     """
     # Load the new fill values
     warn(logger, f"Loading new fill values from {fillvalues_file}...")
@@ -371,21 +382,20 @@ def process_files(
 
 
 def skip_this_file(input_file: str, output_file: str, overwrite: bool) -> bool:
-    """
-    Determine whether to skip processing a file.
+    """Determine whether to skip processing a file.
 
     Files are skipped if the output is a symlink (always) or if the output
     exists and overwrite is False.
 
     Args:
-        input_file: Path to input file
-        output_file: Path to output file
-        overwrite: Whether to overwrite existing files
+        input_file (str): Path to input file.
+        output_file (str): Path to output file.
+        overwrite (bool): Whether to overwrite existing output files.
 
     Returns:
-        True if file should be skipped, False otherwise
+        bool: True if the file should be skipped, False otherwise.
     """
-    # Check if output is a symlink - never overwrite symlinks
+    # Never overwrite symlinks, assuming their target files have been published
     if os.path.islink(output_file):
         warn(logger, f"\n{'!' * SEP_LENGTH}")
         warn(logger, "WARNING: Output file is a symlink - SKIPPING")
@@ -406,14 +416,13 @@ def skip_this_file(input_file: str, output_file: str, overwrite: bool) -> bool:
 
 
 def print_dry_run_summary(total_files: int, total_vars: int) -> None:
-    """
-    Print summary information about files to be processed.
+    """Print summary information about files to be processed.
 
     Only called in dry-run mode to show what would be done.
 
     Args:
-        total_files: Total number of files to process
-        total_vars: Total number of variables to modify
+        total_files (int): Total number of files to process.
+        total_vars (int): Total number of variables to modify.
     """
     warn(logger, "\n" + "=" * SEP_LENGTH)
     warn(logger, "\nSummary:")
@@ -422,13 +431,12 @@ def print_dry_run_summary(total_files: int, total_vars: int) -> None:
 
 
 def main() -> int:
-    """
-    Main function to replace fill values.
+    """Main function to replace fill values.
 
     Parses command-line arguments and processes files to replace NaN fill values.
 
     Returns:
-        Exit code (0 for success)
+        int: Exit code (0 for success).
     """
 
     # Parse command-line arguments

@@ -56,8 +56,15 @@ def _build_nccopy_command(
     output_file: str,
     nccopy_kind: str,
 ) -> list[str]:
-    """
-    Build nccopy command to convert netCDF type.
+    """Build nccopy command to convert netCDF format.
+
+    Args:
+        input_file (str): Path to the input netCDF file.
+        output_file (str): Path to the output netCDF file.
+        nccopy_kind (str): Target format kind (e.g., 'netCDF-4', 'cdf5').
+
+    Returns:
+        list[str]: Command as a list of arguments for subprocess.
     """
 
     cmd = ["nccopy", "-k", nccopy_kind, input_file, output_file]
@@ -70,20 +77,19 @@ def _build_ncatted_command(
     output_file: str,
     var_fillvalues: dict[str, Any],
 ) -> list[str]:
-    """
-    Build ncatted command to modify or delete fill values.
+    """Build ncatted command to modify or delete fill values.
 
     Args:
-        input_file: Path to input NetCDF file
-        output_file: Path to output NetCDF file
-        var_fillvalues: Dictionary mapping variable names to new fill values
-                        (or USER_REQ_DELETE to delete the attribute)
+        input_file (str): Path to input netCDF file.
+        output_file (str): Path to output netCDF file.
+        var_fillvalues (dict[str, Any]): Dictionary mapping variable names to new fill values,
+            or USER_REQ_DELETE to delete the attribute.
 
     Returns:
-        Command as list of arguments for subprocess
+        list[str]: Command as a list of arguments for subprocess.
 
     Raises:
-        ValueError: If input and output files are the same, or if variable not found
+        ValueError: If a variable in var_fillvalues is not found in the dataset.
     """
 
     cmd = ["ncatted", "-O"]  # -O flag to overwrite without prompting
@@ -112,7 +118,17 @@ def _build_ncap2_command(
     var_fillvalues: dict[str, Any],
     vars_with_rawnan_nofill: List[str],
 ) -> list[str]:
-    """ncap2 command to set raw NaNs equal to the fill value"""
+    """Build ncap2 command to replace raw NaN values with the fill value.
+
+    Args:
+        input_file (str): Path to the input netCDF file.
+        output_file (str): Path to the output netCDF file.
+        var_fillvalues (dict[str, Any]): Dictionary mapping variable names to fill values.
+        vars_with_rawnan_nofill (List[str]): Variables that have raw NaNs but no fill value set.
+
+    Returns:
+        list[str]: Command as a list of arguments for subprocess.
+    """
 
     cmd = ["ncap2", "-O", "-s"]
     ncap2_script_expr = ""
@@ -264,17 +280,16 @@ def _get_tmp_nc4_path(file_abs: str, tmpdir: str) -> str:
 
 
 def _execute_nco_command(cmd: list[str]) -> int:
-    """
-    Runs the nco command to create the output file with modified fill values.
+    """Run an NCO command to create an output file with modified fill values.
 
     Args:
-        cmd: nco command as list of arguments
+        cmd (list[str]): NCO command as a list of arguments.
 
     Returns:
-        Number of files processed (1 on success, 0 on skip)
+        int: Number of files processed (1 on success, 0 on skip).
 
     Raises:
-        SystemExit: If nco command fails or is not found
+        SystemExit: If the NCO command fails or is not found.
     """
     info(logger, f"\nExecuting: {' '.join([str(x) for x in cmd])}")
     nco_util = cmd[0]
@@ -317,9 +332,18 @@ def var_has_rawnan(
     da: xr.DataArray,
     dims_to_slice_over: list[str] | None,
 ) -> tuple[xr.DataArray, Any]:
-    """
-    Best to sort dims_to_slice_over smallest -> largest so that we're always working with the
-    largest possible slice, for efficiency
+    """Check whether a DataArray contains any raw NaN values, slicing over large dims to save RAM.
+
+    Args:
+        da (xr.DataArray): DataArray to check.
+        dims_to_slice_over (list[str] | None): Dimensions to iterate over one index at a time
+            when the array is large. Sort smallest to largest for efficiency (always working
+            with the largest possible slice).
+
+    Returns:
+        tuple[xr.DataArray, Any]: Tuple of (any_raw_null, fill_value), where any_raw_null is
+            a boolean-like DataArray indicating whether any NaN was found, and fill_value is
+            the variable's _FillValue attribute, or None if not set.
     """
     # Get fill value, if any
     try:
@@ -382,8 +406,13 @@ def file_has_rawnan(nc_path: str) -> Tuple[bool, List[str], dict[str, Any]]:
 
 
 def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:
-    """
-    Use ncks --chk_nan to determine whether a netCDF file has a NaN
+    """Use ncks --chk_nan to determine whether a netCDF file has a NaN.
+
+    Args:
+        abs_path (str): Absolute path to the netCDF file.
+
+    Returns:
+        bool: True if any variable in the file contains a NaN, False otherwise.
     """
     # We'll check one variable at a time to reduce RAM usage
     with warnings.catch_warnings():
@@ -414,15 +443,15 @@ def file_has_nan_ncks_chk_nan(abs_path: str) -> bool:
 
 
 def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
-    """
-    Check if a netCDF file has any variable with NaN fill value attribute.
+    """Check if a netCDF file has any variable with a NaN fill value attribute.
 
     Args:
-        abs_path: Absolute path to file
+        abs_path (str): Absolute path to the netCDF file.
 
     Returns:
-        bool: True if the file has any variable with NaN fill value attribute, False otherwise
-        List[str]: Variables with NaN fill value attributes
+        Tuple[bool, List[str]]: Tuple of (has_nan_fill, vars_to_give_fills), where has_nan_fill
+            is True if any variable has a NaN fill value attribute, and vars_to_give_fills is
+            the list of such variable names.
     """
     vars_to_give_fills = get_vars_with_nan_fills(abs_path)
 
@@ -430,18 +459,22 @@ def file_has_nan_fill(abs_path: str) -> Tuple[bool, List[str]]:
 
 
 def _get_ncatted_type_code(dtype: np.dtype, allow_int=False) -> str:
-    """
-    Get ncatted type code from numpy dtype.
+    """Get the ncatted type code for a given numpy dtype.
 
     Args:
-        dtype: numpy dtype object
+        dtype (np.dtype): numpy dtype object.
+        allow_int (bool): If True, allow integer dtypes and return their type codes.
+            Default: False.
 
     Returns:
-        ncatted type code (f, d, c)
+        str: ncatted type code ('f' for float32, 'd' for float64, 'c' for char,
+            'l' for int32, 's' for int16).
 
     Raises:
-        ValueError: If dtype is not recognized or is an integer type
-                    (NetCDF doesn't allow NaN fill values for integers)
+        ValueError: If dtype is an integer type and allow_int is False, or if dtype
+            is not recognized.
+        NotImplementedError: If allow_int is True but the integer dtype has no known
+            type code.
     """
     dtype_str = str(dtype)
 
@@ -477,21 +510,20 @@ def _get_ncatted_type_code(dtype: np.dtype, allow_int=False) -> str:
 def get_var_info(
     var: str, ds: xr.Dataset, abs_path: str, delete_if_none_filled: bool, dry_run: bool
 ) -> Tuple[VarContext, FillValueConfig]:
-    """
-    Process a single variable to get information to be used as settings.
+    """Process a single variable to get information to be used as settings.
 
-    Displays variable metadata and statistics and calculates a smart default.
+    Displays variable metadata and statistics and calculates a smart default fill value.
 
     Args:
-        var: Variable name
-        da: xarray DataArray for the variable
-        abs_path: Absolute path to the file (for context in defaults)
-        delete_if_none_filled: If True, automatically use delete when it's the default
-        dry_run: If true, just print vars to process (and defaults, if any).
+        var (str): Variable name.
+        ds (xr.Dataset): Dataset containing the variable.
+        abs_path (str): Absolute path to the file (used for context in defaults).
+        delete_if_none_filled (bool): If True, automatically use delete when it's the default.
+        dry_run (bool): If True, just print vars to process (and defaults, if any).
 
     Returns:
-        VarContext: Information about the variable
-        FillValueConfig: Information about the fill value
+        Tuple[VarContext, FillValueConfig]: Tuple of (var_context, config), where var_context
+            holds information about the variable and config holds fill value settings.
     """
     da = ds[var]
 
@@ -562,14 +594,13 @@ def _get_negative_default(nanmin: Any) -> Any:
 
 
 def get_vars_with_nan_fills(abs_path: str) -> List[str]:
-    """
-    Given a file, get variables with NaN fill value attribute (if any).
+    """Given a file, get variables with a NaN fill value attribute (if any).
 
     Args:
-        abs_path: Absolute path to file
+        abs_path (str): Absolute path to the netCDF file.
 
     Returns:
-        bool: List of variables with NaN fill value attribute
+        List[str]: Variable names whose fill value attribute is NaN.
     """
     ncdump_results = subprocess.check_output(["ncdump", "-h", abs_path], text=True)
 
@@ -588,12 +619,12 @@ def get_vars_with_nan_fills(abs_path: str) -> List[str]:
 
 
 def show_ncdump_for_variable(file_path: str | None, var_name: str) -> None:
-    """
-    Run ncdump -h on a file and display lines matching the variable name.
+    """Run ncdump -h on a file and display lines matching the variable name.
 
     Args:
-        file_path: Path to the netCDF file (None to skip)
-        var_name: Name of the variable to search for in ncdump output
+        file_path (str | None): Path to the netCDF file. If None, a warning is printed and
+            the function returns without doing anything.
+        var_name (str): Name of the variable to search for in ncdump output.
     """
     if not file_path:
         warn(logger, f"{INDENT}No file path available for ncdump")
@@ -606,6 +637,7 @@ def show_ncdump_for_variable(file_path: str | None, var_name: str) -> None:
             ["ncdump", "-h", file_path], capture_output=True, text=True, check=True
         )
         # Filter lines containing the variable name
+        # TODO: This should only match entire words matching var_name
         matching_lines = [line for line in result.stdout.split("\n") if var_name in line]
         if matching_lines:
             info(logger, f"    Lines matching '{var_name}':")
@@ -622,14 +654,13 @@ def show_ncdump_for_variable(file_path: str | None, var_name: str) -> None:
 
 
 def var_data_has_nan(da: xr.DataArray) -> bool:
-    """
-    Check if a variable's data contains any NaN values.
+    """Check if a variable's data contains any NaN values.
 
     Args:
-        da: xarray DataArray to check
+        da (xr.DataArray): DataArray to check.
 
     Returns:
-        bool: True if the data contains any NaN values, False otherwise
+        bool: True if the data contains any NaN values, False otherwise.
     """
     try:
         return bool(da.isnull().any())

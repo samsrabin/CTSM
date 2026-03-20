@@ -28,9 +28,9 @@ class FillValueConfig:
     """Configuration for how the fill value prompt should behave.
 
     Attributes:
-        _default_value: Optional default value to use if user presses enter
-        allow_delete: Whether to allow deleting the fill value attribute
-        delete_if_none_filled: If True, automatically use delete when it's the default
+        _default_value (Any): Optional default value to use if user presses enter.
+        allow_delete (bool): Whether to allow deleting the fill value attribute.
+        delete_if_none_filled (bool): If True, automatically use delete when it's the default.
     """
 
     _default_value: Any = None
@@ -47,10 +47,10 @@ class VarContext:
     """Context about the variable being processed.
 
     Attributes:
-        var_name: Name of the variable
-        target_type: Type to convert user input to (e.g., float, int)
-        file_path: Optional path to the netCDF file (for ncdump on Ctrl-C)
-        dry_run: If true, just print vars to process (and defaults, if any).
+        var_name (str): Name of the variable.
+        target_type (type): Type to convert user input to (e.g., float, int).
+        file_path (str | None): Optional path to the netCDF file (for ncdump on Ctrl-C).
+        dry_run (bool): If True, just print vars to process (and defaults, if any).
     """
 
     var_name: str
@@ -60,14 +60,13 @@ class VarContext:
 
 
 def convert_to_absolute_path(relative_path: str) -> str:
-    """
-    Convert a relative path to an absolute path.
+    """Convert a relative path to an absolute path.
 
     Args:
-        relative_path: Relative path starting with OUR_PATH, or already absolute path
+        relative_path (str): Relative path starting with OUR_PATH, or already absolute path.
 
     Returns:
-        Absolute path
+        str: Absolute path.
     """
     # If the path is already absolute, return it as-is
     if os.path.isabs(relative_path):
@@ -78,32 +77,31 @@ def convert_to_absolute_path(relative_path: str) -> str:
 
 
 def get_path_with_cesmdataroot(abs_path: str) -> str:
-    """Given a path, replace the env var CESMDATAROOT in the string with '$CESMDATAROOT'"""
+    """Replace the CESMDATAROOT environment variable in a path with the literal string '$CESMDATAROOT'.
+
+    Args:
+        abs_path (str): Absolute path, potentially containing the value of $CESMDATAROOT.
+
+    Returns:
+        str: Path with the CESMDATAROOT value replaced by '$CESMDATAROOT', or the original
+            path if CESMDATAROOT is not set.
+    """
     if os.getenv("CESMDATAROOT"):
         return abs_path.replace(os.getenv("CESMDATAROOT"), "$CESMDATAROOT").replace("//", "/")
     return abs_path
 
 
 def confirm_continue(prompt: str = "Continue? [Y/n]: ") -> bool:
-    """
-    Prompt the user for confirmation to continue, defaulting to 'Yes'.
+    """Prompt the user for confirmation to continue, defaulting to 'Yes'.
 
-    Parameters
-    ----------
-    prompt : str
-        The message displayed to the user. Default is "Continue? [Y/n]: ".
+    Accepts 'y', 'yes', or Enter (case-insensitive) as Yes; 'n' or 'no' as No.
+    Re-prompts on any other input.
 
-    Returns
-    -------
-    bool
-        True if the user confirms (Yes), False if the user declines (No).
+    Args:
+        prompt (str): The message displayed to the user. Default is "Continue? [Y/n]: ".
 
-    Behavior
-    --------
-    - Pressing Enter defaults to Yes.
-    - Accepts 'y', 'yes' (case-insensitive) as Yes.
-    - Accepts 'n', 'no' (case-insensitive) as No.
-    - Any other input will reprompt until a valid response is given.
+    Returns:
+        bool: True if the user confirms (Yes), False if the user declines (No).
     """
     while True:
         info(logger, f"Prompt: {prompt}")
