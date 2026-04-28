@@ -129,23 +129,38 @@ contains
     real(r8) :: residual_smin_nh4(begc:endc)
     real(r8) :: residual_smin_no3(begc:endc)
     real(r8) :: residual_plant_ndemand(begc:endc)
+
+    ! Attempts at vectorization. ARRAY_filtered means a version of ARRAY excluding elements that the
+    ! relevant filter would skip over.
+    real(r8) :: sminn_tot_filtered(1:num_bgc_soilc)
+    real(r8) :: sminn_vr_filtered(1:num_bgc_soilc,nlevdecomp)
     !-----------------------------------------------------------------------
 
       ! column loops to resolve plant/heterotroph competition for mineral N
 
       if_nitrif: if (.not. use_nitrif_denitrif) then
 
-         ! init sminn_tot
+         ! init sminn_tot(_filtered) and sminn_vr_filtered
          do fc=1,num_bgc_soilc
             c = filter_bgc_soilc(fc)
             sminn_tot(c) = 0.
+            do j = 1, nlevdecomp
+               sminn_vr_filtered(fc,j) = sminn_vr(c,j)
+            end do
          end do
+         sminn_tot_filtered(:) = 0.
 
+         ! Get total soil N across all layers
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
-               c = filter_bgc_soilc(fc)
-               sminn_tot(c) = sminn_tot(c) + sminn_vr(c,j) * dzsoi_decomp(j)
+               sminn_tot_filtered(fc) = sminn_tot_filtered(fc) + sminn_vr_filtered(fc,j) * dzsoi_decomp(j)
             end do
+         end do
+
+         ! Fill sminn_tot with values from filtered version
+         do fc=1,num_bgc_soilc
+            c = filter_bgc_soilc(fc)
+            sminn_tot(c) = sminn_tot_filtered(fc)
          end do
 
          do j = 1, nlevdecomp
