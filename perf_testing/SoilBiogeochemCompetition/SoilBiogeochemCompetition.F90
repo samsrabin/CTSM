@@ -134,6 +134,8 @@ contains
     ! relevant filter would skip over.
     real(r8) :: sminn_tot_filtered(1:num_bgc_soilc)
     real(r8) :: sminn_vr_filtered(1:num_bgc_soilc,nlevdecomp)
+    real(r8) :: nfixation_prof_filtered(1:num_bgc_soilc,nlevdecomp)
+    real(r8) :: nuptake_prof_filtered(1:num_bgc_soilc,nlevdecomp)
     !-----------------------------------------------------------------------
 
       ! column loops to resolve plant/heterotroph competition for mineral N
@@ -146,6 +148,8 @@ contains
             sminn_tot(c) = 0.
             do j = 1, nlevdecomp
                sminn_vr_filtered(fc,j) = sminn_vr(c,j)
+               nfixation_prof_filtered(fc,j) = nfixation_prof(c,j)
+               nuptake_prof_filtered(fc,j) = nuptake_prof(c,j)
             end do
          end do
          sminn_tot_filtered(:) = 0.
@@ -157,20 +161,24 @@ contains
             end do
          end do
 
-         ! Fill sminn_tot with values from filtered version
+         ! Get N uptake profile
+         do j = 1, nlevdecomp
+            do fc=1,num_bgc_soilc
+               if (sminn_tot_filtered(fc)  >  0.) then
+                  nuptake_prof_filtered(fc,j) = sminn_vr_filtered(fc,j) / sminn_tot_filtered(fc)
+               else
+                  nuptake_prof_filtered(fc,j) = nfixation_prof_filtered(fc,j)
+               endif
+            end do
+         end do
+
+         ! Fill arrays with values from filtered versions
          do fc=1,num_bgc_soilc
             c = filter_bgc_soilc(fc)
             sminn_tot(c) = sminn_tot_filtered(fc)
-         end do
-
-         do j = 1, nlevdecomp
-            do fc=1,num_bgc_soilc
-               c = filter_bgc_soilc(fc)
-               if (sminn_tot(c)  >  0.) then
-                  nuptake_prof(c,j) = sminn_vr(c,j) / sminn_tot(c)
-               else
-                  nuptake_prof(c,j) = nfixation_prof(c,j)
-               endif
+            do j = 1, nlevdecomp
+               nuptake_prof(c,j) = nuptake_prof_filtered(fc,j)
+               nfixation_prof(c,j) = nfixation_prof_filtered(fc,j)
             end do
          end do
 
