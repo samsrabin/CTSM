@@ -162,12 +162,11 @@ contains
          end do
 
          ! Get N uptake profile
+         nuptake_prof_filtered = nfixation_prof_filtered
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
                if (sminn_tot_filtered(fc)  >  0.) then
                   nuptake_prof_filtered(fc,j) = sminn_vr_filtered(fc,j) / sminn_tot_filtered(fc)
-               else
-                  nuptake_prof_filtered(fc,j) = nfixation_prof_filtered(fc,j)
                endif
             end do
          end do
