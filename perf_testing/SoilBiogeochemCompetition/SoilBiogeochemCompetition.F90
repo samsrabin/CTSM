@@ -163,13 +163,14 @@ contains
 
          ! Get N uptake profile
          nuptake_prof_filtered = nfixation_prof_filtered
-         do fc=1,num_bgc_soilc
-            do j = 1, nlevdecomp
+         do j = 1, nlevdecomp
+            do fc=1,num_bgc_soilc
                if (sminn_tot_filtered(fc)  >  0.) then
                   nuptake_prof_filtered(fc,j) = sminn_vr_filtered(fc,j) / sminn_tot_filtered(fc)
                endif
             end do
          end do
+         write(*,*) nuptake_prof_filtered(fc,j)
 
          ! Fill arrays with values from filtered versions
          do fc=1,num_bgc_soilc
