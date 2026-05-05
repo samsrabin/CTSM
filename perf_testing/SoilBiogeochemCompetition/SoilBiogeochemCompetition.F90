@@ -174,7 +174,6 @@ contains
                endif
             end do
          end do
-         write(*,*) nuptake_prof_filtered(fc,j)
 
          ! Fill arrays with values from filtered versions
          do fc=1,num_bgc_soilc
