@@ -133,6 +133,7 @@ contains
     ! Attempts at vectorization. ARRAY_filtered means a version of ARRAY excluding elements that the
     ! relevant filter would skip over.
     real(r8) :: sminn_tot_filtered(1:num_bgc_soilc)
+    real(r8) :: sminn_tot_filtered_nlevdecomp(1:num_bgc_soilc,nlevdecomp)
     real(r8) :: sminn_vr_filtered(1:num_bgc_soilc,nlevdecomp)
     real(r8) :: nfixation_prof_filtered(1:num_bgc_soilc,nlevdecomp)
     real(r8) :: nuptake_prof_filtered(1:num_bgc_soilc,nlevdecomp)
@@ -162,11 +163,14 @@ contains
          end do
 
          ! Get N uptake profile
+         do fc=1,num_bgc_soilc
+            sminn_tot_filtered_nlevdecomp(fc,:) = sminn_tot_filtered(fc)
+         end do
          nuptake_prof_filtered = nfixation_prof_filtered
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
-               if (sminn_tot_filtered(fc)  >  0.) then
-                  nuptake_prof_filtered(fc,j) = sminn_vr_filtered(fc,j) / sminn_tot_filtered(fc)
+               if (sminn_tot_filtered_nlevdecomp(fc,j)  >  0.) then
+                  nuptake_prof_filtered(fc,j) = sminn_vr_filtered(fc,j) / sminn_tot_filtered_nlevdecomp(fc,j)
                endif
             end do
          end do
