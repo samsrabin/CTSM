@@ -146,14 +146,17 @@ as a correctness reference for future optimized variants. The driver:
   baseline).
 
 To **regenerate** the baseline (e.g. after deliberately changing the
-algorithm or input fill pattern):
+algorithm, input fill pattern, or driver defaults like `niters`):
 
 ```bash
-make clean && make && ./driver
-cp last_run.txt baseline_checksum.txt
-git add baseline_checksum.txt
-git commit -m "Regenerate SoilBiogeochemCompetition baseline_checksum.txt"
+../regen_baseline.sh                # builds, runs, cps last_run.txt -> baseline_checksum.txt
+git diff baseline_checksum.txt      # review
+git add baseline_checksum.txt && git commit
 ```
+
+The script lives at [../regen_baseline.sh](../regen_baseline.sh) and
+works for any `perf_testing/<routine>/` subdir. It does *not* git add
+or commit — that's left to you so you can review the diff first.
 
 ## Notes for future optimization stages
 
