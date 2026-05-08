@@ -1,4 +1,3 @@
-(ctsm-docs-style-guide)=
 
 # Documentation style guide
 
