@@ -88,29 +88,33 @@ def _check_pft_gridcell_mapping(ds_in: xr.Dataset):
         if gi not in unique_ordered_gi:
             unique_ordered_gi.append(gi)
 
-    # Get i, j pairs
-    ij_pairs = []
+    # Get i,j,t triads
+    ijt_triads = []
     for i in np.arange(ds_in.sizes["pft"]):
         ixy = int(ds_in["pfts1d_ixy"].values[i])
         jxy = int(ds_in["pfts1d_jxy"].values[i])
-        ij = (ixy, jxy)
-        if ij not in ij_pairs:
-            ij_pairs.append(ij)
+        t = -999  # Because we're going to gridcell
+        ijt = (ixy, jxy, t)
+        if ijt not in ijt_triads:
+            ijt_triads.append(ijt)
 
     # Make sure every gridcell is represented and gridcells are ordered correctly
-    ij_pairs_expected = []
+    ijt_triads_expected = []
     for i in np.arange(ds_in.sizes["gridcell"]):
         ixy = int(ds_in["grid1d_ixy"].values[i])
         jxy = int(ds_in["grid1d_jxy"].values[i])
-        ij = (ixy, jxy)
-        if ij not in ij_pairs_expected:
-            ij_pairs_expected.append(ij)
+        t = -999
+        ijt = (ixy, jxy, t)
+        if ijt not in ijt_triads_expected:
+            ijt_triads_expected.append(ijt)
+        else:
+            raise NotImplementedError("This code depends on actual ijt triads being unique")
     assert all(
-        ij in ij_pairs for ij in ij_pairs_expected
+        ijt in ijt_triads for ijt in ijt_triads_expected
     ), "Not every gridcell is represented by at least one PFT"
     assert all(
-        ij in ij_pairs_expected for ij in ij_pairs
-    ), "Unexpected gridcell referenced by PFT i,j indices"
+        ijt in ijt_triads_expected for ijt in ijt_triads
+    ), "Unexpected gridcell referenced by PFT i,j,t indices"
     assert (
-        ij_pairs == ij_pairs_expected
+        ijt_triads == ijt_triads_expected
     ), "PFT list order does not correspond to gridcell list order"

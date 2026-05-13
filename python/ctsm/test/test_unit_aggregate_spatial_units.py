@@ -91,6 +91,10 @@ def fixture_test_ds():
         data=[0.5, 0.5, 0, 1, 0.1, 0.8, 1.0],
         dims=["landunit"],
     )
+    land1d_ityplunit = xr.DataArray(
+        data=[1, 2, 1, 2, 1, 2, 1],
+        dims=["landunit"],
+    )
 
     ds_land = xr.Dataset(
         {
@@ -100,6 +104,7 @@ def fixture_test_ds():
             "land1d_lat": land1d_lat,
             "land1d_lon": land1d_lon,
             "land1d_wtgcell": land1d_wtgcell,
+            "land1d_ityplunit": land1d_ityplunit,
         }
     )
     assert ds_land.sizes["landunit"] == n_landunits
@@ -148,6 +153,14 @@ def fixture_test_ds():
         data=data,
         dims=["column"],
     )
+    cols1d_itype_lunit = xr.DataArray(
+        data=[1, 2, 2, 1, 2, 2, 1, 2, 2, 1],
+        dims=["column"],
+    )
+    cols1d_itype_col = xr.DataArray(
+        data=[1, 201, 202, 1, 201, 202, 1, 201, 202, 1],
+        dims=["column"],
+    )
 
     ds_cols = xr.Dataset(
         {
@@ -159,6 +172,8 @@ def fixture_test_ds():
             "cols1d_lon": cols1d_lon,
             "cols1d_wtlunit": cols1d_wtlunit,
             "cols1d_wtgcell": cols1d_wtgcell,
+            "cols1d_itype_lunit": cols1d_itype_lunit,
+            "cols1d_itype_col": cols1d_itype_col,
         }
     )
     assert ds_cols.sizes["column"] == n_gridcells + 2 * (n_gridcells - 1)
@@ -221,6 +236,14 @@ def fixture_test_ds():
         data=data,
         dims=["pft"],
     )
+    pfts1d_itype_lunit = xr.DataArray(
+        data=[1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1],
+        dims=["pft"],
+    )
+    pfts1d_itype_col = xr.DataArray(
+        data=[1, 1, 1, 201, 202, 1, 1, 1, 201, 202, 1, 1, 1, 201, 202, 1, 1, 1],
+        dims=["pft"],
+    )
 
     ds_pfts = xr.Dataset(
         {
@@ -234,6 +257,8 @@ def fixture_test_ds():
             "pfts1d_wtcol": pfts1d_wtcol,
             "pfts1d_wtlunit": pfts1d_wtlunit,
             "pfts1d_wtgcell": pfts1d_wtgcell,
+            "pfts1d_itype_lunit": pfts1d_itype_lunit,
+            "pfts1d_itype_col": pfts1d_itype_col,
         }
     )
     assert ds_pfts.sizes["pft"] == 3 * n_gridcells + 2 * (n_gridcells - 1)
@@ -274,7 +299,7 @@ class TestCheckPftGridcellMapping:
         """Make sure it errors right if i,j indices reference an unexpected gridcell"""
         test_ds["pfts1d_ixy"].values[-2:] = 3
         with pytest.raises(
-            AssertionError, match="Unexpected gridcell referenced by PFT i,j indices"
+            AssertionError, match="Unexpected gridcell referenced by PFT i,j,t indices"
         ):
             asp._check_pft_gridcell_mapping(test_ds)
 
