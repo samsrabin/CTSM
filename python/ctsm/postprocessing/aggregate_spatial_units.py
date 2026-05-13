@@ -24,6 +24,10 @@ def ds_pft_to_gridcell(ds_in: xr.Dataset) -> xr.Dataset:
             else:
                 pft_vars_to_aggregate.append(var)
 
+    # If there are no pft-dimensioned variables to aggregate, just return the input
+    if not pft_vars_to_aggregate:
+        return ds_in
+
     # Create copy without pft-dimensioned variables
     ds_out = ds_in.drop_vars(pft_vars_to_drop + pft_vars_to_aggregate)
 
