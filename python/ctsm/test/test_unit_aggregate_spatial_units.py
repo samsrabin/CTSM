@@ -2,6 +2,7 @@
 
 """Tests of functions in aggregate_spatial_units.py"""
 
+import numpy as np
 import xarray as xr
 import pytest
 
@@ -9,6 +10,7 @@ import ctsm.postprocessing.aggregate_spatial_units as asp
 
 # pylint: disable=protected-access
 
+# TODO: Add testing for subgroups whose weights sum to zero (should get NaN)
 
 @pytest.fixture(name="test_ds", scope="function")
 def fixture_test_ds():
@@ -84,6 +86,11 @@ def fixture_test_ds():
         attrs=grid1d_jxy.attrs,
         dims=["landunit"],
     )
+    land1d_wtgcell = xr.DataArray(
+        # Sums:      1,    1,      0.9, 1.0,
+        data=[0.5, 0.5, 0, 1, 0.1, 0.8, 1.0],
+        dims=["landunit"],
+    )
 
     ds_land = xr.Dataset(
         {
@@ -92,6 +99,7 @@ def fixture_test_ds():
             "land1d_jxy": land1d_jxy,
             "land1d_lat": land1d_lat,
             "land1d_lon": land1d_lon,
+            "land1d_wtgcell": land1d_wtgcell,
         }
     )
     assert ds_land.sizes["landunit"] == n_landunits
@@ -125,6 +133,21 @@ def fixture_test_ds():
         attrs=grid1d_jxy.attrs,
         dims=["column"],
     )
+    cols1d_wtlunit = xr.DataArray(
+        # Sums: 1,        1, 0.9,          1,   1,    100, 0.1
+        data=[1.0, 0.5, 0.5, 0.9, 0.75, 0.25, 1.0, 50, 50, 0.1],
+        dims=["column"],
+    )
+    data = []
+    for ci in np.arange(cols1d_gi.sizes["column"]):
+        col_wtlunit = cols1d_wtlunit.values[ci]
+        li = cols1d_li.values[ci]
+        lunit_wtgcell = land1d_wtgcell.values[li-1]
+        data.append(col_wtlunit * lunit_wtgcell)
+    cols1d_wtgcell = xr.DataArray(
+        data=data,
+        dims=["column"],
+    )
 
     ds_cols = xr.Dataset(
         {
@@ -134,6 +157,8 @@ def fixture_test_ds():
             "cols1d_jxy": cols1d_jxy,
             "cols1d_lat": cols1d_lat,
             "cols1d_lon": cols1d_lon,
+            "cols1d_wtlunit": cols1d_wtlunit,
+            "cols1d_wtgcell": cols1d_wtgcell,
         }
     )
     assert ds_cols.sizes["column"] == n_gridcells + 2 * (n_gridcells - 1)
@@ -171,6 +196,31 @@ def fixture_test_ds():
         attrs=grid1d_jxy.attrs,
         dims=["pft"],
     )
+    pfts1d_wtcol = xr.DataArray(
+        # Sums:           1, 1, 1,             1, 0.5, 1        0, 1, 9,           0.6
+        data=[1/3, 1/3, 1/3, 1, 1, 0.1, 0.4, 0.5, 0.5, 1, 0, 0, 0, 1, 9, 0.1, 0.2, 0.3],
+        dims=["pft"],
+    )
+    data = []
+    for pi in np.arange(pfts1d_gi.sizes["pft"]):
+        pft_wtcol = pfts1d_wtcol.values[pi]
+        ci = pfts1d_ci.values[pi]
+        col_wtlunit = cols1d_wtlunit.values[ci-1]
+        data.append(pft_wtcol * col_wtlunit)
+    pfts1d_wtlunit = xr.DataArray(
+        data=data,
+        dims=["pft"],
+    )
+    data = []
+    for pi in np.arange(pfts1d_gi.sizes["pft"]):
+        pft_wtlunit = pfts1d_wtlunit.values[pi]
+        li = pfts1d_li.values[pi]
+        land_wtgcell = land1d_wtgcell.values[li-1]
+        data.append(pft_wtlunit * land_wtgcell)
+    pfts1d_wtgcell= xr.DataArray(
+        data=data,
+        dims=["pft"],
+    )
 
     ds_pfts = xr.Dataset(
         {
@@ -181,6 +231,9 @@ def fixture_test_ds():
             "pfts1d_jxy": pfts1d_jxy,
             "pfts1d_lat": pfts1d_lat,
             "pfts1d_lon": pfts1d_lon,
+            "pfts1d_wtcol": pfts1d_wtcol,
+            "pfts1d_wtlunit": pfts1d_wtlunit,
+            "pfts1d_wtgcell": pfts1d_wtgcell,
         }
     )
     assert ds_pfts.sizes["pft"] == 3 * n_gridcells + 2 * (n_gridcells - 1)
