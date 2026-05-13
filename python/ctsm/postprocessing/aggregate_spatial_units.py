@@ -99,7 +99,9 @@ def _check_pft_gridcell_mapping(ds_in: xr.Dataset):
     for i in np.arange(ds_in.sizes["gridcell"]):
         ixy = int(ds_in["grid1d_ixy"].values[i])
         jxy = int(ds_in["grid1d_jxy"].values[i])
-        ij_pairs_expected.append((ixy, jxy))
+        ij = (ixy, jxy)
+        if ij not in ij_pairs_expected:
+            ij_pairs_expected.append(ij)
     assert all(
         ij in ij_pairs for ij in ij_pairs_expected
     ), "Not every gridcell is represented by at least one PFT"
