@@ -51,9 +51,12 @@ def da_pft_to_gridcell(ds_in: xr.Dataset, var: str) -> xr.DataArray:
     """
     Aggregate a pft-level variable in a Dataset to gridcell
     """
-    # Area-weighted sum
+    # Area-weighted mean
     weights = ds_in["pfts1d_wtgcell"]
-    da = (ds_in[var] * weights).groupby(ds_in["pfts1d_gi"]).sum()
+    groups = ds_in["pfts1d_gi"]
+    weighted_sum = (ds_in[var] * weights).groupby(groups).sum(dim="pft")
+    weight_totals = weights.groupby(groups).sum(dim="pft")
+    da = weighted_sum / weight_totals
 
     # It's now gridcell-dimensioned. Rename dimension and remove coordinate, which natively
     # gridcell-dimensioned variables do not have.
