@@ -401,14 +401,8 @@ class TestCheckChildParentMapping:
         """Make sure it errors right if i,j indices are out of order"""
         child1d_ixy_var = f"{childstrings.prefix}1d_ixy"
         child1d_jxy_var = f"{childstrings.prefix}1d_jxy"
-        ixy_orig = ds_all[child1d_ixy_var].values.copy()
-        jxy_orig = ds_all[child1d_jxy_var].values.copy()
-        while np.array_equal(ixy_orig, ds_all[child1d_ixy_var].values) or np.array_equal(
-            jxy_orig, ds_all[child1d_jxy_var].values
-        ):
-            idx = np.random.permutation(len(ixy_orig))
-            ds_all[child1d_ixy_var].values = ixy_orig[idx]
-            ds_all[child1d_jxy_var].values = jxy_orig[idx]
+        ds_all[child1d_ixy_var].values = np.flip(ds_all[child1d_ixy_var].values)
+        ds_all[child1d_jxy_var].values = np.flip(ds_all[child1d_jxy_var].values)
         with pytest.raises(
             AssertionError,
             match=f"{childstrings.disp} list order does not correspond to gridcell list order",
