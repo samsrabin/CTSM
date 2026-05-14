@@ -408,18 +408,27 @@ class TestCheckChildParentMapping:
         ):
             asp._check_child_parent_mapping(ds_all, childstrings, asp.GRIDSTRINGS)
 
-
-class TestCheckPftGridcellMapping:
-    """Tests of _check_child_parent_mapping() for PFT-to-gridcell"""
-
-    def test_p2g_wrong_gridcell_order(self, ds_all):
+    @pytest.mark.parametrize(
+        "childstrings",
+        [asp.PFTSTRINGS, asp.COLSSTRINGS, asp.LANDSTRINGS],
+    )
+    def test_child_wrong_gridcell_order(self, ds_all, childstrings):
         """Make sure it errors right if i,j indices are out of order"""
-        ds_all["pfts1d_ixy"].values = [2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        ds_all["pfts1d_jxy"].values = [1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
-        with pytest.raises(
-            AssertionError, match="PFT list order does not correspond to gridcell list order"
+        child1d_ixy_var = f"{childstrings.prefix}1d_ixy"
+        child1d_jxy_var = f"{childstrings.prefix}1d_jxy"
+        ixy_orig = ds_all[child1d_ixy_var].values.copy()
+        jxy_orig = ds_all[child1d_jxy_var].values.copy()
+        while np.array_equal(ixy_orig, ds_all[child1d_ixy_var].values) or np.array_equal(
+            jxy_orig, ds_all[child1d_jxy_var].values
         ):
-            asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+            idx = np.random.permutation(len(ixy_orig))
+            ds_all[child1d_ixy_var].values = ixy_orig[idx]
+            ds_all[child1d_jxy_var].values = jxy_orig[idx]
+        with pytest.raises(
+            AssertionError,
+            match=f"{childstrings.disp} list order does not correspond to gridcell list order",
+        ):
+            asp._check_child_parent_mapping(ds_all, childstrings, asp.GRIDSTRINGS)
 
 
 @pytest.fixture(name="ds_p2g", scope="function")
