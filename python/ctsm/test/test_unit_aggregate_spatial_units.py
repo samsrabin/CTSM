@@ -12,6 +12,8 @@ import ctsm.postprocessing.aggregate_spatial_units as asp
 
 # TODO: Add testing for subgroups whose weights sum to zero (should get NaN)
 
+VAR_NAME = "testvar"
+
 
 def are_dataarrays_close(result: xr.DataArray, expected: xr.DataArray, dim: str):
     for i in range(expected.sizes[dim]):
@@ -277,11 +279,9 @@ def fixture_test_ds_complete():
     return ds
 
 
-@pytest.fixture(name="test_ds_p2g", scope="function")
-def fixture_test_ds_p2g():
-    """Make an xarray Dataset to test pft-to-gridcell"""
-    # pylint: disable=too-many-locals
-
+@pytest.fixture(name="ds_grid")
+def fixture_ds_grid():
+    """Create a Dataset with all the grid1d_ variables"""
     # Assume a 2x2 global grid
     lons = [90.0, 270.0]
     lats = [-45.0, 45.0]
@@ -321,19 +321,27 @@ def fixture_test_ds_p2g():
     )
     assert ds_grid.sizes["gridcell"] == n_gridcells
 
-    # Assume 3 natural and, as above, 2 crop PFTs
+    return ds_grid
+
+
+@pytest.fixture(name="ds_p2g_novar", scope="function")
+def fixture_ds_p2g_novar(ds_grid):
+    """Make an xarray Dataset to test pft-to-gridcell WITHOUT a DataArray to aggregate"""
+    # pylint: disable=too-many-locals
+
+    # Assume 3 natural and 2 crop PFTs, with the crop landunit missing from the last gridcell
     pfts1d_gi = xr.DataArray(
         data=[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4],
         dims=["pft"],
     )
     pfts1d_ixy = xr.DataArray(
-        data=[grid1d_ixy.values[i - 1] for i in pfts1d_gi.values],
-        attrs=grid1d_ixy.attrs,
+        data=[ds_grid["grid1d_ixy"].values[i - 1] for i in pfts1d_gi.values],
+        attrs=ds_grid["grid1d_ixy"].attrs,
         dims=["pft"],
     )
     pfts1d_jxy = xr.DataArray(
-        data=[grid1d_jxy.values[i - 1] for i in pfts1d_gi.values],
-        attrs=grid1d_jxy.attrs,
+        data=[ds_grid["grid1d_jxy"].values[i - 1] for i in pfts1d_gi.values],
+        attrs=ds_grid["grid1d_jxy"].attrs,
         dims=["pft"],
     )
     pfts1d_wtgcell = xr.DataArray(
@@ -350,6 +358,8 @@ def fixture_test_ds_p2g():
             "pfts1d_wtgcell": pfts1d_wtgcell,
         }
     )
+
+    n_gridcells = ds_grid.sizes["gridcell"]
     assert ds_pfts.sizes["pft"] == 3 * n_gridcells + 2 * (n_gridcells - 1)
 
     ds = xr.merge([ds_grid, ds_pfts])
@@ -360,89 +370,91 @@ def fixture_test_ds_p2g():
 class TestCheckPftGridcellMapping:
     """Tests of _check_pft_gridcell_mapping()"""
 
-    def test_p2g_ok(self, test_ds_p2g):
+    def test_p2g_ok(self, ds_p2g_novar):
         """Make sure it doesn't error for known-good PFT-to-gridcell mapping"""
-        asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+        asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
-    def test_p2g_non_monotonic(self, test_ds_p2g):
+    def test_p2g_non_monotonic(self, ds_p2g_novar):
         """Make sure it errors right if gridcell indices aren't monotonically increasing"""
-        test_ds_p2g["pfts1d_gi"].values[-1] = 1
+        ds_p2g_novar["pfts1d_gi"].values[-1] = 1
         with pytest.raises(AssertionError, match="pfts1d_gi not monotonically increasing"):
-            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+            asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
-    def test_p2g_skipped(self, test_ds_p2g):
+    def test_p2g_skipped(self, ds_p2g_novar):
         """Make sure it errors right if a gridcell index is skipped"""
-        test_ds_p2g["pfts1d_gi"].values[3] += 2
+        ds_p2g_novar["pfts1d_gi"].values[3] += 2
         with pytest.raises(AssertionError, match="pfts1d_gi skips at least one gridcell"):
-            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+            asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
-    def test_p2g_missing_gridcell(self, test_ds_p2g):
+    def test_p2g_missing_gridcell(self, ds_p2g_novar):
         """Make sure it errors right if i,j indices are missing a gridcell"""
-        test_ds_p2g["pfts1d_jxy"].values[-3:] = 1
+        ds_p2g_novar["pfts1d_jxy"].values[-3:] = 1
         with pytest.raises(
             AssertionError, match="Not every gridcell is represented by at least one PFT"
         ):
-            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+            asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
-    def test_p2g_unexpected_gridcell(self, test_ds_p2g):
+    def test_p2g_unexpected_gridcell(self, ds_p2g_novar):
         """Make sure it errors right if i,j indices reference an unexpected gridcell"""
-        test_ds_p2g["pfts1d_ixy"].values[-2:] = 3
+        ds_p2g_novar["pfts1d_ixy"].values[-2:] = 3
         with pytest.raises(
             AssertionError, match="Unexpected gridcell referenced by PFT i,j,t indices"
         ):
-            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+            asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
-    def test_p2g_wrong_gridcell_order(self, test_ds_p2g):
+    def test_p2g_wrong_gridcell_order(self, ds_p2g_novar):
         """Make sure it errors right if i,j indices are out of order"""
-        test_ds_p2g["pfts1d_ixy"].values = [2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        test_ds_p2g["pfts1d_jxy"].values = [1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
+        ds_p2g_novar["pfts1d_ixy"].values = [2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ds_p2g_novar["pfts1d_jxy"].values = [1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
         with pytest.raises(
             AssertionError, match="PFT list order does not correspond to gridcell list order"
         ):
-            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+            asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
 
-class TestDaAggregate:
-    """Tests of da_aggregate()"""
+@pytest.fixture(name="ds_p2g", scope="function")
+def fixture_ds_p2g(ds_p2g_novar):
+    """Make an xarray Dataset to test pft-to-gridcell"""
+    da = xr.DataArray(
+        # Gridcell:         1,             2,                         3,         4
+        data=[3, 7, 9, 17, 19, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
+        dims=["pft"],
+    )
+    ds = ds_p2g_novar
+    ds[VAR_NAME] = da
+    return ds
 
-    def test_da_p2g(self, test_ds_p2g):
+
+class TestPftToGridcell:
+    """Tests of aggregating pft to gridcell"""
+
+    EXPECTED_DA = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
+
+    def test_da_p2g(self, ds_p2g):
         """Test da_aggregate() for pft to gridcell"""
-        var_name = "testvar"
-        test_ds_p2g[var_name] = xr.DataArray(
-            # Gridcell:         1,             2,                         3,         4
-            data=[3, 7, 9, 17, 19, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
-            dims=["pft"],
-        )
-        expected = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
-        result = asp.da_aggregate(test_ds_p2g, var_name, asp.PFTSTRINGS, asp.GRIDSTRINGS)
-        are_dataarrays_close(result, expected, "gridcell")
+        result = asp.da_aggregate(ds_p2g, VAR_NAME, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+        are_dataarrays_close(result, self.EXPECTED_DA, "gridcell")
 
-
-class TestDsAggregate:
-    """Tests of ds_aggregate()"""
-
-    def test_ds_p2g(self, test_ds_p2g):
+    def test_ds_p2g(self, ds_p2g):
         """Test ds_aggregate() for pft to gridcell"""
-        var_name = "testvar"
-        test_ds_p2g[var_name] = xr.DataArray(
-            # Gridcell:         1,             2,                         3,         4
-            data=[3, 7, 9, 17, 19, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
-            dims=["pft"],
-        )
 
         # Build expected Dataset
-        expected = test_ds_p2g.drop_vars(
-            [x for x in test_ds_p2g if x.startswith("pfts1d_")] + [var_name]
-        )
-        expected[var_name] = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
+        expected: xr.Dataset
+        expected = ds_p2g.drop_vars([x for x in ds_p2g if x.startswith("pfts1d_")] + [VAR_NAME])
+        expected[VAR_NAME] = self.EXPECTED_DA
 
         # Get result Dataset
-        result = asp.ds_aggregate(test_ds_p2g, "pft", "gridcell")
+        result = asp.ds_aggregate(ds_p2g, "pft", "gridcell")
 
         # Compare the affected variable
-        are_dataarrays_close(result[var_name], expected[var_name], "gridcell")
+        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], "gridcell")
 
         # Now drop it and compare the rest of the Datasets
-        expected = expected.drop_vars([var_name])
-        result = result.drop_vars([var_name])
+        expected = expected.drop_vars([VAR_NAME])
+        result = result.drop_vars([VAR_NAME])
         assert result.equals(expected)
+
+    def test_ds_p2g_novar(self, ds_p2g_novar):
+        """ds_aggregate() without any relevant variable should return the original Dataset"""
+        result = asp.ds_aggregate(ds_p2g_novar, "pft", "gridcell")
+        assert result.equals(ds_p2g_novar)
