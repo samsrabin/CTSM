@@ -13,6 +13,14 @@ import ctsm.postprocessing.aggregate_spatial_units as asp
 # TODO: Add testing for subgroups whose weights sum to zero (should get NaN)
 
 
+def are_dataarrays_close(result: xr.DataArray, expected: xr.DataArray, dim: str):
+    for i in range(expected.sizes[dim]):
+        assert np.isclose(result.values[i], expected.values[i], equal_nan=True)
+    assert result.dims == expected.dims
+    assert result.sizes == expected.sizes
+    assert result.coords == expected.coords
+
+
 @pytest.fixture(name="test_ds_complete", scope="function")
 def fixture_test_ds_complete():
     """Make an xarray Dataset to test"""
@@ -397,7 +405,7 @@ class TestCheckPftGridcellMapping:
 class TestDaPftToGridcell:
     """Tests of da_pft_to_gridcell()"""
 
-    def test_p2g(self, test_ds_p2g):
+    def test_da_p2g(self, test_ds_p2g):
         """Test da_pft_to_gridcell()"""
         var_name = "testvar"
         test_ds_p2g[var_name] = xr.DataArray(
@@ -407,8 +415,33 @@ class TestDaPftToGridcell:
         )
         expected = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
         result = asp.da_pft_to_gridcell(test_ds_p2g, var_name)
-        for i in range(test_ds_p2g.sizes["gridcell"]):
-            assert np.isclose(result.values[i], expected.values[i], equal_nan=True)
-        assert result.dims == expected.dims
-        assert result.sizes == expected.sizes
-        assert result.coords == expected.coords
+        are_dataarrays_close(result, expected, "gridcell")
+
+class TestDsPftToGridcell:
+    """Tests of ds_pft_to_gridcell()"""
+
+    def test_ds_p2g(self, test_ds_p2g):
+        """Test ds_pft_to_gridcell()"""
+        var_name = "testvar"
+        test_ds_p2g[var_name] = xr.DataArray(
+            # Gridcell:         1,             2,                         3,         4
+            data=[3, 7, 9, 17, 19, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
+            dims=["pft"],
+        )
+
+        # Build expected Dataset
+        expected = test_ds_p2g.drop_vars(
+            [x for x in test_ds_p2g if x.startswith("pfts1d_")] + [var_name]
+        )
+        expected[var_name] = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
+
+        # Get result Dataset
+        result = asp.ds_pft_to_gridcell(test_ds_p2g)
+
+        # Compare the affected variable
+        are_dataarrays_close(result[var_name], expected[var_name], "gridcell")
+
+        # Now drop it and compare the rest of the Datasets
+        expected = expected.drop_vars([var_name])
+        result = result.drop_vars([var_name])
+        assert result.equals(expected)
