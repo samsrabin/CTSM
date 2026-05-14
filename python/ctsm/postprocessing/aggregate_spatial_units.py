@@ -38,13 +38,6 @@ DIMSTRINGS_DICT = {
 }
 
 
-def ds_pft_to_gridcell(ds_in: xr.Dataset) -> xr.Dataset:
-    """
-    Aggregate pft-level variables in a Dataset to gridcell
-    """
-    return ds_aggregate(ds_in, "pft", "gridcell")
-
-
 def ds_aggregate(ds_in: xr.Dataset, child: str, parent: str) -> xr.Dataset:
     """
     Aggregate variables in a Dataset from one spatial unit to a higher-level one (e.g., pft to
@@ -88,13 +81,6 @@ def ds_aggregate(ds_in: xr.Dataset, child: str, parent: str) -> xr.Dataset:
     return ds_out
 
 
-def da_pft_to_gridcell(ds_in: xr.Dataset, var: str) -> xr.DataArray:
-    """
-    Aggregate a pft-level variable in a Dataset to gridcell
-    """
-    return da_aggregate(ds_in, var, PFTSTRINGS, GRIDSTRINGS)
-
-
 def da_aggregate(
     ds_in: xr.Dataset, var: str, childstrings: SpatialUnitStrings, parentstrings: SpatialUnitStrings
 ) -> xr.DataArray:
@@ -115,10 +101,6 @@ def da_aggregate(
     da = da.reset_coords(drop=True)
 
     return da
-
-
-def _check_pft_gridcell_mapping(ds_in: xr.Dataset):
-    _check_child_parent_mapping(ds_in, PFTSTRINGS, GRIDSTRINGS)
 
 
 def _check_child_parent_mapping(

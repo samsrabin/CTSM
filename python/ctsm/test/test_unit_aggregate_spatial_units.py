@@ -362,19 +362,19 @@ class TestCheckPftGridcellMapping:
 
     def test_p2g_ok(self, test_ds_p2g):
         """Make sure it doesn't error for known-good PFT-to-gridcell mapping"""
-        asp._check_pft_gridcell_mapping(test_ds_p2g)
+        asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
     def test_p2g_non_monotonic(self, test_ds_p2g):
         """Make sure it errors right if gridcell indices aren't monotonically increasing"""
         test_ds_p2g["pfts1d_gi"].values[-1] = 1
         with pytest.raises(AssertionError, match="pfts1d_gi not monotonically increasing"):
-            asp._check_pft_gridcell_mapping(test_ds_p2g)
+            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
     def test_p2g_skipped(self, test_ds_p2g):
         """Make sure it errors right if a gridcell index is skipped"""
         test_ds_p2g["pfts1d_gi"].values[3] += 2
         with pytest.raises(AssertionError, match="pfts1d_gi skips at least one gridcell"):
-            asp._check_pft_gridcell_mapping(test_ds_p2g)
+            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
     def test_p2g_missing_gridcell(self, test_ds_p2g):
         """Make sure it errors right if i,j indices are missing a gridcell"""
@@ -382,7 +382,7 @@ class TestCheckPftGridcellMapping:
         with pytest.raises(
             AssertionError, match="Not every gridcell is represented by at least one PFT"
         ):
-            asp._check_pft_gridcell_mapping(test_ds_p2g)
+            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
     def test_p2g_unexpected_gridcell(self, test_ds_p2g):
         """Make sure it errors right if i,j indices reference an unexpected gridcell"""
@@ -390,7 +390,7 @@ class TestCheckPftGridcellMapping:
         with pytest.raises(
             AssertionError, match="Unexpected gridcell referenced by PFT i,j,t indices"
         ):
-            asp._check_pft_gridcell_mapping(test_ds_p2g)
+            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
     def test_p2g_wrong_gridcell_order(self, test_ds_p2g):
         """Make sure it errors right if i,j indices are out of order"""
@@ -399,14 +399,14 @@ class TestCheckPftGridcellMapping:
         with pytest.raises(
             AssertionError, match="PFT list order does not correspond to gridcell list order"
         ):
-            asp._check_pft_gridcell_mapping(test_ds_p2g)
+            asp._check_child_parent_mapping(test_ds_p2g, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
 
-class TestDaPftToGridcell:
-    """Tests of da_pft_to_gridcell()"""
+class TestDaAggregate:
+    """Tests of da_aggregate()"""
 
     def test_da_p2g(self, test_ds_p2g):
-        """Test da_pft_to_gridcell()"""
+        """Test da_aggregate() for pft to gridcell"""
         var_name = "testvar"
         test_ds_p2g[var_name] = xr.DataArray(
             # Gridcell:         1,             2,                         3,         4
@@ -414,14 +414,15 @@ class TestDaPftToGridcell:
             dims=["pft"],
         )
         expected = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
-        result = asp.da_pft_to_gridcell(test_ds_p2g, var_name)
+        result = asp.da_aggregate(test_ds_p2g, var_name, asp.PFTSTRINGS, asp.GRIDSTRINGS)
         are_dataarrays_close(result, expected, "gridcell")
 
-class TestDsPftToGridcell:
-    """Tests of ds_pft_to_gridcell()"""
+
+class TestDsAggregate:
+    """Tests of ds_aggregate()"""
 
     def test_ds_p2g(self, test_ds_p2g):
-        """Test ds_pft_to_gridcell()"""
+        """Test ds_aggregate() for pft to gridcell"""
         var_name = "testvar"
         test_ds_p2g[var_name] = xr.DataArray(
             # Gridcell:         1,             2,                         3,         4
@@ -436,7 +437,7 @@ class TestDsPftToGridcell:
         expected[var_name] = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
 
         # Get result Dataset
-        result = asp.ds_pft_to_gridcell(test_ds_p2g)
+        result = asp.ds_aggregate(test_ds_p2g, "pft", "gridcell")
 
         # Compare the affected variable
         are_dataarrays_close(result[var_name], expected[var_name], "gridcell")
