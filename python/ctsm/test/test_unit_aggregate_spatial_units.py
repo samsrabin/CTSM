@@ -395,17 +395,22 @@ class TestCheckChildParentMapping:
         ):
             asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
 
+    @pytest.mark.parametrize(
+        "childstrings",
+        [asp.PFTSTRINGS, asp.COLSSTRINGS, asp.LANDSTRINGS],
+    )
+    def test_check_child_missing_gridcell(self, ds_all, childstrings):
+        """Make sure it errors right if i,j indices are missing a gridcell"""
+        ds_all[f"{childstrings.prefix}1d_jxy"].values[-3:] = 1
+        with pytest.raises(
+            AssertionError,
+            match=f"Not every gridcell is represented by at least one {childstrings.disp}",
+        ):
+            asp._check_child_parent_mapping(ds_all, childstrings, asp.GRIDSTRINGS)
+
 
 class TestCheckPftGridcellMapping:
     """Tests of _check_child_parent_mapping() for PFT-to-gridcell"""
-
-    def test_p2g_missing_gridcell(self, ds_all):
-        """Make sure it errors right if i,j indices are missing a gridcell"""
-        ds_all["pfts1d_jxy"].values[-3:] = 1
-        with pytest.raises(
-            AssertionError, match="Not every gridcell is represented by at least one PFT"
-        ):
-            asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
     def test_p2g_wrong_gridcell_order(self, ds_all):
         """Make sure it errors right if i,j indices are out of order"""
