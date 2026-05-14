@@ -44,6 +44,9 @@ def ds_aggregate(ds_in: xr.Dataset, child: str, parent: str) -> xr.Dataset:
     gridcell)
     """
 
+    # TODO: Error if PFT requested as parent
+    # TODO: Error if child == parent
+    # TODO: Error if child is a higher level than parent
     childstrings = DIMSTRINGS_DICT[child]
     parentstrings = DIMSTRINGS_DICT[parent]
 
