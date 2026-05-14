@@ -296,19 +296,6 @@ def _drop_unneeded_subunits(
     return ds.drop_vars(unneeded_vars)
 
 
-@pytest.fixture(name="ds_p2g_novar", scope="function")
-def fixture_ds_p2g_novar(ds_all):
-    """Make an xarray Dataset to test pft-to-gridcell WITHOUT a DataArray to aggregate"""
-    # pylint: disable=too-many-locals
-
-    ds = _drop_unneeded_subunits(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
-    ds["pfts1d_wtgcell"].values = (
-        # Gridcell sums:       1,            15,             0,           0.8
-        [0.2, 0.2, 0.2, 0.2, 0.2, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0.1, 0.2, 0.5]
-    )
-    return ds
-
-
 class TestCheckChildParentMapping:
     """Tests of _check_child_parent_mapping() that exercise all child-parent combos"""
 
@@ -430,15 +417,22 @@ class TestCheckChildParentMapping:
 
 
 @pytest.fixture(name="ds_p2g", scope="function")
-def fixture_ds_p2g(ds_p2g_novar):
+def fixture_ds_p2g(ds_all):
     """Make an xarray Dataset to test pft-to-gridcell"""
+    ds = _drop_unneeded_subunits(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+    ds["pfts1d_wtgcell"].values = (
+        # Gridcell sums:       1,            15,             0,           0.8
+        [0.2, 0.2, 0.2, 0.2, 0.2, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0.1, 0.2, 0.5]
+    )
+
+    # Add our test variable
     da = xr.DataArray(
         # Gridcell:         1,             2,                         3,         4
         data=[3, 7, 9, 17, 19, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
         dims=["pft"],
     )
-    ds = ds_p2g_novar
     ds[VAR_NAME] = da
+
     return ds
 
 
@@ -471,7 +465,8 @@ class TestPftToGridcell:
         result = result.drop_vars([VAR_NAME])
         assert result.equals(expected)
 
-    def test_ds_p2g_novar(self, ds_p2g_novar):
+    def test_ds_p2g_novar(self, ds_p2g):
         """ds_aggregate() without any relevant variable should return the original Dataset"""
+        ds_p2g_novar = ds_p2g.drop_vars(VAR_NAME)
         result = asp.ds_aggregate(ds_p2g_novar, "pft", "gridcell")
         assert result.equals(ds_p2g_novar)
