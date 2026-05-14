@@ -23,8 +23,8 @@ def are_dataarrays_close(result: xr.DataArray, expected: xr.DataArray, dim: str)
     assert result.coords == expected.coords
 
 
-@pytest.fixture(name="test_ds_complete", scope="function")
-def fixture_test_ds_complete():
+@pytest.fixture(name="ds_all", scope="function")
+def fixture_ds_all():
     """Make an xarray Dataset to test"""
     # pylint: disable=too-many-locals
 
@@ -384,39 +384,39 @@ class TestCheckChildParentMapping:
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
-    def test_check_pft_gridcell_mapping_ok(self, test_ds_complete, childstrings, parentstrings):
+    def test_check_pft_gridcell_mapping_ok(self, ds_all, childstrings, parentstrings):
         """Make sure it doesn't error for known-good mapping"""
-        asp._check_child_parent_mapping(test_ds_complete, childstrings, parentstrings)
+        asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
 
     @pytest.mark.parametrize(
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
     def test_check_pft_gridcell_mapping_non_monotonic(
-        self, test_ds_complete, childstrings, parentstrings
+        self, ds_all, childstrings, parentstrings
     ):
         """Make sure it errors right if child's parent indices aren't monotonically increasing"""
         child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
-        test_ds_complete[child1d_parenti_var].values[-1] = 1
+        ds_all[child1d_parenti_var].values[-1] = 1
         with pytest.raises(
             AssertionError, match=f"{child1d_parenti_var} not monotonically increasing"
         ):
-            asp._check_child_parent_mapping(test_ds_complete, childstrings, parentstrings)
+            asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
 
     @pytest.mark.parametrize(
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
     def test_check_pft_gridcell_mapping_skipped(
-        self, test_ds_complete, childstrings, parentstrings
+        self, ds_all, childstrings, parentstrings
     ):
         """Make sure it errors right if a child's parent index is skipped"""
         child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
-        test_ds_complete[child1d_parenti_var].values[3] += 2
+        ds_all[child1d_parenti_var].values[3] += 2
         with pytest.raises(
             AssertionError, match=f"{child1d_parenti_var} skips at least one {parentstrings.disp}"
         ):
-            asp._check_child_parent_mapping(test_ds_complete, childstrings, parentstrings)
+            asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
 
 
 class TestCheckPftGridcellMapping:
