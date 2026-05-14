@@ -159,7 +159,7 @@ def _check_child_parent_mapping(
             t = -999
         else:
             itype_var = f"{parentstrings.prefix}1d_itype_{parentstrings.wt}"
-            if itype_var == "land1d_itype_lunit":
+            if itype_var not in ds_in and itype_var == "land1d_itype_lunit":
                 itype_var = "land1d_ityplunit"
             t = int(ds_in[itype_var].values[i])
         ijt = (ixy, jxy, t)
