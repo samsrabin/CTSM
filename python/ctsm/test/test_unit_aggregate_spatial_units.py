@@ -312,8 +312,6 @@ def fixture_ds_p2g_novar(ds_all):
 class TestCheckChildParentMapping:
     """Tests of _check_child_parent_mapping() that exercise all child-parent combos"""
 
-    # TODO: Rename these tests to child/parent!
-
     # Child, parent
     VALID_PARENT_CHILD_COMBOS = [
         (asp.PFTSTRINGS, asp.COLSSTRINGS),
@@ -328,7 +326,7 @@ class TestCheckChildParentMapping:
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
-    def test_check_pft_gridcell_mapping_ok(self, ds_all, childstrings, parentstrings):
+    def test_check_child_parent_mapping_ok(self, ds_all, childstrings, parentstrings):
         """Make sure it doesn't error for known-good mapping"""
         asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
 
@@ -336,7 +334,7 @@ class TestCheckChildParentMapping:
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
-    def test_check_pft_gridcell_mapping_non_monotonic(self, ds_all, childstrings, parentstrings):
+    def test_check_child_parent_mapping_non_monotonic(self, ds_all, childstrings, parentstrings):
         """Make sure it errors right if child's parent indices aren't monotonically increasing"""
         child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
         ds_all[child1d_parenti_var].values[-1] = 1
@@ -349,7 +347,7 @@ class TestCheckChildParentMapping:
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
-    def test_check_pft_gridcell_mapping_skipped(self, ds_all, childstrings, parentstrings):
+    def test_check_child_parent_mapping_skipped(self, ds_all, childstrings, parentstrings):
         """Make sure it errors right if a child's parent index is skipped"""
         child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
         ds_all[child1d_parenti_var].values[3] += 2
