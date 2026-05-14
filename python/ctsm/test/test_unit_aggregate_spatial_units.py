@@ -312,6 +312,8 @@ def fixture_ds_p2g_novar(ds_all):
 class TestCheckChildParentMapping:
     """Tests of _check_child_parent_mapping() that exercise all child-parent combos"""
 
+    # TODO: Rename these tests to child/parent!
+
     # Child, parent
     VALID_PARENT_CHILD_COMBOS = [
         (asp.PFTSTRINGS, asp.COLSSTRINGS),
@@ -356,6 +358,19 @@ class TestCheckChildParentMapping:
         ):
             asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
 
+    @pytest.mark.parametrize(
+        "childstrings",
+        [asp.PFTSTRINGS, asp.COLSSTRINGS, asp.LANDSTRINGS],
+    )
+    def test_check_child_gridcell_mapping_unexpected_gridcell(self, ds_all, childstrings):
+        """Make sure it errors right if i,j indices reference an unexpected gridcell"""
+        ds_all[f"{childstrings.prefix}1d_ixy"].values[0] = 0
+        with pytest.raises(
+            AssertionError,
+            match=f"Unexpected gridcell referenced by {childstrings.disp} i,j,t indices",
+        ):
+            asp._check_child_parent_mapping(ds_all, childstrings, asp.GRIDSTRINGS)
+
 
 class TestCheckPftGridcellMapping:
     """Tests of _check_child_parent_mapping() for PFT-to-gridcell"""
@@ -368,14 +383,6 @@ class TestCheckPftGridcellMapping:
         ):
             asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
-    def test_p2g_unexpected_gridcell(self, ds_all):
-        """Make sure it errors right if i,j indices reference an unexpected gridcell"""
-        ds_all["pfts1d_ixy"].values[-2:] = 3
-        with pytest.raises(
-            AssertionError, match="Unexpected gridcell referenced by PFT i,j,t indices"
-        ):
-            asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
-
     def test_p2g_wrong_gridcell_order(self, ds_all):
         """Make sure it errors right if i,j indices are out of order"""
         ds_all["pfts1d_ixy"].values = [2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -385,33 +392,6 @@ class TestCheckPftGridcellMapping:
         ):
             asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
 
-class TestCheckPftLandunitMapping:
-    """Tests of _check_child_parent_mapping() for PFT-to-landunit"""
-
-    def test_p2g_missing_landunit(self, ds_all):
-        """Make sure it errors right if i,j indices are missing a landunit"""
-        ds_all["pfts1d_jxy"].values[-3:] = 1
-        with pytest.raises(
-            AssertionError, match="Not every land unit is represented by at least one PFT"
-        ):
-            asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.LANDSTRINGS)
-
-    def test_p2g_unexpected_landunit(self, ds_all):
-        """Make sure it errors right if i,j indices reference an unexpected landunit"""
-        ds_all["pfts1d_ixy"].values[-2:] = 3
-        with pytest.raises(
-            AssertionError, match="Unexpected land unit referenced by PFT i,j,t indices"
-        ):
-            asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.LANDSTRINGS)
-
-    def test_p2g_wrong_landunit_order(self, ds_all):
-        """Make sure it errors right if i,j indices are out of order"""
-        ds_all["pfts1d_ixy"].values = [2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        ds_all["pfts1d_jxy"].values = [1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
-        with pytest.raises(
-            AssertionError, match="PFT list order does not correspond to land unit list order"
-        ):
-            asp._check_child_parent_mapping(ds_all, asp.PFTSTRINGS, asp.LANDSTRINGS)
 
 @pytest.fixture(name="ds_p2g", scope="function")
 def fixture_ds_p2g(ds_p2g_novar):
