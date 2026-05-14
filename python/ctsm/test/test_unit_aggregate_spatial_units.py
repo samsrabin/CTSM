@@ -279,91 +279,33 @@ def fixture_ds_all():
     return ds
 
 
-@pytest.fixture(name="ds_grid")
-def fixture_ds_grid():
-    """Create a Dataset with all the grid1d_ variables"""
-    # Assume a 2x2 global grid
-    lons = [90.0, 270.0]
-    lats = [-45.0, 45.0]
-    nx = len(lons)
-    ny = len(lats)
-    n_gridcells = nx * ny
-
-    # TODO: Assert unique grid lon-lat pairs
-    grid1d_lon = xr.DataArray(
-        data=[lons[0]] * ny + [lons[1]] * ny,
-        attrs={"units": "degrees_east"},
-        dims=["gridcell"],
-    )
-    grid1d_lat = xr.DataArray(
-        data=lats * nx,
-        attrs={"units": "degrees_north"},
-        dims=["gridcell"],
-    )
-
-    # TODO: Assert unique grid i-j pairs
-    grid1d_ixy = xr.DataArray(
-        data=[1, 1, 2, 2],  # 1-indexed to match Fortran outputs
-        dims=["gridcell"],
-    )
-    grid1d_jxy = xr.DataArray(
-        data=[1, 2, 1, 2],  # 1-indexed to match Fortran outputs
-        dims=["gridcell"],
-    )
-
-    ds_grid = xr.Dataset(
-        {
-            "grid1d_lon": grid1d_lon,
-            "grid1d_lat": grid1d_lat,
-            "grid1d_ixy": grid1d_ixy,
-            "grid1d_jxy": grid1d_jxy,
-        }
-    )
-    assert ds_grid.sizes["gridcell"] == n_gridcells
-
-    return ds_grid
+def _drop_unneeded_subunits(
+    ds: xr.Dataset, childstrings: asp.SpatialUnitStrings, parentstrings: asp.SpatialUnitStrings
+):
+    """
+    Drop subunits that aren't the child or parent. Not strictly necessary, but would make debugging
+    cleaner.
+    """
+    unneeded_vars = []
+    for k, v in asp.DIMSTRINGS_DICT.items():
+        if k in [childstrings.dim, parentstrings.dim]:
+            continue
+        for var in ds:
+            if var.startswith(f"{v.prefix}_1d"):
+                unneeded_vars.append(var)
+    return ds.drop_vars(unneeded_vars)
 
 
 @pytest.fixture(name="ds_p2g_novar", scope="function")
-def fixture_ds_p2g_novar(ds_grid):
+def fixture_ds_p2g_novar(ds_all):
     """Make an xarray Dataset to test pft-to-gridcell WITHOUT a DataArray to aggregate"""
     # pylint: disable=too-many-locals
 
-    # Assume 3 natural and 2 crop PFTs, with the crop landunit missing from the last gridcell
-    pfts1d_gi = xr.DataArray(
-        data=[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4],
-        dims=["pft"],
+    ds = _drop_unneeded_subunits(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+    ds["pfts1d_wtgcell"].values = (
+        # Gridcell sums:       1,            15,             0,           0.8
+        [0.2, 0.2, 0.2, 0.2, 0.2, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0.1, 0.2, 0.5]
     )
-    pfts1d_ixy = xr.DataArray(
-        data=[ds_grid["grid1d_ixy"].values[i - 1] for i in pfts1d_gi.values],
-        attrs=ds_grid["grid1d_ixy"].attrs,
-        dims=["pft"],
-    )
-    pfts1d_jxy = xr.DataArray(
-        data=[ds_grid["grid1d_jxy"].values[i - 1] for i in pfts1d_gi.values],
-        attrs=ds_grid["grid1d_jxy"].attrs,
-        dims=["pft"],
-    )
-    pfts1d_wtgcell = xr.DataArray(
-        # Gridcell sums:            1,            15,             0,           0.8
-        data=[0.2, 0.2, 0.2, 0.2, 0.2, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0.1, 0.2, 0.5],
-        dims=["pft"],
-    )
-
-    ds_pfts = xr.Dataset(
-        {
-            "pfts1d_gi": pfts1d_gi,
-            "pfts1d_ixy": pfts1d_ixy,
-            "pfts1d_jxy": pfts1d_jxy,
-            "pfts1d_wtgcell": pfts1d_wtgcell,
-        }
-    )
-
-    n_gridcells = ds_grid.sizes["gridcell"]
-    assert ds_pfts.sizes["pft"] == 3 * n_gridcells + 2 * (n_gridcells - 1)
-
-    ds = xr.merge([ds_grid, ds_pfts])
-
     return ds
 
 
@@ -392,9 +334,7 @@ class TestCheckChildParentMapping:
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
-    def test_check_pft_gridcell_mapping_non_monotonic(
-        self, ds_all, childstrings, parentstrings
-    ):
+    def test_check_pft_gridcell_mapping_non_monotonic(self, ds_all, childstrings, parentstrings):
         """Make sure it errors right if child's parent indices aren't monotonically increasing"""
         child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
         ds_all[child1d_parenti_var].values[-1] = 1
@@ -407,9 +347,7 @@ class TestCheckChildParentMapping:
         "childstrings, parentstrings",
         VALID_PARENT_CHILD_COMBOS,
     )
-    def test_check_pft_gridcell_mapping_skipped(
-        self, ds_all, childstrings, parentstrings
-    ):
+    def test_check_pft_gridcell_mapping_skipped(self, ds_all, childstrings, parentstrings):
         """Make sure it errors right if a child's parent index is skipped"""
         child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
         ds_all[child1d_parenti_var].values[3] += 2
