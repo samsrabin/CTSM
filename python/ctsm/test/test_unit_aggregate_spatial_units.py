@@ -466,6 +466,69 @@ class TestPftToGridcell:
         assert result.equals(ds_p2g_novar)
 
 
+@pytest.fixture(name="ds_p2l", scope="function")
+def fixture_ds_p2l(ds_all):
+    """Make an xarray Dataset to test pft-to-landunit"""
+    childstrings = asp.PFTSTRINGS
+    parentstrings = asp.LANDSTRINGS
+
+    ds = _drop_unneeded_subunits(ds_all, childstrings, parentstrings)
+    ds["pfts1d_wtlunit"].values = (
+        # Landunit sums (lots of zeros b/c we can test what we need w/o filling out all landunits):
+        #                  1,      0.5,      14,    0,           0.8,    0,       0
+        [1 / 3, 1 / 3, 1 / 3, 0.2, 0.3, 8, 4, 2, 0, 0, 0.1, 0.2, 0.5, 0, 0, 0, 0, 0]
+    )
+
+    # Add our test variable
+    da = xr.DataArray(
+        # Landunits:
+        #           1,        2,       3,      4,        5,         6,          7
+        data=[9, 9, 3, 87, -1.5, 7, 4, 6, 86, 24, 1, 10, 5, 100, -999, 84, 91, 55],
+        dims=[childstrings.dim],
+    )
+    ds[VAR_NAME] = da
+
+    return ds
+
+
+class TestPftToLandunit:
+    """Tests of aggregating pft to landunit"""
+
+    CHILDSTRINGS = asp.PFTSTRINGS
+    PARENTSTRINGS = asp.LANDSTRINGS
+
+    EXPECTED_DA = xr.DataArray(
+        data=[7, 33.9, 6, np.nan, 5.75, np.nan, np.nan], dims=[PARENTSTRINGS.dim]
+    )
+
+    def test_da_p2l(self, ds_p2l):
+        """Test da_aggregate() for pft to landunit"""
+        result = asp.da_aggregate(ds_p2l, VAR_NAME, self.CHILDSTRINGS, self.PARENTSTRINGS)
+        assert result.sizes == self.EXPECTED_DA.sizes
+        are_dataarrays_close(result, self.EXPECTED_DA, self.PARENTSTRINGS.dim)
+
+    def test_ds_p2l(self, ds_p2l):
+        """Test ds_aggregate() for pft to landunit"""
+
+        # Build expected Dataset
+        expected: xr.Dataset
+        expected = ds_p2l.drop_vars(
+            [x for x in ds_p2l if x.startswith(f"{self.CHILDSTRINGS.prefix}1d_")] + [VAR_NAME]
+        )
+        expected[VAR_NAME] = self.EXPECTED_DA
+
+        # Get result Dataset
+        result = asp.ds_aggregate(ds_p2l, self.CHILDSTRINGS.dim, self.PARENTSTRINGS.dim)
+
+        # Compare the affected variable
+        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], self.PARENTSTRINGS.dim)
+
+        # Now drop it and compare the rest of the Datasets
+        expected = expected.drop_vars([VAR_NAME])
+        result = result.drop_vars([VAR_NAME])
+        assert result.equals(expected)
+
+
 @pytest.fixture(name="ds_p2c", scope="function")
 def fixture_ds_p2c(ds_all):
     """Make an xarray Dataset to test pft-to-column"""
@@ -491,12 +554,12 @@ def fixture_ds_p2c(ds_all):
 class TestPftToColumn:
     """Tests of aggregating pft to column"""
 
-    EXPECTED_DA = xr.DataArray(
-        data=[7, 87, -1.5, 6, np.nan, np.nan, 5.75, np.nan, np.nan, np.nan], dims=["column"]
-    )
-
     CHILDSTRINGS = asp.PFTSTRINGS
     PARENTSTRINGS = asp.COLSSTRINGS
+
+    EXPECTED_DA = xr.DataArray(
+        data=[7, 87, -1.5, 6, np.nan, np.nan, 5.75, np.nan, np.nan, np.nan], dims=[PARENTSTRINGS.dim]
+    )
 
     def test_da_p2c(self, ds_p2c):
         """Test da_aggregate() for pft to column"""
