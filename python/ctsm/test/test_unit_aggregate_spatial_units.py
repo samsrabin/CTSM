@@ -12,8 +12,9 @@ import ctsm.postprocessing.aggregate_spatial_units as asp
 
 # TODO: Add testing for subgroups whose weights sum to zero (should get NaN)
 
-@pytest.fixture(name="test_ds", scope="function")
-def fixture_test_ds():
+
+@pytest.fixture(name="test_ds_complete", scope="function")
+def fixture_test_ds_complete():
     """Make an xarray Dataset to test"""
     # pylint: disable=too-many-locals
 
@@ -147,7 +148,7 @@ def fixture_test_ds():
     for ci in np.arange(cols1d_gi.sizes["column"]):
         col_wtlunit = cols1d_wtlunit.values[ci]
         li = cols1d_li.values[ci]
-        lunit_wtgcell = land1d_wtgcell.values[li-1]
+        lunit_wtgcell = land1d_wtgcell.values[li - 1]
         data.append(col_wtlunit * lunit_wtgcell)
     cols1d_wtgcell = xr.DataArray(
         data=data,
@@ -213,14 +214,14 @@ def fixture_test_ds():
     )
     pfts1d_wtcol = xr.DataArray(
         # Sums:           1, 1, 1,             1, 0.5, 1        0, 1, 9,           0.6
-        data=[1/3, 1/3, 1/3, 1, 1, 0.1, 0.4, 0.5, 0.5, 1, 0, 0, 0, 1, 9, 0.1, 0.2, 0.3],
+        data=[1 / 3, 1 / 3, 1 / 3, 1, 1, 0.1, 0.4, 0.5, 0.5, 1, 0, 0, 0, 1, 9, 0.1, 0.2, 0.3],
         dims=["pft"],
     )
     data = []
     for pi in np.arange(pfts1d_gi.sizes["pft"]):
         pft_wtcol = pfts1d_wtcol.values[pi]
         ci = pfts1d_ci.values[pi]
-        col_wtlunit = cols1d_wtlunit.values[ci-1]
+        col_wtlunit = cols1d_wtlunit.values[ci - 1]
         data.append(pft_wtcol * col_wtlunit)
     pfts1d_wtlunit = xr.DataArray(
         data=data,
@@ -230,9 +231,9 @@ def fixture_test_ds():
     for pi in np.arange(pfts1d_gi.sizes["pft"]):
         pft_wtlunit = pfts1d_wtlunit.values[pi]
         li = pfts1d_li.values[pi]
-        land_wtgcell = land1d_wtgcell.values[li-1]
+        land_wtgcell = land1d_wtgcell.values[li - 1]
         data.append(pft_wtlunit * land_wtgcell)
-    pfts1d_wtgcell= xr.DataArray(
+    pfts1d_wtgcell = xr.DataArray(
         data=data,
         dims=["pft"],
     )
@@ -268,46 +269,146 @@ def fixture_test_ds():
     return ds
 
 
+@pytest.fixture(name="test_ds_p2g", scope="function")
+def fixture_test_ds_p2g():
+    """Make an xarray Dataset to test pft-to-gridcell"""
+    # pylint: disable=too-many-locals
+
+    # Assume a 2x2 global grid
+    lons = [90.0, 270.0]
+    lats = [-45.0, 45.0]
+    nx = len(lons)
+    ny = len(lats)
+    n_gridcells = nx * ny
+
+    # TODO: Assert unique grid lon-lat pairs
+    grid1d_lon = xr.DataArray(
+        data=[lons[0]] * ny + [lons[1]] * ny,
+        attrs={"units": "degrees_east"},
+        dims=["gridcell"],
+    )
+    grid1d_lat = xr.DataArray(
+        data=lats * nx,
+        attrs={"units": "degrees_north"},
+        dims=["gridcell"],
+    )
+
+    # TODO: Assert unique grid i-j pairs
+    grid1d_ixy = xr.DataArray(
+        data=[1, 1, 2, 2],  # 1-indexed to match Fortran outputs
+        dims=["gridcell"],
+    )
+    grid1d_jxy = xr.DataArray(
+        data=[1, 2, 1, 2],  # 1-indexed to match Fortran outputs
+        dims=["gridcell"],
+    )
+
+    ds_grid = xr.Dataset(
+        {
+            "grid1d_lon": grid1d_lon,
+            "grid1d_lat": grid1d_lat,
+            "grid1d_ixy": grid1d_ixy,
+            "grid1d_jxy": grid1d_jxy,
+        }
+    )
+    assert ds_grid.sizes["gridcell"] == n_gridcells
+
+    # Assume 3 natural and, as above, 2 crop PFTs
+    pfts1d_gi = xr.DataArray(
+        data=[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4],
+        dims=["pft"],
+    )
+    pfts1d_ixy = xr.DataArray(
+        data=[grid1d_ixy.values[i - 1] for i in pfts1d_gi.values],
+        attrs=grid1d_ixy.attrs,
+        dims=["pft"],
+    )
+    pfts1d_jxy = xr.DataArray(
+        data=[grid1d_jxy.values[i - 1] for i in pfts1d_gi.values],
+        attrs=grid1d_jxy.attrs,
+        dims=["pft"],
+    )
+    pfts1d_wtgcell = xr.DataArray(
+        # Gridcell sums:            1,            15,             0,           0.8
+        data=[0.2, 0.2, 0.2, 0.2, 0.2, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0.1, 0.2, 0.5],
+        dims=["pft"],
+    )
+
+    ds_pfts = xr.Dataset(
+        {
+            "pfts1d_gi": pfts1d_gi,
+            "pfts1d_ixy": pfts1d_ixy,
+            "pfts1d_jxy": pfts1d_jxy,
+            "pfts1d_wtgcell": pfts1d_wtgcell,
+        }
+    )
+    assert ds_pfts.sizes["pft"] == 3 * n_gridcells + 2 * (n_gridcells - 1)
+
+    ds = xr.merge([ds_grid, ds_pfts])
+
+    return ds
+
+
 class TestCheckPftGridcellMapping:
     """Tests of _check_pft_gridcell_mapping()"""
 
-    def test_pft_gridcell_ok(self, test_ds):
+    def test_p2g_ok(self, test_ds_p2g):
         """Make sure it doesn't error for known-good PFT-to-gridcell mapping"""
-        asp._check_pft_gridcell_mapping(test_ds)
+        asp._check_pft_gridcell_mapping(test_ds_p2g)
 
-    def test_pft_gridcell_non_monotonic(self, test_ds):
+    def test_p2g_non_monotonic(self, test_ds_p2g):
         """Make sure it errors right if gridcell indices aren't monotonically increasing"""
-        test_ds["pfts1d_gi"].values[-1] = 1
+        test_ds_p2g["pfts1d_gi"].values[-1] = 1
         with pytest.raises(AssertionError, match="pfts1d_gi not monotonically increasing"):
-            asp._check_pft_gridcell_mapping(test_ds)
+            asp._check_pft_gridcell_mapping(test_ds_p2g)
 
-    def test_pft_gridcell_skipped(self, test_ds):
+    def test_p2g_skipped(self, test_ds_p2g):
         """Make sure it errors right if a gridcell index is skipped"""
-        test_ds["pfts1d_gi"].values[3] += 2
+        test_ds_p2g["pfts1d_gi"].values[3] += 2
         with pytest.raises(AssertionError, match="pfts1d_gi skips at least one gridcell"):
-            asp._check_pft_gridcell_mapping(test_ds)
+            asp._check_pft_gridcell_mapping(test_ds_p2g)
 
-    def test_pft_gridcell_missing_gridcell(self, test_ds):
+    def test_p2g_missing_gridcell(self, test_ds_p2g):
         """Make sure it errors right if i,j indices are missing a gridcell"""
-        test_ds["pfts1d_jxy"].values[-3:] = 1
+        test_ds_p2g["pfts1d_jxy"].values[-3:] = 1
         with pytest.raises(
             AssertionError, match="Not every gridcell is represented by at least one PFT"
         ):
-            asp._check_pft_gridcell_mapping(test_ds)
+            asp._check_pft_gridcell_mapping(test_ds_p2g)
 
-    def test_pft_gridcell_unexpected_gridcell(self, test_ds):
+    def test_p2g_unexpected_gridcell(self, test_ds_p2g):
         """Make sure it errors right if i,j indices reference an unexpected gridcell"""
-        test_ds["pfts1d_ixy"].values[-2:] = 3
+        test_ds_p2g["pfts1d_ixy"].values[-2:] = 3
         with pytest.raises(
             AssertionError, match="Unexpected gridcell referenced by PFT i,j,t indices"
         ):
-            asp._check_pft_gridcell_mapping(test_ds)
+            asp._check_pft_gridcell_mapping(test_ds_p2g)
 
-    def test_pft_gridcell_wrong_gridcell_order(self, test_ds):
+    def test_p2g_wrong_gridcell_order(self, test_ds_p2g):
         """Make sure it errors right if i,j indices are out of order"""
-        test_ds["pfts1d_ixy"].values = [2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        test_ds["pfts1d_jxy"].values = [1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
+        test_ds_p2g["pfts1d_ixy"].values = [2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        test_ds_p2g["pfts1d_jxy"].values = [1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
         with pytest.raises(
             AssertionError, match="PFT list order does not correspond to gridcell list order"
         ):
-            asp._check_pft_gridcell_mapping(test_ds)
+            asp._check_pft_gridcell_mapping(test_ds_p2g)
+
+
+class TestDaPftToGridcell:
+    """Tests of da_pft_to_gridcell()"""
+
+    def test_p2g(self, test_ds_p2g):
+        """Test da_pft_to_gridcell()"""
+        var_name = "testvar"
+        test_ds_p2g[var_name] = xr.DataArray(
+            # Gridcell:         1,             2,                         3,         4
+            data=[3, 7, 9, 17, 19, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
+            dims=["pft"],
+        )
+        expected = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
+        result = asp.da_pft_to_gridcell(test_ds_p2g, var_name)
+        for i in range(test_ds_p2g.sizes["gridcell"]):
+            assert np.isclose(result.values[i], expected.values[i], equal_nan=True)
+        assert result.dims == expected.dims
+        assert result.sizes == expected.sizes
+        assert result.coords == expected.coords
