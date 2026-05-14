@@ -367,24 +367,60 @@ def fixture_ds_p2g_novar(ds_grid):
     return ds
 
 
+class TestCheckChildParentMapping:
+    """Tests of _check_child_parent_mapping() that exercise all child-parent combos"""
+
+    # Child, parent
+    VALID_PARENT_CHILD_COMBOS = [
+        (asp.PFTSTRINGS, asp.COLSSTRINGS),
+        (asp.PFTSTRINGS, asp.LANDSTRINGS),
+        (asp.PFTSTRINGS, asp.GRIDSTRINGS),
+        (asp.COLSSTRINGS, asp.LANDSTRINGS),
+        (asp.COLSSTRINGS, asp.GRIDSTRINGS),
+        (asp.LANDSTRINGS, asp.GRIDSTRINGS),
+    ]
+
+    @pytest.mark.parametrize(
+        "childstrings, parentstrings",
+        VALID_PARENT_CHILD_COMBOS,
+    )
+    def test_check_pft_gridcell_mapping_ok(self, test_ds_complete, childstrings, parentstrings):
+        """Make sure it doesn't error for known-good mapping"""
+        asp._check_child_parent_mapping(test_ds_complete, childstrings, parentstrings)
+
+    @pytest.mark.parametrize(
+        "childstrings, parentstrings",
+        VALID_PARENT_CHILD_COMBOS,
+    )
+    def test_check_pft_gridcell_mapping_non_monotonic(
+        self, test_ds_complete, childstrings, parentstrings
+    ):
+        """Make sure it errors right if child's parent indices aren't monotonically increasing"""
+        child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
+        test_ds_complete[child1d_parenti_var].values[-1] = 1
+        with pytest.raises(
+            AssertionError, match=f"{child1d_parenti_var} not monotonically increasing"
+        ):
+            asp._check_child_parent_mapping(test_ds_complete, childstrings, parentstrings)
+
+    @pytest.mark.parametrize(
+        "childstrings, parentstrings",
+        VALID_PARENT_CHILD_COMBOS,
+    )
+    def test_check_pft_gridcell_mapping_skipped(
+        self, test_ds_complete, childstrings, parentstrings
+    ):
+        """Make sure it errors right if a child's parent index is skipped"""
+        child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
+        test_ds_complete[child1d_parenti_var].values[3] += 2
+        with pytest.raises(
+            AssertionError, match=f"{child1d_parenti_var} skips at least one {parentstrings.disp}"
+        ):
+            asp._check_child_parent_mapping(test_ds_complete, childstrings, parentstrings)
+
+
 class TestCheckPftGridcellMapping:
-    """Tests of _check_pft_gridcell_mapping()"""
-
-    def test_p2g_ok(self, ds_p2g_novar):
-        """Make sure it doesn't error for known-good PFT-to-gridcell mapping"""
-        asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
-
-    def test_p2g_non_monotonic(self, ds_p2g_novar):
-        """Make sure it errors right if gridcell indices aren't monotonically increasing"""
-        ds_p2g_novar["pfts1d_gi"].values[-1] = 1
-        with pytest.raises(AssertionError, match="pfts1d_gi not monotonically increasing"):
-            asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
-
-    def test_p2g_skipped(self, ds_p2g_novar):
-        """Make sure it errors right if a gridcell index is skipped"""
-        ds_p2g_novar["pfts1d_gi"].values[3] += 2
-        with pytest.raises(AssertionError, match="pfts1d_gi skips at least one gridcell"):
-            asp._check_child_parent_mapping(ds_p2g_novar, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+    """Tests of _check_child_parent_mapping() for PFT-to-gridcell"""
 
     def test_p2g_missing_gridcell(self, ds_p2g_novar):
         """Make sure it errors right if i,j indices are missing a gridcell"""

@@ -26,14 +26,18 @@ class SpatialUnitStrings:
     # Prefix for *1d_... variables
     prefix: str
 
-    # Suffix for ...1d_wt* variables
+    # Suffix for ...1d_wt* variables (also ...itype_* variables)
     wt: None
 
 
 PFTSTRINGS = SpatialUnitStrings(dim="pft", disp="PFT", i=None, prefix="pfts", wt=None)
+LANDSTRINGS = SpatialUnitStrings(dim="landunit", disp="land unit", i="l", prefix="land", wt="lunit")
+COLSSTRINGS = SpatialUnitStrings(dim="column", disp="column", i="c", prefix="cols", wt="col")
 GRIDSTRINGS = SpatialUnitStrings(dim="gridcell", disp="gridcell", i="g", prefix="grid", wt="gcell")
 DIMSTRINGS_DICT = {
     PFTSTRINGS.dim: PFTSTRINGS,
+    COLSSTRINGS.dim: COLSSTRINGS,
+    LANDSTRINGS.dim: LANDSTRINGS,
     GRIDSTRINGS.dim: GRIDSTRINGS,
 }
 
@@ -138,7 +142,10 @@ def _check_child_parent_mapping(
     for i in np.arange(ds_in.sizes[childstrings.dim]):
         ixy = int(ds_in[f"{childstrings.prefix}1d_ixy"].values[i])
         jxy = int(ds_in[f"{childstrings.prefix}1d_jxy"].values[i])
-        t = -999  # Because we're going to gridcell
+        if parentstrings.dim == "gridcell":
+            t = -999  # Because we're going to gridcell
+        else:
+            t = int(ds_in[f"{childstrings.prefix}1d_itype_{parentstrings.wt}"].values[i])
         ijt = (ixy, jxy, t)
         if ijt not in ijt_triads:
             ijt_triads.append(ijt)
@@ -148,7 +155,13 @@ def _check_child_parent_mapping(
     for i in np.arange(ds_in.sizes[parentstrings.dim]):
         ixy = int(ds_in[f"{parentstrings.prefix}1d_ixy"].values[i])
         jxy = int(ds_in[f"{parentstrings.prefix}1d_jxy"].values[i])
-        t = -999
+        if parentstrings.dim == "gridcell":
+            t = -999
+        else:
+            itype_var = f"{parentstrings.prefix}1d_itype_{parentstrings.wt}"
+            if itype_var == "land1d_itype_lunit":
+                itype_var = "land1d_ityplunit"
+            t = int(ds_in[itype_var].values[i])
         ijt = (ixy, jxy, t)
         if ijt not in ijt_triads_expected:
             ijt_triads_expected.append(ijt)
