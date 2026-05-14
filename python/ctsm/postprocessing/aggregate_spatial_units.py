@@ -4,8 +4,34 @@ aggregated spatial units. For example, the user might have outputs at PFT level 
 them to gridcell level.
 """
 
+from dataclasses import dataclass
+
 import numpy as np
 import xarray as xr
+
+
+@dataclass
+class SpatialUnitStrings:
+    """Strings used in various places that are associated with spatial unit"""
+
+    # Associated dimension name
+    dim: str
+
+    # Used when printing messages
+    disp: str
+
+    # Prefix for ..._*i variables
+    i: str
+
+    # Prefix for *1d_... variables
+    prefix: str
+
+    # Suffix for ...1d_wt* variables
+    wt: None
+
+
+PFTSTRINGS = SpatialUnitStrings(dim="pft", disp="PFT", i=None, prefix="pfts", wt=None)
+GRIDSTRINGS = SpatialUnitStrings(dim="gridcell", disp="gridcell", i="g", prefix="grid", wt="gcell")
 
 
 def ds_pft_to_gridcell(ds_in: xr.Dataset) -> xr.Dataset:
@@ -18,8 +44,8 @@ def ds_pft_to_gridcell(ds_in: xr.Dataset) -> xr.Dataset:
     pft_vars_to_drop = []
     var: str
     for var in ds_in:
-        if "pft" in ds_in[var].dims:
-            if var.startswith("pfts1d_"):
+        if PFTSTRINGS.dim in ds_in[var].dims:
+            if var.startswith(f"{PFTSTRINGS.prefix}1d_"):
                 pft_vars_to_drop.append(var)
             else:
                 pft_vars_to_aggregate.append(var)
@@ -52,15 +78,15 @@ def da_pft_to_gridcell(ds_in: xr.Dataset, var: str) -> xr.DataArray:
     Aggregate a pft-level variable in a Dataset to gridcell
     """
     # Area-weighted mean
-    weights = ds_in["pfts1d_wtgcell"]
-    groups = ds_in["pfts1d_gi"]
-    weighted_sum = (ds_in[var] * weights).groupby(groups).sum(dim="pft")
-    weight_totals = weights.groupby(groups).sum(dim="pft")
+    weights = ds_in[f"{PFTSTRINGS.prefix}1d_wt{GRIDSTRINGS.wt}"]
+    groups = ds_in[f"{PFTSTRINGS.prefix}1d_{GRIDSTRINGS.i}i"]
+    weighted_sum = (ds_in[var] * weights).groupby(groups).sum(dim=PFTSTRINGS.dim)
+    weight_totals = weights.groupby(groups).sum(dim=PFTSTRINGS.dim)
     da = weighted_sum / weight_totals
 
     # It's now gridcell-dimensioned. Rename dimension and remove coordinate, which natively
     # gridcell-dimensioned variables do not have.
-    da = da.swap_dims({"pfts1d_gi": "gridcell"})
+    da = da.swap_dims({f"{PFTSTRINGS.prefix}1d_{GRIDSTRINGS.i}i": GRIDSTRINGS.dim})
     da = da.reset_coords(drop=True)
 
     return da
@@ -69,20 +95,21 @@ def da_pft_to_gridcell(ds_in: xr.Dataset, var: str) -> xr.DataArray:
 def _check_pft_gridcell_mapping(ds_in: xr.Dataset):
     unique_ordered_gi = []
 
-    for i in np.arange(ds_in.sizes["pft"]):
+    for i in np.arange(ds_in.sizes[PFTSTRINGS.dim]):
         if i > 0:
             max_gi = max(unique_ordered_gi)
         else:
             max_gi = 0
 
         # Get gridcell index
-        gi = int(ds_in["pfts1d_gi"].values[i])
+        child_to_parent_var = f"{PFTSTRINGS.prefix}1d_{GRIDSTRINGS.i}i"
+        gi = int(ds_in[child_to_parent_var].values[i])
 
         # Make sure PFT gridcell indices are monotonically increasing
-        assert gi >= max_gi, "pfts1d_gi not monotonically increasing"
+        assert gi >= max_gi, f"{child_to_parent_var} not monotonically increasing"
 
         # Make sure no gridcells are skipped
-        assert gi <= max_gi + 1, "pfts1d_gi skips at least one gridcell"
+        assert gi <= max_gi + 1, f"{child_to_parent_var} skips at least one {GRIDSTRINGS.disp}"
 
         # Add to list of uniques
         if gi not in unique_ordered_gi:
@@ -90,9 +117,9 @@ def _check_pft_gridcell_mapping(ds_in: xr.Dataset):
 
     # Get i,j,t triads
     ijt_triads = []
-    for i in np.arange(ds_in.sizes["pft"]):
-        ixy = int(ds_in["pfts1d_ixy"].values[i])
-        jxy = int(ds_in["pfts1d_jxy"].values[i])
+    for i in np.arange(ds_in.sizes[PFTSTRINGS.dim]):
+        ixy = int(ds_in[f"{PFTSTRINGS.prefix}1d_ixy"].values[i])
+        jxy = int(ds_in[f"{PFTSTRINGS.prefix}1d_jxy"].values[i])
         t = -999  # Because we're going to gridcell
         ijt = (ixy, jxy, t)
         if ijt not in ijt_triads:
@@ -100,9 +127,9 @@ def _check_pft_gridcell_mapping(ds_in: xr.Dataset):
 
     # Make sure every gridcell is represented and gridcells are ordered correctly
     ijt_triads_expected = []
-    for i in np.arange(ds_in.sizes["gridcell"]):
-        ixy = int(ds_in["grid1d_ixy"].values[i])
-        jxy = int(ds_in["grid1d_jxy"].values[i])
+    for i in np.arange(ds_in.sizes[GRIDSTRINGS.dim]):
+        ixy = int(ds_in[f"{GRIDSTRINGS.prefix}1d_ixy"].values[i])
+        jxy = int(ds_in[f"{GRIDSTRINGS.prefix}1d_jxy"].values[i])
         t = -999
         ijt = (ixy, jxy, t)
         if ijt not in ijt_triads_expected:
