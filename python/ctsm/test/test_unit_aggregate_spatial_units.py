@@ -371,6 +371,30 @@ class TestCheckChildParentMapping:
         ):
             asp._check_child_parent_mapping(ds_all, childstrings, asp.GRIDSTRINGS)
 
+    @pytest.mark.parametrize(
+        "childstrings, parentstrings",
+        [
+            (asp.PFTSTRINGS, asp.COLSSTRINGS),
+            (asp.PFTSTRINGS, asp.LANDSTRINGS),
+            (asp.COLSSTRINGS, asp.LANDSTRINGS),
+        ],
+    )
+    def test_check_child_missing_parent_itype(self, ds_all, childstrings, parentstrings):
+        """
+        Make sure it errors right if some i,j,t index is missing because of bad parent t (itype).
+        Gridcells have no itype, so they don't need to be tested as parent. Gridcells are the
+        highest level, so they can't be tested as child.
+        """
+        var = f"{childstrings.prefix}1d_itype_{parentstrings.wt}"
+        ds_all[var].values[3:] = 999
+        with pytest.raises(
+            AssertionError,
+            match=(
+                f"Not every {parentstrings.disp} is represented by at least one {childstrings.disp}"
+            ),
+        ):
+            asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
+
 
 class TestCheckPftGridcellMapping:
     """Tests of _check_child_parent_mapping() for PFT-to-gridcell"""
