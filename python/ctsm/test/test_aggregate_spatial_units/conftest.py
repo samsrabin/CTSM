@@ -10,7 +10,20 @@ import xarray as xr
 
 @pytest.fixture(name="ds_all", scope="function")
 def fixture_ds_all():
-    """Make an xarray Dataset to test"""
+    """Make an xarray Dataset to test with.
+
+    The idea here is to provide a simple Dataset that mimics a CTSM history file, but without any
+    actual history outputs. We're only going to include the 1d variables related to spatial units:
+    grid1d_*, land1d_*, cols1d_*, and pfts1d_*. This Dataset will be used as-is for testing the
+    part of aggregate_spatial_units that ensures valid mapping of child spatial units to the
+    target parent. It will also be subsetted and modified by various tests of mapping a child to a
+    parent; e.g., tests of aggregating PFT to gridcell will drop the land1d_* and cols1d_*
+    variables, which are not necessary.
+
+    We'll be making a 2x2 "global" grid. Each gridcell will have a natural and crop landunit, except
+    the last gridcell, which won't have crop. There will be 3 natural and 2 crop PFTs. As in CTSM,
+    the natural PFTs will share a column, while the crop PFTs will each get their own column.
+    """
     # pylint: disable=too-many-locals,too-many-statements
 
     # Assume a 2x2 global grid
