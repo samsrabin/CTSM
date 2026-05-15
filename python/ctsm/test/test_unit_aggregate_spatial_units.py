@@ -23,6 +23,23 @@ def are_dataarrays_close(result: xr.DataArray, expected: xr.DataArray, dim: str)
     assert result.coords == expected.coords
 
 
+def _get_expected_weighted_mean(*, weights, values):
+    """Keyword-only because order *really* matters"""
+
+    assert len(weights) == len(values)
+    weights = np.array(weights)
+    values = np.array(values)
+
+    if all(weights == 0.0):
+        return np.nan
+
+    # Weighted mean normalizes the sum of weights to 1.
+    weights = weights / np.sum(weights)
+
+    # np.dot() does elementwise multiplcation, then takes the sum
+    return np.dot(values, weights)
+
+
 @pytest.fixture(name="ds_all", scope="function")
 def fixture_ds_all():
     """Make an xarray Dataset to test"""
@@ -433,7 +450,19 @@ def fixture_ds_p2g(ds_all):
 class TestPftToGridcell:
     """Tests of aggregating pft to gridcell"""
 
-    EXPECTED_DA = xr.DataArray(data=[11, 3, np.nan, 19], dims=["gridcell"])
+    EXPECTED_DA = xr.DataArray(
+        data=[
+            _get_expected_weighted_mean(
+                weights=[0.2, 0.2, 0.2, 0.2, 0.2], values=[3, 7, 9, 17, 19]
+            ),
+            _get_expected_weighted_mean(weights=[1, 2, 3, 4, 5], values=[5, 4, 3, 2, 3]),
+            _get_expected_weighted_mean(
+                weights=[0, 0, 0, 0, 0], values=[325, 1986, 724, 1987, 200]
+            ),
+            _get_expected_weighted_mean(weights=[0.1, 0.2, 0.5], values=[0, 16, 24]),
+        ],
+        dims=["gridcell"],
+    )
 
     def test_da_p2g(self, ds_p2g):
         """Test da_aggregate() for pft to gridcell"""
@@ -498,7 +527,16 @@ class TestPftToLandunit:
     PARENTSTRINGS = asp.LANDSTRINGS
 
     EXPECTED_DA = xr.DataArray(
-        data=[7, 33.9, 6, np.nan, 5.75, np.nan, np.nan], dims=[PARENTSTRINGS.dim]
+        data=[
+            _get_expected_weighted_mean(weights=[1 / 3, 1 / 3, 1 / 3], values=[9, 9, 3]),
+            _get_expected_weighted_mean(weights=[0.2, 0.3], values=[87, -1.5]),
+            _get_expected_weighted_mean(weights=[8, 4, 2], values=[7, 4, 6]),
+            _get_expected_weighted_mean(weights=[0, 0], values=[86, 24]),
+            _get_expected_weighted_mean(weights=[0.1, 0.2, 0.5], values=[1, 10, 5]),
+            _get_expected_weighted_mean(weights=[0, 0], values=[100, -999]),
+            _get_expected_weighted_mean(weights=[0, 0, 0], values=[84, 91, 55]),
+        ],
+        dims=[PARENTSTRINGS.dim],
     )
 
     def test_da_p2l(self, ds_p2l):
@@ -558,7 +596,19 @@ class TestPftToColumn:
     PARENTSTRINGS = asp.COLSSTRINGS
 
     EXPECTED_DA = xr.DataArray(
-        data=[7, 87, -1.5, 6, np.nan, np.nan, 5.75, np.nan, np.nan, np.nan], dims=[PARENTSTRINGS.dim]
+        data=[
+            _get_expected_weighted_mean(weights=[1 / 3, 1 / 3, 1 / 3], values=[9, 9, 3]),
+            _get_expected_weighted_mean(weights=[1], values=[87]),
+            _get_expected_weighted_mean(weights=[0.5], values=[-1.5]),
+            _get_expected_weighted_mean(weights=[8, 4, 2], values=[7, 4, 6]),
+            _get_expected_weighted_mean(weights=[0], values=[86]),
+            _get_expected_weighted_mean(weights=[0], values=[24]),
+            _get_expected_weighted_mean(weights=[0.1, 0.2, 0.5], values=[1, 10, 5]),
+            _get_expected_weighted_mean(weights=[0], values=[100]),
+            _get_expected_weighted_mean(weights=[0], values=[-999]),
+            _get_expected_weighted_mean(weights=[0, 0, 0], values=[84, 91, 55]),
+        ],
+        dims=[PARENTSTRINGS.dim],
     )
 
     def test_da_p2c(self, ds_p2c):
