@@ -701,3 +701,75 @@ class TestColumnToGridcell:
         expected = expected.drop_vars([VAR_NAME])
         result = result.drop_vars([VAR_NAME])
         assert result.equals(expected)
+
+
+@pytest.fixture(name="ds_c2l", scope="function")
+def fixture_ds_c2l(ds_all):
+    """Make an xarray Dataset to test column-to-landunit"""
+    childstrings = asp.COLSSTRINGS
+    parentstrings = asp.LANDSTRINGS
+
+    ds = _drop_unneeded_subunits(ds_all, childstrings, parentstrings)
+    ds[f"{childstrings.prefix}1d_wt{parentstrings.wt}"].values = (
+        # Landunit sums (lots of zeros b/c we can test what we need w/o filling out all landunits):
+        # 1,       1, 0.25,   10, 0,    0, 0
+        [1, 0.5, 0.5, 0.25, 3, 7, 0, 0, 0, 0]
+    )
+
+    # Add our test variable
+    da = xr.DataArray(
+        # Landunits:
+        #        1,       2,     3,          4,    5,      6,  7
+        data=[1.58, 880, 22, 10.53, 33e7, 41e7, 27.6, 41, 14, 87],
+        dims=[childstrings.dim],
+    )
+    ds[VAR_NAME] = da
+
+    return ds
+
+
+class TestColumnToLandunit:
+    """Tests of aggregating column to landunit"""
+
+    CHILDSTRINGS = asp.COLSSTRINGS
+    PARENTSTRINGS = asp.LANDSTRINGS
+
+    EXPECTED_DA = xr.DataArray(
+        data=[
+            _get_expected_weighted_mean(weights=[1], values=[1.58]),
+            _get_expected_weighted_mean(weights=[0.5, 0.5], values=[880, 22]),
+            _get_expected_weighted_mean(weights=[0.25], values=[10.53]),
+            _get_expected_weighted_mean(weights=[3, 7], values=[33e7, 41e7]),
+            _get_expected_weighted_mean(weights=[0], values=[27.6]),
+            _get_expected_weighted_mean(weights=[0, 0], values=[41, 14]),
+            _get_expected_weighted_mean(weights=[0], values=[87]),
+        ],
+        dims=[PARENTSTRINGS.dim],
+    )
+
+    def test_da_c2l(self, ds_c2l):
+        """Test da_aggregate() for column to landunit"""
+        result = asp.da_aggregate(ds_c2l, VAR_NAME, self.CHILDSTRINGS, self.PARENTSTRINGS)
+        assert result.sizes == self.EXPECTED_DA.sizes
+        are_dataarrays_close(result, self.EXPECTED_DA, self.PARENTSTRINGS.dim)
+
+    def test_ds_c2l(self, ds_c2l):
+        """Test ds_aggregate() for column to landunit"""
+
+        # Build expected Dataset
+        expected: xr.Dataset
+        expected = ds_c2l.drop_vars(
+            [x for x in ds_c2l if x.startswith(f"{self.CHILDSTRINGS.prefix}1d_")] + [VAR_NAME]
+        )
+        expected[VAR_NAME] = self.EXPECTED_DA
+
+        # Get result Dataset
+        result = asp.ds_aggregate(ds_c2l, self.CHILDSTRINGS.dim, self.PARENTSTRINGS.dim)
+
+        # Compare the affected variable
+        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], self.PARENTSTRINGS.dim)
+
+        # Now drop it and compare the rest of the Datasets
+        expected = expected.drop_vars([VAR_NAME])
+        result = result.drop_vars([VAR_NAME])
+        assert result.equals(expected)
