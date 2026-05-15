@@ -637,3 +637,67 @@ class TestPftToColumn:
         expected = expected.drop_vars([VAR_NAME])
         result = result.drop_vars([VAR_NAME])
         assert result.equals(expected)
+
+
+@pytest.fixture(name="ds_c2g", scope="function")
+def fixture_ds_c2g(ds_all):
+    """Make an xarray Dataset to test column-to-gridcell"""
+    ds = _drop_unneeded_subunits(ds_all, asp.COLSSTRINGS, asp.GRIDSTRINGS)
+    ds["cols1d_wtgcell"].values = (
+        # Gridcell sums:
+        #            1,           0.6,       16, 0
+        [1 / 3, 1 / 3, 1 / 3, 0.1, 0.2, 0.3, 4, 10, 2, 0]
+    )
+
+    # Add our test variable
+    da = xr.DataArray(
+        # Gridcell:   1,         2,          3,   4
+        data=[3, 25, 86, 7, 24, 87, 0, -55, 18, 7.4],
+        dims=["column"],
+    )
+    ds[VAR_NAME] = da
+
+    return ds
+
+
+class TestColumnToGridcell:
+    """Tests of aggregating column to gridcell"""
+
+    CHILDSTRINGS = asp.COLSSTRINGS
+    PARENTSTRINGS = asp.GRIDSTRINGS
+
+    EXPECTED_DA = xr.DataArray(
+        data=[
+            _get_expected_weighted_mean(weights=[1 / 3, 1 / 3, 1 / 3], values=[3, 25, 86]),
+            _get_expected_weighted_mean(weights=[0.1, 0.2, 0.3], values=[7, 24, 87]),
+            _get_expected_weighted_mean(weights=[4, 10, 2], values=[0, -55, 18]),
+            _get_expected_weighted_mean(weights=[0], values=[7.4]),
+        ],
+        dims=[PARENTSTRINGS.dim],
+    )
+
+    def test_da_c2g(self, ds_c2g):
+        """Test da_aggregate() for column to gridcell"""
+        result = asp.da_aggregate(ds_c2g, VAR_NAME, self.CHILDSTRINGS, self.PARENTSTRINGS)
+        are_dataarrays_close(result, self.EXPECTED_DA, self.PARENTSTRINGS.dim)
+
+    def test_ds_c2g(self, ds_c2g):
+        """Test ds_aggregate() for column to gridcell"""
+
+        # Build expected Dataset
+        expected: xr.Dataset
+        expected = ds_c2g.drop_vars(
+            [x for x in ds_c2g if x.startswith(f"{self.CHILDSTRINGS.prefix}1d_")] + [VAR_NAME]
+        )
+        expected[VAR_NAME] = self.EXPECTED_DA
+
+        # Get result Dataset
+        result = asp.ds_aggregate(ds_c2g, self.CHILDSTRINGS.dim, self.PARENTSTRINGS.dim)
+
+        # Compare the affected variable
+        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], self.PARENTSTRINGS.dim)
+
+        # Now drop it and compare the rest of the Datasets
+        expected = expected.drop_vars([VAR_NAME])
+        result = result.drop_vars([VAR_NAME])
+        assert result.equals(expected)
