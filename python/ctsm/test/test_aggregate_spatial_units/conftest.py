@@ -20,7 +20,6 @@ def fixture_ds_all():
     ny = len(lats)
     n_gridcells = nx * ny
 
-    # TODO: Assert unique grid lon-lat pairs
     grid1d_lon = xr.DataArray(
         data=[lons[0]] * ny + [lons[1]] * ny,
         attrs={"units": "degrees_east"},
@@ -31,8 +30,13 @@ def fixture_ds_all():
         attrs={"units": "degrees_north"},
         dims=["gridcell"],
     )
+    assert grid1d_lon.size == grid1d_lat.size
+    unique_grid_lonlats = []
+    for i in range(grid1d_lon.size):
+        lonlat = (grid1d_lon.values[i], grid1d_lat.values[i])
+        assert lonlat not in unique_grid_lonlats
+        unique_grid_lonlats.append(lonlat)
 
-    # TODO: Assert unique grid i-j pairs
     grid1d_ixy = xr.DataArray(
         data=[1, 1, 2, 2],  # 1-indexed to match Fortran outputs
         dims=["gridcell"],
@@ -41,6 +45,12 @@ def fixture_ds_all():
         data=[1, 2, 1, 2],  # 1-indexed to match Fortran outputs
         dims=["gridcell"],
     )
+    assert grid1d_ixy.size == grid1d_jxy.size
+    unique_grid_ijs = []
+    for i in range(grid1d_ixy.size):
+        ij = (grid1d_ixy.values[i], grid1d_jxy.values[i])
+        assert ij not in unique_grid_ijs
+        unique_grid_ijs.append(ij)
 
     ds_grid = xr.Dataset(
         {
@@ -56,12 +66,11 @@ def fixture_ds_all():
     n_landunits_per_gridcell = 2
     n_landunits = n_gridcells * n_landunits_per_gridcell - 1
 
-    # TODO: Assert all land1d variables have length n_landunits
-
     land1d_gi = xr.DataArray(
         data=[1, 1, 2, 2, 3, 3, 4],
         dims=["landunit"],
     )
+    assert land1d_gi.size == n_landunits
     land1d_lon = xr.DataArray(
         data=[grid1d_lon.values[i - 1] for i in land1d_gi.values],
         attrs=grid1d_lon.attrs,
