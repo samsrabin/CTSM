@@ -72,10 +72,7 @@ def ds_aggregate(ds_in: xr.Dataset, child: str, parent: str) -> xr.Dataset:
     # Create copy without child-dimensioned variables
     ds_out = ds_in.drop_vars(child_vars_to_drop + child_vars_to_aggregate)
 
-    # The following code depends on these assumptions:
-    # 1. Every parent is represented by at least one child.
-    # 2. The children in each parent are contiguous with each other.
-    # 3. The children are in the same order as the parents.
+    # Check that our assumptions about child-parent mapping aren't violated
     _check_child_parent_mapping(ds_in, childstrings, parentstrings)
 
     # Aggregate and add to output Dataset
@@ -95,6 +92,8 @@ def da_aggregate(
     Aggregate one variable in a Dataset from one spatial unit to a higher-level one (e.g., pft to
     gridcell)
     """
+    # TODO: Check child-parent mapping here too, if not being called from ds_aggregate
+
     # Area-weighted mean
     weights = ds_in[f"{childstrings.prefix}1d_wt{parentstrings.wt}"]
     groups = ds_in[f"{childstrings.prefix}1d_{parentstrings.i}i"]
@@ -113,6 +112,26 @@ def da_aggregate(
 def _check_child_parent_mapping(
     ds_in: xr.Dataset, childstrings: SpatialUnitStrings, parentstrings: SpatialUnitStrings
 ):
+    """Check child-parent mapping
+
+    This function checks the assumptions in the aggregation functions as the latter are currently
+    implemented:
+    1. Every parent is represented by at least one child.
+    2. The children are in the same order as the parents.
+    3. There are no "unexpected parents" represented in the child.
+
+    The functions could eventually be updated to resolve these:
+    1. Fill unrepresented parents with NaN.
+    2. Rearrange the output array to match the order of the parent.
+    3. Warn the user and delete unexpected members of output array.
+
+    Resolving 3 would probably need to use the lists of IDs in the "ijt" checks.
+    """
+
+    ###############################
+    ### Check just with indices ###
+    ###############################
+
     unique_ordered_parent_i = []
 
     for i in np.arange(ds_in.sizes[childstrings.dim]):
@@ -137,42 +156,79 @@ def _check_child_parent_mapping(
         if parent_i not in unique_ordered_parent_i:
             unique_ordered_parent_i.append(parent_i)
 
+    # Make sure length is correct
+    n_in_child = len(unique_ordered_parent_i)
+    n_parent = ds_in.sizes[parentstrings.dim]
+    assert n_in_child == n_parent, (
+        f"Expected {n_parent} {parentstrings.dim}s represented in"
+        f" {child_to_parent_var}; got {n_in_child}"
+    )
+
+    ###############################################################
+    ### Stricter check: Not just parent indices, but parent IDs ###
+    ###############################################################
+
     # Get i,j,t triads
-    ijt_triads = []
+    ijt_ids = []
     for i in np.arange(ds_in.sizes[childstrings.dim]):
         ixy = int(ds_in[f"{childstrings.prefix}1d_ixy"].values[i])
         jxy = int(ds_in[f"{childstrings.prefix}1d_jxy"].values[i])
+        t = tuple()
         if parentstrings.dim == "gridcell":
-            t = -999  # Because we're going to gridcell
+            pass
         else:
-            t = int(ds_in[f"{childstrings.prefix}1d_itype_{parentstrings.wt}"].values[i])
-        ijt = (ixy, jxy, t)
-        if ijt not in ijt_triads:
-            ijt_triads.append(ijt)
+            if childstrings.dim == "column":
+                t += (ds_in["cols1d_itype_lunit"].values[i],)
+            elif childstrings.dim == "pft":
+                t += (ds_in["pfts1d_itype_lunit"].values[i],)
+                if parentstrings.dim == "column":
+                    t += (ds_in["pfts1d_itype_col"].values[i],)
+            else:
+                raise ValueError(f"Unrecognized {childstrings.dim=}")
+        ijt = (ixy, jxy)
+        if t:
+            ijt += t
+        ijt = tuple([int(x) for x in ijt])
+
+        if ijt not in ijt_ids:
+            ijt_ids.append(ijt)
 
     # Make sure every parent is represented and parents are ordered correctly
-    ijt_triads_expected = []
+    ijt_ids_expected = []
     for i in np.arange(ds_in.sizes[parentstrings.dim]):
         ixy = int(ds_in[f"{parentstrings.prefix}1d_ixy"].values[i])
         jxy = int(ds_in[f"{parentstrings.prefix}1d_jxy"].values[i])
+        t = tuple()
         if parentstrings.dim == "gridcell":
-            t = -999
+            pass
+        elif parentstrings.dim == "landunit":
+            itype_lunit = ds_in["land1d_ityplunit"].values[i]
+            t = (itype_lunit,)
+        elif parentstrings.dim == "column":
+            itype_lunit = ds_in["cols1d_itype_lunit"].values[i]
+            itype_col = ds_in["cols1d_itype_col"].values[i]
+            t = (itype_lunit, itype_col)
         else:
-            itype_var = f"{parentstrings.prefix}1d_itype_{parentstrings.wt}"
-            if itype_var not in ds_in and itype_var == "land1d_itype_lunit":
-                itype_var = "land1d_ityplunit"
-            t = int(ds_in[itype_var].values[i])
-        ijt = (ixy, jxy, t)
-        if ijt not in ijt_triads_expected:
-            ijt_triads_expected.append(ijt)
+            raise ValueError(f"Unrecognized {parentstrings.dim=}")
+        ijt = tuple([int(x) for x in (ixy, jxy) + t])
+        if ijt not in ijt_ids_expected:
+            ijt_ids_expected.append(ijt)
         else:
-            raise NotImplementedError("This code depends on actual ijt triads being unique")
+            raise NotImplementedError(
+                f"This code depends on actual ijt IDs being unique; {ijt} appears at least twice (second time at index {i})"
+            )
+    if not all(ijt in ijt_ids for ijt in ijt_ids_expected):
+        for ijt in ijt_ids_expected:
+            if ijt not in ijt_ids:
+                print(" ")
+                print(f"{ijt_ids_expected[0:5]=}")
+                print(f"{ijt_ids[0:5]=}")
+                raise AssertionError(
+                    f"Not every {parentstrings.disp} is represented by at least one {childstrings.disp}; {ijt} missing"
+                )
     assert all(
-        ijt in ijt_triads for ijt in ijt_triads_expected
-    ), f"Not every {parentstrings.disp} is represented by at least one {childstrings.disp}"
-    assert all(
-        ijt in ijt_triads_expected for ijt in ijt_triads
+        ijt in ijt_ids_expected for ijt in ijt_ids
     ), f"Unexpected {parentstrings.disp} referenced by {childstrings.disp} i,j,t indices"
     assert (
-        ijt_triads == ijt_triads_expected
+        ijt_ids == ijt_ids_expected
     ), f"{childstrings.disp} list order does not correspond to {parentstrings.disp} list order"
