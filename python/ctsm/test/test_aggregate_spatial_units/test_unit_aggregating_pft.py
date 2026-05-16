@@ -2,6 +2,7 @@
 
 """Unit tests of aggregating PFT to gridcell, landunit, and column"""
 
+from numpy import pi
 import xarray as xr
 import pytest
 
@@ -21,15 +22,16 @@ VAR_NAME = "testvar"
 def fixture_ds_p2g(ds_all):
     """Make an xarray Dataset to test pft-to-gridcell"""
     ds = drop_unneeded_subunits(ds_all, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+    x = 1 / 7
     ds["pfts1d_wtgcell"].values = (
-        # Gridcell sums:       1,            15,             0,           0.8
-        [0.2, 0.2, 0.2, 0.2, 0.2, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0.1, 0.2, 0.5]
+        # Gridcell sums:   1,            15,             0,           0.8
+        [x, x, x, x, x, x, x, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0.1, 0.2, 0.5]
     )
 
     # Add our test variable
     da = xr.DataArray(
-        # Gridcell:         1,             2,                         3,         4
-        data=[3, 7, 9, 17, 19, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
+        # Gridcell:                 1,             2,                         3,         4
+        data=[3, 7, 9, 17, 19, 23, 29, 5, 4, 3, 2, 3, 325, 1986, 724, 1987, 200, 0, 16, 24],
         dims=["pft"],
     )
     ds[VAR_NAME] = da
@@ -42,7 +44,7 @@ class TestPftToGridcell:
 
     EXPECTED_DA = xr.DataArray(
         data=[
-            get_expected_weighted_mean(weights=[0.2, 0.2, 0.2, 0.2, 0.2], values=[3, 7, 9, 17, 19]),
+            get_expected_weighted_mean(weights=[1 / 7] * 7, values=[3, 7, 9, 17, 19, 23, 29]),
             get_expected_weighted_mean(weights=[1, 2, 3, 4, 5], values=[5, 4, 3, 2, 3]),
             get_expected_weighted_mean(weights=[0, 0, 0, 0, 0], values=[325, 1986, 724, 1987, 200]),
             get_expected_weighted_mean(weights=[0.1, 0.2, 0.5], values=[0, 16, 24]),
@@ -90,15 +92,15 @@ def fixture_ds_p2l(ds_all):
     ds = drop_unneeded_subunits(ds_all, childstrings, parentstrings)
     ds["pfts1d_wtlunit"].values = (
         # Landunit sums (lots of zeros b/c we can test what we need w/o filling out all landunits):
-        #                  1,      0.5,      14,    0,           0.8,    0,       0
-        [1 / 3, 1 / 3, 1 / 3, 0.2, 0.3, 8, 4, 2, 0, 0, 0.1, 0.2, 0.5, 0, 0, 0, 0, 0]
+        #                  1,      0.5, 1, 1,      14,    0,           0.8,    0,       0
+        [1 / 3, 1 / 3, 1 / 3, 0.2, 0.3, 1, 1, 8, 4, 2, 0, 0, 0.1, 0.2, 0.5, 0, 0, 0, 0, 0]
     )
 
     # Add our test variable
     da = xr.DataArray(
         # Landunits:
-        #           1,        2,       3,      4,        5,         6,          7
-        data=[9, 9, 3, 87, -1.5, 7, 4, 6, 86, 24, 1, 10, 5, 100, -999, 84, 91, 55],
+        #           1,        2, 3,  4,       5,      6,        7,         8,          9
+        data=[9, 9, 3, 87, -1.5, 0, pi, 7, 4, 6, 86, 24, 1, 10, 5, 100, -999, 84, 91, 55],
         dims=[childstrings.dim],
     )
     ds[VAR_NAME] = da
@@ -116,6 +118,8 @@ class TestPftToLandunit:
         data=[
             get_expected_weighted_mean(weights=[1 / 3, 1 / 3, 1 / 3], values=[9, 9, 3]),
             get_expected_weighted_mean(weights=[0.2, 0.3], values=[87, -1.5]),
+            get_expected_weighted_mean(weights=[1], values=[0]),
+            get_expected_weighted_mean(weights=[1], values=[pi]),
             get_expected_weighted_mean(weights=[8, 4, 2], values=[7, 4, 6]),
             get_expected_weighted_mean(weights=[0, 0], values=[86, 24]),
             get_expected_weighted_mean(weights=[0.1, 0.2, 0.5], values=[1, 10, 5]),
@@ -159,15 +163,15 @@ def fixture_ds_p2c(ds_all):
     ds = drop_unneeded_subunits(ds_all, asp.PFTSTRINGS, asp.COLSSTRINGS)
     ds["pfts1d_wtcol"].values = (
         # Column sums (lots of zeros because we can test what we need without filling out all cols):
-        #                  1, 1, 0.5,      14, 0, 0,           0.8, 0, 0,       0
-        [1 / 3, 1 / 3, 1 / 3, 1, 0.5, 8, 4, 2, 0, 0, 0.1, 0.2, 0.5, 0, 0, 0, 0, 0]
+        #                  1, 1, 0.5, 1, 1,      14, 0, 0,           0.8, 0, 0,       0
+        [1 / 3, 1 / 3, 1 / 3, 1, 0.5, 1, 1, 8, 4, 2, 0, 0, 0.1, 0.2, 0.5, 0, 0, 0, 0, 0]
     )
 
     # Add our test variable
     da = xr.DataArray(
         # Columns:
-        #           1,  2,    3,       4,  5,  6,        7,   8,    9,         10
-        data=[9, 9, 3, 87, -1.5, 7, 4, 6, 86, 24, 1, 10, 5, 100, -999, 84, 91, 55],
+        #           1,  2,    3,   4,      5,       6,  7,  8,        9,  10,   11,         12
+        data=[9, 9, 3, 87, -1.5, -pi, 2 * pi, 7, 4, 6, 86, 24, 1, 10, 5, 100, -999, 84, 91, 55],
         dims=[asp.PFTSTRINGS.dim],
     )
     ds[VAR_NAME] = da
@@ -186,6 +190,8 @@ class TestPftToColumn:
             get_expected_weighted_mean(weights=[1 / 3, 1 / 3, 1 / 3], values=[9, 9, 3]),
             get_expected_weighted_mean(weights=[1], values=[87]),
             get_expected_weighted_mean(weights=[0.5], values=[-1.5]),
+            get_expected_weighted_mean(weights=[1], values=[-pi]),
+            get_expected_weighted_mean(weights=[1], values=[2 * pi]),
             get_expected_weighted_mean(weights=[8, 4, 2], values=[7, 4, 6]),
             get_expected_weighted_mean(weights=[0], values=[86]),
             get_expected_weighted_mean(weights=[0], values=[24]),

@@ -23,14 +23,14 @@ def fixture_ds_c2g(ds_all):
     ds = drop_unneeded_subunits(ds_all, asp.COLSSTRINGS, asp.GRIDSTRINGS)
     ds["cols1d_wtgcell"].values = (
         # Gridcell sums:
-        #                  1,           0.6,       16, 0
-        [1 / 3, 1 / 3, 1 / 3, 0.1, 0.2, 0.3, 4, 10, 2, 0]
+        #                      1,           0.6,       16, 0
+        [0.2, 0.2, 0.2, 0.2, 0.2, 0.1, 0.2, 0.3, 4, 10, 2, 0]
     )
 
     # Add our test variable
     da = xr.DataArray(
-        # Gridcell:   1,         2,          3,   4
-        data=[3, 25, 86, 7, 24, 87, 0, -55, 18, 7.4],
+        # Gridcell:         1,         2,          3,   4
+        data=[3, 25, 86, 0, 1, 7, 24, 87, 0, -55, 18, 7.4],
         dims=["column"],
     )
     ds[VAR_NAME] = da
@@ -46,7 +46,7 @@ class TestColumnToGridcell:
 
     EXPECTED_DA = xr.DataArray(
         data=[
-            get_expected_weighted_mean(weights=[1 / 3, 1 / 3, 1 / 3], values=[3, 25, 86]),
+            get_expected_weighted_mean(weights=[0.2, 0.2, 0.2, 0.2, 0.2], values=[3, 25, 86, 0, 1]),
             get_expected_weighted_mean(weights=[0.1, 0.2, 0.3], values=[7, 24, 87]),
             get_expected_weighted_mean(weights=[4, 10, 2], values=[0, -55, 18]),
             get_expected_weighted_mean(weights=[0], values=[7.4]),
@@ -90,15 +90,15 @@ def fixture_ds_c2l(ds_all):
     ds = drop_unneeded_subunits(ds_all, childstrings, parentstrings)
     ds[f"{childstrings.prefix}1d_wt{parentstrings.wt}"].values = (
         # Landunit sums (lots of zeros b/c we can test what we need w/o filling out all landunits):
-        # 1,       1, 0.25,   10, 0,    0, 0
-        [1, 0.5, 0.5, 0.25, 3, 7, 0, 0, 0, 0]
+        # 1,       1, 1, 1, 0.25,   10, 0,    0, 0
+        [1, 0.5, 0.5, 1, 1, 0.25, 3, 7, 0, 0, 0, 0]
     )
 
     # Add our test variable
     da = xr.DataArray(
         # Landunits:
-        #        1,       2,     3,          4,    5,      6,  7
-        data=[1.58, 880, 22, 10.53, 33e7, 41e7, 27.6, 41, 14, 87],
+        #        1,       2,  3,     4,     5,          6,    7,      8,  9
+        data=[1.58, 880, 22, -4, -3.14, 10.53, 33e7, 41e7, 27.6, 41, 14, 87],
         dims=[childstrings.dim],
     )
     ds[VAR_NAME] = da
@@ -116,6 +116,8 @@ class TestColumnToLandunit:
         data=[
             get_expected_weighted_mean(weights=[1], values=[1.58]),
             get_expected_weighted_mean(weights=[0.5, 0.5], values=[880, 22]),
+            get_expected_weighted_mean(weights=[1], values=[-4]),
+            get_expected_weighted_mean(weights=[1], values=[-3.14]),
             get_expected_weighted_mean(weights=[0.25], values=[10.53]),
             get_expected_weighted_mean(weights=[3, 7], values=[33e7, 41e7]),
             get_expected_weighted_mean(weights=[0], values=[27.6]),

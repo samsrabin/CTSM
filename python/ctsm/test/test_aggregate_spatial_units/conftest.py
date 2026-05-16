@@ -20,9 +20,15 @@ def fixture_ds_all():
     parent; e.g., tests of aggregating PFT to gridcell will drop the land1d_* and cols1d_*
     variables, which are not necessary.
 
-    We'll be making a 2x2 "global" grid. Each gridcell will have a natural and crop landunit, except
-    the last gridcell, which won't have crop. There will be 3 natural and 2 crop PFTs. As in CTSM,
-    the natural PFTs will share a column, while the crop PFTs will each get their own column.
+    We'll be making a 2x2 "global" grid. The gridcells will have the following landunits:
+    - 1: natural, crop, urban_hd, and urban_md
+    - 2: natural, crop
+    - 3: natural, crop
+    - 4: natural
+
+    There will be 3 natural and 2 crop PFTs. The urban landunits will each get the first natural
+    PFT, and only that PFT. As in CTSM, the natural PFTs will share a column, while the crop PFTs
+    will each get their own column.
     """
     # pylint: disable=too-many-locals,too-many-statements
 
@@ -75,12 +81,10 @@ def fixture_ds_all():
     )
     assert ds_grid.sizes["gridcell"] == n_gridcells
 
-    # Assume 2 landunits per gridcell (natural, crop), except no crop on last gridcell
-    n_landunits_per_gridcell = 2
-    n_landunits = n_gridcells * n_landunits_per_gridcell - 1
+    n_landunits = 4 + 2 + 2 + 1
 
     land1d_gi = xr.DataArray(
-        data=[1, 1, 2, 2, 3, 3, 4],
+        data=[1, 1, 1, 1, 2, 2, 3, 3, 4],
         dims=["landunit"],
     )
     assert land1d_gi.size == n_landunits
@@ -105,12 +109,12 @@ def fixture_ds_all():
         dims=["landunit"],
     )
     land1d_wtgcell = xr.DataArray(
-        # Sums:      1,    1,      0.9, 1.0,
-        data=[0.5, 0.5, 0, 1, 0.1, 0.8, 1.0],
+        # Sums:                    1,    1,      0.9, 1.0,
+        data=[0.25, 0.25, 0.25, 0.25, 0, 1, 0.1, 0.8, 1.0],
         dims=["landunit"],
     )
     land1d_ityplunit = xr.DataArray(
-        data=[1, 2, 1, 2, 1, 2, 1],
+        data=[1, 2, 8, 9, 1, 2, 1, 2, 1],
         dims=["landunit"],
     )
 
@@ -127,13 +131,13 @@ def fixture_ds_all():
     )
     assert ds_land.sizes["landunit"] == n_landunits
 
-    # Assume 1 column on natural landunit and 2 columns on crop (1 per crop PFT)
+    # Assume 1 column on natural and urban landunits, 2 columns on crop (1 per crop PFT)
     cols1d_gi = xr.DataArray(
-        data=[1, 1, 1, 2, 2, 2, 3, 3, 3, 4],
+        data=[1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4],
         dims=["column"],
     )
     cols1d_li = xr.DataArray(
-        data=[1, 2, 2, 3, 4, 4, 5, 6, 6, 7],
+        data=[1, 2, 2, 3, 4, 5, 6, 6, 7, 8, 8, 9],
         dims=["column"],
     )
     cols1d_lon = xr.DataArray(
@@ -157,8 +161,8 @@ def fixture_ds_all():
         dims=["column"],
     )
     cols1d_wtlunit = xr.DataArray(
-        # Sums: 1,        1, 0.9,          1,   1,    100, 0.1
-        data=[1.0, 0.5, 0.5, 0.9, 0.75, 0.25, 1.0, 50, 50, 0.1],
+        # Sums: 1,        1, 1, 1, 0.9,          1,   1,    100, 0.1
+        data=[1.0, 0.5, 0.5, 1, 1, 0.9, 0.75, 0.25, 1.0, 50, 50, 0.1],
         dims=["column"],
     )
     data = []
@@ -172,11 +176,11 @@ def fixture_ds_all():
         dims=["column"],
     )
     cols1d_itype_lunit = xr.DataArray(
-        data=[1, 2, 2, 1, 2, 2, 1, 2, 2, 1],
+        data=[1, 2, 2, 8, 9, 1, 2, 2, 1, 2, 2, 1],
         dims=["column"],
     )
     cols1d_itype_col = xr.DataArray(
-        data=[1, 201, 202, 1, 201, 202, 1, 201, 202, 1],
+        data=[1, 201, 202, 71, 71, 1, 201, 202, 1, 201, 202, 1],
         dims=["column"],
     )
 
@@ -194,19 +198,19 @@ def fixture_ds_all():
             "cols1d_itype_col": cols1d_itype_col,
         }
     )
-    assert ds_cols.sizes["column"] == n_gridcells + 2 * (n_gridcells - 1)
+    assert ds_cols.sizes["column"] == n_gridcells + 2 * (n_gridcells - 1) + 2
 
     # Assume 3 natural and, as above, 2 crop PFTs
     pfts1d_gi = xr.DataArray(
-        data=[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4],
+        data=[1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4],
         dims=["pft"],
     )
     pfts1d_li = xr.DataArray(
-        data=[1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 7],
+        data=[1, 1, 1, 2, 2, 3, 4, 5, 5, 5, 6, 6, 7, 7, 7, 8, 8, 9, 9, 9],
         dims=["pft"],
     )
     pfts1d_ci = xr.DataArray(
-        data=[1, 1, 1, 2, 3, 4, 4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 10, 10],
+        data=[1, 1, 1, 2, 3, 4, 5, 6, 6, 6, 7, 8, 9, 9, 9, 10, 11, 12, 12, 12],
         dims=["pft"],
     )
     pfts1d_lon = xr.DataArray(
@@ -230,8 +234,8 @@ def fixture_ds_all():
         dims=["pft"],
     )
     pfts1d_wtcol = xr.DataArray(
-        # Sums:                 1, 1, 1,             1, 0.5, 1        0, 1, 9,           0.6
-        data=[1 / 3, 1 / 3, 1 / 3, 1, 1, 0.1, 0.4, 0.5, 0.5, 1, 0, 0, 0, 1, 9, 0.1, 0.2, 0.3],
+        # Sums:                 1, 1, 1, 1, 1,             1, 0.5, 1        0, 1, 9,           0.6
+        data=[1 / 3, 1 / 3, 1 / 3, 1, 1, 1, 1, 0.1, 0.4, 0.5, 0.5, 1, 0, 0, 0, 1, 9, 0.1, 0.2, 0.3],
         dims=["pft"],
     )
     data = []
@@ -255,11 +259,11 @@ def fixture_ds_all():
         dims=["pft"],
     )
     pfts1d_itype_lunit = xr.DataArray(
-        data=[1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1],
+        data=[1, 1, 1, 2, 2, 8, 9, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1],
         dims=["pft"],
     )
     pfts1d_itype_col = xr.DataArray(
-        data=[1, 1, 1, 201, 202, 1, 1, 1, 201, 202, 1, 1, 1, 201, 202, 1, 1, 1],
+        data=[1, 1, 1, 201, 202, 71, 71, 1, 1, 1, 201, 202, 1, 1, 1, 201, 202, 1, 1, 1],
         dims=["pft"],
     )
 
@@ -279,7 +283,7 @@ def fixture_ds_all():
             "pfts1d_itype_col": pfts1d_itype_col,
         }
     )
-    assert ds_pfts.sizes["pft"] == 3 * n_gridcells + 2 * (n_gridcells - 1)
+    assert ds_pfts.sizes["pft"] == 3 * n_gridcells + 2 * (n_gridcells - 1) + 2
 
     ds = xr.merge([ds_grid, ds_land, ds_cols, ds_pfts])
 

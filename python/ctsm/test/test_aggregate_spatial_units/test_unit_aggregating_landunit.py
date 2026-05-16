@@ -23,14 +23,14 @@ def fixture_ds_l2g(ds_all):
     ds = drop_unneeded_subunits(ds_all, asp.LANDSTRINGS, asp.GRIDSTRINGS)
     ds["land1d_wtgcell"].values = (
         # Gridcell:
-        #       1,              2,    3,  4
-        [0.5, 0.5, 4.8e-9, 8.0e-7, 0, 0, 66]
+        #                     1,              2,    3,  4
+        [0.25, 0.25, 0.25, 0.25, 4.8e-9, 8.0e-7, 0, 0, 66]
     )
 
     # Add our test variable
     da = xr.DataArray(
-        # Gridcell:        1,      2,    3, 4
-        data=[4.8e-9, 8.0e-7, 19, 87, 0, 0, 5],
+        # Gridcell:                    1,      2,    3, 4
+        data=[4.8e-9, 8.0e-7, 0.004, 0.2, 19, 87, 0, 0, 5],
         dims=["landunit"],
     )
     ds[VAR_NAME] = da
@@ -46,7 +46,9 @@ class TestLandunitToGridcell:
 
     EXPECTED_DA = xr.DataArray(
         data=[
-            get_expected_weighted_mean(weights=[0.5, 0.5], values=[4.8e-9, 8.0e-7]),
+            get_expected_weighted_mean(
+                weights=[0.25, 0.25, 0.25, 0.25], values=[4.8e-9, 8.0e-7, 0.004, 0.2]
+            ),
             get_expected_weighted_mean(weights=[4.8e-9, 8.0e-7], values=[19, 87]),
             get_expected_weighted_mean(weights=[0, 0], values=[0, 0]),
             get_expected_weighted_mean(weights=[66], values=[5]),
