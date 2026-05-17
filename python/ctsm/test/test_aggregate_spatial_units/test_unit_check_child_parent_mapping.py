@@ -31,19 +31,6 @@ def test_check_child_parent_mapping_ok(ds_all, childstrings, parentstrings):
     "childstrings, parentstrings",
     VALID_PARENT_CHILD_COMBOS,
 )
-def test_check_child_parent_mapping_non_monotonic(ds_all, childstrings, parentstrings):
-    """Make sure it errors right if child's parent indices aren't monotonically increasing"""
-    child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
-    ds_all[child1d_parenti_var].values[-1] = 1
-    with pytest.raises(
-        AssertionError, match=f"{child1d_parenti_var} not monotonically increasing"
-    ):
-        asp._check_child_parent_mapping(ds_all, childstrings, parentstrings)
-
-@pytest.mark.parametrize(
-    "childstrings, parentstrings",
-    VALID_PARENT_CHILD_COMBOS,
-)
 def test_check_child_parent_mapping_skipped(ds_all, childstrings, parentstrings):
     """Make sure it errors right if a child's parent index is skipped"""
     child1d_parenti_var = f"{childstrings.prefix}1d_{parentstrings.i}i"

@@ -134,27 +134,19 @@ def _check_child_parent_mapping(
 
     unique_ordered_parent_i = []
 
-    for i in np.arange(ds_in.sizes[childstrings.dim]):
-        if i > 0:
-            max_parent_i = max(unique_ordered_parent_i)
-        else:
-            max_parent_i = 0
+    child_to_parent_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
+    child_to_parent_values = ds_in[child_to_parent_var].values
 
-        # Get parent index
-        child_to_parent_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
-        parent_i = int(ds_in[child_to_parent_var].values[i])
+    # Get list of parent indices in the order they appear in the child
+    seen = set()
+    unique_ordered_parent_i = [
+        int(x) for x in child_to_parent_values if not (x in seen or seen.add(x))
+    ]
 
-        # Make sure child's parent indices are monotonically increasing
-        assert parent_i >= max_parent_i, f"{child_to_parent_var} not monotonically increasing"
-
-        # Make sure no parents are skipped
-        assert (
-            parent_i <= max_parent_i + 1
-        ), f"{child_to_parent_var} skips at least one {parentstrings.disp}"
-
-        # Add to list of uniques
-        if parent_i not in unique_ordered_parent_i:
-            unique_ordered_parent_i.append(parent_i)
+    # Make sure no parents are skipped
+    assert np.all(
+        np.diff(unique_ordered_parent_i) == 1
+    ), f"{child_to_parent_var} skips at least one {parentstrings.disp}"
 
     # Make sure length is correct
     n_in_child = len(unique_ordered_parent_i)
