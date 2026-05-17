@@ -187,29 +187,34 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
 
     This "ijt tuple" can be considered a unique identifier for the parent.
     """
-    ijt_ids = []
-    for i in np.arange(ds_in.sizes[childstrings.dim]):
-        ixy = int(ds_in[f"{childstrings.prefix}1d_ixy"].values[i])
-        jxy = int(ds_in[f"{childstrings.prefix}1d_jxy"].values[i])
-        t = tuple()
-        if parentstrings.dim == "gridcell":
-            pass
-        else:
-            if childstrings.dim == "column":
-                t += (ds_in["cols1d_itype_lunit"].values[i],)
-            elif childstrings.dim == "pft":
-                t += (ds_in["pfts1d_itype_lunit"].values[i],)
-                if parentstrings.dim == "column":
-                    t += (ds_in["pfts1d_itype_col"].values[i],)
-            else:
-                raise ValueError(f"Unrecognized {childstrings.dim=}")
-        ijt = (ixy, jxy)
-        if t:
-            ijt += t
-        ijt = tuple([int(x) for x in ijt])
+    # Get list of where parent indices first appear in the child
+    child_to_parent_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
+    child_to_parent_values = ds_in[child_to_parent_var].values
+    seen = set()
+    where_parent_appears_first = [
+        i for i, x in enumerate(child_to_parent_values) if not (x in seen or seen.add(x))
+    ]
 
-        if ijt not in ijt_ids:
-            ijt_ids.append(ijt)
+    # Get i,j,t triads
+    print("(4e)", end="", flush=True)
+    idx = where_parent_appears_first  # list of integer indices
+    ixy_arr = ds_in[f"{childstrings.prefix}1d_ixy"].values[idx].astype(int)
+    jxy_arr = ds_in[f"{childstrings.prefix}1d_jxy"].values[idx].astype(int)
+    if parentstrings.dim == "gridcell":
+        ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr)))
+    else:
+        if childstrings.dim == "column":
+            t_arr = ds_in["cols1d_itype_lunit"].values[idx].astype(int)
+            ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr, t_arr)))
+        elif childstrings.dim == "pft":
+            t0_arr = ds_in["pfts1d_itype_lunit"].values[idx].astype(int)
+            if parentstrings.dim == "column":
+                t1_arr = ds_in["pfts1d_itype_col"].values[idx].astype(int)
+                ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr, t0_arr, t1_arr)))
+            else:
+                ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr, t0_arr)))
+        else:
+            raise ValueError(f"Unrecognized {childstrings.dim=}")
 
     # Make sure every parent is represented and parents are ordered correctly
     ijt_ids_expected = []
