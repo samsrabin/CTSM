@@ -195,7 +195,7 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
         i for i, x in enumerate(child_to_parent_values) if not (x in seen or seen.add(x))
     ]
 
-    # Get i,j,t triads
+    # Get i,j,t IDs of parents as they appear in child
     print("(4e)", end="", flush=True)
     idx = where_parent_appears_first  # list of integer indices
     ixy_arr = ds_in[f"{childstrings.prefix}1d_ixy"].values[idx].astype(int)
@@ -216,30 +216,25 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
         else:
             raise ValueError(f"Unrecognized {childstrings.dim=}")
 
+    # Get i,j,t IDs of parents themselves
+    ixy_arr = ds_in[f"{parentstrings.prefix}1d_ixy"].values.astype(int)
+    jxy_arr = ds_in[f"{parentstrings.prefix}1d_jxy"].values.astype(int)
+    if parentstrings.dim == "gridcell":
+        ijt_ids_expected = list(map(tuple, zip(ixy_arr, jxy_arr)))
+    elif parentstrings.dim == "landunit":
+        itype_landunit_var = "land1d_ityplunit"
+        if itype_landunit_var not in ds_in:
+            itype_landunit_var = "land1d_itype_lunit"
+        itype_lunit = ds_in[itype_landunit_var].values.astype(int)
+        ijt_ids_expected = list(map(tuple, zip(ixy_arr, jxy_arr, itype_lunit)))
+    elif parentstrings.dim == "column":
+        itype_lunit = ds_in["cols1d_itype_lunit"].values.astype(int)
+        itype_col = ds_in["cols1d_itype_col"].values.astype(int)
+        ijt_ids_expected = list(map(tuple, zip(ixy_arr, jxy_arr, itype_lunit, itype_col)))
+    else:
+        raise ValueError(f"Unrecognized {parentstrings.dim=}")
+
     # Make sure every parent is represented and parents are ordered correctly
-    ijt_ids_expected = []
-    for i in np.arange(ds_in.sizes[parentstrings.dim]):
-        ixy = int(ds_in[f"{parentstrings.prefix}1d_ixy"].values[i])
-        jxy = int(ds_in[f"{parentstrings.prefix}1d_jxy"].values[i])
-        t = tuple()
-        if parentstrings.dim == "gridcell":
-            pass
-        elif parentstrings.dim == "landunit":
-            itype_lunit = ds_in["land1d_ityplunit"].values[i]
-            t = (itype_lunit,)
-        elif parentstrings.dim == "column":
-            itype_lunit = ds_in["cols1d_itype_lunit"].values[i]
-            itype_col = ds_in["cols1d_itype_col"].values[i]
-            t = (itype_lunit, itype_col)
-        else:
-            raise ValueError(f"Unrecognized {parentstrings.dim=}")
-        ijt = tuple([int(x) for x in (ixy, jxy) + t])
-        if ijt not in ijt_ids_expected:
-            ijt_ids_expected.append(ijt)
-        else:
-            raise NotImplementedError(
-                f"This code depends on actual ijt IDs being unique; {ijt} appears at least twice (second time at index {i})"
-            )
     if not all(ijt in ijt_ids for ijt in ijt_ids_expected):
         for ijt in ijt_ids_expected:
             if ijt not in ijt_ids:
