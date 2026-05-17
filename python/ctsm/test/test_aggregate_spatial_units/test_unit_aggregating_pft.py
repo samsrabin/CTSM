@@ -2,7 +2,7 @@
 
 """Unit tests of aggregating PFT to gridcell, landunit, and column"""
 
-from numpy import pi
+from numpy import pi, unique, sort, array_equal
 import xarray as xr
 import pytest
 
@@ -54,6 +54,25 @@ class TestPftToGridcell:
 
     def test_da_p2g(self, ds_p2g):
         """Test da_aggregate() for pft to gridcell"""
+        result = asp.da_aggregate(ds_p2g, VAR_NAME, asp.PFTSTRINGS, asp.GRIDSTRINGS)
+        are_dataarrays_close(result, self.EXPECTED_DA, "gridcell")
+
+    def test_da_p2g_not_mono_inc(self, ds_p2g):
+        """
+        Test da_aggregate() for pft to gridcell when pft parent index isn't monotonically
+        increasing; should still work fine as long as the parents still FIRST appear in the right
+        order.
+        """
+
+        # Python-indexed new order for the PFT dimension, such that the PFTs' gridcell indices are
+        # no longer monotonically increasing
+        assert array_equal(ds_p2g["pfts1d_gi"].values, sort(ds_p2g["pfts1d_gi"].values))
+        new_order = [0, 1, 2, 3, 4, 5, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+        assert max(new_order) + 1 == ds_p2g.sizes["pft"]
+        assert len(new_order) == len(unique(new_order))
+        ds_p2g = ds_p2g.isel(pft=new_order)
+        assert not array_equal(ds_p2g["pfts1d_gi"].values, sort(ds_p2g["pfts1d_gi"].values))
+
         result = asp.da_aggregate(ds_p2g, VAR_NAME, asp.PFTSTRINGS, asp.GRIDSTRINGS)
         are_dataarrays_close(result, self.EXPECTED_DA, "gridcell")
 
