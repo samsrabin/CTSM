@@ -138,7 +138,6 @@ def _check_child_parent_mapping(
     ### Stricter check: Not just parent indices, but parent IDs ###
     ###############################################################
 
-    # Get i,j,t triads
     _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings)
 
 
@@ -149,6 +148,10 @@ def _check_child_parent_mapping_indices(ds_in, childstrings, parentstrings):
     1. The parent indices are monotonically increasing *if* you look at just their first
        appearances.
     2. No parent indices are skipped.
+
+    This would be sufficient to prove that all parents are represented, in the correct order, by at
+    least one child... if we were to trust that the children and parents about what the parents look
+    like. But we don't, so we will follow up this function with _check_child_parent_mapping_ids().
     """
     unique_ordered_parent_i = []
 
@@ -179,8 +182,8 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
     """Check child-parent mapping using parent IDs
 
     Checks that the parent types referenced by the child1d_itype_* variables actually match (in both
-    order and value) the parent1d_itype_* values. It does this by constructing an array of tuples
-    for each:
+    order and value) the parent1d_itype_* values. It does this by constructing a list of tuples for
+    each:
     - If child is landunit: (ixy, jxy)
     - If child is column: (ixy, jxy, itype_lunit)
     - If child is pft: (ixy, jxy, itype_lunit, itype_col)
@@ -188,75 +191,62 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
     This "ijt tuple" can be considered a unique identifier for the parent.
     """
     # Get list of where parent indices first appear in the child
-    child_to_parent_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
-    child_to_parent_values = ds_in[child_to_parent_var].values
     seen = set()
-    where_parent_appears_first = [
-        i for i, x in enumerate(child_to_parent_values) if not (x in seen or seen.add(x))
+    idx = [
+        i
+        for i, x in enumerate(ds_in[f"{childstrings.prefix}1d_{parentstrings.i}i"].values)
+        if not (x in seen or seen.add(x))
     ]
 
     # Get i,j,t IDs of parents as they appear in child
-    print("(4e)", end="", flush=True)
-    idx = where_parent_appears_first  # list of integer indices
-    ixy_arr = ds_in[f"{childstrings.prefix}1d_ixy"].values[idx].astype(int)
-    jxy_arr = ds_in[f"{childstrings.prefix}1d_jxy"].values[idx].astype(int)
+    ixy = ds_in[f"{childstrings.prefix}1d_ixy"].values[idx].astype(int)
+    jxy = ds_in[f"{childstrings.prefix}1d_jxy"].values[idx].astype(int)
     if parentstrings.dim == "gridcell":
-        ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr)))
-    else:
-        if childstrings.dim == "column":
-            t_arr = ds_in["cols1d_itype_lunit"].values[idx].astype(int)
-            ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr, t_arr)))
-        elif childstrings.dim == "pft":
-            t0_arr = ds_in["pfts1d_itype_lunit"].values[idx].astype(int)
-            if parentstrings.dim == "column":
-                t1_arr = ds_in["pfts1d_itype_col"].values[idx].astype(int)
-                ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr, t0_arr, t1_arr)))
-            else:
-                ijt_ids = list(map(tuple, zip(ixy_arr, jxy_arr, t0_arr)))
+        ijt_ids = list(map(tuple, zip(ixy, jxy)))
+    elif childstrings.dim == "column":
+        itype_lunit = ds_in["cols1d_itype_lunit"].values[idx].astype(int)
+        ijt_ids = list(map(tuple, zip(ixy, jxy, itype_lunit)))
+    elif childstrings.dim == "pft":
+        itype_lunit = ds_in["pfts1d_itype_lunit"].values[idx].astype(int)
+        if parentstrings.dim == "column":
+            itype_col = ds_in["pfts1d_itype_col"].values[idx].astype(int)
+            ijt_ids = list(map(tuple, zip(ixy, jxy, itype_lunit, itype_col)))
+        elif parentstrings.dim == "landunit":
+            ijt_ids = list(map(tuple, zip(ixy, jxy, itype_lunit)))
         else:
-            raise ValueError(f"Unrecognized {childstrings.dim=}")
+            raise ValueError(f"Unrecognized {parentstrings.dim=}")
+    else:
+        raise ValueError(f"Unrecognized {childstrings.dim=}")
 
     # Get i,j,t IDs of parents themselves
-    print("(4f)", end="", flush=True)
-    ixy_arr = ds_in[f"{parentstrings.prefix}1d_ixy"].values.astype(int)
-    jxy_arr = ds_in[f"{parentstrings.prefix}1d_jxy"].values.astype(int)
+    ixy = ds_in[f"{parentstrings.prefix}1d_ixy"].values.astype(int)
+    jxy = ds_in[f"{parentstrings.prefix}1d_jxy"].values.astype(int)
     if parentstrings.dim == "gridcell":
-        ijt_ids_expected = list(map(tuple, zip(ixy_arr, jxy_arr)))
+        ijt_ids_expected = list(map(tuple, zip(ixy, jxy)))
     elif parentstrings.dim == "landunit":
         itype_landunit_var = "land1d_ityplunit"
         if itype_landunit_var not in ds_in:
             itype_landunit_var = "land1d_itype_lunit"
         itype_lunit = ds_in[itype_landunit_var].values.astype(int)
-        ijt_ids_expected = list(map(tuple, zip(ixy_arr, jxy_arr, itype_lunit)))
+        ijt_ids_expected = list(map(tuple, zip(ixy, jxy, itype_lunit)))
     elif parentstrings.dim == "column":
         itype_lunit = ds_in["cols1d_itype_lunit"].values.astype(int)
         itype_col = ds_in["cols1d_itype_col"].values.astype(int)
-        ijt_ids_expected = list(map(tuple, zip(ixy_arr, jxy_arr, itype_lunit, itype_col)))
+        ijt_ids_expected = list(map(tuple, zip(ixy, jxy, itype_lunit, itype_col)))
     else:
         raise ValueError(f"Unrecognized {parentstrings.dim=}")
 
     # Make sure every parent is represented
     ijt_ids_set = set(ijt_ids)
     ijt_ids_expected_set = set(ijt_ids_expected)
-    print("(4g)", end="", flush=True)
-    if not ijt_ids_expected_set.issubset(ijt_ids_set):
-        for ijt in ijt_ids_expected:
-            if ijt not in ijt_ids:
-                print(" ")
-                print(f"{ijt_ids_expected[0:5]=}")
-                print(f"{ijt_ids[0:5]=}")
-                raise AssertionError(
-                    f"Not every {parentstrings.disp} is represented by at least one {childstrings.disp}; {ijt} missing"
-                )
+    msg = f"Not every {parentstrings.disp} is represented by at least one {childstrings.disp}"
+    assert ijt_ids_expected_set.issubset(ijt_ids_set), msg
 
     # Make sure there are no unexpected parents
-    print("(4h)", end="", flush=True)
     msg = f"Unexpected {parentstrings.disp} referenced by {childstrings.disp} i,j,t indices"
     assert ijt_ids_set.issubset(ijt_ids_expected_set), msg
 
     # Make sure order is correct
-    print("(4i)", end="", flush=True)
     assert (
         ijt_ids == ijt_ids_expected
     ), f"{childstrings.disp} list order does not correspond to {parentstrings.disp} list order"
-    print("(4j)", end="", flush=True)
