@@ -132,6 +132,24 @@ def _check_child_parent_mapping(
     ### Check just with indices ###
     ###############################
 
+    _check_child_parent_mapping_indices(ds_in, childstrings, parentstrings)
+
+    ###############################################################
+    ### Stricter check: Not just parent indices, but parent IDs ###
+    ###############################################################
+
+    # Get i,j,t triads
+    _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings)
+
+
+def _check_child_parent_mapping_indices(ds_in, childstrings, parentstrings):
+    """Check child-parent mapping using parent indices
+
+    Checks the child1d_parenti variable for two conditions:
+    1. The parent indices are monotonically increasing *if* you look at just their first
+       appearances.
+    2. No parent indices are skipped.
+    """
     unique_ordered_parent_i = []
 
     child_to_parent_var = f"{childstrings.prefix}1d_{parentstrings.i}i"
@@ -156,11 +174,19 @@ def _check_child_parent_mapping(
         f" {child_to_parent_var}; got {n_in_child}"
     )
 
-    ###############################################################
-    ### Stricter check: Not just parent indices, but parent IDs ###
-    ###############################################################
 
-    # Get i,j,t triads
+def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
+    """Check child-parent mapping using parent IDs
+
+    Checks that the parent types referenced by the child1d_itype_* variables actually match (in both
+    order and value) the parent1d_itype_* values. It does this by constructing an array of tuples
+    for each:
+    - If child is landunit: (ixy, jxy)
+    - If child is column: (ixy, jxy, itype_lunit)
+    - If child is pft: (ixy, jxy, itype_lunit, itype_col)
+
+    This "ijt tuple" can be considered a unique identifier for the parent.
+    """
     ijt_ids = []
     for i in np.arange(ds_in.sizes[childstrings.dim]):
         ixy = int(ds_in[f"{childstrings.prefix}1d_ixy"].values[i])
