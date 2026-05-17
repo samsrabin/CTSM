@@ -217,6 +217,7 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
             raise ValueError(f"Unrecognized {childstrings.dim=}")
 
     # Get i,j,t IDs of parents themselves
+    print("(4f)", end="", flush=True)
     ixy_arr = ds_in[f"{parentstrings.prefix}1d_ixy"].values.astype(int)
     jxy_arr = ds_in[f"{parentstrings.prefix}1d_jxy"].values.astype(int)
     if parentstrings.dim == "gridcell":
@@ -234,8 +235,11 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
     else:
         raise ValueError(f"Unrecognized {parentstrings.dim=}")
 
-    # Make sure every parent is represented and parents are ordered correctly
-    if not all(ijt in ijt_ids for ijt in ijt_ids_expected):
+    # Make sure every parent is represented
+    ijt_ids_set = set(ijt_ids)
+    ijt_ids_expected_set = set(ijt_ids_expected)
+    print("(4g)", end="", flush=True)
+    if not ijt_ids_expected_set.issubset(ijt_ids_set):
         for ijt in ijt_ids_expected:
             if ijt not in ijt_ids:
                 print(" ")
@@ -244,9 +248,15 @@ def _check_child_parent_mapping_ids(ds_in, childstrings, parentstrings):
                 raise AssertionError(
                     f"Not every {parentstrings.disp} is represented by at least one {childstrings.disp}; {ijt} missing"
                 )
-    assert all(
-        ijt in ijt_ids_expected for ijt in ijt_ids
-    ), f"Unexpected {parentstrings.disp} referenced by {childstrings.disp} i,j,t indices"
+
+    # Make sure there are no unexpected parents
+    print("(4h)", end="", flush=True)
+    msg = f"Unexpected {parentstrings.disp} referenced by {childstrings.disp} i,j,t indices"
+    assert ijt_ids_set.issubset(ijt_ids_expected_set), msg
+
+    # Make sure order is correct
+    print("(4i)", end="", flush=True)
     assert (
         ijt_ids == ijt_ids_expected
     ), f"{childstrings.disp} list order does not correspond to {parentstrings.disp} list order"
+    print("(4j)", end="", flush=True)
