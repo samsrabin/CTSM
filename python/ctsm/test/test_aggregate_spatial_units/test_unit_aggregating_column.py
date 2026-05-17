@@ -6,6 +6,7 @@ import xarray as xr
 import pytest
 
 import ctsm.postprocessing.aggregate_spatial_units as asp
+from ctsm.postprocessing.spatial_unit import SU_GRID, SU_LAND, SU_COLS
 from ctsm.test.test_aggregate_spatial_units.helpers import (
     are_dataarrays_close,
     drop_unneeded_subunits,
@@ -20,7 +21,7 @@ VAR_NAME = "testvar"
 @pytest.fixture(name="ds_c2g", scope="function")
 def fixture_ds_c2g(ds_all):
     """Make an xarray Dataset to test column-to-gridcell"""
-    ds = drop_unneeded_subunits(ds_all, asp.COLSSTRINGS, asp.GRIDSTRINGS)
+    ds = drop_unneeded_subunits(ds_all, SU_COLS, SU_GRID)
     ds["cols1d_wtgcell"].values = (
         # Gridcell sums:
         #                      1,           0.6,       16, 0
@@ -41,8 +42,8 @@ def fixture_ds_c2g(ds_all):
 class TestColumnToGridcell:
     """Tests of aggregating column to gridcell"""
 
-    CHILDSTRINGS = asp.COLSSTRINGS
-    PARENTSTRINGS = asp.GRIDSTRINGS
+    SU_CHILD = SU_COLS
+    SU_PARENT = SU_GRID
 
     EXPECTED_DA = xr.DataArray(
         data=[
@@ -51,13 +52,13 @@ class TestColumnToGridcell:
             get_expected_weighted_mean(weights=[4, 10, 2], values=[0, -55, 18]),
             get_expected_weighted_mean(weights=[0], values=[7.4]),
         ],
-        dims=[PARENTSTRINGS.dim],
+        dims=[SU_PARENT.dim],
     )
 
     def test_da_c2g(self, ds_c2g):
         """Test da_aggregate() for column to gridcell"""
-        result = asp.da_aggregate(ds_c2g, VAR_NAME, self.CHILDSTRINGS, self.PARENTSTRINGS)
-        are_dataarrays_close(result, self.EXPECTED_DA, self.PARENTSTRINGS.dim)
+        result = asp.da_aggregate(ds_c2g, VAR_NAME, self.SU_CHILD, self.SU_PARENT)
+        are_dataarrays_close(result, self.EXPECTED_DA, self.SU_PARENT.dim)
 
     def test_ds_c2g(self, ds_c2g):
         """Test ds_aggregate() for column to gridcell"""
@@ -65,15 +66,15 @@ class TestColumnToGridcell:
         # Build expected Dataset
         expected: xr.Dataset
         expected = ds_c2g.drop_vars(
-            [x for x in ds_c2g if x.startswith(f"{self.CHILDSTRINGS.prefix}1d_")] + [VAR_NAME]
+            [x for x in ds_c2g if x.startswith(f"{self.SU_CHILD.prefix}1d_")] + [VAR_NAME]
         )
         expected[VAR_NAME] = self.EXPECTED_DA
 
         # Get result Dataset
-        result = asp.ds_aggregate(ds_c2g, self.CHILDSTRINGS.dim, self.PARENTSTRINGS.dim)
+        result = asp.ds_aggregate(ds_c2g, self.SU_CHILD.dim, self.SU_PARENT.dim)
 
         # Compare the affected variable
-        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], self.PARENTSTRINGS.dim)
+        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], self.SU_PARENT.dim)
 
         # Now drop it and compare the rest of the Datasets
         expected = expected.drop_vars([VAR_NAME])
@@ -84,11 +85,11 @@ class TestColumnToGridcell:
 @pytest.fixture(name="ds_c2l", scope="function")
 def fixture_ds_c2l(ds_all):
     """Make an xarray Dataset to test column-to-landunit"""
-    childstrings = asp.COLSSTRINGS
-    parentstrings = asp.LANDSTRINGS
+    su_child = SU_COLS
+    su_parent = SU_LAND
 
-    ds = drop_unneeded_subunits(ds_all, childstrings, parentstrings)
-    ds[f"{childstrings.prefix}1d_wt{parentstrings.wt}"].values = (
+    ds = drop_unneeded_subunits(ds_all, su_child, su_parent)
+    ds[f"{su_child.prefix}1d_wt{su_parent.wt}"].values = (
         # Landunit sums (lots of zeros b/c we can test what we need w/o filling out all landunits):
         # 1,       1, 1, 1, 0.25,   10, 0,    0, 0
         [1, 0.5, 0.5, 1, 1, 0.25, 3, 7, 0, 0, 0, 0]
@@ -99,7 +100,7 @@ def fixture_ds_c2l(ds_all):
         # Landunits:
         #        1,       2,  3,     4,     5,          6,    7,      8,  9
         data=[1.58, 880, 22, -4, -3.14, 10.53, 33e7, 41e7, 27.6, 41, 14, 87],
-        dims=[childstrings.dim],
+        dims=[su_child.dim],
     )
     ds[VAR_NAME] = da
 
@@ -109,8 +110,8 @@ def fixture_ds_c2l(ds_all):
 class TestColumnToLandunit:
     """Tests of aggregating column to landunit"""
 
-    CHILDSTRINGS = asp.COLSSTRINGS
-    PARENTSTRINGS = asp.LANDSTRINGS
+    SU_CHILD = SU_COLS
+    SU_PARENT = SU_LAND
 
     EXPECTED_DA = xr.DataArray(
         data=[
@@ -124,14 +125,14 @@ class TestColumnToLandunit:
             get_expected_weighted_mean(weights=[0, 0], values=[41, 14]),
             get_expected_weighted_mean(weights=[0], values=[87]),
         ],
-        dims=[PARENTSTRINGS.dim],
+        dims=[SU_PARENT.dim],
     )
 
     def test_da_c2l(self, ds_c2l):
         """Test da_aggregate() for column to landunit"""
-        result = asp.da_aggregate(ds_c2l, VAR_NAME, self.CHILDSTRINGS, self.PARENTSTRINGS)
+        result = asp.da_aggregate(ds_c2l, VAR_NAME, self.SU_CHILD, self.SU_PARENT)
         assert result.sizes == self.EXPECTED_DA.sizes
-        are_dataarrays_close(result, self.EXPECTED_DA, self.PARENTSTRINGS.dim)
+        are_dataarrays_close(result, self.EXPECTED_DA, self.SU_PARENT.dim)
 
     def test_ds_c2l(self, ds_c2l):
         """Test ds_aggregate() for column to landunit"""
@@ -139,15 +140,15 @@ class TestColumnToLandunit:
         # Build expected Dataset
         expected: xr.Dataset
         expected = ds_c2l.drop_vars(
-            [x for x in ds_c2l if x.startswith(f"{self.CHILDSTRINGS.prefix}1d_")] + [VAR_NAME]
+            [x for x in ds_c2l if x.startswith(f"{self.SU_CHILD.prefix}1d_")] + [VAR_NAME]
         )
         expected[VAR_NAME] = self.EXPECTED_DA
 
         # Get result Dataset
-        result = asp.ds_aggregate(ds_c2l, self.CHILDSTRINGS.dim, self.PARENTSTRINGS.dim)
+        result = asp.ds_aggregate(ds_c2l, self.SU_CHILD.dim, self.SU_PARENT.dim)
 
         # Compare the affected variable
-        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], self.PARENTSTRINGS.dim)
+        are_dataarrays_close(result[VAR_NAME], expected[VAR_NAME], self.SU_PARENT.dim)
 
         # Now drop it and compare the rest of the Datasets
         expected = expected.drop_vars([VAR_NAME])

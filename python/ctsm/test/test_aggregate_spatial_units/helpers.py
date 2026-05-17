@@ -6,6 +6,7 @@ import numpy as np
 import xarray as xr
 
 import ctsm.postprocessing.aggregate_spatial_units as asp
+from ctsm.postprocessing.spatial_unit import SpatialUnit
 
 
 def are_dataarrays_close(result: xr.DataArray, expected: xr.DataArray, dim: str):
@@ -19,16 +20,14 @@ def are_dataarrays_close(result: xr.DataArray, expected: xr.DataArray, dim: str)
     assert result.coords == expected.coords
 
 
-def drop_unneeded_subunits(
-    ds: xr.Dataset, childstrings: asp.SpatialUnitStrings, parentstrings: asp.SpatialUnitStrings
-):
+def drop_unneeded_subunits(ds: xr.Dataset, su_child: SpatialUnit, su_parent: SpatialUnit):
     """
     Drop subunits that aren't the child or parent. Not strictly necessary, but would make debugging
     cleaner.
     """
     unneeded_vars = []
-    for k, v in asp.DIMSTRINGS_DICT.items():
-        if k in [childstrings.dim, parentstrings.dim]:
+    for k, v in asp.SUDICT.items():
+        if k in [su_child.dim, su_parent.dim]:
             continue
         for var in ds:
             if var.startswith(f"{v.prefix}_1d"):
