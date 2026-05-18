@@ -324,54 +324,13 @@ contains
             end do
          end do
 
-         ! This loop repeats here in the ".not. use_nitrif_denitrif"
-         ! section of the if-statement and later in the else section
+         ! Get plant N demand
+         call get_plant_ndemand(bounds, filter_bgc_soilc, num_bgc_soilc, clm_fates, plant_ndemand, plant_ndemand_vr, nuptake_prof)
          bgc_soilc_loop1: do fc = 1, num_bgc_soilc
             c = filter_bgc_soilc(fc)
-
-            fates1: if (col%is_fates(c)) then
-               ci = bounds%clump_index
-               s = clm_fates%f2hmap(ci)%hsites(c)
-               n_pcomp = clm_fates%fates(ci)%bc_out(s)%num_plant_comps
-
-               ! Overwrite the column level demands, since fates plants are all sharing
-               ! the same space, in units per the same square meter, we just add demand
-               ! to scale up to column
-               plant_ndemand(c) = 0._r8
-
-               ! We fill the vertically resolved array to simplify some jointly used code
-               do j = 1, nlevdecomp
-                  plant_ndemand_vr(c,j) = 0._r8
-
-                  if (trim(fates_parteh_mode) == trim(clmfates_carbon_nitrogen)) then
-                     do f = 1, n_pcomp
-                        ft = clm_fates%fates(ci)%bc_out(s)%ft_index(f)
-
-                        ! [gN/m3/s] = [gC/m3] * [gN/gC/s]
-                        plant_ndemand_vr(c,j) = plant_ndemand_vr(c,j) + &
-                            clm_fates%fates(ci)%bc_out(s)%veg_rootc(f,j) * &
-                            (clm_fates%fates(ci)%bc_pconst%vmax_nh4(ft) + &
-                             clm_fates%fates(ci)%bc_pconst%vmax_no3(ft))
-                     end do
-                  end if
-
-                  ! [gN/m2/s]
-                  plant_ndemand(c) = plant_ndemand(c) + plant_ndemand_vr(c,j) * dzsoi_decomp(j)
-
-               end do
-
-            else  ! not is_fates
-
-               do j = 1, nlevdecomp
-                  plant_ndemand_vr(c,j) = plant_ndemand(c) * nuptake_prof(c,j)
-               end do
-
-            end if fates1
-
             do j = 1, nlevdecomp
                sum_ndemand_vr(c,j) = plant_ndemand_vr(c,j) + potential_immob_vr(c,j)
             end do
-
          end do bgc_soilc_loop1
 
          do j = 1, nlevdecomp
@@ -589,52 +548,8 @@ contains
             end do
          end do
 
-         ! This loop repeats here in the "use_nitrif_denitrif" section
-         ! of the if-statement and earlier in the
-         ! ".not. use_nitrif_denitrif" section
-         bgc_soilc_loop2: do fc = 1, num_bgc_soilc
-            c = filter_bgc_soilc(fc)
-
-            fates2: if (col%is_fates(c)) then
-               ci = bounds%clump_index
-               s = clm_fates%f2hmap(ci)%hsites(c)
-               n_pcomp = clm_fates%fates(ci)%bc_out(s)%num_plant_comps
-
-               ! Overwrite the column level demands, since fates plants are all sharing
-               ! the same space, in units per the same square meter, we just add demand
-               ! to scale up to column
-               plant_ndemand(c) = 0._r8
-
-               ! We fill the vertically resolved array to simplify some jointly used code
-               do j = 1, nlevdecomp
-                  plant_ndemand_vr(c,j) = 0._r8
-
-                  if (trim(fates_parteh_mode) == trim(clmfates_carbon_nitrogen))then
-                     do f = 1, n_pcomp
-                        ft = clm_fates%fates(ci)%bc_out(s)%ft_index(f)
-
-                        ! [gN/m3/s] = [gC/m3] * [gN/gC/s]
-                        plant_ndemand_vr(c,j) = plant_ndemand_vr(c,j) + &
-                            clm_fates%fates(ci)%bc_out(s)%veg_rootc(f,j) * &
-                            (clm_fates%fates(ci)%bc_pconst%vmax_nh4(ft) + &
-                             clm_fates%fates(ci)%bc_pconst%vmax_no3(ft))
-                     end do
-                  end if
-
-                  ! [gN/m2/s]
-                  plant_ndemand(c) = plant_ndemand(c) + plant_ndemand_vr(c,j) * dzsoi_decomp(j)
-
-               end do
-
-            else  ! not is_fates
-
-               do j = 1, nlevdecomp
-                  plant_ndemand_vr(c,j) = plant_ndemand(c) * nuptake_prof(c,j)
-               end do
-
-            end if fates2
-
-         end do bgc_soilc_loop2
+         ! Get plant N demand
+         call get_plant_ndemand(bounds, filter_bgc_soilc, num_bgc_soilc, clm_fates, plant_ndemand, plant_ndemand_vr, nuptake_prof)
 
          ! main column/vertical loop
          do j = 1, nlevdecomp  
@@ -1154,5 +1069,75 @@ contains
        nuptake_prof = nfixation_prof
     endif
   end subroutine compute_nuptake_prof
+
+  !-----------------------------------------------------------------------
+  subroutine get_plant_ndemand(bounds, filter_bgc_soilc, num_bgc_soilc, clm_fates, plant_ndemand, plant_ndemand_vr, nuptake_prof)
+    !
+    ! !USES:
+    use clm_varctl       , only: fates_parteh_mode
+    use clm_varpar       , only: clmfates_carbon_nitrogen
+    use clm_varpar       , only: nlevdecomp
+    !
+    ! !ARGUMENTS:
+    type(bounds_type)                       , intent(in)    :: bounds
+    integer                                 , intent(in)    :: filter_bgc_soilc(:)  ! filter for soil columns
+    integer, intent(in) :: num_bgc_soilc  ! number of soil columns in filter
+    type(hlm_fates_interface_type), intent(inout) :: clm_fates
+    real(r8), intent(inout) :: plant_ndemand(:)       ! column-level plant N demand (gN/m3/s)
+    real(r8), intent(inout) :: plant_ndemand_vr(:,:)  ! column-level plant N demand (gN/m3/s) at a given level
+    real(r8), intent(inout) :: nuptake_prof(:,:)
+    !
+    ! !LOCAL VARIABLES:
+    integer :: c, j     ! indices
+    integer :: fc       ! filter column index
+    integer :: ft       ! FATES functional type index
+    integer :: f        ! loop index for FATES plant competitors
+    integer :: n_pcomp  ! number of FATES plant competitors
+    integer :: ci, s    ! used for FATES BC (clump index, site index)
+
+    bgc_soilc_loop: do fc = 1, num_bgc_soilc
+       c = filter_bgc_soilc(fc)
+
+       fates: if (col%is_fates(c)) then
+          ci = bounds%clump_index
+          s = clm_fates%f2hmap(ci)%hsites(c)
+          n_pcomp = clm_fates%fates(ci)%bc_out(s)%num_plant_comps
+
+          ! Overwrite the column level demands, since fates plants are all sharing
+          ! the same space, in units per the same square meter, we just add demand
+          ! to scale up to column
+          plant_ndemand(c) = 0._r8
+
+          ! We fill the vertically resolved array to simplify some jointly used code
+          do j = 1, nlevdecomp
+             plant_ndemand_vr(c,j) = 0._r8
+
+             if (trim(fates_parteh_mode) == trim(clmfates_carbon_nitrogen))then
+                do f = 1, n_pcomp
+                   ft = clm_fates%fates(ci)%bc_out(s)%ft_index(f)
+
+                   ! [gN/m3/s] = [gC/m3] * [gN/gC/s]
+                   plant_ndemand_vr(c,j) = plant_ndemand_vr(c,j) + &
+                       clm_fates%fates(ci)%bc_out(s)%veg_rootc(f,j) * &
+                       (clm_fates%fates(ci)%bc_pconst%vmax_nh4(ft) + &
+                        clm_fates%fates(ci)%bc_pconst%vmax_no3(ft))
+                end do
+             end if
+
+             ! [gN/m2/s]
+             plant_ndemand(c) = plant_ndemand(c) + plant_ndemand_vr(c,j) * dzsoi_decomp(j)
+
+          end do
+
+       else  ! not is_fates
+
+          do j = 1, nlevdecomp
+             plant_ndemand_vr(c,j) = plant_ndemand(c) * nuptake_prof(c,j)
+          end do
+
+       end if fates
+
+    end do bgc_soilc_loop
+  end subroutine get_plant_ndemand
 
 end module SoilBiogeochemCompetitionMod
