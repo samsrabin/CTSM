@@ -8,31 +8,42 @@ class SpatialUnit:
     Class for data and helper functions about CTSM spatial units
     """
 
-    # pylint: disable=too-few-public-methods
-
     def __init__(self, *, dim: str, disp: str, i: str, prefix: str, wt: str):
         # pylint: disable=too-many-arguments
 
+        # Need to use super().__setattr__() because of the __setattr__() override below.
+
         # Associated dimension name
-        self.dim = dim
+        self.dim: str
+        super().__setattr__("dim", dim)
 
         # Used when printing messages
-        self.disp = disp
+        self.disp: str
+        super().__setattr__("disp", disp)
 
         # Prefix for ..._*i variables
-        self.i = i
+        self.i: str
+        super().__setattr__("i", i)
 
         # Prefix for *1d_... variables
-        self.prefix = prefix
+        self.prefix: str
+        super().__setattr__("prefix", prefix)
 
         # Suffix for ...1d_wt* variables (also ...itype_* variables)
-        self.wt = wt
+        self.wt: str
+        super().__setattr__("wt", wt)
 
     def __repr__(self):
         return f"{type(self)}({self.dim})"
 
     def __str__(self):
         return self.disp
+
+    def __setattr__(self, name, value):
+        raise AttributeError(f"'{type(self).__name__}' object is immutable")
+
+    def __delattr__(self, name):
+        raise AttributeError(f"'{type(self).__name__}' object is immutable")
 
 
 SU_PFT = SpatialUnit(dim="pft", disp="PFT", i=None, prefix="pfts", wt=None)
