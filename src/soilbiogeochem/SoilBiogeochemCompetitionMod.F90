@@ -320,11 +320,7 @@ contains
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
                c = filter_bgc_soilc(fc)      
-               if (sminn_tot(c)  >  0.) then
-                  nuptake_prof(c,j) = sminn_vr(c,j) / sminn_tot(c)
-               else
-                  nuptake_prof(c,j) = nfixation_prof(c,j)
-               endif
+               call compute_nuptake_prof(nuptake_prof(c,j), sminn_tot(c), sminn_vr(c,j), nfixation_prof(c,j))
             end do
          end do
 
@@ -589,11 +585,7 @@ contains
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
                c = filter_bgc_soilc(fc)
-               if (sminn_tot(c)  >  0.) then
-                  nuptake_prof(c,j) = sminn_vr(c,j) / sminn_tot(c)
-               else
-                  nuptake_prof(c,j) = nfixation_prof(c,j)
-               endif
+               call compute_nuptake_prof(nuptake_prof(c,j), sminn_tot(c), sminn_vr(c,j), nfixation_prof(c,j))
             end do
          end do
 
@@ -1146,5 +1138,21 @@ contains
 
     sminn_tot = sminn_tot + (smin_no3_vr + smin_nh4_vr) * dzsoi_decomp_j
   end subroutine accum_sminn_tot
+
+  !-----------------------------------------------------------------------
+  pure subroutine compute_nuptake_prof(nuptake_prof, sminn_tot, sminn_vr, nfixation_prof)
+    ! define N uptake profile for initial vertical distribution of plant N uptake, assuming plant
+    ! seeks N from where it is most abundant
+    real(r8), intent(out) :: nuptake_prof    ! (unitless) Initial fraction of plant N uptake to come from this layer
+    real(r8), intent(in)  :: sminn_tot       ! (gN/m3) soil mineral N in this column
+    real(r8), intent(in)  :: sminn_vr        ! (gN/m3) soil mineral N in this layer of the column
+    ! TODO: Improve nfixation_prof comment
+    real(r8), intent(in)  :: nfixation_prof  ! N fixation profile (?) in this layer of the column
+    if (sminn_tot > 0.) then
+       nuptake_prof = sminn_vr / sminn_tot
+    else
+       nuptake_prof = nfixation_prof
+    endif
+  end subroutine compute_nuptake_prof
 
 end module SoilBiogeochemCompetitionMod
