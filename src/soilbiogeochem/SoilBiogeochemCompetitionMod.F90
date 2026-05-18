@@ -313,7 +313,7 @@ contains
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
                c = filter_bgc_soilc(fc)
-               sminn_tot(c) = sminn_tot(c) + sminn_vr(c,j) * dzsoi_decomp(j)
+               call accum_sminn_tot(sminn_tot(c), smin_no3_vr(c,j), smin_nh4_vr(c,j), dzsoi_decomp(j))
             end do
          end do
 
@@ -581,7 +581,7 @@ contains
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
                c = filter_bgc_soilc(fc)
-               sminn_tot(c) = sminn_tot(c) + (smin_no3_vr(c,j) + smin_nh4_vr(c,j)) * dzsoi_decomp(j)
+               call accum_sminn_tot(sminn_tot(c), smin_no3_vr(c,j), smin_nh4_vr(c,j), dzsoi_decomp(j))
             end do
          end do
 
@@ -1135,5 +1135,16 @@ contains
     end associate
 
   end subroutine SoilBiogeochemCompetition
+
+  !-----------------------------------------------------------------------
+  pure subroutine accum_sminn_tot(sminn_tot, smin_no3_vr, smin_nh4_vr, dzsoi_decomp_j)
+    ! Add soil mineral N from a single column-layer into sminn_tot
+    real(r8), intent(inout) :: sminn_tot     ! total soil mineral N accumulated so far
+    real(r8), intent(in)    :: smin_no3_vr   ! (gN/m3) soil mineral NO3 in this column-layer
+    real(r8), intent(in)    :: smin_nh4_vr   ! (gN/m3) soil mineral NH4 in this column-layer
+    real(r8), intent(in)    :: dzsoi_decomp_j  ! thickness of this layer
+
+    sminn_tot = sminn_tot + (smin_no3_vr + smin_nh4_vr) * dzsoi_decomp_j
+  end subroutine accum_sminn_tot
 
 end module SoilBiogeochemCompetitionMod
