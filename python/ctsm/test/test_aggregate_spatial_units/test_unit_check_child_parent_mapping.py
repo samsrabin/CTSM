@@ -3,6 +3,7 @@
 """Unit tests of _check_child_parent_mapping()"""
 
 import numpy as np
+import xarray as xr
 import pytest
 
 import ctsm.postprocessing.aggregate_spatial_units as asp
@@ -119,3 +120,24 @@ def test_child_wrong_gridcell_order(ds_all, su_child):
         match=f"{su_child} list order does not correspond to gridcell list order",
     ):
         asp._check_child_parent_mapping_ids(ds_all, su_child, su_parent)
+
+def test_error_child_eq_parent():
+    """
+    Make sure error is thrown if child level == parent level
+    """
+    su = SU_COLS
+
+    with pytest.raises(RuntimeError, match=f"Attempting to aggregate {su.dim} to itself"):
+        asp._check_child_parent_mapping(xr.Dataset(), su, su)
+
+def test_error_child_gt_parent():
+    """
+    Make sure error is thrown if child level > parent level
+    """
+    su_child = SU_COLS
+    su_parent = SU_PFT
+
+    with pytest.raises(
+        RuntimeError, match=f"Can't aggregate {su_child.dim} to lower-level {su_parent.dim}"
+    ):
+        asp._check_child_parent_mapping(xr.Dataset(), su_child, su_parent)

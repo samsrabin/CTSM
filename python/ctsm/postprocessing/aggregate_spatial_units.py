@@ -16,9 +16,6 @@ def ds_aggregate(ds_in: xr.Dataset, child: str, parent: str) -> xr.Dataset:
     gridcell)
     """
 
-    # TODO: Error if PFT requested as parent
-    # TODO: Error if child == parent
-    # TODO: Error if child is a higher level than parent
     su_child = SUDICT[child]
     su_parent = SUDICT[parent]
 
@@ -95,6 +92,16 @@ def _check_child_parent_mapping(
 
     Resolving 3 would probably need to use the lists of IDs in the "ijt" checks.
     """
+
+    # Check that child is of a lower level than parent
+    if su_child == su_parent:
+        if su_child.dim == su_parent.dim:
+            raise RuntimeError(f"Attempting to aggregate {su_child.dim} to itself")
+        raise RuntimeError(
+            f"Attempting to aggregate {su_child.dim} to same-level {su_parent.dim}"
+        )
+    if su_child > su_parent:
+        raise RuntimeError(f"Can't aggregate {su_child.dim} to lower-level {su_parent.dim}")
 
     ###############################
     ### Check just with indices ###
