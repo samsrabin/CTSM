@@ -578,10 +578,11 @@ contains
                     compet_plant_no3, compet_decomp_no3, compet_denit, &
                     decomp_method, mimics_decomp, plant_ndemand_vr(c,j))
 
-               ! n2o emissions: n2o from nitr is const fraction, n2o from denitr is calculated in nitrif_denitrif
-               f_n2o_nit_vr(c,j) = f_nit_vr(c,j) * nitrif_n2o_loss_frac
-               f_n2o_denit_vr(c,j) = f_denit_vr(c,j) / (1._r8 + n2_n2o_ratio_denit_vr(c,j))
-
+               ! Compute N2O emissions
+               call compute_n2o_emissions( &
+                    f_n2o_nit_vr(c,j), f_n2o_denit_vr(c,j), &
+                    f_nit_vr(c,j), f_denit_vr(c,j), n2_n2o_ratio_denit_vr(c,j), &
+                    nitrif_n2o_loss_frac)
 
                ! this code block controls the addition of N to sminn pool
                ! to eliminate any N limitation, when Carbon_Only is set.  This lets the
@@ -1230,5 +1231,27 @@ contains
     end if
 
   end subroutine compete_no3
+
+  !-----------------------------------------------------------------------
+  pure subroutine compute_n2o_emissions( &
+       f_n2o_nit_vr, f_n2o_denit_vr, &
+       f_nit_vr, f_denit_vr, n2_n2o_ratio_denit_vr, &
+       nitrif_n2o_loss_frac)
+    ! Compute N2O emissions
+    !
+    ! !ARGUMENTS:
+    real(r8), intent(out) :: f_n2o_nit_vr    ! flux of N2O from nitrification [gN/m3/s]
+    real(r8), intent(out) :: f_n2o_denit_vr  ! flux of N2O from denitrification [gN/m3/s]
+    real(r8), intent(in)  :: f_nit_vr    ! soil nitrification flux [gN/m3/s]
+    real(r8), intent(in)  :: f_denit_vr  ! soil denitrification flux [gN/m3/s]
+    real(r8), intent(in)  :: n2_n2o_ratio_denit_vr  ! ratio of N2 to N2O production by denitrification [gN/gN]
+    real(r8), intent(in)  :: nitrif_n2o_loss_frac   ! fraction of N lost as N2O in nitrification (from clm_varcon)
+
+    ! N2O from nitrification is a constant fraction
+    f_n2o_nit_vr = f_nit_vr * nitrif_n2o_loss_frac
+
+    ! N2O from denitrification is calculated in subroutine SoilBiogeochemNitrifDenitrif()
+    f_n2o_denit_vr = f_denit_vr / (1._r8 + n2_n2o_ratio_denit_vr)
+  end subroutine compute_n2o_emissions
 
 end module SoilBiogeochemCompetitionMod
