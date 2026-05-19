@@ -584,28 +584,14 @@ contains
                     f_nit_vr(c,j), f_denit_vr(c,j), n2_n2o_ratio_denit_vr(c,j), &
                     nitrif_n2o_loss_frac)
 
-               ! this code block controls the addition of N to sminn pool
-               ! to eliminate any N limitation, when Carbon_Only is set.  This lets the
-               ! model behave essentially as a carbon-only model, but with the
-               ! benefit of keeping track of the N additions needed to
-               ! eliminate N limitations, so there is still a diagnostic quantity
-               ! that describes the degree of N limitation at steady-state.
-
-               if ( allocate_carbon_only()) then !.or. &
-                  if ( fpi_no3_vr(c,j) + fpi_nh4_vr(c,j) < 1._r8 ) then
-                     fpi_nh4_vr(c,j) = 1.0_r8 - fpi_no3_vr(c,j)
-                     supplement_to_sminn_vr(c,j) = (potential_immob_vr(c,j) &
-                                                  - actual_immob_no3_vr(c,j)) - actual_immob_nh4_vr(c,j)
-                     ! update to new values that satisfy demand
-                     actual_immob_nh4_vr(c,j) = potential_immob_vr(c,j) -  actual_immob_no3_vr(c,j)   
-                  end if
-                  if ( smin_no3_to_plant_vr(c,j) + smin_nh4_to_plant_vr(c,j) < plant_ndemand_vr(c,j) ) then
-                     supplement_to_sminn_vr(c,j) = supplement_to_sminn_vr(c,j) + &
-                          (plant_ndemand_vr(c,j) - smin_no3_to_plant_vr(c,j)) - smin_nh4_to_plant_vr(c,j)  ! use old values
-                     smin_nh4_to_plant_vr(c,j) = plant_ndemand_vr(c,j) - smin_no3_to_plant_vr(c,j)
-                  end if
-                  sminn_to_plant_vr(c,j) = smin_no3_to_plant_vr(c,j) + smin_nh4_to_plant_vr(c,j)
-               end if
+               ! Add N to relieve limitation, if in carbon-only mode
+               call if_c_only_add_n_to_relieve_limitation( &
+                    fpi_nh4_vr(c,j), supplement_to_sminn_vr(c,j), &
+                    actual_immob_nh4_vr(c,j), smin_nh4_to_plant_vr(c,j), &
+                    sminn_to_plant_vr(c,j), &
+                    fpi_no3_vr(c,j), actual_immob_no3_vr(c,j), &
+                    smin_no3_to_plant_vr(c,j), &
+                    potential_immob_vr(c,j), plant_ndemand(c), allocate_carbon_only())
 
                ! sum up no3 and nh4 fluxes
                fpi_vr(c,j) = fpi_no3_vr(c,j) + fpi_nh4_vr(c,j)
@@ -1253,5 +1239,49 @@ contains
     ! N2O from denitrification is calculated in subroutine SoilBiogeochemNitrifDenitrif()
     f_n2o_denit_vr = f_denit_vr / (1._r8 + n2_n2o_ratio_denit_vr)
   end subroutine compute_n2o_emissions
+
+  !-----------------------------------------------------------------------
+  pure subroutine if_c_only_add_n_to_relieve_limitation( &
+       fpi_nh4_vr, supplement_to_sminn_vr, &
+       actual_immob_nh4_vr, smin_nh4_to_plant_vr, &
+       sminn_to_plant_vr, &
+       fpi_no3_vr, actual_immob_no3_vr, &
+       smin_no3_to_plant_vr, &
+       potential_immob_vr, plant_ndemand, carbon_only)
+    ! This subroutine controls the addition of N to the soil mineral N pool to eliminate any N
+    ! limitation when running in carbon-only mode. This lets the model behave essentially as a
+    ! carbon-only model, but with the benefit of keeping track of the N additions needed to
+    ! eliminate N limitations, so there is still a diagnostic quantity that describes the degree of
+    ! N limitation at steady-state.
+    !
+    ! !ARGUMENTS:
+    real(r8), intent(inout) :: fpi_nh4_vr  ! fraction of potential immobilization supplied by nh4 (no units)
+    real(r8), intent(inout) :: supplement_to_sminn_vr  ! supplemental N supply (gN/m3/s)
+    real(r8), intent(inout) :: actual_immob_nh4_vr  ! actual immobilization of NH4 (gN/m3/s)
+    real(r8), intent(inout) :: smin_nh4_to_plant_vr  ! plant uptake of soil NH4 (gN/m3/s)
+    real(r8), intent(inout) :: sminn_to_plant_vr  ! plant uptake of soil mineral N (gN/m3/s)
+    real(r8), intent(in)    :: fpi_no3_vr  ! ! fraction of potential immobilization supplied by no3 (no units)
+    real(r8), intent(in)    :: actual_immob_no3_vr ! actual immobilization of NO3 (gN/m3/s)
+    real(r8), intent(in)    :: smin_no3_to_plant_vr   ! plant uptake of soil NO3 (gN/m3/s)
+    real(r8), intent(in)    :: potential_immob_vr  ! potential N immobilization (gN/m3/s)
+    real(r8), intent(in)    :: plant_ndemand  ! plant N demand (units??)
+    logical,  intent(in)    :: carbon_only  ! whether model is in carbon-only mode
+
+    if (carbon_only) then
+       if ( fpi_no3_vr + fpi_nh4_vr < 1._r8 ) then
+          fpi_nh4_vr = 1.0_r8 - fpi_no3_vr
+          supplement_to_sminn_vr = (potential_immob_vr &
+                                       - actual_immob_no3_vr) - actual_immob_nh4_vr
+          ! update to new values that satisfy demand
+          actual_immob_nh4_vr = potential_immob_vr -  actual_immob_no3_vr
+       end if
+       if ( smin_no3_to_plant_vr + smin_nh4_to_plant_vr < plant_ndemand ) then
+          supplement_to_sminn_vr = supplement_to_sminn_vr + &
+               (plant_ndemand - smin_no3_to_plant_vr) - smin_nh4_to_plant_vr  ! use old values
+          smin_nh4_to_plant_vr = plant_ndemand - smin_no3_to_plant_vr
+       end if
+       sminn_to_plant_vr = smin_no3_to_plant_vr + smin_nh4_to_plant_vr
+    end if
+  end subroutine if_c_only_add_n_to_relieve_limitation
 
 end module SoilBiogeochemCompetitionMod
