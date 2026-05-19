@@ -567,104 +567,16 @@ contains
                     compet_plant_nh4, compet_decomp_nh4, compet_nit, &
                     decomp_method, mimics_decomp, plant_ndemand_vr(c,j))
               
-               if(.not.local_use_fun)then
-                   sum_no3_demand(c,j) = (plant_ndemand_vr(c,j) - smin_nh4_to_plant_vr(c,j)) + &
-                  (potential_immob_vr(c,j)-actual_immob_nh4_vr(c,j)) + pot_f_denit_vr(c,j)
-                   sum_no3_demand_scaled(c,j) = (plant_ndemand_vr(c,j) &
-                                                 -smin_nh4_to_plant_vr(c,j))*compet_plant_no3 + &
-                  (potential_immob_vr(c,j)-actual_immob_nh4_vr(c,j))*compet_decomp_no3 + pot_f_denit_vr(c,j)*compet_denit
-               else
-                  sum_no3_demand(c,j) = plant_ndemand_vr(c,j) + &
-                  (potential_immob_vr(c,j)-actual_immob_nh4_vr(c,j)) + pot_f_denit_vr(c,j)
-                   sum_no3_demand_scaled(c,j) = (plant_ndemand_vr(c,j)) * compet_plant_no3 + &
-                  (potential_immob_vr(c,j)-actual_immob_nh4_vr(c,j))*compet_decomp_no3 + pot_f_denit_vr(c,j)*compet_denit
-               endif
-
-               if (sum_no3_demand(c,j)*dt < smin_no3_vr(c,j)) then
-
-                  ! NO3 availability is not limiting immobilization or plant
-                  ! uptake, and all can proceed at their potential rates
-                  nlimit_no3(c,j) = 0
-                  fpi_no3_vr(c,j) = 1.0_r8 -  fpi_nh4_vr(c,j)
-                  actual_immob_no3_vr(c,j) = (potential_immob_vr(c,j)-actual_immob_nh4_vr(c,j))
-
-                  f_denit_vr(c,j) = pot_f_denit_vr(c,j)
-
-                  if(.not.local_use_fun)then
-                     smin_no3_to_plant_vr(c,j) = (plant_ndemand_vr(c,j) - smin_nh4_to_plant_vr(c,j))
-                  else
-                     ! This restricts the N uptake of a single layer to the value determined from the total demands and the 
-                     ! hypothetical uptake profile above. Which is a strange thing to do, since that is independent of FUN
-                     ! do we need this at all? 
-                     smin_no3_to_plant_vr(c,j) = plant_ndemand_vr(c,j)
-                     ! RF added new term. send rest of N to plant - which decides whether it should pay or not? 
-                     if ( local_use_fun ) then
-                        smin_no3_to_plant_vr(c,j) = smin_no3_vr(c,j)/dt - actual_immob_no3_vr(c,j) - f_denit_vr(c,j)
-                     end if
-                  endif
-
-               else 
-
-                  ! NO3 availability can not satisfy the sum of immobilization, denitrification, and
-                  ! plant growth demands, so these three demands compete for available
-                  ! soil mineral NO3 resource.
-                  nlimit_no3(c,j) = 1
-                                  
-                  if (sum_no3_demand(c,j) > 0.0_r8) then
-                     if(.not.local_use_fun)then
-                        actual_immob_no3_vr(c,j) = min((smin_no3_vr(c,j)/dt)*((potential_immob_vr(c,j)- &
-                        actual_immob_nh4_vr(c,j))*compet_decomp_no3 / sum_no3_demand_scaled(c,j)), &
-                                  potential_immob_vr(c,j)-actual_immob_nh4_vr(c,j))
-        
-                        smin_no3_to_plant_vr(c,j) = min((smin_no3_vr(c,j)/dt) * ((plant_ndemand_vr(c,j) - &
-                                  smin_nh4_to_plant_vr(c,j)) * compet_plant_no3 / sum_no3_demand_scaled(c,j)), &
-                                  plant_ndemand_vr(c,j) - smin_nh4_to_plant_vr(c,j))
-        
-                        f_denit_vr(c,j) = min((smin_no3_vr(c,j)/dt)*(pot_f_denit_vr(c,j)*compet_denit / &
-                                  sum_no3_demand_scaled(c,j)), pot_f_denit_vr(c,j))
-                     else
-                        actual_immob_no3_vr(c,j) = min((smin_no3_vr(c,j)/dt)*((potential_immob_vr(c,j)- &
-                        actual_immob_nh4_vr(c,j))*compet_decomp_no3 / sum_no3_demand_scaled(c,j)), &
-                                  potential_immob_vr(c,j)-actual_immob_nh4_vr(c,j))
-
-                        f_denit_vr(c,j) = min((smin_no3_vr(c,j)/dt)*(pot_f_denit_vr(c,j)*compet_denit / &
-                        sum_no3_demand_scaled(c,j)), pot_f_denit_vr(c,j))
-        
-                        smin_no3_to_plant_vr(c,j) = (smin_no3_vr(c,j)/dt) * ((plant_ndemand_vr(c,j) - &
-                                  smin_nh4_to_plant_vr(c,j)) * compet_plant_no3 / sum_no3_demand_scaled(c,j))
-                                  
-                        ! RF added new term. send rest of N to plant - which decides whether it should pay or not? 
-                        smin_no3_to_plant_vr(c,j) = (smin_no3_vr(c,j) / dt) - actual_immob_no3_vr(c,j) - f_denit_vr(c,j)
-                        
-  
-                     end if ! use_fun
-
-                  else ! no no3 demand. no uptake fluxes.
-                     actual_immob_no3_vr(c,j) = 0.0_r8
-                     smin_no3_to_plant_vr(c,j) = 0.0_r8
-                     f_denit_vr(c,j) = 0.0_r8
-
-                  end if !any no3 demand?
-                  
-                  
-                  
-
-                  if (potential_immob_vr(c,j) > 0.0_r8) then
-                     fpi_no3_vr(c,j) = actual_immob_no3_vr(c,j) / potential_immob_vr(c,j)
-                  else
-                     fpi_no3_vr(c,j) = 0.0_r8
-                  end if
-
-               end if
-               
-               if (decomp_method == mimics_decomp) then
-                  ! turn off fpi for MIMICS and only lets plants
-                  ! take up available mineral nitrogen.
-                  ! TODO slevis: -ve or tiny sminn_vr could cause problems
-                  fpi_no3_vr(c,j) = 1.0_r8 - fpi_nh4_vr(c,j)  ! => 0
-                  actual_immob_no3_vr(c,j) = potential_immob_vr(c,j) - &
-                                             actual_immob_nh4_vr(c,j)  ! => 0
-               end if
+               !  then compete for no3
+               call compete_no3( &
+                    sum_no3_demand(c,j), sum_no3_demand_scaled(c,j), nlimit_no3(c,j), &
+                    fpi_no3_vr(c,j), actual_immob_no3_vr(c,j), &
+                    f_denit_vr(c,j), smin_no3_to_plant_vr(c,j), &
+                    plant_ndemand(c), nuptake_prof(c,j), &
+                    smin_nh4_to_plant_vr(c,j), actual_immob_nh4_vr(c,j), fpi_nh4_vr(c,j), &
+                    potential_immob_vr(c,j), pot_f_denit_vr(c,j), smin_no3_vr(c,j), &
+                    compet_plant_no3, compet_decomp_no3, compet_denit, &
+                    decomp_method, mimics_decomp, plant_ndemand_vr(c,j))
 
                ! n2o emissions: n2o from nitr is const fraction, n2o from denitr is calculated in nitrif_denitrif
                f_n2o_nit_vr(c,j) = f_nit_vr(c,j) * nitrif_n2o_loss_frac
@@ -1183,5 +1095,140 @@ contains
        actual_immob_nh4_vr = potential_immob_vr
     end if
   end subroutine compete_nh4
+
+  !-----------------------------------------------------------------------
+  pure subroutine compete_no3( &
+       sum_no3_demand, sum_no3_demand_scaled, nlimit_no3, &
+       fpi_no3_vr, actual_immob_no3_vr, &
+       f_denit_vr, smin_no3_to_plant_vr, &
+       plant_ndemand, nuptake_prof, &
+       smin_nh4_to_plant_vr, actual_immob_nh4_vr, fpi_nh4_vr, &
+       potential_immob_vr, pot_f_denit_vr, smin_no3_vr, &
+       compet_plant_no3, compet_decomp_no3, compet_denit, &
+       decomp_method, mimics_decomp, plant_ndemand_vr)
+    ! Competition in a given column-layer for NO3
+    !
+    ! !USES:
+    use CNSharedParamsMod, only: use_fun
+    !
+    ! !ARGUMENTS:
+    real(r8), intent(out) :: sum_no3_demand
+    real(r8), intent(out) :: sum_no3_demand_scaled
+    integer , intent(out) :: nlimit_no3  ! flag for NO3 limitation
+    real(r8), intent(out) :: fpi_no3_vr  ! fraction of potential immobilization supplied by no3 (no units)
+    real(r8), intent(out) :: actual_immob_no3_vr  ! col vertically-resolved actual immobilization of NO3 (gN/m3/s)
+    real(r8), intent(out) :: f_denit_vr  ! soil denitrification flux (gN/m3/s)
+    real(r8), intent(out) :: smin_no3_to_plant_vr  ! col vertically-resolved plant uptake of soil NO3 (gN/m3/s)
+    real(r8), intent(in)  :: plant_ndemand  ! column-level plant N demand (units?)
+    real(r8), intent(in)  :: nuptake_prof
+    real(r8), intent(in)  :: smin_nh4_to_plant_vr  ! col vertically-resolved plant uptake of soil NH4 (gN/m3/s)
+    real(r8), intent(in)  :: actual_immob_nh4_vr  ! col vertically-resolved actual immobilization of NH4 (gN/m3/s)
+    real(r8), intent(in)  :: fpi_nh4_vr    ! fraction of potential immobilization supplied by nh4 (no units)
+    real(r8), intent(in)  :: potential_immob_vr  ! col vertically-resolved potential N immobilization (gN/m3/s) at each level
+    real(r8), intent(in)  :: pot_f_denit_vr  ! potential soil denitrification flux (gN/m3/s)
+    real(r8), intent(in)  :: smin_no3_vr  ! soil mineral NO3 (gN/m3)
+    real(r8), intent(in)  :: compet_plant_no3   ! relative competitiveness of plants for NO3 (unitless)
+    real(r8), intent(in)  :: compet_decomp_no3  ! relative competitiveness of immobilizers for NO3 (unitless)
+    real(r8), intent(in)  :: compet_denit       ! relative competitiveness of denitrifiers for NO3 (unitless)
+    integer , intent(in)  :: decomp_method  ! Type of decomposition to use
+    integer , intent(in)  :: mimics_decomp  ! MIMICS decomposition method type
+    real(r8), intent(in) :: plant_ndemand_vr  ! plant column N demand (gN/m3/s) at a given level
+
+    if (.not. use_fun) then
+        sum_no3_demand = (plant_ndemand_vr - smin_nh4_to_plant_vr) + &
+       (potential_immob_vr-actual_immob_nh4_vr) + pot_f_denit_vr
+        sum_no3_demand_scaled = (plant_ndemand_vr &
+                                      -smin_nh4_to_plant_vr)*compet_plant_no3 + &
+       (potential_immob_vr-actual_immob_nh4_vr)*compet_decomp_no3 + pot_f_denit_vr*compet_denit
+    else
+       sum_no3_demand = plant_ndemand_vr + &
+       (potential_immob_vr-actual_immob_nh4_vr) + pot_f_denit_vr
+        sum_no3_demand_scaled = (plant_ndemand_vr) * compet_plant_no3 + &
+       (potential_immob_vr-actual_immob_nh4_vr)*compet_decomp_no3 + pot_f_denit_vr*compet_denit
+    endif
+
+    if (sum_no3_demand*dt < smin_no3_vr) then
+
+       ! NO3 availability is not limiting immobilization or plant
+       ! uptake, and all can proceed at their potential rates
+       nlimit_no3 = 0
+       fpi_no3_vr = 1.0_r8 -  fpi_nh4_vr
+       actual_immob_no3_vr = (potential_immob_vr-actual_immob_nh4_vr)
+
+       f_denit_vr = pot_f_denit_vr
+
+       if(.not. use_fun) then
+          smin_no3_to_plant_vr = (plant_ndemand_vr - smin_nh4_to_plant_vr)
+       else
+          ! This restricts the N uptake of a single layer to the value determined from the total demands and the
+          ! hypothetical uptake profile above. Which is a strange thing to do, since that is independent of FUN
+          ! do we need this at all?
+          smin_no3_to_plant_vr = plant_ndemand_vr
+          ! RF added new term. send rest of N to plant - which decides whether it should pay or not?
+          if (use_fun) then
+             smin_no3_to_plant_vr = smin_no3_vr/dt - actual_immob_no3_vr - f_denit_vr
+          end if
+       endif
+
+    else
+
+       ! NO3 availability can not satisfy the sum of immobilization, denitrification, and
+       ! plant growth demands, so these three demands compete for available
+       ! soil mineral NO3 resource.
+       nlimit_no3 = 1
+
+       if (sum_no3_demand > 0.0_r8) then
+          if (.not. use_fun) then
+             actual_immob_no3_vr = min((smin_no3_vr/dt)*((potential_immob_vr- &
+             actual_immob_nh4_vr)*compet_decomp_no3 / sum_no3_demand_scaled), &
+                       potential_immob_vr-actual_immob_nh4_vr)
+
+             smin_no3_to_plant_vr = min((smin_no3_vr/dt) * ((plant_ndemand_vr - &
+                       smin_nh4_to_plant_vr) * compet_plant_no3 / sum_no3_demand_scaled), &
+                       plant_ndemand_vr - smin_nh4_to_plant_vr)
+
+             f_denit_vr = min((smin_no3_vr/dt)*(pot_f_denit_vr*compet_denit / &
+                       sum_no3_demand_scaled), pot_f_denit_vr)
+          else
+             actual_immob_no3_vr = min((smin_no3_vr/dt)*((potential_immob_vr- &
+             actual_immob_nh4_vr)*compet_decomp_no3 / sum_no3_demand_scaled), &
+                       potential_immob_vr-actual_immob_nh4_vr)
+
+             f_denit_vr = min((smin_no3_vr/dt)*(pot_f_denit_vr*compet_denit / &
+             sum_no3_demand_scaled), pot_f_denit_vr)
+
+             smin_no3_to_plant_vr = (smin_no3_vr/dt) * ((plant_ndemand_vr - &
+                       smin_nh4_to_plant_vr) * compet_plant_no3 / sum_no3_demand_scaled)
+
+             ! RF added new term. send rest of N to plant - which decides whether it should pay or not?
+             smin_no3_to_plant_vr = (smin_no3_vr / dt) - actual_immob_no3_vr - f_denit_vr
+
+          end if ! use_fun
+
+       else ! no no3 demand. no uptake fluxes.
+          actual_immob_no3_vr = 0.0_r8
+          smin_no3_to_plant_vr = 0.0_r8
+          f_denit_vr = 0.0_r8
+
+       end if !any no3 demand?
+
+       if (potential_immob_vr > 0.0_r8) then
+          fpi_no3_vr = actual_immob_no3_vr / potential_immob_vr
+       else
+          fpi_no3_vr = 0.0_r8
+       end if
+
+    end if
+
+    if (decomp_method == mimics_decomp) then
+       ! turn off fpi for MIMICS and only lets plants
+       ! take up available mineral nitrogen.
+       ! TODO slevis: -ve or tiny sminn_vr could cause problems
+       fpi_no3_vr = 1.0_r8 - fpi_nh4_vr  ! => 0
+       actual_immob_no3_vr = potential_immob_vr - &
+                                  actual_immob_nh4_vr  ! => 0
+    end if
+
+  end subroutine compete_no3
 
 end module SoilBiogeochemCompetitionMod
