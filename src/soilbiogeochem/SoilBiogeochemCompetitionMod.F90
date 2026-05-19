@@ -622,11 +622,10 @@ contains
          end if
 
 
-
+         ! sum up N fluxes to plant after initial competition
          if(.not.local_use_fun)then
             do fc=1,num_bgc_soilc
                c = filter_bgc_soilc(fc)
-               ! sum up N fluxes to plant after initial competition
                sminn_to_plant(c) = 0._r8
             end do
             do j = 1, nlevdecomp  
@@ -638,7 +637,6 @@ contains
          else
             do fc=1,num_bgc_soilc
                c = filter_bgc_soilc(fc)
-               ! sum up N fluxes to plant after initial competition
                sminn_to_plant(c) = 0._r8 !this isn't use in fun. 
                do j = 1, nlevdecomp
                   if ((sminn_to_plant_fun_no3_vr(c,j)-smin_no3_to_plant_vr(c,j)).gt.0.0000000000001_r8) then
