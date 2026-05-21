@@ -782,20 +782,8 @@ contains
             ! calculate the fraction of potential growth that can be
             ! acheived with the N available to plants
             ! calculate the fraction of immobilization realized (for diagnostic purposes)
-            if(.not.local_use_fun)then !FUN has no concept of FPG.
-            
-               if (plant_ndemand(c) > 0.0_r8) then
-                  fpg(c) = sminn_to_plant(c) / plant_ndemand(c)
-               else
-                  fpg(c) = 1._r8
-               end if
-            end if
-
-            if (potential_immob(c) > 0.0_r8) then
-               fpi(c) = actual_immob(c) / potential_immob(c)
-            else
-               fpi(c) = 1._r8
-            end if
+            call calculate_fractions_of_potential(plant_ndemand(c), sminn_to_plant(c), &
+                 actual_immob(c), potential_immob(c), local_use_fun, fpg(c), fpi(c))
          end do ! end of column loops
 
          ! Set the FATES N uptake fluxes
@@ -1276,5 +1264,38 @@ contains
        endif
     end if
   end subroutine take_from_leftover_mineral_n_to_satisfy_residual_n_demand
+
+  !-----------------------------------------------------------------------
+  pure subroutine calculate_fractions_of_potential( &
+       plant_ndemand, sminn_to_plant, actual_immob, potential_immob, use_fun, fpg, fpi)
+  ! Calculate fraction of potential:
+  ! - Growth that can be achieved with the N available to plants
+  ! - Immobilization realized (for diagnostic purposes)
+  !
+  ! !ARGUMENTS
+  real(r8), intent(in) :: plant_ndemand    ! column-level plant N demand (units?)
+  real(r8), intent(in) :: sminn_to_plant   ! column vertically-integrated (diagnostic) plant uptake of soil mineral N (gN/m2/s)
+  real(r8), intent(in) :: potential_immob  ! column vertically-integrated (diagnostic) potential N immobilization (gN/m2/s)
+  real(r8), intent(in) :: actual_immob     ! column vertically-integrated (diagnostic) actual N immobilization (gN/m2/s)
+  logical,  intent(in) :: use_fun
+  real(r8), intent(inout) :: fpg  ! fraction of potential gpp realizable given N available (no units)
+  real(r8), intent(out) :: fpi    ! fraction of potential immobilization realized (no units)
+
+    ! Fraction of potential growth that can be achieved with the N available to plants
+    if (.not. use_fun) then  ! FUN has no concept of FPG.
+       if (plant_ndemand > 0.0_r8) then
+          fpg = sminn_to_plant / plant_ndemand
+       else
+          fpg = 1._r8
+       end if
+    end if
+
+    ! Fraction of potential immobilization realized (for diagnostic purposes)
+    if (potential_immob > 0.0_r8) then
+       fpi = actual_immob / potential_immob
+    else
+       fpi = 1._r8
+    end if
+  end subroutine calculate_fractions_of_potential
 
 end module SoilBiogeochemCompetitionMod
