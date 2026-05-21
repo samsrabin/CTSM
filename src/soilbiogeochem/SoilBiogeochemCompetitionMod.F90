@@ -413,34 +413,17 @@ contains
             c = filter_bgc_soilc(fc)    
             residual_sminn(c) = 0._r8
          end do
-
-         ! sum up total N left over after initial plant and immobilization fluxes
          do fc=1,num_bgc_soilc
             c = filter_bgc_soilc(fc)    
             residual_plant_ndemand(c) = plant_ndemand(c) - sminn_to_plant(c)
          end do
          do j = 1, nlevdecomp
             do fc=1,num_bgc_soilc
-               c = filter_bgc_soilc(fc)    
-               if (residual_plant_ndemand(c)  >  0._r8 ) then
-                  if (nlimit(c,j) .eq. 0) then
-                     residual_sminn_vr(c,j) = max(sminn_vr(c,j) - (actual_immob_vr(c,j) + sminn_to_plant_vr(c,j) ) * dt, 0._r8)
-                     residual_sminn(c) = residual_sminn(c) + residual_sminn_vr(c,j) * dzsoi_decomp(j)
-                  else
-                     residual_sminn_vr(c,j)  = 0._r8
-                  endif
-               endif
-            end do
-         end do
-
-         ! distribute residual N to plants
-         do j = 1, nlevdecomp
-            do fc=1,num_bgc_soilc
-               c = filter_bgc_soilc(fc)    
-               if ( residual_plant_ndemand(c)  >  0._r8 .and. residual_sminn(c)  >  0._r8 .and. nlimit(c,j) .eq. 0) then
-                  sminn_to_plant_vr(c,j) = sminn_to_plant_vr(c,j) + residual_sminn_vr(c,j) * &
-                       min(( residual_plant_ndemand(c) *  dt ) / residual_sminn(c), 1._r8) / dt
-               endif
+               c = filter_bgc_soilc(fc)
+                  call take_from_leftover_mineral_n_to_satisfy_residual_n_demand( &
+                       residual_plant_ndemand(c), residual_sminn_vr(c,j), residual_sminn(c), &
+                       sminn_vr(c,j), sminn_to_plant_vr(c,j), actual_immob_vr(c,j), 0._r8, &
+                       dzsoi_decomp(j), nlimit(c,j))
             end do
          end do
 
@@ -700,21 +683,10 @@ contains
             do j = 1, nlevdecomp  
                do fc=1,num_bgc_soilc
                   c = filter_bgc_soilc(fc)
-                  if (residual_plant_ndemand(c)  >  0._r8 ) then
-                     if (nlimit_nh4(c,j) .eq. 0) then
-                        residual_smin_nh4_vr(c,j) = max(smin_nh4_vr(c,j) - (actual_immob_nh4_vr(c,j) + &
-                                                    smin_nh4_to_plant_vr(c,j) + f_nit_vr(c,j) ) * dt, 0._r8)
-
-                        residual_smin_nh4(c) = residual_smin_nh4(c) + residual_smin_nh4_vr(c,j) * dzsoi_decomp(j)
-                     else
-                        residual_smin_nh4_vr(c,j)  = 0._r8
-                     endif
-   
-                     if ( residual_smin_nh4(c) > 0._r8 .and. nlimit_nh4(c,j) .eq. 0 ) then
-                        smin_nh4_to_plant_vr(c,j) = smin_nh4_to_plant_vr(c,j) + residual_smin_nh4_vr(c,j) * &
-                             min(( residual_plant_ndemand(c) *  dt ) / residual_smin_nh4(c), 1._r8) / dt
-                     endif
-                  end if
+                  call take_from_leftover_mineral_n_to_satisfy_residual_n_demand( &
+                       residual_plant_ndemand(c), residual_smin_nh4_vr(c,j), residual_smin_nh4(c), &
+                       smin_nh4_vr(c,j), smin_nh4_to_plant_vr(c,j), actual_immob_nh4_vr(c,j), &
+                       f_nit_vr(c,j), dzsoi_decomp(j), nlimit_nh4(c,j))
                end do
             end do
 
@@ -738,24 +710,13 @@ contains
                residual_plant_ndemand(c) = plant_ndemand(c) - sminn_to_plant(c)
                residual_smin_no3(c) = 0._r8
             end do
-
             do j = 1, nlevdecomp
                do fc=1,num_bgc_soilc
                   c = filter_bgc_soilc(fc)
-                  if (residual_plant_ndemand(c) > 0._r8 ) then
-                     if (nlimit_no3(c,j) .eq. 0) then
-                       residual_smin_no3_vr(c,j) = max(smin_no3_vr(c,j) - (actual_immob_no3_vr(c,j) + &
-                                                   smin_no3_to_plant_vr(c,j) + f_denit_vr(c,j) ) * dt, 0._r8)
-                        residual_smin_no3(c) = residual_smin_no3(c) + residual_smin_no3_vr(c,j) * dzsoi_decomp(j)
-                     else
-                        residual_smin_no3_vr(c,j)  = 0._r8
-                     endif
-   
-                     if ( residual_smin_no3(c) > 0._r8 .and. nlimit_no3(c,j) .eq. 0) then
-                        smin_no3_to_plant_vr(c,j) = smin_no3_to_plant_vr(c,j) + residual_smin_no3_vr(c,j) * &
-                             min(( residual_plant_ndemand(c) *  dt ) / residual_smin_no3(c), 1._r8) / dt
-                     endif
-                  endif
+                  call take_from_leftover_mineral_n_to_satisfy_residual_n_demand( &
+                       residual_plant_ndemand(c), residual_smin_no3_vr(c,j), residual_smin_no3(c), &
+                       smin_no3_vr(c,j), smin_no3_to_plant_vr(c,j), actual_immob_no3_vr(c,j), &
+                       f_denit_vr(c,j), dzsoi_decomp(j), nlimit_no3(c,j))
                end do
             end do
 
@@ -1281,5 +1242,39 @@ contains
        sminn_to_plant_vr = smin_no3_to_plant_vr + smin_nh4_to_plant_vr
     end if
   end subroutine if_c_only_add_n_to_relieve_limitation
+
+  !-----------------------------------------------------------------------
+  pure subroutine take_from_leftover_mineral_n_to_satisfy_residual_n_demand( &
+       residual_plant_ndemand, residual_smin_vr, residual_smin, smin_vr, &
+       smin_to_plant_vr, actual_immob_vr, f_nit_or_denit_vr, &
+       dzsoi_decomp_j, nlimit)
+    ! If there's leftover plant N demand, this subroutine attempts to satisfy it using a soil
+    ! mineral N pool. Which soil N pool depends on the input arguments.
+    !
+    ! !ARGUMENTS:
+    real(r8), intent(in) :: residual_plant_ndemand  ! Plant N demand remaining
+    real(r8), intent(inout) :: residual_smin_vr  ! residual soil mineral N* after immobilization, plant uptake, and (de)nitrification in this soil layer
+    real(r8), intent(inout) :: residual_smin     ! residual soil mineral N* after immobilization, plant uptake, and (de)nitrification, summed across this and previous soil layers
+    real(r8), intent(in)    :: smin_vr           ! Soil mineral N* taken up by plants from all soil layers (gN/m3/s)
+    real(r8), intent(inout) :: smin_to_plant_vr  ! Soil mineral N* taken up by plants from this soil layer (gN/m3/s)
+    real(r8), intent(in) :: actual_immob_vr  ! col vertically-resolved actual N* immobilization (gN/m3/s) at each level
+    real(r8), intent(in) :: f_nit_or_denit_vr  ! soil (de)nitrification flux (gN/m3/s)
+    real(r8), intent(in) :: dzsoi_decomp_j  ! Thickness of this soil layer (units?)
+    integer, intent(in) :: nlimit  ! flag for N limitation
+
+    if (residual_plant_ndemand  >  0._r8 ) then
+       if (nlimit == 0) then
+          residual_smin_vr = max(smin_vr - (actual_immob_vr + smin_to_plant_vr + f_nit_or_denit_vr ) * dt, 0._r8)
+          residual_smin = residual_smin + residual_smin_vr * dzsoi_decomp_j
+       else
+          residual_smin_vr  = 0._r8
+       endif
+
+       if ( residual_smin > 0._r8 .and. nlimit == 0 ) then
+          smin_to_plant_vr = smin_to_plant_vr + residual_smin_vr * &
+               min(( residual_plant_ndemand *  dt ) / residual_smin, 1._r8) / dt
+       endif
+    end if
+  end subroutine take_from_leftover_mineral_n_to_satisfy_residual_n_demand
 
 end module SoilBiogeochemCompetitionMod
