@@ -57,12 +57,14 @@ This document is the design that reconciles those three requirements.
 - CI integration (the perl test is not currently in CTSM CI; the new
   suite gets invoked the same way — bare shell from
   `bld/unit_testers_python/` — until someone wants to plumb it in).
-- Parallelization (pytest-xdist) — easy to add later once the suite
-  reaches parity, but explicitly not blocking on it.
 - Replacing the sibling perl utilities (`compare_namelists`,
   `cmp_baseline_lnd_in_files`) — they are separate concerns; they
   get deleted alongside the perl tester in the final cleanup PR but
   no replacement is built.
+
+Parallelization via `pytest-xdist` is **in scope** and lands early
+(PR3 — see §8) so the subsequent porting PRs benefit from fast
+iteration.
 
 ## 3. Approach overview
 
@@ -108,25 +110,25 @@ bld/unit_testers_python/
     README.md                    # how to run, how to re-extract, intent
     test_sys_smoke.py            # PR2
     test_sys_list_options.py     # PR2
-    test_sys_drydep_megan.py     # PR3
-    test_sys_nuopc_matrix.py     # PR4
-    test_sys_neon.py             # PR5
-    test_sys_plumber2.py         # PR5
-    test_sys_cam_grids.py        # PR6
-    test_sys_use_cases.py        # PR6
-    test_sys_failures.py         # PR7
-    test_sys_warnings.py         # PR7
-    test_sys_coldwfinidat.py     # PR7
-    test_sys_resolutions_*.py    # PR8 (split — see §10)
-    test_sys_lnd_tuning_*.py     # PR9 (split — see §10)
+    test_sys_drydep_megan.py     # PR4
+    test_sys_nuopc_matrix.py     # PR5
+    test_sys_neon.py             # PR6
+    test_sys_plumber2.py         # PR6
+    test_sys_cam_grids.py        # PR7
+    test_sys_use_cases.py        # PR7
+    test_sys_failures.py         # PR8
+    test_sys_warnings.py         # PR8
+    test_sys_coldwfinidat.py     # PR8
+    test_sys_resolutions_*.py    # PR9 (split — see §10)
+    test_sys_lnd_tuning_*.py     # PR10 (split — see §10)
 ```
 
 ```
 bld/unit_testers/
     extract_cases.pl             # NEW: writes ../unit_testers_python/cases.yaml
-    build-namelist_test.pl       # unchanged until PR10
-    NMLTest/, xFail/, ...        # unchanged until PR10
-    compare_namelists,           # unchanged until PR10
+    build-namelist_test.pl       # unchanged until PR11
+    NMLTest/, xFail/, ...        # unchanged until PR11
+    compare_namelists,           # unchanged until PR11
     cmp_baseline_lnd_in_files,   #   "
     empty_user_nl_clm,           #   "
     myuser_nl_clm                #   "
@@ -330,23 +332,27 @@ Derecho/Casper/Izumi without any custom Perl machinery.
 
 ## 8. PR sequence
 
-Ten PRs, plus a possible split of PR8 and PR9 as noted in §10.
+Eleven PRs, plus a required split of PR9 and PR10 as noted in §10.
 
 | PR  | Scope                                                            | ~Cases  |
 | --- | ---------------------------------------------------------------- | ------- |
 | 1   | Infrastructure: skeleton dir, conftest fixtures, helpers, extractor, cases.yaml, check_coverage.py, README, one trivial proof-of-life test (-help, -version) | 2     |
 | 2   | Smoke (finish) + list options                                    | ~15     |
-| 3   | drydep / MEGAN / fire_emis matrix                                | ~5      |
-| 4   | nuopc options matrix (the 20-ish ad-hoc combos)                  | ~25     |
-| 5   | NEON sites + PLUMBER2 sites (may split into 5a / 5b)             | ~265    |
-| 6   | CAM grids + CAM_SETS_DRV_FLDS + clm5_0 use-cases                 | ~35     |
-| 7   | Failure (%failtest) + warning (%warntest) + coldwfinidat tables  | ~165    |
-| 8   | Resolution sweeps (§14 of summary.md). **MUST be split** — see §10 | ~2,000 |
-| 9   | Per-physics resolution × clmoptions matrix + lnd_tuning matrix. **MUST be split** — see §10 | ~700  |
-| 10  | Cleanup: delete perl tester, NMLTest/, xFail/, extractor, cases.yaml, sibling perl utilities; update testing.rst | n/a |
+| 3   | **pytest-xdist parallelization.** Add `pytest-xdist=3.8.0` to `python/conda_env_ctsm_py.yml`; verify the PR1+PR2 suite runs green under `pytest -n auto`; document parallel invocation in `bld/unit_testers_python/README.md`. The only tracked-CTSM-file edit before PR11 cleanup. | 0 |
+| 4   | drydep / MEGAN / fire_emis matrix                                | ~5      |
+| 5   | nuopc options matrix (the 20-ish ad-hoc combos)                  | ~25     |
+| 6   | NEON sites + PLUMBER2 sites (may split into 6a / 6b)             | ~265    |
+| 7   | CAM grids + CAM_SETS_DRV_FLDS + clm5_0 use-cases                 | ~35     |
+| 8   | Failure (%failtest) + warning (%warntest) + coldwfinidat tables  | ~165    |
+| 9   | Resolution sweeps (§14 of summary.md). **MUST be split** — see §10 | ~2,000 |
+| 10  | Per-physics resolution × clmoptions matrix + lnd_tuning matrix. **MUST be split** — see §10 | ~700  |
+| 11  | Cleanup: delete perl tester, NMLTest/, xFail/, extractor, cases.yaml, sibling perl utilities; update testing.rst | n/a |
 
 PR1's "proof-of-life" test runs green entirely on its own; subsequent
-PRs only add tests, never remove perl infrastructure.
+PRs only add tests, never remove perl infrastructure (until PR11).
+PR3 is the only PR before cleanup that touches a tracked CTSM file
+outside `bld/unit_testers*/`; the conda-env edit is unavoidable for
+the dep to land.
 
 ## 9. Verification and policies
 
@@ -362,18 +368,53 @@ PRs only add tests, never remove perl infrastructure.
    pytest test claims it, or vice versa).
 4. Exits non-zero if mismatches exist.
 
-PR10 cannot land until `check_coverage.py` exits zero with
+PR11 cannot land until `check_coverage.py` exits zero with
 "covered == total" and the "neither" set is empty.
 
-### 9.2 Parity gate (informal)
+### 9.2 Parity gate (required)
 
-Reviewer of any intermediate PR can verify behavior parity by running
-both the perl suite (`./build-namelist_test.pl`) and the pytest
-suite (`pytest`) and confirming that every case marked `ported: true`
-has the same pass/fail outcome in both. A `check_coverage.py
---parity` subcommand can wrap this as
-`diff <(perl-output | grep -E '^.*FAIL') <(pytest-output | grep FAIL)`
-if desired — easy to add later.
+Every PR must demonstrate that for every case marked `ported: true`,
+the pytest test and the corresponding perl assertion produce the same
+pass/fail outcome. This is a **hard gate, not an informal check**:
+the reviewer agent MUST run the parity check and confirm zero
+mismatches before marking the PR ready for submission. The
+implementer is also expected to run it locally before requesting
+review.
+
+The check is implemented as a `check_coverage.py --parity`
+subcommand that:
+
+1. Runs `./bld/unit_testers/build-namelist_test.pl -no-test` (or
+   loads a cached perl-output file from a previous run in the same
+   review cycle, via `--perl-log <file>`) and extracts a `{case_id
+   → pass|fail}` mapping by joining each Test::More result against
+   `cases.yaml` source-line info.
+2. Runs `cd bld/unit_testers_python && pytest --tb=no -q --no-header`
+   and extracts the same mapping from the collected node IDs.
+3. For every case in `cases.yaml` with `ported: true`, compares the
+   two outcomes. xfail cases are compared by xfail-outcome
+   (XFAIL/XPASS), not raw pass/fail. `stale: true` cases are skipped
+   (no pytest equivalent exists).
+4. Exits zero iff every comparison agrees. Otherwise prints each
+   disagreement on a single line in the form `<case_id>: perl=<X>
+   pytest=<Y>` and exits non-zero.
+
+A mismatch is, by definition, a port regression introduced by the
+current PR (or by an earlier PR that the current one is built on
+top of). It must be investigated and resolved before the PR can be
+marked ready.
+
+**Reviewer-agent invocation contract.** A reviewer agent (manual or
+automated) considering whether to approve a PR runs:
+
+```bash
+.claude/namelist-testing-modernization/scripts/check_python.sh
+cd bld/unit_testers_python && python check_coverage.py
+cd bld/unit_testers_python && python check_coverage.py --parity
+```
+
+All three must exit zero. If any of them fail, the PR is not ready
+and must not be marked as such, regardless of other review signals.
 
 ### 9.3 Stale-decision policy
 
@@ -435,9 +476,9 @@ of CTSM.
 
 ## 10. Deferred decisions
 
-### 10.1 How to split PR8
+### 10.1 How to split PR9
 
-PR8 covers Category 14 of `summary.md`, which is itself a per-physics
+PR9 covers Category 14 of `summary.md`, which is itself a per-physics
 outer loop containing seven distinct sub-blocks:
 
 - SP × all resolutions × {1850, 2000}
@@ -449,12 +490,12 @@ outer loop containing seven distinct sub-blocks:
 - transient + gross-unrep, SSP2-4.5-transient
 
 ~2,000 cases total. Probably ≥3 PRs. Defer concrete split decision
-until PR7 lands and we have a clearer sense of review pacing and
+until PR8 lands and we have a clearer sense of review pacing and
 which sub-blocks share fixture / parametrize idioms.
 
-### 10.2 How to split PR9
+### 10.2 How to split PR10
 
-PR9 covers Categories 20 and 21 of `summary.md`:
+PR10 covers Categories 20 and 21 of `summary.md`:
 
 - Per-physics resolution × clmoptions matrix (~500 cases) — bgc/sp/
   vichydro/dynveg/c-isotope variants × ~11 grids, plus an
@@ -465,16 +506,14 @@ PR9 covers Categories 20 and 21 of `summary.md`:
 These two categories have different parametrize shapes (clmoptions
 sweep is options × resolution; lnd_tuning is forcing × bgc × physics)
 and probably want to be separate PRs. Defer concrete split decision
-until PR8 lands.
+until PR9 lands.
 
 ### 10.3 Other deferrals
 
-- **pytest-xdist parallelism.** Worth turning on once parity is
-  reached. Out of scope for this design.
 - **Plumbing into `python/run_ctsm_py_tests`.** Possible later but
   not part of the rewrite.
 - **Replacement for `compare_namelists` / `cmp_baseline_lnd_in_files`.**
-  Out of scope; they get deleted in PR10 with no direct replacement,
+  Out of scope; they get deleted in PR11 with no direct replacement,
   consistent with how they are currently used (rarely).
 
 ## 11. Open risks
@@ -485,8 +524,8 @@ until PR8 lands.
   hash across multiple sections), the extractor needs a corresponding
   update. Mitigation: PR1's review includes spot-checking a sample of
   generated cases against the perl source.
-- **`stale` decisions concentrate in PRs 7–9.** The fail/warn tables
-  (PR7) and the resolution sweeps (PR8, PR9) are where retired-feature
+- **`stale` decisions concentrate in PRs 8–10.** The fail/warn tables
+  (PR8) and the resolution sweeps (PR9, PR10) are where retired-feature
   tests cluster. Allocate extra review time there.
 - **Baseline regeneration is destructive when run with
   `--baseline-regen` against a populated dir.** Same risk the perl
@@ -499,5 +538,5 @@ implementation plan is for **PR1 only** (infrastructure + proof-of-life
 test). Subsequent PRs each get their own short brainstorm/plan cycle
 once the previous one lands — they all follow the same pattern
 established in PR1, so each successor plan should be small. Per
-§10.1/§10.2, PR8 and PR9 also need an explicit split-decision
+§10.1/§10.2, PR9 and PR10 also need an explicit split-decision
 sub-brainstorm before their plans get written.
