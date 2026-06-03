@@ -106,6 +106,24 @@ use constant {
     ARGV_FATES           => 'fates',
 };
 
+# The perl harness prefixes every build-namelist invocation with this fixed
+# base ($bldnml, build-namelist_test.pl line ~195). We strip it so each case's
+# bldnml_argv holds only the per-case options (the shape design.md section 6
+# specifies); the pytest build_namelist fixture re-injects this base, taking
+# -csmdata from the runtime inputdata root rather than the path baked in at
+# extraction time (so --csmdata / $CSMDATA actually control the run). The
+# -csmdata VALUE varies, so its slot is a wildcard (undef). If an argv head
+# does NOT match this base, _strip_base_argv leaves the argv intact and warns
+# -- a base change must be handled deliberately, never silently dropped.
+our @BASE_ARGV = (
+    '-verbose',
+    '-csmdata', undef,           # undef = match any single token (inputdata root)
+    '-configuration', 'clm',
+    '-structure', 'standard',
+    '-glc_nec', '10',
+    '-no-note',
+);
+
 # ---------------------------------------------------------------------------
 # slurp the test source and split it at the seam between the sub defs and
 # the executable body
@@ -542,7 +560,27 @@ sub _parse_bldnml_argv {
     $stripped =~ s/\s+$//;
     # Drop the build-namelist binary path (and the perl invocation, if any).
     $stripped =~ s{^\s*\S*build-namelist\b\s*}{};
-    return _shell_split($stripped);
+    # Strip the fixed $bldnml base flags, leaving only the per-case options.
+    return _strip_base_argv(_shell_split($stripped));
+}
+
+# Remove the leading @BASE_ARGV flags from a tokenized command. Returns the
+# per-case options only. If the head does not match the expected base, returns
+# the argv unchanged and warns (fail loud rather than silently mis-strip).
+sub _strip_base_argv {
+    my (@argv) = @_;
+    return @argv if @argv < scalar(@BASE_ARGV);
+    for my $i (0 .. $#BASE_ARGV) {
+        next unless defined $BASE_ARGV[$i];      # wildcard slot (csmdata value)
+        if (!defined $argv[$i] || $argv[$i] ne $BASE_ARGV[$i]) {
+            warn "WARNING: build-namelist argv head does not match the expected "
+               . "\$bldnml base; leaving full argv. At position $i expected "
+               . "'$BASE_ARGV[$i]', got '"
+               . (defined $argv[$i] ? $argv[$i] : '<undef>') . "'.\n";
+            return @argv;
+        }
+    }
+    return @argv[ scalar(@BASE_ARGV) .. $#argv ];
 }
 
 sub _shell_split {
