@@ -56,6 +56,16 @@ our @current_setup_files    = ();
 our @cases                  = ();
 our %infile_dest_to_sources = ();           # cat_and_create -> sources map
 
+# CTSM bld/ root, computed once (used per-assertion by _normalize_source_path).
+# $Bin is absolute, so this is stable regardless of later chdir.
+our $BLD_ROOT = abs_path("$Bin/..");
+
+# Every normalized banner text that reached _set_category_from_banner. Used by
+# _report_banner_coverage to flag known section banners that were NEVER seen
+# (a renamed/removed section). See that sub for why we don't conversely warn on
+# banners that were seen but matched no category.
+our %seen_banner_text = ();
+
 # Map banner text -> category slug.
 # Keys are matched after whitespace collapse (consecutive whitespace -> single
 # space, leading/trailing trimmed), so author them with single spaces here.
@@ -83,6 +93,18 @@ our %BANNER_TO_CATEGORY = (
     "Test clm4.5/clm5.0/clm6_0 resolutions"                                                         => "clm_resolutions",
     "Dumping output"                                                                                => "xfail_dump",
 );
+
+# Categories whose perl assertions are isnt($?, 0, ...) -- i.e. the command is
+# expected to FAIL -- and the argv tokens that flip individual cases back to
+# expecting success. Named here (rather than inline in _snapshot_case) so the
+# coupling between these categories and the exit_zero heuristic is discoverable.
+use constant {
+    CAT_FAILURES         => 'failures',
+    CAT_WARNINGS         => 'warnings',
+    CAT_COLDWFINIDAT     => 'coldwfinidat',
+    ARGV_IGNORE_WARNINGS => '-ignore_warnings',
+    ARGV_FATES           => 'fates',
+};
 
 # ---------------------------------------------------------------------------
 # slurp the test source and split it at the seam between the sub defs and
@@ -122,20 +144,17 @@ sub install_wrappers {
     no warnings 'redefine';
 
     # --- wrap make_env_run -----------------------------------------------
+    # Observe, don't reconstruct: let the real make_env_run write env_run.xml
+    # (its own defaults merged with the caller's settings), then parse that
+    # file back into %current_env_run. This keeps the captured env in
+    # lock-step with build-namelist_test.pl's actual defaults -- if someone
+    # edits those defaults, we pick up the change instead of silently
+    # emitting a stale hard-coded copy of them.
     my $orig_mer = \&main::make_env_run;
     *main::make_env_run = sub {
-        my %settings = @_;
-        my %defaults = (
-            DIN_LOC_ROOT                => "MYDINLOCROOT",
-            GLC_TWO_WAY_COUPLING        => "FALSE",
-            LND_SETS_DUST_EMIS_DRV_FLDS => "TRUE",
-            NEONSITE                    => "",
-            PLUMBER2SITE                => "",
-            CLM_CMIP_ERA                => "cmip7",
-            CLM_NDEP_FROM_CPL           => "FALSE",
-        );
-        %current_env_run = (%defaults, %settings);
-        return $orig_mer->(@_);
+        my $ret = $orig_mer->(@_);
+        %current_env_run = _parse_env_run_xml("env_run.xml");
+        return $ret;
     };
 
     # --- wrap make_config_cache ------------------------------------------
@@ -281,6 +300,9 @@ sub _set_category_from_banner {
     # just in case).
     $text =~ s/^=+\s*//;
     $text =~ s/\s*=+$//;
+    # Record every banner we were handed so _report_banner_coverage can flag
+    # any that did not map to a known category.
+    $seen_banner_text{$text}++;
     if (exists $BANNER_TO_CATEGORY{$text}) {
         $current_category = $BANNER_TO_CATEGORY{$text};
         # Detect the outer phys loop: the first section inside the outer
@@ -305,6 +327,33 @@ sub _set_category_from_banner {
     # banner-like prints inside foreach loops (e.g. "=== Test ne30np4 ===")
     # are not separated by full equals-only lines, so they should not even
     # reach this function.
+}
+
+# Fail loud on banner drift. Called once after the test body has run. If a
+# section banner in %BANNER_TO_CATEGORY was never printed during the run, that
+# section was renamed or removed -- and its assertions are now silently
+# mis-filed under a neighboring category. Warn explicitly so the manifest's
+# categories cannot drift unnoticed. Writes only to STDERR; never alters
+# cases.yaml.
+sub _report_banner_coverage {
+    # We deliberately do NOT warn on banner texts that reached us but matched
+    # no category. The test script brackets many NON-section texts with "===="
+    # lines too (e.g. "physics = clm4_5", "Test 4x5", per-file diff headers),
+    # which _set_category_from_banner correctly ignores; an "unmatched banner"
+    # set is dominated by that legitimate noise and would cry wolf every run.
+    # Instead we check the inverse, which is high-signal and false-positive
+    # free: a curated banner that was NEVER seen means a known section was
+    # renamed or removed (the other half of a rewording), so its cases are now
+    # mis-filed under a neighboring category.
+    my @unhit = sort grep { !$seen_banner_text{$_} } keys %BANNER_TO_CATEGORY;
+    if (@unhit) {
+        warn "WARNING: extract_cases.pl never saw "
+           . scalar(@unhit)
+           . " banner(s) listed in %BANNER_TO_CATEGORY (renamed, removed, or\n"
+           . "not exercised this run?). Cases for those sections may now be\n"
+           . "mis-filed under a neighboring category:\n";
+        warn "  - \"$_\"\n" for @unhit;
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -346,17 +395,31 @@ sub _snapshot_case {
     # - coldwfinidat: bgc case (expected_fail=1) is always exit_zero: false
     #              regardless of -ignore_warnings; fates case exit_zero: true
     my $exit_zero = 1;
-    if ($current_category eq 'failures') {
+    if ($current_category eq CAT_FAILURES) {
         $exit_zero = 0;
-    } elsif ($current_category eq 'warnings') {
+    } elsif ($current_category eq CAT_WARNINGS) {
         # isnt() call has no -ignore_warnings; is() calls do
-        my $has_ignore_warnings = grep { $_ eq '-ignore_warnings' } @current_bldnml_argv;
+        my $has_ignore_warnings = grep { $_ eq ARGV_IGNORE_WARNINGS } @current_bldnml_argv;
         $exit_zero = $has_ignore_warnings ? 1 : 0;
-    } elsif ($current_category eq 'coldwfinidat') {
+    } elsif ($current_category eq CAT_COLDWFINIDAT) {
         # bgc case never has -bgc fates; fates case always has it.
         # bgc sub-cases (including the -ignore_warnings one) are exit_zero: false.
-        my $has_fates = grep { $_ eq 'fates' } @current_bldnml_argv;
+        my $has_fates = grep { $_ eq ARGV_FATES } @current_bldnml_argv;
         $exit_zero = $has_fates ? 1 : 0;
+    }
+
+    # Sanity check: the polarity heuristics above assume each failure/warning/
+    # coldwfinidat assertion is paired with a build-namelist command (the one
+    # whose argv we inspect for -ignore_warnings / fates). If we ever assign
+    # polarity to such a case with NO captured command, the source-order
+    # context pairing has broken and the emitted exit_zero is a guess -- warn
+    # loudly rather than emit a plausible-but-wrong value silently.
+    if (($current_category eq CAT_FAILURES
+         || $current_category eq CAT_WARNINGS
+         || $current_category eq CAT_COLDWFINIDAT)
+        && !@current_bldnml_argv) {
+        warn "WARNING: $current_category case '$desc' has no captured "
+           . "build-namelist argv; exit_zero polarity may be wrong\n";
     }
 
     push @cases, {
@@ -390,7 +453,7 @@ sub _normalize_source_path {
     # Map absolute or relative paths back to a canonical CTSM-rooted path.
     # The two paths we expect: the perl test file (we annotated it via
     # '# line N "..."' so it should already match) and NMLTest/CompFiles.pm.
-    my $bld_root = abs_path("$Bin/..");
+    my $bld_root = $BLD_ROOT;
     my $ap = abs_path($p);
     if (defined $ap && defined $bld_root && index($ap, $bld_root) == 0) {
         my $rel = substr($ap, length($bld_root) + 1);
@@ -424,11 +487,45 @@ sub _assign_ids {
         push @{ $groups{"$c->{category}/$c->{slug}"} }, $c;
     }
     for my $base (keys %groups) {
+        # Sort each same-slug group by the canonical input (bldnml_cmd) so the
+        # counter-to-case binding does not depend on perl hash-iteration order.
+        # NOTE on ties: a few groups contain cases with an IDENTICAL bldnml_cmd
+        # (same command, differing only in phys / source line -- e.g. the
+        # ne16np4.pg3 bgc case appears in both the main resolution sweep and
+        # the ne16-only pass). This stable sort leaves those tied cases in
+        # @cases push order. That push order is itself deterministic, because
+        # every such group is produced by fixed array loops (foreach phys /
+        # clmopts / res), not hash iteration -- so the emitted disambiguation
+        # counters are reproducible across runs. Adding a secondary key
+        # (description / source line) would make this guarantee structural
+        # rather than relying on the array-loop property, but it reorders the
+        # existing manifest, so it is deferred to a deliberate
+        # manifest-regenerating change.
         my @group = sort { $a->{bldnml_cmd} cmp $b->{bldnml_cmd} } @{ $groups{$base} };
         for my $i (0 .. $#group) {
             $group[$i]{id} = $i == 0 ? $base : "$base-" . ($i + 1);
         }
     }
+}
+
+# ---------------------------------------------------------------------------
+# env_run.xml reader -- parses the file make_env_run just wrote so the
+# captured env reflects ground truth (see the make_env_run wrapper above).
+# make_env_run emits lines of the exact form:
+#     <entry id="DIN_LOC_ROOT"         value="MYDINLOCROOT"  />
+# ---------------------------------------------------------------------------
+
+sub _parse_env_run_xml {
+    my ($path) = @_;
+    my %env;
+    my $fh = IO::File->new($path, '<') or return %env;
+    while (my $line = <$fh>) {
+        if ($line =~ /<entry\s+id="([^"]*)"\s+value="([^"]*)"\s*\/>/) {
+            $env{$1} = $2;
+        }
+    }
+    $fh->close();
+    return %env;
 }
 
 # ---------------------------------------------------------------------------
@@ -455,6 +552,12 @@ sub _shell_split {
     # through as-is. Quote characters themselves are consumed (not appended to
     # the current token), so the resulting tokens match what the shell would
     # actually pass to the subprocess. Sufficient for our purposes.
+    #
+    # Consumer contract: these tokens are written to cases.yaml's bldnml_argv
+    # and re-run by the pytest suite via subprocess.run(argv) with no shell.
+    # Dropping the shell quoting/escaping here is therefore correct -- argv
+    # elements must be the literal strings the program receives, not re-shell-
+    # quoted forms.
     my ($s) = @_;
     my @tokens;
     my $cur = "";
@@ -547,7 +650,7 @@ sub _write_cases_yaml {
     # preserve ported / stale / stale_reason for cases whose structural
     # fields have not changed.
     my %prev = ();    # id => { ported, stale, stale_reason, bldnml_argv,
-                      #          env_run, phys, infile_sources }
+                      #          env_run, phys, infile => { sources => [...] } }
     if (-f $outpath) {
         %prev = _load_previous_yaml($outpath);
     }
@@ -642,9 +745,10 @@ sub _structural_eq {
         return 0;
     }
 
-    # Compare infile.sources (ordered list).
+    # Compare infile.sources (ordered list). Both $new (freshly built) and
+    # $prev (from _load_previous_yaml) store sources nested under infile.
     my @new_src  = @{ $new->{infile}{sources} };
-    my @prev_src = @{ $prev->{infile_sources} // [] };
+    my @prev_src = @{ ($prev->{infile} || {})->{sources} // [] };
     return 0 unless @new_src == @prev_src;
     for my $i (0 .. $#new_src) {
         return 0 unless defined $new_src[$i] && defined $prev_src[$i];
@@ -658,6 +762,14 @@ sub _structural_eq {
 # Hand-rolled YAML reader for the specific cases.yaml shape we emit.
 # Returns a hash keyed by case id; value is a hashref of the annotation
 # and structural fields we need for idempotent regeneration.
+#
+# CONTRACT: this reader parses ONLY the PR1-era emitted shape. It models the
+# scalar/list fields id / bldnml_argv / env_run / phys / infile.sources /
+# ported / stale / stale_reason. The list fields setup_files, expect.files,
+# and expect.greps are always emitted empty ("[]") today, so they are NOT
+# parsed here. If a future PR starts populating any of them, this reader must
+# be extended -- it will die() on the first unmodeled list item rather than
+# silently drop data (see the guard at the bottom of the loop).
 # ---------------------------------------------------------------------------
 
 sub _load_previous_yaml {
@@ -676,9 +788,12 @@ sub _load_previous_yaml {
         if ($line =~ /^- id: (.+)$/) {
             # Save previous case if any.
             if (defined $cur{id}) {
-                $cur{bldnml_argv}    = [@cur_argv];
-                $cur{env_run}        = {%cur_env_run};
-                $cur{infile_sources} = [@cur_infile_sources];
+                $cur{bldnml_argv}  = [@cur_argv];
+                $cur{env_run}      = {%cur_env_run};
+                # Store nested (infile => { sources => [...] }) to match the
+                # shape of freshly-built cases, so _structural_eq compares
+                # like with like. See note there.
+                $cur{infile}       = { sources => [@cur_infile_sources] };
                 $map{$cur{id}} = {%cur};
             }
             %cur = (id => _yaml_unescape($1));
@@ -748,12 +863,23 @@ sub _load_previous_yaml {
             push @cur_infile_sources, _yaml_unescape($1);
             next;
         }
+
+        # Any list item not consumed above means cases.yaml grew a list field
+        # this reader does not model (setup_files / expect.files /
+        # expect.greps becoming non-empty). Fail loud rather than silently
+        # drop it -- see the CONTRACT note in this sub's header.
+        if ($line =~ /^\s+- /) {
+            die "ERROR: _load_previous_yaml hit an unmodeled list item:\n"
+              . "  $line\n"
+              . "Extend this reader to cover the new list field (setup_files /\n"
+              . "expect.files / expect.greps) before populating it in the manifest.\n";
+        }
     }
     # Save last case.
     if (defined $cur{id}) {
-        $cur{bldnml_argv}    = [@cur_argv];
-        $cur{env_run}        = {%cur_env_run};
-        $cur{infile_sources} = [@cur_infile_sources];
+        $cur{bldnml_argv}  = [@cur_argv];
+        $cur{env_run}      = {%cur_env_run};
+        $cur{infile}       = { sources => [@cur_infile_sources] };
         $map{$cur{id}} = {%cur};
     }
     $fh->close();
@@ -846,6 +972,9 @@ install_banner_watcher();
 
 # Untie STDOUT so we can write our summary unobstructed.
 untie *STDOUT;
+
+# Fail loud if any printed section banner did not map to a known category.
+_report_banner_coverage();
 
 # ---------------------------------------------------------------------------
 # emit output
