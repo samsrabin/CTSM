@@ -44,13 +44,16 @@ my $enumerate_mode = !defined($run_mode_outfile);
 
 our $current_category       = "smoke";    # banner watcher updates this
 our $current_phys           = undef;
+our $outer_loop_phys        = undef;      # phys from the outer "foreach my $phys (clm4_5, ...) loop
+our $_last_make_cc_phys     = undef;      # most recent arg to make_config_cache (pre-banner)
+our $section_start_phys     = undef;      # phys at the time the section banner fired
+our $section_has_make_cc    = 0;          # has make_config_cache been called in this section?
 our %current_env_run        = ();
 our @current_bldnml_argv    = ();
 our $current_bldnml_cmd     = "";
 our @current_infile_sources = ();
 our @current_setup_files    = ();
 our @cases                  = ();
-our %id_counts              = ();           # for disambiguating duplicate slugs
 our %infile_dest_to_sources = ();           # cat_and_create -> sources map
 
 # Map banner text -> category slug.
@@ -139,7 +142,9 @@ sub install_wrappers {
     my $orig_mcc = \&main::make_config_cache;
     *main::make_config_cache = sub {
         my ($phys) = @_;
-        $current_phys = $phys;
+        $current_phys        = $phys;
+        $_last_make_cc_phys  = $phys;  # remember last arg for outer-loop detection
+        $section_has_make_cc = 1;      # flag: this section calls make_config_cache
         return $orig_mcc->(@_);
     };
 
@@ -278,6 +283,23 @@ sub _set_category_from_banner {
     $text =~ s/\s*=+$//;
     if (exists $BANNER_TO_CATEGORY{$text}) {
         $current_category = $BANNER_TO_CATEGORY{$text};
+        # Detect the outer phys loop: the first section inside the outer
+        # "foreach my $phys (clm4_5, clm5_0, clm6_0)" loop is resolutions_sp.
+        # The outer loop calls make_config_cache($phys) immediately before the
+        # resolutions_sp banner.  If the banner we just saw is resolutions_sp AND
+        # $_last_make_cc_phys was set right before this banner (i.e. no other
+        # make_config_cache was called between the last outer-loop start and this
+        # banner), then $_last_make_cc_phys IS the outer-loop phys.
+        if ($current_category eq 'resolutions_sp' && defined $_last_make_cc_phys) {
+            $outer_loop_phys = $_last_make_cc_phys;
+        }
+        # For sections within the outer loop that do not call make_config_cache
+        # themselves, use the outer_loop_phys as the deterministic phys.
+        # For sections that DO call make_config_cache (finidat_files, etc.),
+        # $current_phys will be updated per-case, which is correct.
+        $section_start_phys  = $outer_loop_phys // $current_phys;
+        $section_has_make_cc = 0;
+        $_last_make_cc_phys  = undef;   # reset so the next outer-loop start is detectable
     }
     # If a banner is unknown, leave the current category alone. The "Test"
     # banner-like prints inside foreach loops (e.g. "=== Test ne30np4 ===")
@@ -305,19 +327,50 @@ sub _snapshot_case {
     if (!defined $file) {
         ($file, $line) = ("<unknown>", 0);
     }
-    my $id = _derive_id($desc);
+    my $slug = _derive_slug($desc);
+
+    # Use the phys for this case. For sections that call make_config_cache
+    # within their own body (e.g. finidat_files, failures, warnings), use the
+    # current $current_phys as set by the most recent make_config_cache call.
+    # For sections that rely on the phys inherited from the outer loop
+    # (e.g. crop_resolutions, glc_mec_resolutions), use the phys that was
+    # current when the section banner fired -- this insulates those sections
+    # from the non-deterministic $current_phys left by hash-iterated sections
+    # (e.g. %finidat_files) that may have run just before the banner.
+    my $case_phys = $section_has_make_cc ? $current_phys : $section_start_phys;
+
+    # Determine expect.exit_zero based on category and context.
+    # - failures: all calls are isnt($?, 0) → always exit_zero: false
+    # - warnings:  first call per key is isnt($?, 0); second/third have
+    #              -ignore_warnings in argv (is($?, 0) / is($@, ''))
+    # - coldwfinidat: bgc case (expected_fail=1) is always exit_zero: false
+    #              regardless of -ignore_warnings; fates case exit_zero: true
+    my $exit_zero = 1;
+    if ($current_category eq 'failures') {
+        $exit_zero = 0;
+    } elsif ($current_category eq 'warnings') {
+        # isnt() call has no -ignore_warnings; is() calls do
+        my $has_ignore_warnings = grep { $_ eq '-ignore_warnings' } @current_bldnml_argv;
+        $exit_zero = $has_ignore_warnings ? 1 : 0;
+    } elsif ($current_category eq 'coldwfinidat') {
+        # bgc case never has -bgc fates; fates case always has it.
+        # bgc sub-cases (including the -ignore_warnings one) are exit_zero: false.
+        my $has_fates = grep { $_ eq 'fates' } @current_bldnml_argv;
+        $exit_zero = $has_fates ? 1 : 0;
+    }
+
     push @cases, {
-        id           => $id,
+        slug         => $slug,
         category     => $current_category,
         description  => $desc,
         bldnml_argv  => [ @current_bldnml_argv ],
         bldnml_cmd   => $current_bldnml_cmd,
         env_run      => { %current_env_run },
-        phys         => $current_phys,
+        phys         => $case_phys,
         infile       => { sources => [ @current_infile_sources ] },
         setup_files  => [ @current_setup_files ],
         expect       => {
-            exit_zero => 1,           # default; tweaked for known categories below
+            exit_zero => $exit_zero,
             files     => [],
             greps     => [],
         },
@@ -348,20 +401,34 @@ sub _normalize_source_path {
     return $p;
 }
 
-sub _derive_id {
+sub _derive_slug {
     my ($desc) = @_;
     my $slug = lc(defined $desc ? $desc : "");
     $slug =~ s/^options:\s*//;
     $slug =~ s/[^a-z0-9._-]+/-/g;
     $slug =~ s/^-+|-+$//g;
-    $slug = substr($slug, 0, 80) if length($slug) > 80;
     $slug = "unnamed" if $slug eq "";
-    my $id = "$current_category/$slug";
-    # Disambiguate duplicates within a category.
-    if ($id_counts{$id}++) {
-        $id = $id . "-" . $id_counts{$id};
+    return $slug;
+}
+
+# Assign deterministic ids to every case in @cases.  Cases are grouped by
+# (category, slug); within each group they are sorted by bldnml_cmd (the
+# canonical input) so the counter-to-case binding does not depend on the
+# perl hash-iteration order in which the underlying test sections enumerated
+# them.  First case in each group gets the bare slug, subsequent get "-2",
+# "-3", ...  Must be called after all cases have been collected and before
+# either _write_cases_yaml or _write_outcomes_json reads $c->{id}.
+sub _assign_ids {
+    my %groups;
+    for my $c (@cases) {
+        push @{ $groups{"$c->{category}/$c->{slug}"} }, $c;
     }
-    return $id;
+    for my $base (keys %groups) {
+        my @group = sort { $a->{bldnml_cmd} cmp $b->{bldnml_cmd} } @{ $groups{$base} };
+        for my $i (0 .. $#group) {
+            $group[$i]{id} = $i == 0 ? $base : "$base-" . ($i + 1);
+        }
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -385,7 +452,9 @@ sub _shell_split {
     # Minimal shell-like tokenizer: handles single quotes, double quotes, and
     # whitespace. Does NOT handle backslash escapes -- the test script does
     # not use them outside of quoted strings, and inside quotes they pass
-    # through as-is. Sufficient for our purposes.
+    # through as-is. Quote characters themselves are consumed (not appended to
+    # the current token), so the resulting tokens match what the shell would
+    # actually pass to the subprocess. Sufficient for our purposes.
     my ($s) = @_;
     my @tokens;
     my $cur = "";
@@ -399,11 +468,11 @@ sub _shell_split {
                 $cur = "";
             }
         } elsif ($c eq "'" && !$in_dquote) {
+            # Toggle single-quote mode; do NOT append the quote char.
             $in_squote = !$in_squote;
-            $cur .= $c;
         } elsif ($c eq '"' && !$in_squote) {
+            # Toggle double-quote mode; do NOT append the quote char.
             $in_dquote = !$in_dquote;
-            $cur .= $c;
         } else {
             $cur .= $c;
         }
@@ -472,11 +541,45 @@ sub _emit_yaml_dict {
 
 sub _write_cases_yaml {
     my ($outpath) = @_;
+
+    # Issue 1: Idempotent regeneration.
+    # If the file already exists, load the previous annotations so we can
+    # preserve ported / stale / stale_reason for cases whose structural
+    # fields have not changed.
+    my %prev = ();    # id => { ported, stale, stale_reason, bldnml_argv,
+                      #          env_run, phys, infile_sources }
+    if (-f $outpath) {
+        %prev = _load_previous_yaml($outpath);
+    }
+
+    # Issue 3: Stable ordering.
+    # Sort by (category, id) so the file is byte-identical across runs
+    # regardless of the perl hash-iteration order in %failtest etc.
+    my @sorted_cases = sort { $a->{category} cmp $b->{category}
+                              || $a->{id}       cmp $b->{id}       } @cases;
+
     my $fh = IO::File->new($outpath, '>') or die "ERROR: can't write $outpath: $!\n";
     print $fh "# Auto-generated by bld/unit_testers/extract_cases.pl. Do not edit by hand.\n";
     print $fh "# Re-run extract_cases.pl after build-namelist_test.pl changes.\n";
     print $fh "# Schema: see .claude/namelist-testing-modernization/design.md section 6.\n";
-    for my $c (@cases) {
+    for my $c (@sorted_cases) {
+        # Issue 1: merge annotations from previous file if id matches and
+        # structural fields are unchanged.
+        my ($ported, $stale, $stale_reason) = (0, 0, undef);
+        if (exists $prev{$c->{id}}) {
+            my $p = $prev{$c->{id}};
+            $stale        = $p->{stale};
+            $stale_reason = $p->{stale_reason};
+            if (_structural_eq($c, $p)) {
+                $ported = $p->{ported};
+            } else {
+                if ($p->{ported}) {
+                    print STDERR "info: ported reset for $c->{id} due to structural change\n";
+                }
+                $ported = 0;
+            }
+        }
+
         print $fh "- id: " . _yaml_escape_str($c->{id}) . "\n";
         print $fh "  category: " . _yaml_escape_str($c->{category}) . "\n";
         print $fh "  description: " . _yaml_escape_str($c->{description}) . "\n";
@@ -494,11 +597,184 @@ sub _write_cases_yaml {
         print $fh "  source:\n";
         print $fh "    perl_file: " . _yaml_escape_str($c->{source}{perl_file}) . "\n";
         print $fh "    line: " . ($c->{source}{line} + 0) . "\n";
-        print $fh "  ported: " . _yaml_bool($c->{ported}) . "\n";
-        print $fh "  stale: " . _yaml_bool($c->{stale}) . "\n";
-        print $fh "  stale_reason: " . (defined($c->{stale_reason}) ? _yaml_escape_str($c->{stale_reason}) : "null") . "\n";
+        print $fh "  ported: " . _yaml_bool($ported) . "\n";
+        print $fh "  stale: " . _yaml_bool($stale) . "\n";
+        print $fh "  stale_reason: " . (defined($stale_reason) ? _yaml_escape_str($stale_reason) : "null") . "\n";
     }
     $fh->close();
+}
+
+# ---------------------------------------------------------------------------
+# Structural equality check for idempotent regeneration (Issue 1).
+# Returns true iff the new case's bldnml_argv, env_run, phys, and
+# infile.sources are all equal to the previous entry's values.
+# ---------------------------------------------------------------------------
+
+sub _structural_eq {
+    my ($new, $prev) = @_;
+
+    # Compare bldnml_argv (ordered list).
+    my @new_argv  = @{ $new->{bldnml_argv} };
+    my @prev_argv = @{ $prev->{bldnml_argv} };
+    return 0 unless @new_argv == @prev_argv;
+    for my $i (0 .. $#new_argv) {
+        return 0 unless defined $new_argv[$i] && defined $prev_argv[$i];
+        return 0 unless $new_argv[$i] eq $prev_argv[$i];
+    }
+
+    # Compare env_run (unordered dict).
+    my %new_er  = %{ $new->{env_run} };
+    my %prev_er = %{ $prev->{env_run} };
+    my @new_keys  = sort keys %new_er;
+    my @prev_keys = sort keys %prev_er;
+    return 0 unless "@new_keys" eq "@prev_keys";
+    for my $k (@new_keys) {
+        return 0 unless defined $new_er{$k} && defined $prev_er{$k};
+        return 0 unless $new_er{$k} eq $prev_er{$k};
+    }
+
+    # Compare phys (scalar or undef).
+    my $new_phys  = $new->{phys};
+    my $prev_phys = $prev->{phys};
+    if (defined $new_phys && defined $prev_phys) {
+        return 0 unless $new_phys eq $prev_phys;
+    } elsif (defined $new_phys || defined $prev_phys) {
+        return 0;
+    }
+
+    # Compare infile.sources (ordered list).
+    my @new_src  = @{ $new->{infile}{sources} };
+    my @prev_src = @{ $prev->{infile_sources} // [] };
+    return 0 unless @new_src == @prev_src;
+    for my $i (0 .. $#new_src) {
+        return 0 unless defined $new_src[$i] && defined $prev_src[$i];
+        return 0 unless $new_src[$i] eq $prev_src[$i];
+    }
+
+    return 1;
+}
+
+# ---------------------------------------------------------------------------
+# Hand-rolled YAML reader for the specific cases.yaml shape we emit.
+# Returns a hash keyed by case id; value is a hashref of the annotation
+# and structural fields we need for idempotent regeneration.
+# ---------------------------------------------------------------------------
+
+sub _load_previous_yaml {
+    my ($path) = @_;
+    my %map;
+    my $fh = IO::File->new($path, '<') or return %map;
+    my %cur;
+    my $state = 'idle';      # idle | case | bldnml_argv | env_run | infile
+    my @cur_argv;
+    my %cur_env_run;
+    my @cur_infile_sources;
+
+    while (my $line = <$fh>) {
+        chomp $line;
+        # Top-level case entry starts with "- id: ..."
+        if ($line =~ /^- id: (.+)$/) {
+            # Save previous case if any.
+            if (defined $cur{id}) {
+                $cur{bldnml_argv}    = [@cur_argv];
+                $cur{env_run}        = {%cur_env_run};
+                $cur{infile_sources} = [@cur_infile_sources];
+                $map{$cur{id}} = {%cur};
+            }
+            %cur = (id => _yaml_unescape($1));
+            @cur_argv = ();
+            %cur_env_run = ();
+            @cur_infile_sources = ();
+            $state = 'case';
+            next;
+        }
+        next unless $state ne 'idle';
+
+        # Detect block transitions.
+        if ($line =~ /^  bldnml_argv:/) {
+            $state = ($line =~ /\[\]$/) ? 'case' : 'bldnml_argv';
+            next;
+        }
+        if ($line =~ /^  env_run:/) {
+            $state = ($line =~ /\{\}$/) ? 'case' : 'env_run';
+            next;
+        }
+        if ($line =~ /^  phys: (.+)$/) {
+            my $v = $1;
+            $cur{phys} = ($v eq 'null') ? undef : _yaml_unescape($v);
+            $state = 'case';
+            next;
+        }
+        if ($line =~ /^  infile:/) {
+            $state = 'case';    # sub-key 'sources' handled below
+            next;
+        }
+        if ($line =~ /^    sources:/) {
+            $state = ($line =~ /\[\]$/) ? 'case' : 'infile';
+            next;
+        }
+        if ($line =~ /^  ported: (true|false)/) {
+            $cur{ported} = ($1 eq 'true') ? 1 : 0;
+            $state = 'case';
+            next;
+        }
+        if ($line =~ /^  stale: (true|false)/) {
+            $cur{stale} = ($1 eq 'true') ? 1 : 0;
+            $state = 'case';
+            next;
+        }
+        if ($line =~ /^  stale_reason: (.+)$/) {
+            my $v = $1;
+            $cur{stale_reason} = ($v eq 'null') ? undef : _yaml_unescape($v);
+            $state = 'case';
+            next;
+        }
+        # Any other top-level or mid-level field resets to 'case' parse state.
+        if ($line =~ /^  \w/) {
+            $state = 'case';
+        }
+
+        # List items.
+        if ($state eq 'bldnml_argv' && $line =~ /^    - (.+)$/) {
+            push @cur_argv, _yaml_unescape($1);
+            next;
+        }
+        if ($state eq 'env_run' && $line =~ /^    (.+?): (.+)$/) {
+            my ($k, $v) = (_yaml_unescape($1), _yaml_unescape($2));
+            $cur_env_run{$k} = $v;
+            next;
+        }
+        if ($state eq 'infile' && $line =~ /^      - (.+)$/) {
+            push @cur_infile_sources, _yaml_unescape($1);
+            next;
+        }
+    }
+    # Save last case.
+    if (defined $cur{id}) {
+        $cur{bldnml_argv}    = [@cur_argv];
+        $cur{env_run}        = {%cur_env_run};
+        $cur{infile_sources} = [@cur_infile_sources];
+        $map{$cur{id}} = {%cur};
+    }
+    $fh->close();
+    return %map;
+}
+
+sub _yaml_unescape {
+    # Reverse of _yaml_escape_str: strip outer double-quotes (if present) and
+    # unescape \\, \", \n, \r, \t.  For unquoted scalars return as-is.
+    my ($s) = @_;
+    return '' unless defined $s;
+    $s =~ s/^\s+|\s+$//g;
+    if ($s =~ /^"(.*)"$/) {
+        $s = $1;
+        $s =~ s/\\n/\n/g;
+        $s =~ s/\\r/\r/g;
+        $s =~ s/\\t/\t/g;
+        $s =~ s/\\"/"/g;
+        $s =~ s/\\\\/\\/g;
+    }
+    return $s;
 }
 
 sub _write_outcomes_json {
@@ -574,6 +850,8 @@ untie *STDOUT;
 # ---------------------------------------------------------------------------
 # emit output
 # ---------------------------------------------------------------------------
+
+_assign_ids();
 
 if ($enumerate_mode) {
     my $out_yaml = abs_path("$Bin/../unit_testers_python/cases.yaml");
