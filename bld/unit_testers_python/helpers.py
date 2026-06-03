@@ -162,5 +162,5 @@ def infile_writer(sources: Iterable[Path], dest: Path) -> Path:
             for line in stream:
                 lines.append(" " + line)
     lines.append("\n/\n")
-    dest.write_text("".join(lines))
+    dest.write_text("".join(lines), encoding="utf-8")
     return dest
