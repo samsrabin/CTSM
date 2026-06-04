@@ -104,6 +104,8 @@ use constant {
     CAT_COLDWFINIDAT     => 'coldwfinidat',
     ARGV_IGNORE_WARNINGS => '-ignore_warnings',
     ARGV_FATES           => 'fates',
+    ARGV_HELP            => '-help',
+    ARGV_HELP_SHORT      => '-h',
 };
 
 # The perl harness prefixes every build-namelist invocation with this fixed
@@ -424,6 +426,13 @@ sub _snapshot_case {
         # bgc sub-cases (including the -ignore_warnings one) are exit_zero: false.
         my $has_fates = grep { $_ eq ARGV_FATES } @current_bldnml_argv;
         $exit_zero = $has_fates ? 1 : 0;
+    }
+
+    # build-namelist -help (and the -h alias) prints its usage via die(), so it
+    # always exits non-zero -- regardless of category. (-version, by contrast,
+    # exits 0.) This overrides the category default above for e.g. smoke/help.
+    if (grep { $_ eq ARGV_HELP || $_ eq ARGV_HELP_SHORT } @current_bldnml_argv) {
+        $exit_zero = 0;
     }
 
     # Sanity check: the polarity heuristics above assume each failure/warning/

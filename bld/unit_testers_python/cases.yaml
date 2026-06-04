@@ -112167,14 +112167,14 @@
     sources: []
   setup_files: []
   expect:
-    exit_zero: true
+    exit_zero: false
     files: []
     greps: []
   xfail: null
   source:
     perl_file: bld/unit_testers/build-namelist_test.pl
     line: 216
-  ported: false
+  ported: true
   stale: false
   stale_reason: null
 - id: smoke/plain-build-namelist
@@ -112222,7 +112222,7 @@
   source:
     perl_file: bld/unit_testers/build-namelist_test.pl
     line: 220
-  ported: false
+  ported: true
   stale: false
   stale_reason: null
 - id: use_cases_all_phys/res-0.9x1.25--use_case-1850-2100_ssp1-1.9_transient---bgc-bgc--envxml_dir-.
