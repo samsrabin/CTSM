@@ -162,6 +162,22 @@ def config_cache(tmp_workdir) -> Callable[[str], Path]:
     return _write
 
 
+_CSMDATA_PLACEHOLDER = "{csmdata}"
+
+
+def _expand_csmdata(token: str, inputdata_root: str) -> str:
+    """Expand the manifest's {csmdata} placeholder to the runtime inputdata root.
+
+    The extractor writes inputdata-rooted paths in bldnml_argv as
+    `{csmdata}/...` (so cases.yaml stays machine-independent); here we put the
+    real root back before invoking build-namelist. Tokens without the
+    placeholder pass through unchanged.
+    """
+    if token.startswith(_CSMDATA_PLACEHOLDER):
+        return inputdata_root + token[len(_CSMDATA_PLACEHOLDER) :]
+    return token
+
+
 @pytest.fixture
 def build_namelist(tmp_workdir, bldnml_path, inputdata_root) -> Callable[..., RunResult]:
     """Return a callable that runs build-namelist and returns a RunResult."""
@@ -186,7 +202,7 @@ def build_namelist(tmp_workdir, bldnml_path, inputdata_root) -> Callable[..., Ru
         cmd = list(base_argv)
         if infile is not None:
             cmd += ["-infile", str(infile)]
-        cmd += list(argv)
+        cmd += [_expand_csmdata(str(token), inputdata_root) for token in argv]
         env = os.environ.copy()
         if extra_env:
             env.update(extra_env)

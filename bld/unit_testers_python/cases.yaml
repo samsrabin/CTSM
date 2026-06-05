@@ -47559,7 +47559,7 @@
     - "-driver"
     - nuopc
     - "-lnd_frac"
-    - "/glade/campaign/cesm/cesmdata/cseg/inputdata/atm/datm7/domain.lnd.fv0.9x1.25_gx1v6.090309.nc"
+    - "{csmdata}/atm/datm7/domain.lnd.fv0.9x1.25_gx1v6.090309.nc"
     - "-envxml_dir"
     - "."
     - "-namelist"

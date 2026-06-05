@@ -579,8 +579,14 @@ sub _parse_bldnml_argv {
 sub _strip_base_argv {
     my (@argv) = @_;
     return @argv if @argv < scalar(@BASE_ARGV);
+    my $csmdata;
     for my $i (0 .. $#BASE_ARGV) {
-        next unless defined $BASE_ARGV[$i];      # wildcard slot (csmdata value)
+        if (!defined $BASE_ARGV[$i]) {
+            # Wildcard slot: capture the inputdata root (the value following
+            # -csmdata) so per-case paths rooted under it can be normalized.
+            $csmdata = $argv[$i] if $i > 0 && $BASE_ARGV[$i - 1] eq '-csmdata';
+            next;
+        }
         if (!defined $argv[$i] || $argv[$i] ne $BASE_ARGV[$i]) {
             warn "WARNING: build-namelist argv head does not match the expected "
                . "\$bldnml base; leaving full argv. At position $i expected "
@@ -589,7 +595,31 @@ sub _strip_base_argv {
             return @argv;
         }
     }
-    return @argv[ scalar(@BASE_ARGV) .. $#argv ];
+    my @rest = @argv[ scalar(@BASE_ARGV) .. $#argv ];
+    return _normalize_csmdata_paths($csmdata, @rest);
+}
+
+# Replace a leading inputdata-root prefix in each per-case token with the
+# portable {csmdata} placeholder, so the manifest does not bake in the
+# machine-specific path that $bldnml's -csmdata resolved to at extraction time
+# (e.g. the -lnd_frac $DOMFILE value, which is "$inputdata_rootdir/atm/..."). The
+# conftest build_namelist fixture expands {csmdata} back to the runtime
+# inputdata root. Only an exact whole-token match or a "<root>/..." prefix is
+# rewritten -- never a mid-token substring.
+sub _normalize_csmdata_paths {
+    my ($csmdata, @tokens) = @_;
+    return @tokens unless defined $csmdata && length $csmdata;
+    for my $t (@tokens) {
+        next unless defined $t;
+        if ($t eq $csmdata) {
+            $t = '{csmdata}';
+        } elsif (index($t, "$csmdata/") == 0) {
+            # Drop only the root (length $csmdata), keeping the leading slash
+            # that follows it -> "{csmdata}/atm/...".
+            $t = '{csmdata}' . substr($t, length $csmdata);
+        }
+    }
+    return @tokens;
 }
 
 sub _shell_split {
