@@ -1663,6 +1663,8 @@ contains
          do f = 1, num_nolakec
             c = filter_nolakec(f)
             if (j >= snl(c) + 1) then
+               write(*,*) 'SSRts: h2osoi_ice(c,j) = ', h2osoi_ice(c,j)
+               write(*,*) 'SSRts: h2osoi_liq(c,j) = ', h2osoi_liq(c,j)
                frac_iceold(c,j) = h2osoi_ice(c,j)/(h2osoi_liq(c,j)+h2osoi_ice(c,j))
             end if
          end do
