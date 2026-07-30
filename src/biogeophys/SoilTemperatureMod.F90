@@ -837,8 +837,23 @@ contains
             ! Thermal conductivity of snow
             ! Only examine levels from snl(c)+1 -> 0 where snl(c) < 1
             ! [PORTED by Hui Tang: skip j=0 when NVP occupies that layer; handled below]
+            write(*,*) '===================='
+            write(*,*) 'SSRts: c = ', c
+            write(*,*) 'SSRts: j = ', j
+            write(*,*) 'SSRts: use_nvp     = ', use_nvp
+            write(*,*) 'SSRts: snl(c)      = ', snl(c)
+            write(*,*) 'SSRts: jbot_sno(c) = ', jbot_sno(c)
             if (snl(c)+1 < 1 .AND. (j >= snl(c)+1) .AND. (j <= 0) .AND. &
                 .NOT. (use_nvp .AND. jbot_sno(c) == -1 .AND. j == 0)) then
+               write(*,*) '--------------------'
+               write(*,*) 'SSRts: h2osoi_ice(c,j) = ', h2osoi_ice(c,j)
+               write(*,*) 'SSRts: h2osoi_liq(c,j) = ', h2osoi_liq(c,j)
+               write(*,*) 'SSRts: frac_sno(c)     = ', frac_sno(c)
+               write(*,*) 'SSRts: dz(c,j)         = ', dz(c,j)
+               write(*,*) 'SSRts: numerator       = ', h2osoi_ice(c,j)+h2osoi_liq(c,j)
+               write(*,*) 'SSRts: denominator     = ', frac_sno(c)*dz(c,j)
+               write(*,*) '===================='
+
                bw(c,j) = (h2osoi_ice(c,j)+h2osoi_liq(c,j))/(frac_sno(c)*dz(c,j))
 
                l = col%landunit(c)
