@@ -691,6 +691,8 @@ contains
     !
     ! !LOCAL VARIABLES:
     logical :: readvar
+    integer, pointer :: iptemp(:)  ! pointer to memory to be allocated
+    integer :: c  ! loop index
     !-----------------------------------------------------------------------
 
     ! Column NVP layer thickness [m]
@@ -711,9 +713,6 @@ contains
        col%frac_nvp(bounds%begc:bounds%endc) = 0._r8
     end if
 
-    ! [PORTED by Hui Tang: nvp_layer_active is fully redundant with jbot_sno (active iff jbot_sno == -1).
-    !  restartvar has no logical-array overload, so we restart only JBOT_SNO and derive the flag below.]
-
     ! Bottom index of active snow: 0 = no NVP, -1 = NVP present at layer 0
     call restartvar(ncid=ncid, flag=flag, varname='JBOT_SNO', xtype=ncd_int, &
          dim1name='column', &
@@ -723,10 +722,32 @@ contains
        col%jbot_sno(bounds%begc:bounds%endc) = 0
     end if
 
-    ! Derive nvp_layer_active from jbot_sno on read (covers both restart and cold-start paths)
-    if (flag == 'read') then
-       col%nvp_layer_active(bounds%begc:bounds%endc) = &
-            (col%jbot_sno(bounds%begc:bounds%endc) == -1)
+    ! Whether NVP layer is active
+    if (flag == 'read' .or. flag == 'write') then
+       allocate (iptemp(bounds%begc:bounds%endc), stat=ier)
+    end if
+    if (flag == 'write') then
+       do c = bounds%begc,bounds%endc
+          iptemp(c) = 0
+          if (col%nvp_layer_active(c)) iptemp(c) = 1
+       end do
+    end if
+    call restartvar(ncid=ncid, flag=flag, varname='NVP_LAYER_ACTIVE', xtype=ncd_int,  &
+         dim1name='column',&
+         long_name='Whether NVP layer is active (0 = false, 1 = true)',units='', &
+         interpinic_flag='interp', readvar=readvar, data=iptemp)
+    if (flag=='read' .and. readvar) then
+       if (readvar) then
+          do c = bounds%begc,bounds%endc
+             col%nvp_layer_active(c) = .false.
+             if (iptemp(c) == 1) this%present_patch(c) = .true.
+          end do
+       else
+          col%nvp_layer_active(bounds%begc:bounds%endc) = 0
+       end if
+    end if
+    if (flag == 'read' .or. flag == 'write') then
+       deallocate (iptemp)
     end if
 
   end subroutine NVPLayerRestart
