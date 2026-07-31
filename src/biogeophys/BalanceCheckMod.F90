@@ -602,7 +602,7 @@ contains
           if (col%active(c)) then
 
              ! [PORTED by Hui Tang: NVP debug — print j=0 water and all wb flux terms for c==1]
-             if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == 1) then
+             if (use_nvp .and. col%dz(c,0) > 0._r8 .and. c == 1) then
                 write(iulog,*) '[NVP DBG] WBal c=',c,' snl=',col%snl(c), &
                    ' ice0=',waterstate_inst%h2osoi_ice_col(c,0), &
                    ' liq0=',waterstate_inst%h2osoi_liq_col(c,0), &

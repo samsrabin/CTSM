@@ -18,8 +18,8 @@ module NVPLayerDynamicsMod
   !
   ! Layer design:
   !   - NVP occupies vertical index 0 (the slot below the bottom-most snow layer).
-  !   - col%jbot_sno = -1 when NVP is active (snow loops stop at index -1).
-  !   - col%jbot_sno = 0  when NVP is inactive (standard CLM snow behaviour).
+  !   - col%jbot_sno = -1 when use_nvp is true (snow loops stop at index -1).
+  !   - col%jbot_sno = 0  when use_nvp is false (standard CLM snow behaviour).
   !   - col%dz(c,0) and col%z(c,0) are set from col%dz_nvp(c).
   !   - col%zi(c,0) = 0 (soil surface) is unchanged.
   !   - col%zi(c,-1) = -dz_nvp (top interface of NVP layer).
@@ -80,7 +80,7 @@ contains
     !
     ! Outputs (written to col, and optionally temperature_inst, waterstate_inst):
     !   col%nvp_layer_active(c)                   — .true. when NVP layer is active
-    !   col%jbot_sno(c)                            — -1 (NVP active) or 0 (inactive)
+    !   col%jbot_sno(c)                            — -1 (use_nvp true) or 0 (use_nvp false)
     !   col%dz(c,0)                                — NVP layer thickness [m]
     !   col%z(c,0)                                 — NVP layer centre depth [m]
     !   col%zi(c,-1)                               — NVP layer top interface [m]

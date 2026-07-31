@@ -944,7 +944,7 @@ contains
     do fc = 1, snowpack_initialized_filterc%num
        c = snowpack_initialized_filterc%indices(fc)
 
-       ! [PORTED by Hui Tang: when NVP occupies layer 0, place first snow ice at layer -1]
+       ! [PORTED by Hui Tang: when layer 0 is reserved for NVP, place first snow ice at layer -1]
        if (use_nvp .and. col%jbot_sno(c) == -1) then
           h2osoi_ice(c,-1) = h2osno_no_layers(c)
           h2osoi_liq(c,-1) = 0._r8
@@ -1000,7 +1000,7 @@ contains
     do fc = 1, snowpack_initialized_filterc%num
        c = snowpack_initialized_filterc%indices(fc)
 
-       ! [PORTED by Hui Tang: when NVP occupies layer 0, place first snow layer at index -1
+       ! [PORTED by Hui Tang: when layer 0 is reserved for NVP, place first snow layer at index -1
        !  so that dz/z/zi/t/frac_iceold for the NVP slot are preserved intact.]
        if (use_nvp .and. col%jbot_sno(c) == -1) then
           snl(c) = -2
@@ -1168,8 +1168,8 @@ contains
          
     do i = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
        associate(w => water_inst%bulk_and_tracers(i))
-       ! [PORTED by Hui Tang: select bottom-of-snow percolation index.  Whenever the NVP
-       !  structural layer exists at j=0 (jbot_sno == -1), the bottom snow percolation
+       ! [PORTED by Hui Tang: select bottom-of-snow percolation index.  Whenever
+       !  layer 0 is reserved for NVP (jbot_sno == -1), the bottom snow percolation
        !  exits at j=-1 into NVP — regardless of whether NVP is exposed or buried.
        !  Previously gated on col%nvp_layer_active(c) which is TRUE only when NVP is
        !  exposed (snl=0); the buried-NVP case (snl<0, jbot_sno=-1) then incorrectly
@@ -1356,7 +1356,7 @@ contains
 
     real(r8) , intent(in)    :: dtime                                    ! land model time step (sec)
     integer  , intent(in)    :: snl( bounds%begc: )                      ! negative number of snow layers
-    ! [PORTED by Hui Tang: jbot_sno is 0 when no NVP, -1 when NVP occupies index 0;
+    ! [PORTED by Hui Tang: jbot_sno is 0 when use_nvp false, -1 when use_nvp is true and thus layer 0 is reserved for NVP;
     !  used to stop percolation at the bottom snow layer and skip the NVP layer (j=0)]
     integer  , intent(in)    :: jbot_sno( bounds%begc: )                 ! bottom index of active snow layers (0 or -1)
     real(r8) , intent(in)    :: dz( bounds%begc: , -nlevsno+1: )         ! layer depth (m)
@@ -1421,10 +1421,8 @@ contains
           c = filter_snowc(fc)
           if (j >= snl(c)+1) then
              ! [PORTED by Hui Tang: use jbot_sno(c) instead of hard-coded -1 so that the
-             !  NVP layer at j=0 is excluded when nvp_layer_active.
+             !  (possible) NVP layer at j=0 is excluded.
              !  j < jbot_sno: interior snow layer — capacity-limited (next layer is also snow).
-             !  j == jbot_sno: bottom snow layer — uncapped gravity drainage (next is NVP or soil).
-             !  j > jbot_sno: NVP layer (only j=0 when nvp_layer_active) — zero; not a snow layer.]
              if (j < jbot_sno(c)) then
                 ! No runoff over snow surface, just ponding on surface
                 if (eff_porosity(c,j) < params_inst%wimp .OR. eff_porosity(c,j+1) < params_inst%wimp) then
@@ -1437,10 +1435,11 @@ contains
                         - vol_liq(c,j+1))*dz(c,j+1)*frac_sno_eff(c))
                 end if
              else if (j == jbot_sno(c)) then
+                ! bottom snow layer — uncapped gravity drainage (next is NVP or soil).
                 qflx_snow_percolation(c,j) = max(0._r8,(vol_liq(c,j) &
                      - params_inst%ssi*eff_porosity(c,j))*dz(c,j)*frac_sno_eff(c))
              else
-                ! j > jbot_sno(c): NVP layer at j=0; not a snow layer
+                ! not a snow layer
                 qflx_snow_percolation(c,j) = 0._r8
              end if
              qflx_snow_percolation(c,j) = (qflx_snow_percolation(c,j)*1000._r8)/dtime
@@ -2613,10 +2612,10 @@ contains
     if (use_nvp) then
        do fc = 1, num_snowc
           c = filter_snowc(fc)
-          if (col%jbot_sno(c) == -1) then
+          if (col%dz(c,0) > 0._r8) then
              write(iulog,*) '[NVP DBG snow] c=', c, &
                   ' snl=', snl(c), &
-                  ' jbot_sno=', col%jbot_sno(c), &
+                  ' dz(0)=', col%dz(c,0), &
                   ' snow_depth=', snow_depth(c), &
                   ' h2osno_total=', h2osno_total(c), &
                   ' frac_sno=', frac_sno(c), &
@@ -2961,7 +2960,7 @@ contains
        end do loop_layers
 
        ! [PORTED by Hui Tang: restore NVP layer slot in snl after compaction]
-       ! snl encodes -(N_snow+1) when NVP is active (j=0 reserved for NVP).
+       ! snl encodes -(N_snow+1) when use_nvp is true (j=0 reserved for NVP).
        if (use_nvp .and. col%jbot_sno(c) == -1) then
           snl(c) = -(msno + 1)
        else
@@ -3109,7 +3108,7 @@ contains
           ! filter_snowc may include a column whose snl was -1 when the filter was built
           ! but has since been set to 0 (last snow layer emptied). With snl=0, the
           ! condition j<=snl gives 0<=0=.true., which would incorrectly zero the NVP
-          ! layer at j=0. Skip j=0 when the NVP layer is active.
+          ! layer at j=0. Skip j=0 when it's reserved for the NVP layer.
           if (use_nvp .and. col%jbot_sno(c) == -1 .and. j == 0) cycle
           if (j <= snl(c) .and. snl(c) > -nlevsno) then
              do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end

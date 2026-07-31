@@ -274,7 +274,7 @@ contains
                !  - t_grnd0(pre, soil-only) conflates the temporal increment with a soil-vs-NVP basis
                !  difference (~frac_nvp_eff*(t_nvp-t_soil)); for the thin, thermally-decoupled moss
                !  that spurious term is several K and can flip qflx_ev_nvp negative (unphysical dew in
-               !  summer). When NVP is active (jbot_sno=-1) layer 0 IS the NVP layer for ALL snow
+               !  summer). When layer 0 is reserved for NVP (jbot_sno=-1) layer 0 IS the NVP layer for ALL snow
                !  states (snow bottoms at j=-1, not 0), so t_soisno(c,0)/tssbef(c,0) are the NVP
                !  post/pre-solve temperatures (t_nvp_col = t_soisno(c,0), SoilTemperatureMod:597).
                !  cgrndl (bulk raiw*dqgdT) is retained — only the increment is corrected. Non-NVP

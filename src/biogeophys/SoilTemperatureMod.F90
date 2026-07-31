@@ -254,7 +254,7 @@ contains
          t_grnd                  => temperature_inst%t_grnd_col             , & ! Output: [real(r8) (:)   ]  ground surface temperature [K]
          ! [PORTED by Hui Tang: nvp (moss/lichen) surface temperature at layer 0]
          t_nvp_col               => temperature_inst%t_nvp_col              , & ! Output: [real(r8) (:)   ]  nvp (moss/lichen) temperature [K]
-         ! [PORTED by Hui Tang: jbot_sno defines real bottom of snow (0=no NVP, -1=NVP at layer 0)]
+         ! [PORTED by Hui Tang: jbot_sno defines real bottom of snow (0=use_nvp false, -1=use_nvp true and thus layer 0 reserved for NVP)]
          jbot_sno                => col%jbot_sno                            , & ! Input:  [integer  (:)   ]  bottom snow layer index (0 or -1)          
          t_building              => temperature_inst%t_building_lun         , & ! Output: [real(r8) (:)   ]  internal building air temperature [K]       
          t_roof_inner            => temperature_inst%t_roof_inner_lun       , & ! Input:  [real(r8) (:)   ]  roof inside surface temperature [K]
@@ -743,7 +743,7 @@ contains
     associate(                                                 &
          nbedrock     =>    col%nbedrock                     , & ! Input:  [real(r8) (:,:) ]  depth to bedrock (m)
          snl          =>    col%snl                          , & ! Input:  [integer  (:)   ]  number of snow layers
-         ! [PORTED by Hui Tang: jbot_sno = 0 (no NVP) or -1 (NVP occupies layer 0)]
+         ! [PORTED by Hui Tang: jbot_sno defines real bottom of snow (0=use_nvp false, -1=use_nvp true and thus layer 0 reserved for NVP)]
          jbot_sno     =>    col%jbot_sno                     , & ! Input:  [integer  (:)   ]  real bottom of snow (0 or -1)
          dz           =>    col%dz                           , & ! Input:  [real(r8) (:,:) ]  layer depth (m)
          zi           =>    col%zi                           , & ! Input:  [real(r8) (:,:) ]  interface level below a "z" level (m)
@@ -970,12 +970,12 @@ contains
       end do
 
       ! [PORTED by Hui Tang: NVP-soil interface conductivity when NVP at layer 0]
-      ! Use jbot_sno(c)==-1 directly (not filter_nvpc) so this runs on the first
+      ! Use dz(c)>0 directly (not filter_nvpc) so this runs on the first
       ! timestep before filter_nvpc has been built by setNVPcFilter.
       if (use_nvp) then
          do fc = 1, num_nolakec
             c = filter_nolakec(fc)
-            if (col%jbot_sno(c) == -1) then
+            if (col%dz(c,0) > 0._r8) then
                tk(c,0) = thk(c,0)*thk(c,1)*(z(c,1)-z(c,0)) &
                     /(thk(c,0)*(z(c,1)-zi(c,0))+thk(c,1)*(zi(c,0)-z(c,0)))
             end if
@@ -1051,12 +1051,12 @@ contains
       end do
 
       ! [PORTED by Hui Tang: NVP layer heat capacity at j=0]
-      ! Use jbot_sno(c)==-1 directly (not filter_nvpc) so this runs on the first
+      ! Use frac_nvp directly (not filter_nvpc) so this runs on the first
       ! timestep before filter_nvpc has been built by setNVPcFilter.
       if (use_nvp) then
          do fc = 1, num_nolakec
             c = filter_nolakec(fc)
-            if (col%jbot_sno(c) == -1) then
+            if (col%frac_nvp(c) == -1) then
                ! [PORTED by Hui Tang (2026-06-12): option (b) step 1 — make cv(c,0) FULLY PER-MOSS-AREA,
                !  mirroring snow's per-snow-area cv (line ~1027). The moss occupies only frac_nvp of the
                !  column, so divide the ENTIRE per-column heat capacity by frac_nvp. NOTE: the solid term
@@ -1067,7 +1067,7 @@ contains
                !  heat capacity (solid+water) — consistent with the per-column accounting and the moss
                !  solid added to heat(c) in TotalWaterAndHeatMod. Pairs with the moss/soil interface
                !  (frac_nvp on SOIL side, FULL on MOSS side) so frac_nvp cancels across storage and
-               !  conduction. jbot_sno==-1 => frac_nvp > nvp_frac_min > 0.]
+               !  conduction
                cv(c,0) = max(thin_sfclayer, &
                     ( csol_nvp*(1._r8 - watsat_nvp)*dz(c,0) &
                       + cpliq*h2osoi_liq(c,0) + cpice*h2osoi_ice(c,0) )/col%frac_nvp(c))

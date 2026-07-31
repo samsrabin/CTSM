@@ -571,7 +571,7 @@ contains
             snowmass = h2osoi_ice(c,j) + h2osoi_liq(c,j)
 
             ! [PORTED by Hui Tang: exclude NVP layer j=0 from aerosol snow calculation.
-            !  When NVP is active jbot_sno=-1 (bottom snow = j=-1); j=0 is NVP not snow.
+            !  When use_nvp is true, jbot_sno=-1 (bottom snow = j=-1); j=0 is NVP not snow.
             !  Without this guard, j=0 satisfies j>=snl+1 and snowmass(j=0)≈0 → SIGFPE
             !  divide-by-zero at the concentration lines below.]
             if (j >= snl(c)+1 .and. j <= col%jbot_sno(c)) then

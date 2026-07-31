@@ -284,7 +284,7 @@ contains
       ! Determine the change of snow mass and the snow water onto soil
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state entering HydrologyNoDrainage]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc, 0) > 0._r8) &
          write(iulog,*) '[NVP DBG] HydroNoDrain BEG c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -292,7 +292,7 @@ contains
            atm2lnd_inst, aerosol_inst, water_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after SnowWater]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc, 0) > 0._r8) &
          write(iulog,*) '[NVP DBG] after SnowWater c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -331,7 +331,7 @@ contains
       end if
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state and NVP fluxes after NVPWaterBalance_Column]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc,0) > 0._r8) &
          write(iulog,*) '[NVP DBG] after NVPWaterBal c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0), &
          ' ev_nvp=', b_waterflux_inst%qflx_ev_nvp_col(bounds%begc), &
@@ -427,7 +427,7 @@ contains
            b_waterstate_inst, b_waterdiagnostic_inst, b_waterflux_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after RenewCondensation]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc,0) > 0._r8) &
          write(iulog,*) '[NVP DBG] after RenewCond c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -450,7 +450,7 @@ contains
            temperature_inst, b_waterstate_inst, b_waterdiagnostic_inst, atm2lnd_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after SnowCompaction]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc,0) > 0._r8) &
          write(iulog,*) '[NVP DBG] after SnowCompact c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -459,7 +459,7 @@ contains
            aerosol_inst, temperature_inst, water_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after CombineSnowLayers]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc,0) > 0._r8) &
          write(iulog,*) '[NVP DBG] after CombineSnow c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -468,7 +468,7 @@ contains
            aerosol_inst, temperature_inst, water_inst, is_lake=.false.)
            
       ! [PORTED by Hui Tang: NVP debug — j=0 state before ZeroEmptySnow]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc,0) > 0._r8) &
          write(iulog,*) '[NVP DBG] before ZeroEmptySnow c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -477,7 +477,7 @@ contains
            col, water_inst, temperature_inst)
        
       ! [PORTED by Hui Tang: NVP debug — j=0 state after ZeroEmptySnow]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%dz(bounds%begc,0) > 0._r8) &
          write(iulog,*) '[NVP DBG] after ZeroEmptySnow c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
        
