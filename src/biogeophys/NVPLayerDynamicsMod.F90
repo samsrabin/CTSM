@@ -124,12 +124,16 @@ contains
             ' dz_nvp=', dz_nvp, ' frac_nvp=', col%frac_nvp(c)
     end if
 
+    ! SSR: Always set this when use_nvp is true (which it should be if this subroutine is getting
+    ! called). Otherwise, you end up with dz==0 in patches with no NVP when use_nvp is on, and that
+    ! causes divide-by-zero.
+    col%jbot_sno(c) = -1
+
     if (col%frac_nvp(c) > nvp_frac_min .and. dz_nvp > 0._r8) then
 
        ! --- Active (Appear or Grow/shrink) ---
        now_active              = .true.
        col%nvp_layer_active(c) = .true.
-       col%jbot_sno(c)         = -1
        col%dz(c,0)             = dz_nvp
        ! Layer centre is half the thickness above the soil surface (zi(c,0)=0)
        col%z(c,0)              = -0.5_r8 * dz_nvp
@@ -141,7 +145,6 @@ contains
        ! --- Inactive (Disappear or Absent) ---
        now_active              = .false.
        col%nvp_layer_active(c) = .false.
-       col%jbot_sno(c)         = 0
        col%dz(c,0)             = 0._r8
        col%z(c,0)              = 0._r8
        ! Restore zi(c,-1) to soil surface when NVP is absent
@@ -156,7 +159,6 @@ contains
     if (.not. use_nvp_undersnow .and. col%snl(c) < 0 .and. now_active) then
        now_active              = .false.
        col%nvp_layer_active(c) = .false.
-       col%jbot_sno(c)         = 0
        col%dz(c,0)             = 0._r8
        col%z(c,0)              = 0._r8
        col%zi(c,-1)            = 0._r8
