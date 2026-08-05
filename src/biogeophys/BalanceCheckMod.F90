@@ -37,6 +37,7 @@ module BalanceCheckMod
   use column_varcon      , only : icol_roof, icol_sunwall, icol_shadewall
   use column_varcon      , only : icol_road_perv, icol_road_imperv
   use clm_varctl         , only : use_hillslope_routing
+  use clm_varctl, only : write_hui_debug
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -602,7 +603,7 @@ contains
           if (col%active(c)) then
 
              ! [PORTED by Hui Tang: NVP debug — print j=0 water and all wb flux terms for c==1]
-             if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == 1) then
+             if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == 1 .and. write_hui_debug) then
                 write(iulog,*) '[NVP DBG] WBal c=',c,' snl=',col%snl(c), &
                    ' ice0=',waterstate_inst%h2osoi_ice_col(c,0), &
                    ' liq0=',waterstate_inst%h2osoi_liq_col(c,0), &

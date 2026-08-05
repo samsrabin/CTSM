@@ -27,6 +27,7 @@ module TotalWaterAndHeatMod
   use landunit_varcon    , only : istdlak, istsoil,istcrop,istwet,istice
   use clm_varctl         , only : iulog, use_nvp  ! [PORTED by Hui Tang: use_nvp for NVP debug prints]
   use NVPParamsMod       , only : csol_nvp, watsat_nvp  ! [PORTED by Hui Tang: NVP solid heat capacity for heat(c)]
+  use clm_varctl, only : write_hui_debug
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -268,7 +269,9 @@ contains
          snocan_patch(bounds%begp:bounds%endp), &
          snocan_col(bounds%begc:bounds%endc))
 
-    write(iulog,*) '[NVP DBG] snocan_patch=', snocan_patch
+    if (write_hui_debug) then
+       write(iulog,*) '[NVP DBG] snocan_patch=', snocan_patch
+    end if
 
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
@@ -279,9 +282,11 @@ contains
        ! where FATES hydraulics is not turned on, this total_plant_stored_h2o is
        ! non-changing, and is set to 0 for a trivial solution.
 
-       write(iulog,*) '[NVP DBG] ComputeLiqIceMass c=',c,' j=',j, &
-             ' cum_liq=',liquid_mass(c),' cum_ice=',ice_mass(c), &
-             ' total_plant_stored_h2o=', total_plant_stored_h2o(c)
+       if (write_hui_debug) then
+          write(iulog,*) '[NVP DBG] ComputeLiqIceMass c=',c,' j=',j, &
+                ' cum_liq=',liquid_mass(c),' cum_ice=',ice_mass(c), &
+                ' total_plant_stored_h2o=', total_plant_stored_h2o(c)
+       end if
        
        liquid_mass(c) = liquid_mass(c) + liqcan_col(c) + total_plant_stored_h2o(c)
        ice_mass(c) = ice_mass(c) + snocan_col(c)
@@ -296,7 +301,7 @@ contains
           liquid_mass(c) = liquid_mass(c) + h2osoi_liq(c,j)
           ice_mass(c) = ice_mass(c) + h2osoi_ice(c,j)
           ! [PORTED by Hui Tang: NVP debug — print each layer's water contribution to water mass]
-          if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == bounds%begc) &
+          if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == bounds%begc .and. write_hui_debug) &
              write(iulog,*) '[NVP DBG] ComputeLiqIceMass c=',c,' j=',j, &
              ' liq=',h2osoi_liq(c,j),' ice=',h2osoi_ice(c,j), &
              ' cum_liq=',liquid_mass(c),' cum_ice=',ice_mass(c)
@@ -311,7 +316,7 @@ contains
        end if
 
        ! [PORTED by Hui Tang: NVP debug — print h2osno_no_layers and h2osfc after snow loop]
-       if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == bounds%begc) &
+       if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == bounds%begc .and. write_hui_debug) &
           write(iulog,*) '[NVP DBG] ComputeLiqIceMass c=',c,' snl=',snl(c), &
           ' h2osno_no_layers=',h2osno_no_layers(c),' h2osfc=',h2osfc(c), &
           ' liqcan=',liqcan_col(c),' snocan=',snocan_col(c)
@@ -345,7 +350,7 @@ contains
          ice_mass = ice_mass(bounds%begc:bounds%endc))
 
     ! [PORTED by Hui Tang: NVP debug — print total liquid_mass and ice_mass after all contributions]
-    if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+    if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
        write(iulog,*) '[NVP DBG] ComputeLiqIceMass TOTAL c=',bounds%begc, &
        ' liquid_mass=',liquid_mass(bounds%begc),' ice_mass=',ice_mass(bounds%begc), &
        ' total=',liquid_mass(bounds%begc)+ice_mass(bounds%begc)
@@ -422,8 +427,10 @@ contains
           if (has_h2o) then
              liquid_mass(c) = liquid_mass(c) + h2osoi_liq(c,j)
              ice_mass(c) = ice_mass(c) + h2osoi_ice(c,j) + excess_ice(c,j)
-             write(iulog,*) '[NVP DBG] ComputeLiqIceMass c=',c,' j=',j, &
-             ' cum_liq=',liquid_mass(c),' cum_ice=',ice_mass(c), h2osoi_ice(c,j), excess_ice(c,j)
+             if (write_hui_debug) then
+                write(iulog,*) '[NVP DBG] ComputeLiqIceMass c=',c,' j=',j, &
+                ' cum_liq=',liquid_mass(c),' cum_ice=',ice_mass(c), h2osoi_ice(c,j), excess_ice(c,j)
+             end if
 
           end if
        end do

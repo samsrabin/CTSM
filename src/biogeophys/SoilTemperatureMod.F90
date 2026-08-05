@@ -29,6 +29,7 @@ module SoilTemperatureMod
   use LandunitType            , only : lun
   use ColumnType              , only : col
   use PatchType               , only : patch
+  use clm_varctl, only : write_hui_debug
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -599,9 +600,11 @@ contains
             c = filter_nvpc(fc)
             t_nvp_col(c) = t_soisno(c,0)
             ! [DBG NVP sabg] NVP temperature after tridiagonal solver
-            write(iulog,*) '[DBG NVP sabg] T: c=', c, &
-                 ' t_soisno(c,0)=', t_soisno(c,0), &
-                 ' t_nvp_col(c)=', t_nvp_col(c)
+            if (write_hui_debug) then
+               write(iulog,*) '[DBG NVP sabg] T: c=', c, &
+                    ' t_soisno(c,0)=', t_soisno(c,0), &
+                    ' t_nvp_col(c)=', t_nvp_col(c)
+            end if
          end do
       end if
 
@@ -780,7 +783,7 @@ contains
          do fc = 1, num_nolakec
             c = filter_nolakec(fc)
             if (snl(c) < 0) then
-               if (h2osoi_liq(c,0) /= h2osoi_liq(c,0) .or. h2osoi_ice(c,0) /= h2osoi_ice(c,0)) then
+               if (h2osoi_liq(c,0) /= h2osoi_liq(c,0) .or. h2osoi_ice(c,0) /= h2osoi_ice(c,0) .and. write_hui_debug) then
                   write(iulog,*) '[NVP DBG] SoilThermProp NaN in h2osoi at j=0 c=', c, ' snl=', snl(c)
                   write(iulog,*) '  h2osoi_liq(c,:) = ', h2osoi_liq(c,:)
                   write(iulog,*) '  h2osoi_ice(c,:) = ', h2osoi_ice(c,:)
@@ -2329,14 +2332,16 @@ contains
                   sabg_lyr_col(c,0) = sabg_lyr_col(c,0) + sabg_lyr(p,0) * patch%wtcol(p)
                end if
                ! [DBG NVP sabg] solar absorbed by NVP and total surface energy flux
-               write(iulog,*) '[DBG NVP sabg] p=', p, ' c=', c, &
-                    ' sabg_lyr(p,0)=', sabg_lyr(p,0), &
-                    ' eflx_gnet_nvp=', eflx_gnet_nvp, &
-                    ' hs_nvp(c)=', hs_nvp(c)
+               if (write_hui_debug) then
+                  write(iulog,*) '[DBG NVP sabg] p=', p, ' c=', c, &
+                       ' sabg_lyr(p,0)=', sabg_lyr(p,0), &
+                       ' eflx_gnet_nvp=', eflx_gnet_nvp, &
+                       ' hs_nvp(c)=', hs_nvp(c)
+               end if
                ! [PORTED by Hui Tang: VERIFY diagnostic (remove after confirmation) — exposure
                !  weighting is now APPLIED in eflx_gnet_nvp above. turb_unweighted is the old value,
                !  turb_applied = frac_nvp_eff*turb_unweighted is what now enters the solve.]
-               if (frac_sno_eff(c) > 0._r8) then
+               if (frac_sno_eff(c) > 0._r8 .and. write_hui_debug) then
                   write(iulog,*) '[NVP EXP DIAG] nstep=', get_nstep(), ' c=', c, ' p=', p, &
                        ' snl=', snl(c), ' frac_nvp=', col%frac_nvp(c), &
                        ' frac_sno_eff=', frac_sno_eff(c), ' frac_h2osfc=', frac_h2osfc(c), &

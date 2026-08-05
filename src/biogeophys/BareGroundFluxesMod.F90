@@ -27,6 +27,7 @@ module BareGroundFluxesMod
   use clm_varctl           , only : use_fates
   ! [PORTED by Hui Tang: NVP surface resistance parameters for local rnvp computation]
   use NVPParamsMod         , only : rnvp_min, rnvp_amp, rnvp_exp, rnvp_ice
+  use clm_varctl, only : write_hui_debug
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -319,7 +320,7 @@ contains
       do f = 1, num_noexposedvegp
          p = filter_noexposedvegp(f)
          c = patch%column(p)
-         if (use_nvp .and. col%nvp_layer_active(c)) then
+         if (use_nvp .and. col%nvp_layer_active(c) .and. write_hui_debug) then
             ! SSR debug: I'm adding the "if use_fates" wrapper because of previous "Reference to undefined
             !   POINTER PATCH%IS_VEG" errors below. Not sure if this ever might have happened here.
             write(iulog,'(a,2i6,l2,2f10.5)') '[DBG noexposedvegp] p, c, is_bg, wtcol, frac_nvp:', &

@@ -35,6 +35,8 @@ Module HydrologyNoDrainageMod
   use ColumnType        , only : col                
   use TopoMod, only : topo_type
   use perf_mod          , only : t_startf, t_stopf
+  use clm_varctl, only : write_hui_debug
+
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -284,7 +286,7 @@ contains
       ! Determine the change of snow mass and the snow water onto soil
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state entering HydrologyNoDrainage]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] HydroNoDrain BEG c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -292,7 +294,7 @@ contains
            atm2lnd_inst, aerosol_inst, water_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after SnowWater]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] after SnowWater c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -331,7 +333,7 @@ contains
       end if
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state and NVP fluxes after NVPWaterBalance_Column]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] after NVPWaterBal c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0), &
          ' ev_nvp=', b_waterflux_inst%qflx_ev_nvp_col(bounds%begc), &
@@ -373,7 +375,7 @@ contains
       end if
      
       ! [NVP DBG: print soil liq/ice/T for j=1..6 before SoilWater; nstep<=3 to avoid log flood]
-      if (use_nvp .and. get_nstep() <= 3) then
+      if (use_nvp .and. get_nstep() <= 3 .and. write_hui_debug) then
          write(iulog,'(a,i0,6(1x,es11.4))') '[NVP DBG] before SoilWater nstep=', get_nstep(), &
               (h2osoi_liq(bounds%begc,j), j=1,6)
          write(iulog,'(a,6(1x,f7.2))') '[NVP DBG] before SoilWater t_soisno(1:6)=', &
@@ -383,7 +385,7 @@ contains
            soilhydrology_inst, soilstate_inst, b_waterflux_inst, b_waterstate_inst, temperature_inst, &
            canopystate_inst, energyflux_inst, soil_water_retention_curve)
       ! [NVP DBG: print soil liq after SoilWater to see if it introduces the liquid]
-      if (use_nvp .and. get_nstep() <= 3) then
+      if (use_nvp .and. get_nstep() <= 3 .and. write_hui_debug) then
          write(iulog,'(a,i0,6(1x,es11.4))') '[NVP DBG] after  SoilWater nstep=', get_nstep(), &
               (h2osoi_liq(bounds%begc,j), j=1,6)
       end if
@@ -399,7 +401,7 @@ contains
               soilhydrology_inst, soilstate_inst, temperature_inst, b_waterstate_inst, &
               b_waterflux_inst)
          ! [NVP DBG: print soil liq after WaterTable]
-         if (use_nvp .and. get_nstep() <= 3) then
+         if (use_nvp .and. get_nstep() <= 3 .and. write_hui_debug) then
             write(iulog,'(a,i0,6(1x,es11.4))') '[NVP DBG] after  WaterTable nstep=', get_nstep(), &
                  (h2osoi_liq(bounds%begc,j), j=1,6)
          end if
@@ -414,7 +416,7 @@ contains
               b_waterstate_inst, b_waterflux_inst)
 
          ! [NVP DBG: print soil liq after PerchedWaterTable+ThetaBasedWaterTable]
-         if (use_nvp .and. get_nstep() <= 3) then
+         if (use_nvp .and. get_nstep() <= 3 .and. write_hui_debug) then
             write(iulog,'(a,i0,6(1x,es11.4))') '[NVP DBG] after  WaterTable(perched) nstep=', get_nstep(), &
                  (h2osoi_liq(bounds%begc,j), j=1,6)
          end if
@@ -427,7 +429,7 @@ contains
            b_waterstate_inst, b_waterdiagnostic_inst, b_waterflux_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after RenewCondensation]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] after RenewCond c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -450,7 +452,7 @@ contains
            temperature_inst, b_waterstate_inst, b_waterdiagnostic_inst, atm2lnd_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after SnowCompaction]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] after SnowCompact c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -459,7 +461,7 @@ contains
            aerosol_inst, temperature_inst, water_inst)
 
       ! [PORTED by Hui Tang: NVP debug — j=0 state after CombineSnowLayers]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] after CombineSnow c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -468,7 +470,7 @@ contains
            aerosol_inst, temperature_inst, water_inst, is_lake=.false.)
            
       ! [PORTED by Hui Tang: NVP debug — j=0 state before ZeroEmptySnow]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] before ZeroEmptySnow c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
 
@@ -477,22 +479,25 @@ contains
            col, water_inst, temperature_inst)
        
       ! [PORTED by Hui Tang: NVP debug — j=0 state after ZeroEmptySnow]
-      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1) &
+      if (use_nvp .and. col%jbot_sno(bounds%begc) == -1 .and. write_hui_debug) &
          write(iulog,*) '[NVP DBG] after ZeroEmptySnow c=1 snl=', col%snl(bounds%begc), &
          ' ice0=', h2osoi_ice(bounds%begc,0), ' liq0=', h2osoi_liq(bounds%begc,0)
        
       ! Build new snow filter
-      write(iulog,*) '[NVP DBG] before snowfilter c=1 snl=', col%snl(bounds%begc), &
-         ' num_snowc=', num_snowc, ' filter_snowc=', filter_snowc, &
-         ' num_nosnowc=', num_nosnowc, ' filter_nosnowc=', filter_nosnowc
+      if (write_hui_debug) then
+         write(iulog,*) '[NVP DBG] before snowfilter c=1 snl=', col%snl(bounds%begc), &
+            ' num_snowc=', num_snowc, ' filter_snowc=', filter_snowc, &
+            ' num_nosnowc=', num_nosnowc, ' filter_nosnowc=', filter_nosnowc
+      end if
 
       call BuildSnowFilter(bounds, num_nolakec, filter_nolakec, &
            num_snowc, filter_snowc, num_nosnowc, filter_nosnowc)
            
-      write(iulog,*) '[NVP DBG] after snowfilter c=1 snl=', col%snl(bounds%begc), &
-         ' num_snowc=', num_snowc, ' filter_snowc=', filter_snowc, &
-         ' num_nosnowc=', num_nosnowc, ' filter_nosnowc=', filter_nosnowc
-          
+      if (write_hui_debug) then
+         write(iulog,*) '[NVP DBG] after snowfilter c=1 snl=', col%snl(bounds%begc), &
+            ' num_snowc=', num_snowc, ' filter_snowc=', filter_snowc, &
+            ' num_nosnowc=', num_nosnowc, ' filter_nosnowc=', filter_nosnowc
+      end if
 
       ! TODO(wjs, 2019-09-16) Eventually move this down, merging this with later tracer
       ! consistency checks. If/when we remove calls to TracerConsistencyCheck from this

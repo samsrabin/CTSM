@@ -2718,6 +2718,7 @@ lnd/clm2/surfdata_esmf/NEON/ctsm5.4.0/surfdata_1x1_NEON_TOOL_hist_2000_78pfts_c2
 <fates_radiation_model          use_fates=".true.">norman</fates_radiation_model>
 <fates_hydro_solver             use_fates=".true.">2D_Picard</fates_hydro_solver>
 <use_fates_managed_fire         use_fates=".true.">.false.</use_fates_managed_fire>
+<write_hui_debug>.false.</write_hui_debug>
 <use_fates_planthydro           use_fates=".true.">.false.</use_fates_planthydro>
 <use_fates_tree_damage          use_fates=".true.">.false.</use_fates_tree_damage>
 <use_fates_cohort_age_tracking  use_fates=".true.">.false.</use_fates_cohort_age_tracking>

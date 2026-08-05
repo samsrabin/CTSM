@@ -26,6 +26,7 @@ module SnowSnicarMod
   use GridcellType    , only : grc       
   use LandunitType    , only : lun       
   use ColumnType      , only : col       
+  use clm_varctl, only : write_hui_debug
   !
   implicit none
   save
@@ -1158,8 +1159,8 @@ contains
 
                       ! [DEBUG by Hui Tang: diagnose SIGFPE at line 1151]
                       ! Fires when ws~1 (lm->0, div-by-zero) or lm*mu_not~1 (resonance).
-                      if (ws > 0.9999_r8 .or. &
-                          c3*(c1-ws)*(c1-ws*gs)*mu_not*mu_not > 0.9_r8) then
+                      if (write_hui_debug .and. (ws > 0.9999_r8 .or. &
+                          c3*(c1-ws)*(c1-ws*gs)*mu_not*mu_not > 0.9_r8)) then
                          write(iulog,'(A,3(1X,I6),4(1X,A,ES14.6))') &
                               'SNICAR_SIGFPE_DIAG col/layer/band:', c_idx, i, bnd_idx, &
                               ' ws=', ws, ' gs=', gs, ' ts=', ts, ' mu_not=', mu_not

@@ -42,6 +42,7 @@ module SnowHydrologyMod
   use LakeCon         , only : lsadz
   use NumericsMod     , only : truncate_small_values_one_lev
   use WaterTracerUtils, only : CalcTracerFromBulk, CalcTracerFromBulkMasked
+  use clm_varctl, only : write_hui_debug
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -2610,7 +2611,7 @@ contains
     ! across May→June: if dz(c,j<0) grows while h2osoi_ice/liq shrink, the standard
     ! CTSM compaction floor (mass/frac_sno) is inflating snow-layer dz as frac_sno
     ! drops.  dz(c,0) should stay at the structural nvp_dz value.
-    if (use_nvp) then
+    if (use_nvp .and. write_hui_debug) then
        do fc = 1, num_snowc
           c = filter_snowc(fc)
           if (col%jbot_sno(c) == -1) then
@@ -2790,7 +2791,7 @@ contains
        c = filter_snowc(fc)
 
        ! [PORTED by Hui Tang: NVP debug print — j=0 water before compaction]
-       if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == 1) &
+       if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == 1 .and. write_hui_debug) &
           write(iulog,'(A,I4,A,I4,A,2ES14.6)') '[NVP DBG] DivSnow BEG c=',c, &
           ' snl=',snl(c),' ice0/liq0=', &
           water_inst%bulk_and_tracers(i_bulk)%waterstate_inst%h2osoi_ice_col(c,0), &
@@ -2894,12 +2895,14 @@ contains
                    zwliq(wi) = propor*swliq(wi,c,k)
                 end do
                 
-                write(iulog,*) 'msno=',msno, &
-                               'dzsno=',dzsno(c,k), &
-                               'swliq=',swliq(:,c,k), &
-                               'swice=',swice(:,c,k), &
-                               'zwliq=',zwliq,      &
-                               'zwice=',zwice                 
+                if (write_hui_debug) then
+                   write(iulog,*) 'msno=',msno, &
+                                  'dzsno=',dzsno(c,k), &
+                                  'swliq=',swliq(:,c,k), &
+                                  'swice=',swice(:,c,k), &
+                                  'zwliq=',zwliq,      &
+                                  'zwice=',zwice                 
+                end if
 
                 zmbc_phi = propor*mbc_phi(c,k)
                 zmbc_pho = propor*mbc_pho(c,k)
@@ -2937,11 +2940,13 @@ contains
                 mdst4(c,k+1)   = mdst4(c,k+1)+zmdst4  ! (combo)
 
                 ! Mass-weighted combination of radius
-                write(iulog,*) 'c=',c,          &
-                               'k=',k,          &
-                               'dzmax_u=', dzmax_u(k), &
-                               'swliq(k+1)=', swliq(:,c,:), & 
-                               'swice(k+1)=', swice(:,c,:) 
+                if (write_hui_debug) then
+                   write(iulog,*) 'c=',c,          &
+                                  'k=',k,          &
+                                  'dzmax_u=', dzmax_u(k), &
+                                  'swliq(k+1)=', swliq(:,c,:), & 
+                                  'swice(k+1)=', swice(:,c,:) 
+                end if
 
                 rds(c,k+1) = MassWeightedSnowRadius( rds(c,k), rds(c,k+1), &
                      (swliq(i_bulk,c,k+1)+swice(i_bulk,c,k+1)), (zwliq(i_bulk)+zwice(i_bulk)) )
@@ -2969,7 +2974,7 @@ contains
        end if
 
        ! [PORTED by Hui Tang: NVP debug print — j=0 water after compaction]
-       if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == 1) &
+       if (use_nvp .and. col%jbot_sno(c) == -1 .and. c == 1 .and. write_hui_debug) &
           write(iulog,'(A,I4,A,I4,A,2ES14.6)') '[NVP DBG] DivSnow END c=',c, &
           ' snl=',snl(c),' ice0/liq0=', &
           water_inst%bulk_and_tracers(i_bulk)%waterstate_inst%h2osoi_ice_col(c,0), &

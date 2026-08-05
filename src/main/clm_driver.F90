@@ -87,6 +87,7 @@ module clm_driver
   use clm_instMod
   use SoilMoistureStreamMod  , only : PrescribedSoilMoistureInterp, PrescribedSoilMoistureAdvance
   use SoilBiogeochemDecompCascadeConType , only : no_soil_decomp, decomp_method
+  use clm_varctl, only : write_hui_debug
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -764,10 +765,12 @@ contains
        end if
           
        ! [DBG NVP] Check exposed/noexposed veg patch filters before CanopyFluxes
-       write(iulog,*) '[DBG filter] num_exposedvegp=', filter(nc)%num_exposedvegp, &
-            ' exposedvegp=', filter(nc)%exposedvegp(1:filter(nc)%num_exposedvegp)
-       write(iulog,*) '[DBG filter] num_noexposedvegp=', filter(nc)%num_noexposedvegp, &
-            ' noexposedvegp=', filter(nc)%noexposedvegp(1:filter(nc)%num_noexposedvegp)
+       if (write_hui_debug) then
+          write(iulog,*) '[DBG filter] num_exposedvegp=', filter(nc)%num_exposedvegp, &
+               ' exposedvegp=', filter(nc)%exposedvegp(1:filter(nc)%num_exposedvegp)
+          write(iulog,*) '[DBG filter] num_noexposedvegp=', filter(nc)%num_noexposedvegp, &
+               ' noexposedvegp=', filter(nc)%noexposedvegp(1:filter(nc)%num_noexposedvegp)
+       end if
 
        call CanopyFluxes(bounds_clump,                                                      &
             filter(nc)%num_exposedvegp, filter(nc)%exposedvegp,                             &
@@ -972,10 +975,12 @@ contains
             aerosol_inst, canopystate_inst, scf_method, soil_water_retention_curve, topo_inst)
             
        ! [DBG NVP] Check snow/nosnow column filters before HydrologyNoDrainage
-       write(iulog,*) '[DBG filter] num_snowc=', filter(nc)%num_snowc, &
-            ' snowc=', filter(nc)%snowc(1:filter(nc)%num_snowc)
-       write(iulog,*) '[DBG filter] num_nosnowc=', filter(nc)%num_nosnowc, &
-            ' nosnowc=', filter(nc)%nosnowc(1:filter(nc)%num_nosnowc)
+       if (write_hui_debug) then
+          write(iulog,*) '[DBG filter] num_snowc=', filter(nc)%num_snowc, &
+               ' snowc=', filter(nc)%snowc(1:filter(nc)%num_snowc)
+          write(iulog,*) '[DBG filter] num_nosnowc=', filter(nc)%num_nosnowc, &
+               ' nosnowc=', filter(nc)%nosnowc(1:filter(nc)%num_nosnowc)
+       end if
 
        ! The following needs to be done after HydrologyNoDrainage (because it needs
        ! waterfluxbulk_inst%qflx_snwcp_ice_col), but before HydrologyDrainage (because
@@ -1728,7 +1733,7 @@ contains
          waterfluxbulk_inst%qflx_ev_nvp_patch(bounds%begp:bounds%endp), &
          waterfluxbulk_inst%qflx_ev_nvp_col(bounds%begc:bounds%endc))
 
-    if (use_nvp) then
+    if (use_nvp .and. write_hui_debug) then
        do fc = 1, num_nolakec
           c = filter_nolakec(fc)
           if (col%nvp_layer_active(c)) then

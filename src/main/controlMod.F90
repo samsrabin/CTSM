@@ -261,6 +261,7 @@ contains
           use_fates_daylength_factor,                   &
           fates_photosynth_acclimation,                 &
           fates_history_dimlevel,                       &
+          write_hui_debug, &
           use_fates_managed_fire
 
     ! Ozone vegetation stress method
@@ -868,6 +869,7 @@ contains
     call mpi_bcast (fluh_timeseries, len(fluh_timeseries) , MPI_CHARACTER, 0, mpicom, ier)
     call mpi_bcast (flandusepftdat, len(flandusepftdat) , MPI_CHARACTER, 0, mpicom, ier)
     call mpi_bcast (use_fates_managed_fire, 1, MPI_LOGICAL, 0, mpicom, ier)
+    call mpi_bcast (write_hui_debug, 1, MPI_LOGICAL, 0, mpicom, ier)
 
     call mpi_bcast (fates_parteh_mode, 1, MPI_INTEGER, 0, mpicom, ier)
     call mpi_bcast (fates_seeddisp_cadence, 1, MPI_INTEGER, 0, mpicom, ier)
@@ -1328,6 +1330,7 @@ contains
        write(iulog, *) '    use_nvp_undersnow= ', use_nvp_undersnow
        write(iulog, *) '    use_nvp_temp_for_patch_gas_params= ', use_nvp_temp_for_patch_gas_params
        write(iulog, *) '    use_fates_managed_fire= ', use_fates_managed_fire
+       write(iulog, *) '    use_fates_managewrite_hui_debugd_fire= ', write_hui_debug
     end if
   end subroutine control_print
 

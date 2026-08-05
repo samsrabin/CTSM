@@ -23,6 +23,7 @@ module SoilFluxesMod
   use LandunitType	, only : lun                
   use ColumnType	, only : col                
   use PatchType		, only : patch                
+  use clm_varctl, only : write_hui_debug
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -241,16 +242,18 @@ contains
             ! [PORTED by Hui Tang: NaN diagnostic — identify which term makes qflx_ev_snow NaN]
             if ((qflx_ev_snow(p) /= qflx_ev_snow(p)) .or. &
                 (tinc(c)*cgrndl(p) /= tinc(c)*cgrndl(p))) then
-               write(iulog,*) "NaN DIAGNOSTIC SoilFluxesMod: before qflx_ev_snow linearization"
-               write(iulog,*) "  p, c                  = ", p, c
-               write(iulog,*) "  qflx_ev_snow(p)       = ", qflx_ev_snow(p)
-               write(iulog,*) "  tinc(c)                = ", tinc(c)
-               write(iulog,*) "  cgrndl(p)              = ", cgrndl(p)
-               write(iulog,*) "  tinc*cgrndl            = ", tinc(c)*cgrndl(p)
-               write(iulog,*) "  t_grnd(c)              = ", t_grnd(c)
-               write(iulog,*) "  t_grnd0(c)             = ", t_grnd0(c)
-               write(iulog,*) "  tssbef(c,snl+1)        = ", tssbef(c,col%snl(c)+1)
-               write(iulog,*) "  frac_sno_eff(c)        = ", frac_sno_eff(c)
+               if (write_hui_debug) then
+                  write(iulog,*) "NaN DIAGNOSTIC SoilFluxesMod: before qflx_ev_snow linearization"
+                  write(iulog,*) "  p, c                  = ", p, c
+                  write(iulog,*) "  qflx_ev_snow(p)       = ", qflx_ev_snow(p)
+                  write(iulog,*) "  tinc(c)                = ", tinc(c)
+                  write(iulog,*) "  cgrndl(p)              = ", cgrndl(p)
+                  write(iulog,*) "  tinc*cgrndl            = ", tinc(c)*cgrndl(p)
+                  write(iulog,*) "  t_grnd(c)              = ", t_grnd(c)
+                  write(iulog,*) "  t_grnd0(c)             = ", t_grnd0(c)
+                  write(iulog,*) "  tssbef(c,snl+1)        = ", tssbef(c,col%snl(c)+1)
+                  write(iulog,*) "  frac_sno_eff(c)        = ", frac_sno_eff(c)
+               end if
                !call endrun(subgrid_index=p, subgrid_level=subgrid_level_patch, &
                !     msg="NaN in qflx_ev_snow or tinc*cgrndl in SoilFluxesMod")
             end if
@@ -511,7 +514,7 @@ contains
             !  cover (frac_sno_eff==1) = Bug C (~-61 W/m2 at autumn freeze-up, buried NVP). Compare
             !  these ground terms with the column totals (eflx_sh_tot, eflx_lh_tot, eflx_lwrad_net) in
             !  the BalanceCheck dump. Remove once both residuals are identified.]
-            if (use_nvp .and. col%nvp_layer_active(c) .and. frac_sno_eff(c) > 0._r8) then
+            if (use_nvp .and. col%nvp_layer_active(c) .and. frac_sno_eff(c) > 0._r8 .and. write_hui_debug) then
                write(iulog,*) '[NVP DBG SEB] nstep=', get_nstep(), ' c=', c, ' p=', p, &
                     ' frac_sno_eff=', frac_sno_eff(c), ' frac_h2osfc=', frac_h2osfc(c)
                write(iulog,*) '[NVP DBG SEB]   sw_grnd=', &
@@ -684,19 +687,21 @@ contains
                end if
             end if
 
-            write(iulog,*) '[ERRSOI DBG] p=',p,' c=',c,' snl=',col%snl(c)
-            write(iulog,*) '  errsoi_patch     =', errsoi_patch(p)
-            write(iulog,*) '  eflx_soil_grnd   =', eflx_soil_grnd(p)
-            write(iulog,*) '  xmf (phase chg)  =', xmf(c)
-            write(iulog,*) '  xmf_h2osfc       =', xmf_h2osfc(c)
-            write(iulog,*) '  heat_store_sum   =', heat_store_diag
-            write(iulog,*) '  eflx_h2osfc_snow =', eflx_h2osfc_to_snow_col(c)
-            write(iulog,*) '  frac_h2osfc_term =', &
-                 frac_h2osfc(c)*(t_h2osfc(c)-t_h2osfc_bef(c))*(c_h2osfc(c)/dtime)
-            write(iulog,*) '  expected_errsoi  =', &
-                 eflx_soil_grnd(p) - xmf(c) - xmf_h2osfc(c) - heat_store_diag &
-                 + eflx_h2osfc_to_snow_col(c) &
-                 - frac_h2osfc(c)*(t_h2osfc(c)-t_h2osfc_bef(c))*(c_h2osfc(c)/dtime)
+            if (write_hui_debug) then
+               write(iulog,*) '[ERRSOI DBG] p=',p,' c=',c,' snl=',col%snl(c)
+               write(iulog,*) '  errsoi_patch     =', errsoi_patch(p)
+               write(iulog,*) '  eflx_soil_grnd   =', eflx_soil_grnd(p)
+               write(iulog,*) '  xmf (phase chg)  =', xmf(c)
+               write(iulog,*) '  xmf_h2osfc       =', xmf_h2osfc(c)
+               write(iulog,*) '  heat_store_sum   =', heat_store_diag
+               write(iulog,*) '  eflx_h2osfc_snow =', eflx_h2osfc_to_snow_col(c)
+               write(iulog,*) '  frac_h2osfc_term =', &
+                    frac_h2osfc(c)*(t_h2osfc(c)-t_h2osfc_bef(c))*(c_h2osfc(c)/dtime)
+               write(iulog,*) '  expected_errsoi  =', &
+                    eflx_soil_grnd(p) - xmf(c) - xmf_h2osfc(c) - heat_store_diag &
+                    + eflx_h2osfc_to_snow_col(c) &
+                    - frac_h2osfc(c)*(t_h2osfc(c)-t_h2osfc_bef(c))*(c_h2osfc(c)/dtime)
+            end if
 
             ! [PORTED by Hui Tang: VERIFY-ONLY diagnostic — candidate NVP-consistent errsoi input.
             !  Tests whether replacing eflx_soil_grnd's blended LW-emission + turbulent terms with the
@@ -708,7 +713,7 @@ contains
             !    - latent       : qflx_evap_soi (corrected)-> qflx_ev_nvp (already tinc-corrected)
             !  If errsoi_test ~ 0 across snow-free steps, promote this to the real errsoi input.
             !  Pure diagnostic: changes NO physics. Remove after verification.]
-            if (use_nvp .and. col%nvp_layer_active(c) .and. col%snl(c) == 0) then
+            if (use_nvp .and. col%nvp_layer_active(c) .and. col%snl(c) == 0 .and. write_hui_debug) then
                eflx_soil_grnd_nvp = sabg_soil(p) + sabg_lyr(p,0) + dlrad(p) &
                     + (1._r8 - frac_veg_nosno(p))*emg(c)*forc_lwrad(c) &
                     - emg(c)*sb*tssbef(c,0)**4 &
@@ -728,7 +733,7 @@ contains
             !  heat_store mismatches eflx_soil_grnd). 'wgt' is the weight actually applied in the
             !  errsoi sum: snow layers (j<0) use frac_sno_eff, NVP j=0 and soil (j>=1) use 1.0
             !  (cv per column area). 'term' = wgt*(t-tbef)/fact. Remove after fix.]
-            if (use_nvp .and. col%nvp_layer_active(c)) then
+            if (use_nvp .and. col%nvp_layer_active(c) .and. write_hui_debug) then
                write(iulog,*) '  [ERRSOI LYR] frac_sno_eff=', frac_sno_eff(c)
                do j = col%snl(c)+1, nlevgrnd
                   if (j >= 1) then

@@ -21,6 +21,7 @@ module SurfaceRadiationMod
   use ColumnType        , only : col
   use PatchType         , only : patch
   use landunit_varcon   , only : istdlak
+  use clm_varctl, only : write_hui_debug
 
   ! !PRIVATE TYPES:
   implicit none
@@ -932,7 +933,7 @@ contains
                    !  M_beer = nvp_exp*sabg_nvp; FGR_solar ≈ (1-fse)*sabg_lyr1 + fse*sabg_snow + M_beer;
                    !  SABG_tile = fse*sabg_snow + (1-fse)*bandloop + M_beer. Residual to close: sabg(p)-FGR
                    !  and the soil seam (1-fse)*(bandloop - sabg_lyr1). REMOVE after Phase 4 verified.]
-                   if (frac_sno_eff(c) > 0._r8 .and. frac_sno_eff(c) < col%frac_nvp(c)) then
+                   if (frac_sno_eff(c) > 0._r8 .and. frac_sno_eff(c) < col%frac_nvp(c) .and. write_hui_debug) then
                       write(iulog,*) '[NVP P4 RAD] nstep,c,p=', get_nstep(), c, p, &
                            ' sabg=', sabg(p), ' sabg_snow=', sabg_snow(p), &
                            ' bandloop=', sabg_soil_bandloop(p), ' sabg_lyr0=', sabg_lyr(p,0), &

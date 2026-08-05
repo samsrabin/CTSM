@@ -34,6 +34,7 @@ module SoilHydrologyMod
   use LandunitType      , only : lun                
   use ColumnType        , only : column_type, col
   use PatchType         , only : patch
+  use clm_varctl, only : write_hui_debug
 
   !
   ! !PUBLIC TYPES:
@@ -397,7 +398,7 @@ contains
         !  deducted from qflx_in_soil for the NVP fraction; compare it against what the moss actually
         !  gains ([NVP DBG] after NVPWaterBal: qflx_nvp_infl/Δliq0, + snow percolation into j=0). Any
         !  gap is the rain-on-snow leak. Guard: NVP active + water on top. Remove after diagnosis.]
-        if (use_nvp .and. col%nvp_layer_active(c) .and. qflx_top_soil(c) > 1.e-8_r8) then
+        if (use_nvp .and. col%nvp_layer_active(c) .and. qflx_top_soil(c) > 1.e-8_r8 .and. write_hui_debug) then
            write(iulog,*) '[NVP DBG QIN] nstep=', get_nstep(), ' c=', c, ' snl=', col%snl(c), &
                 ' fsno=', fsno, ' frac_h2osfc=', frac_h2osfc(c), ' frac_nvp=', col%frac_nvp(c)
            write(iulog,*) '[NVP DBG QIN]   frac_nvp_eff_soil(365)=', frac_nvp_eff_soil, &
@@ -2540,7 +2541,7 @@ contains
        end do
 
        ! [NVP DBG: print soil liq j=1..6 before watmin floor in SubsurfaceLateralFlow]
-       if (use_nvp .and. get_nstep() <= 3) then
+       if (use_nvp .and. get_nstep() <= 3 .and. write_hui_debug) then
           write(iulog,'(a,i0,6(1x,es11.4))') '[NVP DBG] SubLatFlow before watmin nstep=', get_nstep(), &
                (h2osoi_liq(bounds%begc,j), j=1,6)
        end if

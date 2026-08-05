@@ -51,6 +51,7 @@ module NVPLayerDynamicsMod
   use QSatMod                , only : QSat
   ! [PORTED by Hui Tang: runtime-tunable NVP physics parameters]
   use NVPParamsMod
+  use clm_varctl, only : write_hui_debug
 
   implicit none
   private
@@ -109,19 +110,21 @@ contains
     was_active = col%nvp_layer_active(c)
 
     ! [PORTED by Hui Tang: trace appear/disappear transitions in UpdateNVPLayer]
-    if (present(waterstate_inst)) then
-       write(iulog,'(a,i5,a,l1,2a,i8,3(a,f8.4))') &
-            '[DBG NVP update] c=', c, &
-            ' was_active=', was_active, ' pres_water=T', &
-            ' snl=', col%snl(c), &
-            ' dz_nvp=', dz_nvp, ' frac_nvp=', col%frac_nvp(c), &
-            ' ice0=', waterstate_inst%h2osoi_ice_col(c,0)
-    else
-       write(iulog,'(a,i5,a,l1,2a,i8,2(a,f8.4))') &
-            '[DBG NVP update] c=', c, &
-            ' was_active=', was_active, ' pres_water=F', &
-            ' snl=', col%snl(c), &
-            ' dz_nvp=', dz_nvp, ' frac_nvp=', col%frac_nvp(c)
+    if (write_hui_debug) then
+       if (present(waterstate_inst)) then
+          write(iulog,'(a,i5,a,l1,2a,i8,3(a,f8.4))') &
+               '[DBG NVP update] c=', c, &
+               ' was_active=', was_active, ' pres_water=T', &
+               ' snl=', col%snl(c), &
+               ' dz_nvp=', dz_nvp, ' frac_nvp=', col%frac_nvp(c), &
+               ' ice0=', waterstate_inst%h2osoi_ice_col(c,0)
+       else
+          write(iulog,'(a,i5,a,l1,2a,i8,2(a,f8.4))') &
+               '[DBG NVP update] c=', c, &
+               ' was_active=', was_active, ' pres_water=F', &
+               ' snl=', col%snl(c), &
+               ' dz_nvp=', dz_nvp, ' frac_nvp=', col%frac_nvp(c)
+       end if
     end if
 
     if (col%frac_nvp(c) > nvp_frac_min .and. dz_nvp > 0._r8) then

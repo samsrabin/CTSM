@@ -319,6 +319,8 @@ module clm_varctl
   !----------------------------------------------------------
 
   logical, public :: use_fates = .false.                                ! true => use fates
+  
+  logical, public :: write_hui_debug = .false.
 
   ! These are INTERNAL to the FATES module
 

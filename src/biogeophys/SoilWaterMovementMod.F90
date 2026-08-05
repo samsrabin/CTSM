@@ -9,6 +9,7 @@ module SoilWaterMovementMod
   ! created by Jinyun Tang, Mar 12, 2014
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_sys_mod       , only : shr_sys_flush
+  use clm_varctl, only : write_hui_debug
  
   !
   implicit none
@@ -297,7 +298,7 @@ contains
 
 
     ! [NVP DBG: print qflx_infl and first 6 soil liq layers entering solver, nstep<=3 only]
-    if (get_nstep() <= 3) then
+    if (get_nstep() <= 3 .and. write_hui_debug) then
        write(iulog,'(a,i0,a,es11.4)') '[NVP DBG] SoilWater entry nstep=', get_nstep(), &
             ' qflx_infl=', waterfluxbulk_inst%qflx_infl_col(bounds%begc)
        write(iulog,'(a,i0,6(1x,es11.4))') '[NVP DBG] SoilWater entry liq(1:6) nstep=', get_nstep(), &
@@ -339,7 +340,7 @@ contains
     end select
     
     ! [NVP DBG: print first 6 soil liq layers after solver]
-    if (get_nstep() <= 3) &
+    if (get_nstep() <= 3 .and. write_hui_debug) &
        write(iulog,'(a,i0,6(1x,es11.4))') '[NVP DBG] SoilWater exit  nstep=', get_nstep(), &
             (h2osoi_liq(bounds%begc,j), j=1,6)
 
@@ -1247,11 +1248,13 @@ contains
                  dqodw2(c,1:nlayers))
 
             ! RHS of system of equations
-            print *, "qflx_rootsoi_col=", qflx_rootsoi_col
-            print *, "vwc_liq=", vwc_liq
-            print *, "qin=", qin
-            print *, "qout=", qout
-            print *, "dt_dz=", dt_dz  
+            if (write_hui_debug) then
+               print *, "qflx_rootsoi_col=", qflx_rootsoi_col
+               print *, "vwc_liq=", vwc_liq
+               print *, "qin=", qin
+               print *, "qout=", qout
+               print *, "dt_dz=", dt_dz  
+            end if
                
             call compute_RHS_moisture_form(c, nlayers, &           
                  qflx_rootsoi_col(c,1:nlayers), &

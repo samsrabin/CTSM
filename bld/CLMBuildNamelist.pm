@@ -824,7 +824,8 @@ sub setup_cmdl_fates_mode {
                       "fates_stomatal_assimilation", "fates_leafresp_model", "fates_cstarvation_model",
                       "fates_regeneration_model", "fates_hydro_solver", "fates_radiation_model", "fates_electron_transport_model",
                       "use_fates_managed_fire",
-                      "use_nvp", "use_nvp_undersnow", "nvp_rad_model_ground", "use_nvp_temp_for_patch_gas_params"
+                      "use_nvp", "use_nvp_undersnow", "nvp_rad_model_ground", "use_nvp_temp_for_patch_gas_params",
+                      "write_hui_debug"
                    );
 
        # dis-allow fates specific namelist items with non-fates runs
@@ -4889,7 +4890,8 @@ sub setup_logic_fates {
                        "fates_stomatal_assimilation", "fates_leafresp_model", "fates_cstarvation_model",
                        "fates_regeneration_model", "fates_hydro_solver", "fates_radiation_model", "fates_electron_transport_model",
                        "use_fates_managed_fire",
-                       "use_nvp", "use_nvp_undersnow", "nvp_rad_model_ground", "use_nvp_temp_for_patch_gas_params"
+                       "use_nvp", "use_nvp_undersnow", "nvp_rad_model_ground", "use_nvp_temp_for_patch_gas_params",
+                       "write_hui_debug"
                     );
 
         foreach my $var ( @list ) {

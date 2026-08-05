@@ -50,6 +50,7 @@ module CLMFatesInterfaceMod
    use clm_varctl        , only : use_fates
    use clm_varctl        , only : fates_spitfire_mode
    use clm_varctl        , only : use_fates_managed_fire
+   use clm_varctl        , only : write_hui_debug
    use clm_varctl        , only : use_fates_tree_damage
    use clm_varctl        , only : use_fates_planthydro
    use clm_varctl        , only : use_fates_cohort_age_tracking
@@ -203,6 +204,8 @@ module CLMFatesInterfaceMod
    use dynFATESLandUseChangeMod, only : landuse_harvest
    use dynFATESLandUseChangeMod, only : landuse_harvest_units
    use dynFATESLandUseChangeMod, only : landuse_harvest_varnames
+
+   use clm_varctl, only : write_hui_debug
 
    implicit none
 
@@ -471,6 +474,7 @@ module CLMFatesInterfaceMod
      integer                                        :: pass_radiation_model
      integer                                        :: pass_electron_transport_model
      integer                                        :: pass_managed_fire
+     integer                                        :: pass_write_hui_debug
 
      call t_startf('fates_globals2')
 
@@ -523,6 +527,13 @@ module CLMFatesInterfaceMod
         end if
         call set_fates_ctrlparms('use_managed_fire',ival=pass_managed_fire)
 
+        ! TEMPORARY during nvp development
+        if (write_hui_debug) then
+           pass_write_hui_debug = 1
+        else
+           pass_write_hui_debug = 0
+        end if
+        call set_fates_ctrlparms('write_hui_debug',ival=pass_write_hui_debug)
 
         ! This has no variable on the FATES side yet (RGK)
         !call set_fates_ctrlparms('sf_anthro_suppression_def',ival=anthro_suppression)
@@ -1807,9 +1818,11 @@ module CLMFatesInterfaceMod
              dleaf_patch(p) = this%fates(nc)%bc_out(s)%dleaf_pa(ifp)
           end do ! veg patch
 
-          write(iulog,'(a,2i6,3f10.5)') '[DBG NVP patch] c, npatch, wt_ed(bg), sum(wt_ed_veg), areacheck:', &
-               c, npatch, patch%wt_ed(col%patchi(c)), &
-               sum(patch%wt_ed(col%patchi(c)+1:col%patchi(c)+npatch)), areacheck
+          if (write_hui_debug) then
+             write(iulog,'(a,2i6,3f10.5)') '[DBG NVP patch] c, npatch, wt_ed(bg), sum(wt_ed_veg), areacheck:', &
+                  c, npatch, patch%wt_ed(col%patchi(c)), &
+                  sum(patch%wt_ed(col%patchi(c)+1:col%patchi(c)+npatch)), areacheck
+          end if
 
           ! [PORTED by Hui Tang: aggregate NVP patch geometry to column, then update layer state]
           ! nvp_dz_pa(ifp)   = mean NVP thickness where NVP is present within patch [m]
@@ -1835,9 +1848,11 @@ module CLMFatesInterfaceMod
                 c,ifp
 
              end do
-             write(iulog,'(a,i6,3f10.5)') '[DBG NVP wtcol] c, frac_nvp, wt_ed(bg), sum(wt_ed_veg):', &
-                  c, col%frac_nvp(c), patch%wt_ed(col%patchi(c)), &
-                  sum(patch%wt_ed(col%patchi(c)+1:col%patchi(c)+npatch))
+             if (write_hui_debug) then
+                write(iulog,'(a,i6,3f10.5)') '[DBG NVP wtcol] c, frac_nvp, wt_ed(bg), sum(wt_ed_veg):', &
+                     c, col%frac_nvp(c), patch%wt_ed(col%patchi(c)), &
+                     sum(patch%wt_ed(col%patchi(c)+1:col%patchi(c)+npatch))
+             end if
              ! [PORTED by Hui Tang: pass thermo instances only when present (normal timestep)]
              if (present(temperature_inst) .and. present(waterstatebulk_inst)) then
                 call UpdateNVPLayer(c, temperature_inst, waterstatebulk_inst)
@@ -2930,9 +2945,11 @@ module CLMFatesInterfaceMod
 
          end do
          ! [DBG NVP sabg] column-level NVP inputs to photosynthesis
-         write(iulog,*) '[DBG NVP sabg] psn: c=', c, &
-              ' t_nvp_col=', temperature_inst%t_nvp_col(c), &
-              ' fwet_nvp_col=', waterdiagnosticbulk_inst%fwet_nvp_col(c)
+         if (write_hui_debug) then
+            write(iulog,*) '[DBG NVP sabg] psn: c=', c, &
+                 ' t_nvp_col=', temperature_inst%t_nvp_col(c), &
+                 ' fwet_nvp_col=', waterdiagnosticbulk_inst%fwet_nvp_col(c)
+         end if
       end do
 
       dtime = get_step_size_real()
