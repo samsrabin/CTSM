@@ -477,12 +477,21 @@ contains
 
     !  Determine gridcell bedrock index
     do g = bounds%begg,bounds%endg
+       write(*,*) 'SSRts =============================='
        grc%nbedrock(g) = nlevsoi
+       write(*,*) 'SSRts: grc%nbedrock(g) = nlevsoi = ', grc%nbedrock(g)
+       write(*,*) 'SSRts: zbedrock_in(g) = ', zbedrock_in(g)
        do j = jmin_bedrock,nlevsoi 
+          write(*,*) 'SSRts ------------------------------'
+          write(*,*) 'SSRts: j = ', j
+          write(*,*) 'SSRts: zisoi(j-1) = ', zisoi(j-1)
+          write(*,*) 'SSRts: zisoi(j) = ', zisoi(j)
           if (zisoi(j-1) < zbedrock_in(g) .and. zisoi(j) >= zbedrock_in(g)) then
              grc%nbedrock(g) = j
+             write(*,*) 'SSRts: grc%nbedrock(g) = ', grc%nbedrock(g)
           end if
        end do
+       write(*,*) 'SSRts =============================='
     end do
 
     !  Set column bedrock index
