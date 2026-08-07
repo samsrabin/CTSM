@@ -527,8 +527,8 @@ existing `src/biogeophys/test/TotalWaterAndHeat_test/test_total_water_and_heat.p
 
 **Files:** `src/utils/clmfates_interfaceMod.F90` (40 insertions, 34 deletions).
 
-- [ ] **Step 1: cherry-pick.** `git cherry-pick 44a424d03`. It applies cleanly to this branch with only line-offset shifts (verified 2026-08-27). Preserve the original authorship and the original message, including its `(cherry picked from commit ...)` trailer — do not reword it to this project's conventions.
-- [ ] **Step 2: build check and unit tests**, per the standing rule.
+- [x] **Step 1: cherry-pick.** `git cherry-pick 44a424d03`. It applies cleanly to this branch with only line-offset shifts (verified 2026-08-27). Preserve the original authorship and the original message, including its `(cherry picked from commit ...)` trailer — do not reword it to this project's conventions.
+- [x] **Step 2: build check and unit tests**, per the standing rule.
 
 **Testing changes and expectations.**
 
