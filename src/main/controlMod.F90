@@ -1330,7 +1330,7 @@ contains
        write(iulog, *) '    use_nvp_undersnow= ', use_nvp_undersnow
        write(iulog, *) '    use_nvp_temp_for_patch_gas_params= ', use_nvp_temp_for_patch_gas_params
        write(iulog, *) '    use_fates_managed_fire= ', use_fates_managed_fire
-       write(iulog, *) '    use_fates_managewrite_hui_debugd_fire= ', write_hui_debug
+       write(iulog, *) '    write_hui_debug= ', write_hui_debug
     end if
   end subroutine control_print
 
