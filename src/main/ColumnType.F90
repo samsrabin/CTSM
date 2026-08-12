@@ -60,9 +60,9 @@ module ColumnType
 
      ! vertical levels
      integer , pointer :: snl                  (:)   ! number of snow layers
-     real(r8), pointer :: dz                   (:,:) ! layer thickness (m)  (-nlevsno+1:nlevgrnd) 
-     real(r8), pointer :: z                    (:,:) ! layer depth (m) (-nlevsno+1:nlevgrnd) 
-     real(r8), pointer :: zi                   (:,:) ! interface level below a "z" level (m) (-nlevsno+0:nlevgrnd) 
+     real(r8), allocatable :: dz               (:,:) ! layer thickness (m)  (-nlevsno+1:nlevgrnd)
+     real(r8), allocatable :: z                (:,:) ! layer depth (m) (-nlevsno+1:nlevgrnd)
+     real(r8), allocatable :: zi               (:,:) ! interface level below a "z" level (m) (-nlevsno+0:nlevgrnd)
      real(r8), pointer :: zii                  (:)   ! convective boundary height [m]
      real(r8), pointer :: dz_lake              (:,:) ! lake layer thickness (m)  (1:nlevlak)
      real(r8), pointer :: z_lake               (:,:) ! layer depth for lake (m)
