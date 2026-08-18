@@ -2965,6 +2965,7 @@ contains
     !
     ! LOCAL VARAIBLES:
     integer               :: c,l,j              ! indices
+    integer               :: jbot               ! index of the bottom snow layer (0, or -1 with NVP)
     real(r8)              :: minbound, maxbound ! helper variables
     !------------------------------------------------------------------------
 
@@ -3043,11 +3044,33 @@ contains
     loop_columns: do c = bounds%begc,bounds%endc
        l = col%landunit(c)
 
-       dz(c,-nlevsno+1: 0) = spval
-       z (c,-nlevsno+1: 0) = spval
-       zi(c,-nlevsno  :-1) = spval
+       ! Blanket assignments over the snow slots must stop at the bottom snow
+       ! index: where the NVP slot exists it holds the moss geometry
+       ! NVPLayerInit assigned, and spval (1.e36 > 0) there would read back as a
+       ! moss layer of garbage thickness. jbot is 0 off NVP columns, so every
+       ! bound below is the stock bound there.
+       jbot = col%get_jbot_snow(c)
 
-       ! Special case: lake
+       ! The full snow-layer reindex is not in this change, so the cold-start
+       ! snow placement below still writes slot 0. That is not a corner case:
+       ! every istsoil column at |lat| >= 60 cold starts with h2osno = 100,
+       ! i.e. snow_depth = 0.4 m -- exactly the population NVP exists for. Fail
+       ! here rather than silently overwrite the moss geometry with a snow
+       ! thickness, which would leave nvp_is_present true at the wrong dz and
+       ! put the snow loops off by one across the whole pack.
+       if (jbot < 0 .and. snow_depth(c) >= dzmin(1)) then
+          write(iulog,*) 'InitSnowLayers ERROR: column ', c, ' snow_depth = ', &
+               snow_depth(c), ' >= dzmin(1) = ', dzmin(1)
+          call endrun(msg='ERROR: use_nvp cold start with snow is not supported '// &
+               'until the snow layer lifecycle is reindexed. '//errMsg(sourcefile, __LINE__))
+       end if
+
+       dz(c,-nlevsno+1:jbot  ) = spval
+       z (c,-nlevsno+1:jbot  ) = spval
+       zi(c,-nlevsno  :jbot-1) = spval
+
+       ! Special case: lake. Not guarded on jbot: lakes never carry the NVP
+       ! slot, so jbot is 0 here.
        if (lun%lakpoi(l)) then
           snl(c)              = 0
           dz(c,-nlevsno+1:0)  = 0._r8
@@ -3062,9 +3085,13 @@ contains
        ! Special case: too little snow for snowpack existence
        if (snow_depth(c) < dzmin(1)) then
           snl(c)              = 0
-          dz(c,-nlevsno+1:0)  = 0._r8
-          z(c,-nlevsno+1:0)   = 0._r8
-          zi(c,-nlevsno+0:0)  = 0._r8
+          dz(c,-nlevsno+1:jbot  ) = 0._r8
+          z(c,-nlevsno+1:jbot   ) = 0._r8
+          zi(c,-nlevsno+0:jbot-1) = 0._r8
+          ! zi(c,0) is the soil surface datum and is 0 on every column, with or
+          ! without the NVP slot; the slice above stops short of it when jbot is
+          ! -1, so set it explicitly.
+          zi(c,0)                 = 0._r8
           cycle
        end if
 

@@ -199,6 +199,7 @@ contains
 
     use initVerticalMod                    , only : initVertical
     use SnowHydrologyMod                   , only : InitSnowLayers
+    use NVPLayerDynamicsMod                , only : NVPLayerInit
     use accumulMod                         , only : print_accum_fields
     use SoilWaterRetentionCurveFactoryMod  , only : create_soil_water_retention_curve
     use decompMod                          , only : get_proc_bounds
@@ -285,6 +286,13 @@ contains
             soil_depth_upland_in =2.0_r8)
        call setSoilLayerClass(bounds)
     endif
+
+    !-----------------------------------------------
+    ! Claim vertical index 0 for the NVP layer. Must precede InitSnowLayers,
+    ! which lays out the snow slots against col%jbot_sno. No-op unless use_nvp.
+    !-----------------------------------------------
+
+    call NVPLayerInit(bounds)
 
     !-----------------------------------------------
     ! Set cold-start values for snow levels, snow layers and snow interfaces
@@ -519,6 +527,8 @@ contains
     use UrbanParamsType , only : IsSimpleBuildTemp, IsProgBuildTemp
     use decompMod       , only : get_proc_bounds, get_proc_clumps, get_clump_bounds
     use clm_varpar      , only : nlevsno
+    use clm_varctl      , only : use_nvp
+    use NVPLayerDynamicsMod, only : NVPLayerRestart
 
     !
     ! !DESCRIPTION:
@@ -536,6 +546,15 @@ contains
     type(bounds_type)                 :: bounds_clump
 
     !-----------------------------------------------------------------------
+
+    ! First among the restarts: this restores the column geometry flags that
+    ! every NVP-aware state variable is indexed by, and, on 'read', fails a
+    ! use_nvp mismatch before any state has been read against the wrong layout.
+    ! 'define' and 'write' only under use_nvp; 'read' always, because the probe
+    ! for a file written with the other setting of use_nvp lives in there.
+    if (use_nvp .or. flag == 'read') then
+       call NVPLayerRestart(bounds, ncid, flag=flag)
+    end if
 
     call active_layer_inst%restart (bounds, ncid, flag=flag)
 

@@ -675,6 +675,15 @@ contains
           call endrun(msg=' ERROR: invalid value for nvp_coldstart_saturation in CLM namelist. '//&
                errMsg(sourcefile, __LINE__))
        end if
+       ! init_interp support is deferred (spec section 8). That path leaves
+       ! is_cold_start false, so NVPColdStart never runs and the moss slot
+       ! silently inherits the source file's snow water. Reject it here rather
+       ! than produce an unphysical initial state.
+       if (finidat_interp_source /= ' ') then
+          call endrun(msg=' ERROR: use_nvp does not support finidat_interp_source; '// &
+               'cold-start or use a restart written with use_nvp on. '//&
+               errMsg(sourcefile, __LINE__))
+       end if
     end if
 
     ! ----------------------------------------------------------------------

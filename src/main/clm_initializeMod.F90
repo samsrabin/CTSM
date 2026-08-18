@@ -183,6 +183,7 @@ contains
     use FATESFireFactoryMod           , only : scalar_lightning
     use dynFATESLandUseChangeMod      , only : dynFatesLandUseInit
     use HillslopeHydrologyMod         , only : InitHillslope
+    use NVPLayerDynamicsMod           , only : NVPColdStart
     !
     ! !ARGUMENTS
     integer, intent(in) :: ni, nj         ! global grid sizes
@@ -545,6 +546,14 @@ contains
        end if
        call restFile_read(bounds_proc, fnamer, glc_behavior, &
             reset_dynbal_baselines_lake_columns = reset_dynbal_baselines_lake_columns)
+    end if
+
+    ! Fill the NVP pore space. Only a cold start needs this: on every other path
+    ! the layer's water came off the initial or restart file. is_cold_start is
+    ! not resolved until the block above, so this cannot move up next to
+    ! NVPLayerInit. No-op unless use_nvp.
+    if (is_cold_start) then
+       call NVPColdStart(bounds_proc, temperature_inst, water_inst%waterstatebulk_inst)
     end if
 
     ! If appropriate, create interpolated initial conditions
