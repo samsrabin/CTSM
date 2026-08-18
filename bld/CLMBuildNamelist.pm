@@ -1908,6 +1908,11 @@ sub process_namelist_inline_logic {
   ########################################
   setup_logic_water_tracers($opts, $nl_flags, $definition, $defaults, $nl);
 
+  ##############################
+  # namelist group: nvp_inparm #
+  ##############################
+  setup_logic_nvp($opts, $nl_flags, $definition, $defaults, $nl);
+
   #######################################################################
   # namelist groups: clm_hydrology1_inparm and clm_soilhydrology_inparm #
   #######################################################################
@@ -3398,6 +3403,36 @@ sub setup_logic_water_tracers {
    foreach $var ("enable_water_tracer_consistency_checks",
                  "enable_water_isotopes") {
       add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, $var);
+   }
+}
+
+#-------------------------------------------------------------------------------
+
+sub setup_logic_nvp {
+   #
+   # NVP (non-vascular plant: moss/lichen) ground layer. Must run after
+   # setup_logic_water_tracers so that the water tracer flags are already set.
+   #
+   my ($opts, $nl_flags, $definition, $defaults, $nl) = @_;
+
+   my $var;
+   foreach $var ("use_nvp",
+                 "rnvp_min", "rnvp_amp", "rnvp_exp", "rnvp_ice",
+                 "ksat_nvp", "n_van_nvp", "alpha_van_nvp", "watsat_nvp", "watres_nvp",
+                 "thk_dry_nvp", "csol_nvp",
+                 "dz_nvp", "frac_nvp", "nvp_transmissivity",
+                 "alb_nvp_vis", "alb_nvp_nir", "nvp_coldstart_saturation") {
+      add_default($opts, $nl_flags->{'inputdata_rootdir'}, $definition, $defaults, $nl, $var);
+   }
+
+   # NVP fluxes update bulk water only; the Fortran endrun in WaterType is the backstop
+   if ( &value_is_true($nl->get_value('use_nvp')) ) {
+      foreach $var ("enable_water_isotopes", "enable_water_tracer_consistency_checks") {
+         if ( &value_is_true($nl->get_value($var)) ) {
+            $log->fatal_error("$var can NOT be true when use_nvp is true: " .
+                              "NVP does not support water tracers");
+         }
+      }
    }
 }
 
@@ -5398,7 +5433,7 @@ sub write_output_files {
                soil_resis_inparm  bgc_shared canopyfluxes_inparm aerosol
                clmu_inparm clm_soilstate_inparm clm_nitrogen clm_snowhydrology_inparm hillslope_hydrology_inparm hillslope_properties_inparm
                cnprecision_inparm clm_glacier_behavior crop_inparm irrigation_inparm
-               surfacealbedo_inparm water_tracers_inparm tillage_inparm);
+               surfacealbedo_inparm water_tracers_inparm tillage_inparm nvp_inparm);
 
   #@groups = qw(clm_inparm clm_canopyhydrology_inparm clm_soilhydrology_inparm
   #             finidat_consistency_checks dynpft_consistency_checks);

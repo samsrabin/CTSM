@@ -379,7 +379,13 @@ module clm_varctl
   logical, public            :: use_fates_bgc = .false.                 ! true => use FATES along with CLM soil biogeochemistry
   
   !----------------------------------------------------------
-  !  LUNA switches		
+  ! NVP (non-vascular plant: moss/lichen) switches
+  !----------------------------------------------------------
+
+  logical, public :: use_nvp = .false.             ! true => use non-vascular plant layer
+
+  !----------------------------------------------------------
+  !  LUNA switches
   !----------------------------------------------------------
 
   logical, public :: use_luna = .false.            ! true => use  LUNA

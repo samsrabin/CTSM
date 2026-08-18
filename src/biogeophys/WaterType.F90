@@ -430,6 +430,7 @@ contains
     use shr_nl_mod     , only : shr_nl_find_group_name
     use spmdMod        , only : masterproc, mpicom
     use shr_mpi_mod    , only : shr_mpi_bcast
+    use clm_varctl     , only : use_nvp
     !
     ! !ARGUMENTS:
     character(len=*), intent(in) :: NLFilename ! Namelist filename
@@ -473,6 +474,11 @@ contains
 
     call shr_mpi_bcast(enable_water_tracer_consistency_checks, mpicom)
     call shr_mpi_bcast(enable_water_isotopes, mpicom)
+
+    ! NVP fluxes update bulk water only, so no water tracer may be active
+    if (use_nvp .and. (enable_water_isotopes .or. enable_water_tracer_consistency_checks)) then
+       call endrun(msg='use_nvp does not support water tracers'//errmsg(sourcefile, __LINE__))
+    end if
 
     if (masterproc) then
        write(iulog,*)

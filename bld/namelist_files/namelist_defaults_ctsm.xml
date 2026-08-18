@@ -638,6 +638,27 @@ attributes from the config_cache.xml file (with keys converted to upper-case).
 <use_luna                use_fates=".true." >.false.</use_luna>
 <use_luna phys="clm4_5"  use_fates=".false.">.false.</use_luna>
 
+<!-- NVP (non-vascular plant: moss/lichen) ground layer -->
+<!-- These values must stay identical to the defaults in NVPParamsMod -->
+<use_nvp                 >.false.</use_nvp>
+<rnvp_min                >10.0</rnvp_min>
+<rnvp_amp                >1000.0</rnvp_amp>
+<rnvp_exp                >3.0</rnvp_exp>
+<rnvp_ice                >1500.0</rnvp_ice>
+<ksat_nvp                >1.0e-4</ksat_nvp>
+<n_van_nvp               >1.5</n_van_nvp>
+<alpha_van_nvp           >0.01</alpha_van_nvp>
+<watsat_nvp              >0.85</watsat_nvp>
+<watres_nvp              >0.05</watres_nvp>
+<thk_dry_nvp             >0.05</thk_dry_nvp>
+<csol_nvp                >0.58e6</csol_nvp>
+<dz_nvp                  >0.</dz_nvp>
+<frac_nvp                >0.</frac_nvp>
+<nvp_transmissivity      >1.</nvp_transmissivity>
+<alb_nvp_vis             >0.10</alb_nvp_vis>
+<alb_nvp_nir             >0.25</alb_nvp_nir>
+<nvp_coldstart_saturation>0.5</nvp_coldstart_saturation>
+
 <!-- Flexible CN options -->
 <MM_Nuptake_opt             use_flexibleCN=".true." >.true.</MM_Nuptake_opt>
 <CNratio_floating           use_flexibleCN=".true." >.true.</CNratio_floating>

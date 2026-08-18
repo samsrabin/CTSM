@@ -946,6 +946,102 @@ LUNA operates on C3 and non-crop vegetation (see vcmax_opt for how other veg is 
 LUNA: Leaf Utilization of Nitrogen for Assimilation
 </entry>
 
+<!-- NVP (non-vascular plant: moss/lichen) ground layer -->
+<entry id="use_nvp" type="logical" category="physics"
+        group="clm_inparm" valid_values="" value=".false.">
+Toggle to activate the NVP (non-vascular plant: moss/lichen) ground layer at
+index 0. Cannot be combined with water tracers or water isotopes.
+</entry>
+
+<!-- NVP layer parameters; defaults must stay identical to those in NVPParamsMod -->
+<entry id="rnvp_min" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP evaporation resistance when saturated (s m-1).
+rnvp = rnvp_min + rnvp_amp*(1 - satfrac)**rnvp_exp
+</entry>
+
+<entry id="rnvp_amp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+Amplitude of the NVP evaporation resistance increase when dry (s m-1).
+</entry>
+
+<entry id="rnvp_exp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+Exponent of the NVP evaporation resistance dryness function (unitless).
+</entry>
+
+<entry id="rnvp_ice" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP evaporation resistance when frozen (s m-1).
+</entry>
+
+<entry id="ksat_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP saturated hydraulic conductivity (m s-1).
+</entry>
+
+<entry id="n_van_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP van Genuchten shape parameter n (unitless).
+</entry>
+
+<entry id="alpha_van_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP van Genuchten alpha (cm-1).
+</entry>
+
+<entry id="watsat_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP porosity (m3 m-3).
+</entry>
+
+<entry id="watres_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP residual water content (m3 m-3).
+</entry>
+
+<entry id="thk_dry_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+Dry NVP thermal conductivity (W m-1 K-1).
+</entry>
+
+<entry id="csol_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+Dry NVP volumetric heat capacity (J m-3 K-1).
+</entry>
+
+<entry id="dz_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+Prescribed NVP layer thickness (m). Must be >= 0; 0 means moss is absent, in
+which case frac_nvp must also be 0.
+</entry>
+
+<entry id="frac_nvp" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+Prescribed NVP areal coverage (0-1).
+</entry>
+
+<entry id="nvp_transmissivity" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+Fraction of shortwave radiation transmitted through the NVP layer to the soil
+(0-1). A value of 1 reproduces stock energy deposition everywhere.
+</entry>
+
+<entry id="alb_nvp_vis" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP albedo, visible waveband (unitless).
+</entry>
+
+<entry id="alb_nvp_nir" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP albedo, near-infrared waveband (unitless).
+</entry>
+
+<entry id="nvp_coldstart_saturation" type="real" category="physics"
+        group="nvp_inparm" valid_values="" >
+NVP pore saturation at cold start (0-1).
+</entry>
+
 <entry id="use_hillslope" type="logical" category="physics"
         group="clm_inparm" valid_values="" value=".false.">
 Toggle to turn on the hillslope model

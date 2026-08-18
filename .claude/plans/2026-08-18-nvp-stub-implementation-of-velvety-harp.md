@@ -42,7 +42,8 @@ git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
 8. **STOP. Present the task's diff + review outcomes to the user. Do not start the next task until the user approves.** User feedback → fix → amend → re-present.
 
 **Verification before every commit:**
-- **Build check**: from the dedicated checkout, `cd test-bld && qcmd -- ./case.build` (a dedicated case at the top level of the checkout). Expected: build completes with no errors.
+- **Build check**: from the dedicated checkout, `cd test-bld && qcmd -- ./case.build` (a dedicated case at the top level of the checkout). Expected: build completes with no errors. `test-bld/` is write-protected — run the build from it, never edit anything under it.
+  - **When the task adds a new `.F90`**, the build cache will not notice it: CIME derives `Srcfiles` from `Filepath`, and adding a file to an existing source directory does not touch `Filepath`, so the build fails with `error #7002: Error in opening the compiled module file`. Force the refresh first — `touch /glade/derecho/scratch/samrabin/test-bld/bld/intel/mpich/debug/nothreads/clm/obj/Filepath` — or `./case.build --clean lnd`. Confirmed empirically in Task 1.
 - **Unit tests** (required for any commit that touches Fortran): from the checkout's `src/` directory, `qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp`. Expected: all tests pass.
 - Namelist-touching tasks additionally run `bld/unit_testers/build-namelist_test.pl`.
 
@@ -92,52 +93,70 @@ git add MERGE_NOTES.md && git commit -m "Add MERGE_NOTES scaffold for NVP stub w
 - Create: `src/biogeophys/NVPParamsMod.F90`
 - Modify: `src/main/clm_varctl.F90` (**place `use_nvp` where the `ctsm5.4.028_nvp` branch has it: immediately after `use_fates_bgc`** — check their diff for the exact spot), `src/main/controlMod.F90` (namelist decl / broadcast / log at their branch's positions)
 - Modify: `bld/namelist_files/namelist_definition_ctsm.xml`, `bld/namelist_files/namelist_defaults_ctsm.xml`, `bld/CLMBuildNamelist.pm`
+- Modify: `src/biogeophys/WaterType.F90` (water-tracer guard — see Step 3)
 
 **Interfaces:**
-- Produces: `use_nvp` (logical, `clm_varctl`); module `NVPParamsMod` with public reals `dz_nvp`, `frac_nvp`, `nvp_transmissivity`, `alb_nvp_vis`, `alb_nvp_nir`, `nvp_coldstart_saturation`, `thk_dry_nvp`, `csol_nvp`, `watsat_nvp`, `rnvp_min`, `rnvp_amp`, `rnvp_exp`, `rnvp_ice`, and `subroutine NVPParamsReadNamelist(NLFilename)`.
+- Produces: `use_nvp` (logical, `clm_varctl`); module `NVPParamsMod` holding the parameters listed in Step 1. **No read routine in the module** — `nvp_inparm` is read in `controlMod`, mirroring their structure (Step 0 decision 4).
 - Consumes: nothing.
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 3's water-tracer guard tells the implementer to grep for "whichever control variable governs tracers" — resolve that variable by name here rather than leaving an `endrun` condition to a guess.
+- [x] **Step 0: Plan review — DONE.** Resolutions, all confirmed by the user, are folded into Steps 1–4 below: (1) the four Mualem–van Genuchten parameters are added, since Task 3's harvested retention-curve and conductivity functions need them; (2) `nvp_frac_min` is deliberately omitted — it is an activation threshold and the stub never activates; (3) the water-tracer guard moves to `WaterType%ReadNamelist`, the only scope where the flags exist; (4) `nvp_inparm` is read in `controlMod`, mirroring their structure, so `NVPParamsMod` is declarations only. Their `<their value>` literals were read off the harvest worktree and are now inline below.
 
-- [ ] **Step 1: Copy the parameter values from the harvest worktree.** Read `<worktree>/src/biogeophys/NVPParamsMod.F90` and `<worktree>/src/main/controlMod.F90` (their `nvp_inparm` group, ~line 272) for names/values/units of the physics constants. Our module additionally holds the stub-only parameters:
+- [ ] **Step 1: Write `NVPParamsMod`.** Mirror the structure of `<worktree>/src/biogeophys/NVPParamsMod.F90` (blanket `public`, declarations only, no read routine). All values below were read from that file except the stub-only block. Keep their comments' unit annotations; drop their `[PORTED by Hui Tang: ...]` markers.
 
 ```fortran
 module NVPParamsMod
-  ! Parameters for the non-vascular plant (NVP) layer.
-  ! Stub configuration: thickness/coverage/optics are namelist constants
-  ! (replaced by FATES-prognostic values in the ctsm5.4.028_nvp merge).
+  ! Parameters for the non-vascular plant (NVP) layer, read via the nvp_inparm
+  ! namelist group in controlMod. Stub configuration: thickness/coverage/optics
+  ! are namelist constants (FATES-prognostic in the ctsm5.4.028_nvp merge).
   use shr_kind_mod, only : r8 => shr_kind_r8
   implicit none
-  private
-  public :: NVPParamsReadNamelist
+  public
 
-  ! physics constants (names/values match ctsm5.4.028_nvp)
-  real(r8), public :: thk_dry_nvp = 0.05_r8   ! dry NVP thermal conductivity (W/m/K)
-  real(r8), public :: csol_nvp    = 0.58e6_r8 ! heat capacity of NVP solids (J/m3/K)
-  real(r8), public :: watsat_nvp  = 0.85_r8   ! NVP porosity (m3/m3)
-  real(r8), public :: rnvp_min    = <their value> ! min NVP evaporative resistance (s/m)
-  real(r8), public :: rnvp_amp    = <their value>
-  real(r8), public :: rnvp_exp    = <their value>
-  real(r8), public :: rnvp_ice    = <their value> ! resistance when frozen (s/m)
+  ! Evaporation resistance: rnvp = rnvp_min + rnvp_amp*(1 - satfrac)**rnvp_exp
+  real(r8) :: rnvp_min      = 10.0_r8     ! resistance when saturated       [s m-1]
+  real(r8) :: rnvp_amp      = 1000.0_r8   ! amplitude of increase when dry  [s m-1]
+  real(r8) :: rnvp_exp      = 3.0_r8      ! exponent of dryness function    [-]
+  real(r8) :: rnvp_ice      = 1500.0_r8   ! resistance when frozen          [s m-1]
 
-  ! stub-only (intentional merge conflict: theirs are FATES-driven)
-  real(r8), public :: dz_nvp            = 0._r8  ! prescribed NVP thickness (m); 0 = moss absent
-  real(r8), public :: frac_nvp          = 0._r8  ! prescribed NVP areal coverage (0-1)
-  real(r8), public :: nvp_transmissivity = 1._r8 ! fraction of surface SW transmitted through NVP to soil
-  real(r8), public :: alb_nvp_vis       = 0.10_r8
-  real(r8), public :: alb_nvp_nir       = 0.25_r8
-  real(r8), public :: nvp_coldstart_saturation = 0.5_r8 ! initial NVP pore saturation at cold start (0-1)
+  ! Hydraulic properties (Mualem-van Genuchten); consumed by Task 3's
+  ! NVPWaterRetentionCurve / NVPHydraulicConductivity
+  real(r8) :: ksat_nvp      = 1.0e-4_r8   ! saturated hydraulic conductivity [m s-1]
+  real(r8) :: n_van_nvp     = 1.5_r8      ! van Genuchten shape parameter n  [-]
+  real(r8) :: alpha_van_nvp = 0.01_r8     ! van Genuchten alpha              [cm-1]
+  real(r8) :: watsat_nvp    = 0.85_r8     ! porosity                         [m3 m-3]
+  real(r8) :: watres_nvp    = 0.05_r8     ! residual water content           [m3 m-3]
+
+  ! Thermal properties of the dry NVP matrix (Farouki-style mixing)
+  real(r8) :: thk_dry_nvp   = 0.05_r8     ! dry NVP thermal conductivity     [W m-1 K-1]
+  real(r8) :: csol_nvp      = 0.58e6_r8   ! dry NVP volumetric heat capacity [J m-3 K-1]
+
+  ! Stub-only (intentional merge conflict: theirs are FATES-driven)
+  real(r8) :: dz_nvp                    = 0._r8    ! prescribed thickness (m); 0 = moss absent
+  real(r8) :: frac_nvp                  = 0._r8    ! prescribed areal coverage        [0-1]
+  real(r8) :: nvp_transmissivity        = 1._r8    ! SW fraction transmitted to soil  [0-1]
+  real(r8) :: alb_nvp_vis               = 0.10_r8  ! NVP albedo, visible              [-]
+  real(r8) :: alb_nvp_nir               = 0.25_r8  ! NVP albedo, near-infrared        [-]
+  real(r8) :: nvp_coldstart_saturation  = 0.5_r8   ! cold-start pore saturation       [0-1]
 end module
 ```
-(`<their value>` = literal numbers read from their branch in this step — the implementer copies them; they are data, not design.)
+Deliberately **not** ported: their `nvp_frac_min` (activation threshold — the stub assigns `jbot_sno` statically and never activates). Add a MERGE_NOTES row. Note their `rnvp_ice` is declared but absent from their `nvp_inparm` group, i.e. unsettable on their branch; ours goes in the group (spec §7 treats registration as a fix).
 
-- [ ] **Step 2: `NVPParamsReadNamelist`** — read group `nvp_inparm` (their group name) from `lnd_in` on masterproc, `shr_mpi_bcast` each member; call it from `controlMod` `control_init` next to the other param reads. Validity checks (spec §7): `endrun` unless `dz_nvp >= 0._r8`; `endrun` if `dz_nvp == 0 .and. frac_nvp > 0`; `endrun` unless `0 <= frac_nvp <= 1`, `0 <= nvp_transmissivity <= 1`, `0 <= nvp_coldstart_saturation <= 1`.
+- [ ] **Step 2: Read `nvp_inparm` in `controlMod`**, mirroring their structure (`<worktree>/src/main/controlMod.F90`: `use NVPParamsMod` at :55, `namelist /nvp_inparm/` at :276, `shr_nl_find_group_name`/read/`endrun` at :406-410, broadcasts near :890). Ours declares every parameter from Step 1 in the group — including `rnvp_ice`, which theirs omits — and broadcasts each. Validity checks (spec §7), placed after the broadcasts and **wrapped in `if (use_nvp)`** so a stock run is untouched by parameters it never uses: `endrun` unless `dz_nvp >= 0._r8`; `endrun` if `dz_nvp == 0 .and. frac_nvp > 0`; `endrun` unless `0 <= frac_nvp <= 1`, `0 <= nvp_transmissivity <= 1`, `0 <= nvp_coldstart_saturation <= 1`. Plus a degeneracy check: `dz_nvp` must be **exactly** `0._r8` or `>= dz_nvp_min` (`1.e-6_r8`, a local parameter). Exact zero is the spec's first-class "no moss" value and downstream code reads `dz(c,0) > 0` as "moss present" and divides by it, so a denormal thickness must be rejected outright rather than admitted as a very thin layer.
 
-- [ ] **Step 3: `use_nvp` in clm_varctl + controlMod**, mirroring `use_excess_ice` exactly (declaration default `.false.`, namelist entry in `clm_inparm`, mpi_bcast, log print). Add the water-tracer guard (spec §5): in `controlMod` after reads, `if (use_nvp .and. <water tracers enabled>) call endrun(...)` — find the tracer-enabled flag by grepping `water_inst` setup (`src/biogeophys/WaterMod.F90`, look for `enable_water_tracer_consistency_checks` / tracer count > 0 pattern) and use whichever control variable governs tracers.
+- [ ] **Step 3: `use_nvp` in clm_varctl + controlMod**, mirroring `use_excess_ice` exactly (declaration default `.false.`, namelist entry in `clm_inparm`, mpi_bcast, log print). **Water-tracer guard (spec §5) goes in `WaterType%ReadNamelist`, NOT `controlMod`.** The two flags are local variables of that subroutine ([WaterType.F90:441-442](src/biogeophys/WaterType.F90#L441)), never module state, so `controlMod` cannot see them; `SetupTracerInfo` gives `num_tracers > 0` iff either is true. Immediately after the existing `shr_mpi_bcast` calls (~:475), add:
 
-- [ ] **Step 4: XML registration.** `namelist_definition_ctsm.xml`: entries for `use_nvp` (group `clm_inparm`, logical) and all ten `nvp_inparm` reals (their group name; copy each entry's description from this plan's declarations); **place entries where the `ctsm5.4.028_nvp` branch places its NVP entries** (after the `use_fates_bgc`-adjacent block — read their XML diff). `namelist_defaults_ctsm.xml`: `use_nvp = .false.`, and defaults equal to the Fortran defaults above (spec §7: Fortran and XML must be identical), again at their branch's positions. `CLMBuildNamelist.pm`: `add_default` for `use_nvp` at their branch's position; do NOT add a FATES restriction (spec §1.10 — intentional conflict; add a MERGE_NOTES row).
+```fortran
+if (use_nvp .and. (enable_water_isotopes .or. enable_water_tracer_consistency_checks)) then
+   call endrun(msg='use_nvp does not support water tracers'//errMsg(sourcefile, __LINE__))
+end if
+```
+`use_nvp` comes from `clm_varctl` (a leaf module — no circular dependency).
 
-- [ ] **Step 5: Run build check** (includes `build-namelist_test.pl` if available). Expected: pass; a run with `use_nvp` unset produces `lnd_in` identical to stock except the new group with default values.
+- [ ] **Step 4: XML registration.** `namelist_definition_ctsm.xml`: an entry for `use_nvp` (group `clm_inparm`, logical) **at their branch's position** (theirs is at `<worktree>/bld/namelist_files/namelist_definition_ctsm.xml:951`; port only `use_nvp`, not their `use_nvp_undersnow` / `nvp_rad_model_ground` / `use_nvp_temp_for_patch_gas_params`), plus an entry for **every** `nvp_inparm` real from Step 1 (group `nvp_inparm`; descriptions from the Step 1 declarations). Note their branch never registered `nvp_inparm` at all — zero occurrences in their definition XML — so for the reals there is no their-branch position to mirror; registering them is our fix (spec §7). `namelist_defaults_ctsm.xml`: `use_nvp = .false.` at their position (theirs :643) and a default for each real, **identical to the Fortran defaults** (spec §7). `CLMBuildNamelist.pm`: `add_default` for `use_nvp` and for each `nvp_inparm` real (follow `setup_logic_water_tracers` at :3394 as the pattern for a small group); do NOT add a FATES restriction (spec §1.10 — intentional conflict; MERGE_NOTES row).
+
+  Also add the **build-namelist-side twin of the Step 3 runtime guard**, so the incompatibility is caught before the run starts rather than at initialization: after the `use_nvp` and water-tracer defaults are set, `fatal_error` if `use_nvp` is true and either `enable_water_isotopes` or `enable_water_tracer_consistency_checks` is. Both are already handled in `setup_logic_water_tracers` (:3394-3402), so their values are available via `$nl->get_value`. The Fortran `endrun` stays as the backstop — a user can set the namelist by hand.
+
+- [ ] **Step 5: Verify.** Build check (`cd test-bld && qcmd -- ./case.build`), unit tests (`cd src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp`; baseline is 59/59 passing), and — because this task touches the namelist — `bld/unit_testers/build-namelist_test.pl`, which is present. Expected: all pass; a run with `use_nvp` unset produces `lnd_in` identical to stock except the new `nvp_inparm` group at its default values.
 
 - [ ] **Step 6: Commit** `git add -A && git commit -m "Add use_nvp namelist infrastructure and NVPParamsMod"` — then the review/approval gate (Execution Process).
 
@@ -197,7 +216,7 @@ end if
 frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 ```
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: this task sets `jbot_sno=-1` while `InitSnowLayers` is not reindexed until Task 5, so `use_nvp=T` is not meaningfully runnable between Tasks 3 and 5 — confirm that intermediate commits are only expected to hold for `use_nvp=.false.`, and state it in MERGE_NOTES.
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: (a) this task sets `jbot_sno=-1` while `InitSnowLayers` is not reindexed until Task 5, so `use_nvp=T` is not meaningfully runnable between Tasks 3 and 5 — intermediate commits are only expected to hold for `use_nvp=.false.` (already recorded in MERGE_NOTES by Task 0); (b) `src/biogeophys/CMakeLists.txt` does not list `NVPParamsMod.F90`. That was correct through Task 1 because nothing in the pFUnit build referenced it, but this task's `NVPWaterRetentionCurve`/`NVPHydraulicConductivity` pull `NVPParamsMod` into code the unit tests link, so the file must be added there or the unit-test build breaks. Check whether `NVPLayerDynamicsMod.F90` needs the same.
 
 - [ ] **Step 1:** Write the module (harvest physics functions; write `NVPLayerInit`/`NVPColdStart`/`NVPEffectiveFractions` fresh; adapt their `NVPLayerRestart` adding the guards). NO `UpdateNVPLayer` dynamic transitions (spec §2) — but name the file and keep subroutine granularity so their FATES-driven `UpdateNVPLayer` merges alongside cleanly.
 - [ ] **Step 2:** Wire calls: `NVPLayerInit` from `clm_initializeMod` after column types exist and **before** any snow initialization (verify by reading `initialize2` order); `NVPColdStart` in the cold-start-only block after `NVPLayerInit` (their `clm_initializeMod.F90:762-777` shows the block); `NVPLayerRestart` from `clm_instMod` (theirs: after FATES restart; ours has no FATES ordering need — place with other biogeophys restarts).

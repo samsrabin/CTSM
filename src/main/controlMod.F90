@@ -51,6 +51,7 @@ module controlMod
   use CanopyFluxesMod                  , only: CanopyFluxesReadNML
   use shr_drydep_mod                   , only: n_drydep
   use clm_varctl
+  use NVPParamsMod
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -133,6 +134,10 @@ contains
     integer :: ierr                 ! error code
     integer :: unitn                ! unit for namelist file
     logical :: use_init_interp      ! Apply initInterp to the file given by finidat
+
+    ! Smallest NVP thickness accepted as a real layer; anything between this and
+    ! zero is a namelist error, not a thin layer (see the dz_nvp checks below)
+    real(r8), parameter :: dz_nvp_min = 1.e-6_r8   ! [m]
     !------------------------------------------------------------------------
 
     ! ----------------------------------------------------------------------
@@ -267,6 +272,18 @@ contains
     ! CLM 5.0 nitrogen flags
     namelist /clm_inparm/ use_flexibleCN, use_luna
 
+    ! nvp (non-vascular plant: moss/lichen) flag
+    namelist /clm_inparm/ use_nvp
+
+    ! Every parameter declared in NVPParamsMod must appear here, be broadcast
+    ! below, and carry an XML default identical to its Fortran default.
+    namelist /nvp_inparm/ &
+         rnvp_min, rnvp_amp, rnvp_exp, rnvp_ice, &
+         ksat_nvp, n_van_nvp, alpha_van_nvp, watsat_nvp, watres_nvp, &
+         thk_dry_nvp, csol_nvp, &
+         dz_nvp, frac_nvp, nvp_transmissivity, alb_nvp_vis, alb_nvp_nir, &
+         nvp_coldstart_saturation
+
     namelist /clm_nitrogen/ MM_Nuptake_opt, &
          CNratio_floating, lnc_opt, reduce_dayl_factor, vcmax_opt, &
          CN_evergreen_phenology_opt, carbon_resp_opt
@@ -388,6 +405,16 @@ contains
           end if
        else
           call endrun(msg='ERROR finding clm_nitrogen namelist'//errMsg(sourcefile, __LINE__))
+       end if
+
+       ! nvp_inparm is optional: absence leaves the NVPParamsMod defaults in place
+       rewind(unitn)
+       call shr_nl_find_group_name(unitn, 'nvp_inparm', status=ierr)
+       if (ierr == 0) then
+          read(unitn, nvp_inparm, iostat=ierr)
+          if (ierr /= 0) then
+             call endrun(msg='ERROR reading nvp_inparm namelist'//errMsg(sourcefile, __LINE__))
+          end if
        end if
 
        call relavu( unitn )
@@ -608,6 +635,47 @@ contains
     ! ----------------------------------------------------------------------
 
     call control_spmd()
+
+    ! ----------------------------------------------------------------------
+    ! NVP parameter validity: every check must hold before any NVP column
+    ! geometry is derived from these values
+    ! ----------------------------------------------------------------------
+
+    if (use_nvp) then
+       if (dz_nvp < 0._r8) then
+          write(iulog,*) 'ERROR: dz_nvp = ', dz_nvp, ' must be >= 0 (0 means no NVP biomass)'
+          call endrun(msg=' ERROR: invalid value for dz_nvp in CLM namelist. '//&
+               errMsg(sourcefile, __LINE__))
+       end if
+       ! A thickness between zero and dz_nvp_min is rejected rather than accepted:
+       ! downstream code treats dz(c,0) > 0 as "moss present" and divides by it, so
+       ! the only safe representation of "no moss" is exactly zero.
+       if (dz_nvp /= 0._r8 .and. dz_nvp < dz_nvp_min) then
+          write(iulog,*) 'ERROR: dz_nvp = ', dz_nvp, ' must be exactly 0 or >= ', dz_nvp_min
+          call endrun(msg=' ERROR: degenerate value for dz_nvp in CLM namelist. '//&
+               errMsg(sourcefile, __LINE__))
+       end if
+       if (dz_nvp == 0._r8 .and. frac_nvp > 0._r8) then
+          write(iulog,*) 'ERROR: frac_nvp = ', frac_nvp, ' must be 0 when dz_nvp is 0'
+          call endrun(msg=' ERROR: inconsistent frac_nvp and dz_nvp in CLM namelist. '//&
+               errMsg(sourcefile, __LINE__))
+       end if
+       if (frac_nvp < 0._r8 .or. frac_nvp > 1._r8) then
+          write(iulog,*) 'ERROR: frac_nvp = ', frac_nvp, ' must be in range 0-1'
+          call endrun(msg=' ERROR: invalid value for frac_nvp in CLM namelist. '//&
+               errMsg(sourcefile, __LINE__))
+       end if
+       if (nvp_transmissivity < 0._r8 .or. nvp_transmissivity > 1._r8) then
+          write(iulog,*) 'ERROR: nvp_transmissivity = ', nvp_transmissivity, ' must be in range 0-1'
+          call endrun(msg=' ERROR: invalid value for nvp_transmissivity in CLM namelist. '//&
+               errMsg(sourcefile, __LINE__))
+       end if
+       if (nvp_coldstart_saturation < 0._r8 .or. nvp_coldstart_saturation > 1._r8) then
+          write(iulog,*) 'ERROR: nvp_coldstart_saturation = ', nvp_coldstart_saturation, ' must be in range 0-1'
+          call endrun(msg=' ERROR: invalid value for nvp_coldstart_saturation in CLM namelist. '//&
+               errMsg(sourcefile, __LINE__))
+       end if
+    end if
 
     ! ----------------------------------------------------------------------
     ! Read in other namelists that are dependent on other namelist setttings
@@ -864,6 +932,27 @@ contains
     call mpi_bcast (carbon_resp_opt, 1, MPI_INTEGER, 0, mpicom, ier)
 
     call mpi_bcast (use_luna, 1, MPI_LOGICAL, 0, mpicom, ier)
+
+    call mpi_bcast (use_nvp, 1, MPI_LOGICAL, 0, mpicom, ier)
+
+    ! nvp physics parameters
+    call mpi_bcast (rnvp_min,      1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (rnvp_amp,      1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (rnvp_exp,      1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (rnvp_ice,      1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (ksat_nvp,      1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (n_van_nvp,     1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (alpha_van_nvp, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (watsat_nvp,    1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (watres_nvp,    1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (thk_dry_nvp,   1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (csol_nvp,      1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (dz_nvp,                   1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (frac_nvp,                 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (nvp_transmissivity,       1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (alb_nvp_vis,              1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (alb_nvp_nir,              1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (nvp_coldstart_saturation, 1, MPI_REAL8, 0, mpicom, ier)
 
     call mpi_bcast (use_soil_moisture_streams, 1, MPI_LOGICAL, 0, mpicom, ier)
 
@@ -1229,6 +1318,28 @@ contains
        write(iulog, *) '    carbon_resp_opt = ', carbon_resp_opt
     end if
     write(iulog, *) '  use_luna = ', use_luna
+
+    write(iulog, *) '  use_nvp = ', use_nvp
+    if (use_nvp) then
+       write(iulog, *) '    NVP physics parameters:'
+       write(iulog, *) '      rnvp_min       = ', rnvp_min
+       write(iulog, *) '      rnvp_amp       = ', rnvp_amp
+       write(iulog, *) '      rnvp_exp       = ', rnvp_exp
+       write(iulog, *) '      rnvp_ice       = ', rnvp_ice
+       write(iulog, *) '      ksat_nvp       = ', ksat_nvp
+       write(iulog, *) '      n_van_nvp      = ', n_van_nvp
+       write(iulog, *) '      alpha_van_nvp  = ', alpha_van_nvp
+       write(iulog, *) '      watsat_nvp     = ', watsat_nvp
+       write(iulog, *) '      watres_nvp     = ', watres_nvp
+       write(iulog, *) '      thk_dry_nvp    = ', thk_dry_nvp
+       write(iulog, *) '      csol_nvp       = ', csol_nvp
+       write(iulog, *) '      dz_nvp                   = ', dz_nvp
+       write(iulog, *) '      frac_nvp                 = ', frac_nvp
+       write(iulog, *) '      nvp_transmissivity       = ', nvp_transmissivity
+       write(iulog, *) '      alb_nvp_vis              = ', alb_nvp_vis
+       write(iulog, *) '      alb_nvp_nir              = ', alb_nvp_nir
+       write(iulog, *) '      nvp_coldstart_saturation = ', nvp_coldstart_saturation
+    end if
 
     write(iulog, *) '  ED/FATES: '
     write(iulog, *) '    use_fates = ', use_fates

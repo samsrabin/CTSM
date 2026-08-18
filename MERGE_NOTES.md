@@ -38,6 +38,11 @@ cd src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir 
 
 Namelist-touching tasks additionally run `bld/unit_testers/build-namelist_test.pl`.
 
+**Namelist baselines change from Task 1 onward.** Every generated `lnd_in` now carries
+`use_nvp` in `clm_inparm` plus a 17-variable `nvp_inparm` group, so the test suite's
+namelist-comparison baselines need regenerating. Expected for a namelist addition, but
+it must be called out in the PR.
+
 **Intermediate commits are only expected to hold for `use_nvp = .false.`.** The
 `use_nvp = .true.` path is not coherent until the full task stack has landed —
 `jbot_sno` is set (Task 3) before the snow lifecycle is reindexed to respect it
@@ -62,6 +67,10 @@ records which side wins at merge time.
 
 | File | Why ours differs | Resolution |
 |---|---|---|
+| `src/biogeophys/NVPParamsMod.F90` | Their `nvp_frac_min` (activation threshold) is omitted — the stub assigns `jbot_sno` statically at init and never activates a layer, so nothing consumes it. | Theirs. Their FATES-driven activation needs it. |
+| `src/biogeophys/NVPParamsMod.F90` | Six stub-only parameters (`dz_nvp`, `frac_nvp`, `nvp_transmissivity`, `alb_nvp_vis`, `alb_nvp_nir`, `nvp_coldstart_saturation`) are namelist constants; theirs are FATES-prognostic (spec §1.8, §1.9). | Theirs. |
+| `bld/CLMBuildNamelist.pm` | No FATES restriction on `use_nvp` — the stub works in standard CLM configurations (spec §1.10). Also adds a build-namelist check rejecting `use_nvp` with water tracers (spec §5), which theirs lacks. | FATES restriction: theirs. Water-tracer check: ours, until tracer support lands. |
+| `bld/namelist_files/namelist_definition_ctsm.xml` | `nvp_inparm` is registered; their branch never registered the group, leaving it unsettable (spec §7, §9c.8). `rnvp_ice` is in our group though absent from theirs. | Ours — registering is the fix. |
 
 ## Deferred items
 
