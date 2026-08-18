@@ -1,0 +1,3 @@
+- [Scope plan sections to their own task](scope-plan-sections-to-own-task.md) — per-task gates only cover their task; fix corrections in place, don't document rules against them
+- [Number your questions](number-your-questions.md) — one question at a time, or a numbered list he can answer point-by-point
+- [NVP plan: subagent dispatch enabled](nvp-plan-subagent-dispatch-enabled.md) — standing authorization to dispatch implementer/reviewer subagents for the NVP stub plan
