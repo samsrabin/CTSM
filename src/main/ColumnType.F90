@@ -60,6 +60,20 @@ module ColumnType
 
      ! vertical levels
      integer , pointer :: snl                  (:)   ! number of snow layers
+     ! Non-vascular plant (NVP) layer at vertical index 0. jbot_sno is the bottom
+     ! index of the snow pack: 0 where there is no NVP slot (stock CLM), -1 where
+     ! the slot exists. Assigned once at initialization and constant thereafter;
+     ! snl keeps its stock meaning, -(number of snow layers), on every column.
+     integer , pointer :: jbot_sno             (:)   ! bottom index of the snow pack (0, or -1 where the NVP slot exists)
+     ! Redundant with jbot_sno == -1 and write-only here; carried solely so that
+     ! the ctsm5.4.028_nvp branch merges. Nothing may read this: test the slot
+     ! with nvp_layer_exists(c).
+     logical , pointer :: nvp_layer_active     (:)   ! .true. iff jbot_sno == -1
+     ! NVP geometry: namelist constants applied at initialization, static for the
+     ! run. dz_nvp = 0 is a supported value meaning the slot exists but holds no
+     ! NVP; frac_nvp must be 0 whenever dz_nvp is 0.
+     real(r8), pointer :: dz_nvp               (:)   ! NVP layer thickness (m)
+     real(r8), pointer :: frac_nvp             (:)   ! NVP fractional coverage of the column (0-1)
      real(r8), pointer :: dz                   (:,:) ! layer thickness (m)  (-nlevsno+1:nlevgrnd) 
      real(r8), pointer :: z                    (:,:) ! layer depth (m) (-nlevsno+1:nlevgrnd) 
      real(r8), pointer :: zi                   (:,:) ! interface level below a "z" level (m) (-nlevsno+0:nlevgrnd) 
@@ -103,6 +117,17 @@ module ColumnType
      ! initialization should be made via this routine.
      procedure, public :: update_itype
 
+     ! NVP index-0 queries. Type-bound rather than module procedures so that a
+     ! routine holding col as a dummy argument queries that dummy: referencing
+     ! the module col through host association while it is argument-associated
+     ! is not conforming (F2018 15.5.2.13), and lets a compiler assume the read
+     ! cannot alias writes made through the dummy.
+     procedure, public :: get_jtop_snow      ! index of the top snow layer
+     procedure, public :: get_jbot_snow      ! index of the bottom snow layer
+     procedure, public :: nvp_layer_exists   ! the index-0 NVP slot exists here
+     procedure, public :: nvp_is_present     ! the slot exists and holds NVP of nonzero thickness
+     procedure, public :: nvp_is_empty       ! the slot exists but holds no NVP
+
   end type column_type
 
   type(column_type), public, target :: col !column data structure (soil/snow/canopy columns)
@@ -135,6 +160,10 @@ contains
     
     ! The following is set in initVerticalMod
     allocate(this%snl         (begc:endc))                     ; this%snl         (:)   = ispval  !* cannot be averaged up
+    allocate(this%jbot_sno    (begc:endc))                     ; this%jbot_sno    (:)   = 0       ! stock: snow runs to index 0
+    allocate(this%nvp_layer_active(begc:endc))                 ; this%nvp_layer_active(:) = .false.
+    allocate(this%dz_nvp      (begc:endc))                     ; this%dz_nvp      (:)   = 0._r8
+    allocate(this%frac_nvp    (begc:endc))                     ; this%frac_nvp    (:)   = 0._r8
     allocate(this%dz          (begc:endc,-nlevsno+1:nlevmaxurbgrnd)) ; this%dz          (:,:) = nan
     allocate(this%z           (begc:endc,-nlevsno+1:nlevmaxurbgrnd)) ; this%z           (:,:) = nan
     allocate(this%zi          (begc:endc,-nlevsno+0:nlevmaxurbgrnd)) ; this%zi          (:,:) = nan
@@ -183,6 +212,10 @@ contains
     deallocate(this%is_fates   )
     deallocate(this%type_is_dynamic)
     deallocate(this%snl        )
+    deallocate(this%jbot_sno   )
+    deallocate(this%nvp_layer_active)
+    deallocate(this%dz_nvp     )
+    deallocate(this%frac_nvp   )
     deallocate(this%dz         )
     deallocate(this%z          )
     deallocate(this%zi         )
@@ -246,6 +279,109 @@ contains
     end if
   end subroutine update_itype
 
+  !-----------------------------------------------------------------------
+  pure function get_jtop_snow(this, c) result(j)
+    !
+    ! !DESCRIPTION:
+    ! Index of the top snow layer on column c. Reduces to the stock snl(c)+1
+    ! wherever the NVP slot does not exist.
+    !
+    ! When snl==0 on an NVP column this returns 0 (the NVP index) -- callers
+    ! wanting a surface layer with actual mass must fall back to soil layer 1
+    ! when .not. nvp_is_present(c).
+    !
+    ! Requires snl(c) >= -(nlevsno-1) on NVP columns: the slot at index 0 costs
+    ! one snow level, so a full pack there is one layer shallower than stock.
+    ! Violating it returns an index below dz's lower bound of -nlevsno+1.
+    !
+    ! !ARGUMENTS:
+    integer :: j                          ! function result
+    class(column_type), intent(in) :: this
+    integer, intent(in) :: c
+    !-----------------------------------------------------------------------
 
+    j = this%snl(c) + 1 + this%jbot_sno(c)
+
+  end function get_jtop_snow
+
+  !-----------------------------------------------------------------------
+  pure function get_jbot_snow(this, c) result(j)
+    !
+    ! !DESCRIPTION:
+    ! Index of the bottom snow layer on column c: 0 wherever the NVP slot does
+    ! not exist, -1 where it does. Paired with get_jtop_snow so snow loops read
+    ! do j = col%get_jtop_snow(c), col%get_jbot_snow(c).
+    !
+    ! !ARGUMENTS:
+    integer :: j                          ! function result
+    class(column_type), intent(in) :: this
+    integer, intent(in) :: c
+    !-----------------------------------------------------------------------
+
+    j = this%jbot_sno(c)
+
+  end function get_jbot_snow
+
+  !-----------------------------------------------------------------------
+  pure function nvp_layer_exists(this, c) result(slot_exists)
+    !
+    ! !DESCRIPTION:
+    ! The index-0 slot is reserved for NVP on this column. Says nothing about
+    ! whether NVP is physically there -- use nvp_is_present for that.
+    !
+    ! !ARGUMENTS:
+    logical :: slot_exists                ! function result
+    class(column_type), intent(in) :: this
+    integer, intent(in) :: c
+    !-----------------------------------------------------------------------
+
+    slot_exists = this%jbot_sno(c) == -1
+
+  end function nvp_layer_exists
+
+  !-----------------------------------------------------------------------
+  pure function nvp_is_present(this, c) result(is_present)
+    !
+    ! !DESCRIPTION:
+    ! NVP physically present: the slot exists AND holds a layer of nonzero
+    ! thickness.
+    !
+    ! dz(c,0) is read only where the slot exists, via a nested if rather than
+    ! .and., which Fortran does not guarantee to short-circuit. Off NVP columns
+    ! index 0 is snow storage that InitSnowLayers fills with spval (1.e36) --
+    ! and spval > 0 is .true., so an unguarded read reports NVP that is not
+    ! there. NaN, the other value it holds before ZeroEmptySnowLayers runs, is
+    ! the benign case: NaN > 0 is .false.
+    !
+    ! !ARGUMENTS:
+    logical :: is_present                 ! function result
+    class(column_type), intent(in) :: this
+    integer, intent(in) :: c
+    !-----------------------------------------------------------------------
+
+    is_present = .false.
+    if (this%nvp_layer_exists(c)) then
+       is_present = this%dz(c,0) > 0._r8
+    end if
+
+  end function nvp_is_present
+
+  !-----------------------------------------------------------------------
+  pure function nvp_is_empty(this, c) result(empty)
+    !
+    ! !DESCRIPTION:
+    ! The slot exists but holds no NVP. Derived from the two functions above, so
+    ! it inherits their protection against reading dz(c,0) off an NVP column,
+    ! and so present/empty partition the NVP columns for any value of dz(c,0).
+    !
+    ! !ARGUMENTS:
+    logical :: empty                      ! function result
+    class(column_type), intent(in) :: this
+    integer, intent(in) :: c
+    !-----------------------------------------------------------------------
+
+    empty = this%nvp_layer_exists(c) .and. .not. this%nvp_is_present(c)
+
+  end function nvp_is_empty
 
 end module ColumnType

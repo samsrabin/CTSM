@@ -26,6 +26,7 @@ git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
 - `use_nvp = .false.` must remain **bit-for-bit** with stock: every new conditional must reduce algebraically to stock when `col%jbot_sno(c) == 0` (which is everywhere when `use_nvp=.false.`).
 - Match `ctsm5.4.028_nvp` names exactly wherever a counterpart exists (spec §1.7): `col%jbot_sno`, `col%nvp_layer_active`, `col%dz_nvp`, `col%frac_nvp`, `NVPParamsMod`, `NVPLayerDynamicsMod`, `qflx_nvp_*`, `qflx_ev_nvp*`, `eflx_sh_nvp`, `H2ONVP`/`T_NVP`/… history names, restart names `DZ_NVP`/`FRAC_NVP`/`JBOT_SNO`.
 - Never assume `frac_nvp = 1` (spec §1.4). Never let snow loops touch index 0 on NVP columns (spec §2). All moss physics gates on `nvp_is_present(c)` (spec §2).
+- **The five NVP index queries are type-bound, not module procedures** (settled in Task 2). Call them on the column object — `col%get_jtop_snow(c)`, `col%get_jbot_snow(c)`, `col%nvp_layer_exists(c)`, `col%nvp_is_present(c)`, `col%nvp_is_empty(c)` — so the spec §2 idiom table reads `do j = col%get_jtop_snow(c), col%get_jbot_snow(c)`. **In a routine that takes `col` as a dummy argument, this matters for correctness, not style:** referencing the module `col` through host association while it is argument-associated is not conforming (F2018 15.5.2.13) and lets a compiler assume the read cannot alias writes through the dummy. `SnowHydrologyMod`'s `ZeroEmptySnowLayers` is exactly such a routine, and five other files use the same pattern. Prefer `col%get_jbot_snow(c)` over the raw `col%jbot_sno(c)` component at call sites.
 - No debug writes. All `BalanceCheckMod` `endrun`s stay armed (spec §1.11).
 - Every code comment states a constraint, not a narration. New/changed comments in harvested code must be re-checked against OUR conventions (their stale comments caused bugs — spec §3).
 - Fortran style: match surrounding code (2-space indent, `_r8` literals, `associate` blocks, `SHR_ASSERT_ALL_FL` for bounds).
@@ -57,29 +58,29 @@ git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
 **Interfaces:**
 - Produces: confirmed dedicated-checkout path + working branch (recorded in MERGE_NOTES.md), verified build-check and unit-test commands, harvest-checkout path.
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Scope is Task 0 only — questions about a later task belong to that task's own Step 0, not here. Already settled before this task began: the checkout path and working branch, and the harvest worktree's commit (Global Constraints).
+- [x] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Scope is Task 0 only — questions about a later task belong to that task's own Step 0, not here. Already settled before this task began: the checkout path and working branch, and the harvest worktree's commit (Global Constraints).
 
-- [ ] **Step 1: Confirm the workspace with the user.** Ask for: the dedicated checkout's path and the working branch name. Verify: `git -C <checkout> status` shows that branch, based on `ctsm5.4.028` (`git merge-base HEAD ctsm5.4.028` = the tag commit).
+- [x] **Step 1: Confirm the workspace with the user.** Ask for: the dedicated checkout's path and the working branch name. Verify: `git -C <checkout> status` shows that branch, based on `ctsm5.4.028` (`git merge-base HEAD ctsm5.4.028` = the tag commit).
 
-- [ ] **Step 2: Harvest worktree of `ctsm5.4.028_nvp`.** Create it at `.worktrees/ctsm5.4.028_nvp` per the Global Constraints (fetch from `huitang-earth`, `git worktree add`), at the commit settled in Step 0. Add `.worktrees` to `.gitignore`'s "DELETE THESE BEFORE MERGING" block. Verify: `git -C .worktrees/ctsm5.4.028_nvp log -1` shows the expected commit, and `git -C .worktrees/ctsm5.4.028_nvp diff --stat ctsm5.4.028..HEAD` lists the ~40 NVP files (the diff command every later task uses to read their code).
+- [x] **Step 2: Harvest worktree of `ctsm5.4.028_nvp`.** Create it at `.worktrees/ctsm5.4.028_nvp` per the Global Constraints (fetch from `huitang-earth`, `git worktree add`), at the commit settled in Step 0. Add `.worktrees` to `.gitignore`'s "DELETE THESE BEFORE MERGING" block. Verify: `git -C .worktrees/ctsm5.4.028_nvp log -1` shows the expected commit, and `git -C .worktrees/ctsm5.4.028_nvp diff --stat ctsm5.4.028..HEAD` lists the ~40 NVP files (the diff command every later task uses to read their code).
 
-- [ ] **Step 3: Verify the build check works before any changes**
+- [x] **Step 3: Verify the build check works before any changes**
 
 ```bash
 cd <checkout>/test-bld && qcmd -- ./case.build
 ```
 Expected: clean build of unmodified code. If `test-bld/` does not exist, stop and ask the user to set it up.
 
-- [ ] **Step 4: Verify the unit-test harness works before any changes**
+- [x] **Step 4: Verify the unit-test harness works before any changes**
 
 ```bash
 cd <checkout>/src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp
 ```
 Expected: all existing tests pass on the unmodified branch (this is the baseline).
 
-- [ ] **Step 5: Write `MERGE_NOTES.md`** with sections: "Workspace" (checkout path, branch, harvest path), "Verification commands" (the two commands above, verbatim), "Verification results" (empty; Task 17 fills it), "Intentional merge conflicts" (empty table: | file | why ours differs | resolution |), "Deferred items" (copy the spec §8 table titles). This file accumulates one row per [fix] as tasks land.
+- [x] **Step 5: Write `MERGE_NOTES.md`** with sections: "Workspace" (checkout path, branch, harvest path), "Verification commands" (the two commands above, verbatim), "Verification results" (empty; Task 17 fills it), "Intentional merge conflicts" (empty table: | file | why ours differs | resolution |), "Deferred items" (copy the spec §8 table titles). This file accumulates one row per [fix] as tasks land.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add MERGE_NOTES.md && git commit -m "Add MERGE_NOTES scaffold for NVP stub work"
@@ -101,7 +102,7 @@ git add MERGE_NOTES.md && git commit -m "Add MERGE_NOTES scaffold for NVP stub w
 
 - [x] **Step 0: Plan review — DONE.** Resolutions, all confirmed by the user, are folded into Steps 1–4 below: (1) the four Mualem–van Genuchten parameters are added, since Task 3's harvested retention-curve and conductivity functions need them; (2) `nvp_frac_min` is deliberately omitted — it is an activation threshold and the stub never activates; (3) the water-tracer guard moves to `WaterType%ReadNamelist`, the only scope where the flags exist; (4) `nvp_inparm` is read in `controlMod`, mirroring their structure, so `NVPParamsMod` is declarations only. Their `<their value>` literals were read off the harvest worktree and are now inline below.
 
-- [ ] **Step 1: Write `NVPParamsMod`.** Mirror the structure of `<worktree>/src/biogeophys/NVPParamsMod.F90` (blanket `public`, declarations only, no read routine). All values below were read from that file except the stub-only block. Keep their comments' unit annotations; drop their `[PORTED by Hui Tang: ...]` markers.
+- [x] **Step 1: Write `NVPParamsMod`.** Mirror the structure of `<worktree>/src/biogeophys/NVPParamsMod.F90` (blanket `public`, declarations only, no read routine). All values below were read from that file except the stub-only block. Keep their comments' unit annotations; drop their `[PORTED by Hui Tang: ...]` markers.
 
 ```fortran
 module NVPParamsMod
@@ -141,9 +142,9 @@ end module
 ```
 Deliberately **not** ported: their `nvp_frac_min` (activation threshold — the stub assigns `jbot_sno` statically and never activates). Add a MERGE_NOTES row. Note their `rnvp_ice` is declared but absent from their `nvp_inparm` group, i.e. unsettable on their branch; ours goes in the group (spec §7 treats registration as a fix).
 
-- [ ] **Step 2: Read `nvp_inparm` in `controlMod`**, mirroring their structure (`<worktree>/src/main/controlMod.F90`: `use NVPParamsMod` at :55, `namelist /nvp_inparm/` at :276, `shr_nl_find_group_name`/read/`endrun` at :406-410, broadcasts near :890). Ours declares every parameter from Step 1 in the group — including `rnvp_ice`, which theirs omits — and broadcasts each. Validity checks (spec §7), placed after the broadcasts and **wrapped in `if (use_nvp)`** so a stock run is untouched by parameters it never uses: `endrun` unless `dz_nvp >= 0._r8`; `endrun` if `dz_nvp == 0 .and. frac_nvp > 0`; `endrun` unless `0 <= frac_nvp <= 1`, `0 <= nvp_transmissivity <= 1`, `0 <= nvp_coldstart_saturation <= 1`. Plus a degeneracy check: `dz_nvp` must be **exactly** `0._r8` or `>= dz_nvp_min` (`1.e-6_r8`, a local parameter). Exact zero is the spec's first-class "no moss" value and downstream code reads `dz(c,0) > 0` as "moss present" and divides by it, so a denormal thickness must be rejected outright rather than admitted as a very thin layer.
+- [x] **Step 2: Read `nvp_inparm` in `controlMod`**, mirroring their structure (`<worktree>/src/main/controlMod.F90`: `use NVPParamsMod` at :55, `namelist /nvp_inparm/` at :276, `shr_nl_find_group_name`/read/`endrun` at :406-410, broadcasts near :890). Ours declares every parameter from Step 1 in the group — including `rnvp_ice`, which theirs omits — and broadcasts each. Validity checks (spec §7), placed after the broadcasts and **wrapped in `if (use_nvp)`** so a stock run is untouched by parameters it never uses: `endrun` unless `dz_nvp >= 0._r8`; `endrun` if `dz_nvp == 0 .and. frac_nvp > 0`; `endrun` unless `0 <= frac_nvp <= 1`, `0 <= nvp_transmissivity <= 1`, `0 <= nvp_coldstart_saturation <= 1`. Plus a degeneracy check: `dz_nvp` must be **exactly** `0._r8` or `>= dz_nvp_min` (`1.e-6_r8`, a local parameter). Exact zero is the spec's first-class "no moss" value and downstream code reads `dz(c,0) > 0` as "moss present" and divides by it, so a denormal thickness must be rejected outright rather than admitted as a very thin layer.
 
-- [ ] **Step 3: `use_nvp` in clm_varctl + controlMod**, mirroring `use_excess_ice` exactly (declaration default `.false.`, namelist entry in `clm_inparm`, mpi_bcast, log print). **Water-tracer guard (spec §5) goes in `WaterType%ReadNamelist`, NOT `controlMod`.** The two flags are local variables of that subroutine ([WaterType.F90:441-442](src/biogeophys/WaterType.F90#L441)), never module state, so `controlMod` cannot see them; `SetupTracerInfo` gives `num_tracers > 0` iff either is true. Immediately after the existing `shr_mpi_bcast` calls (~:475), add:
+- [x] **Step 3: `use_nvp` in clm_varctl + controlMod**, mirroring `use_excess_ice` exactly (declaration default `.false.`, namelist entry in `clm_inparm`, mpi_bcast, log print). **Water-tracer guard (spec §5) goes in `WaterType%ReadNamelist`, NOT `controlMod`.** The two flags are local variables of that subroutine ([WaterType.F90:441-442](src/biogeophys/WaterType.F90#L441)), never module state, so `controlMod` cannot see them; `SetupTracerInfo` gives `num_tracers > 0` iff either is true. Immediately after the existing `shr_mpi_bcast` calls (~:475), add:
 
 ```fortran
 if (use_nvp .and. (enable_water_isotopes .or. enable_water_tracer_consistency_checks)) then
@@ -152,13 +153,13 @@ end if
 ```
 `use_nvp` comes from `clm_varctl` (a leaf module — no circular dependency).
 
-- [ ] **Step 4: XML registration.** `namelist_definition_ctsm.xml`: an entry for `use_nvp` (group `clm_inparm`, logical) **at their branch's position** (theirs is at `<worktree>/bld/namelist_files/namelist_definition_ctsm.xml:951`; port only `use_nvp`, not their `use_nvp_undersnow` / `nvp_rad_model_ground` / `use_nvp_temp_for_patch_gas_params`), plus an entry for **every** `nvp_inparm` real from Step 1 (group `nvp_inparm`; descriptions from the Step 1 declarations). Note their branch never registered `nvp_inparm` at all — zero occurrences in their definition XML — so for the reals there is no their-branch position to mirror; registering them is our fix (spec §7). `namelist_defaults_ctsm.xml`: `use_nvp = .false.` at their position (theirs :643) and a default for each real, **identical to the Fortran defaults** (spec §7). `CLMBuildNamelist.pm`: `add_default` for `use_nvp` and for each `nvp_inparm` real (follow `setup_logic_water_tracers` at :3394 as the pattern for a small group); do NOT add a FATES restriction (spec §1.10 — intentional conflict; MERGE_NOTES row).
+- [x] **Step 4: XML registration.** `namelist_definition_ctsm.xml`: an entry for `use_nvp` (group `clm_inparm`, logical) **at their branch's position** (theirs is at `<worktree>/bld/namelist_files/namelist_definition_ctsm.xml:951`; port only `use_nvp`, not their `use_nvp_undersnow` / `nvp_rad_model_ground` / `use_nvp_temp_for_patch_gas_params`), plus an entry for **every** `nvp_inparm` real from Step 1 (group `nvp_inparm`; descriptions from the Step 1 declarations). Note their branch never registered `nvp_inparm` at all — zero occurrences in their definition XML — so for the reals there is no their-branch position to mirror; registering them is our fix (spec §7). `namelist_defaults_ctsm.xml`: `use_nvp = .false.` at their position (theirs :643) and a default for each real, **identical to the Fortran defaults** (spec §7). `CLMBuildNamelist.pm`: `add_default` for `use_nvp` and for each `nvp_inparm` real (follow `setup_logic_water_tracers` at :3394 as the pattern for a small group); do NOT add a FATES restriction (spec §1.10 — intentional conflict; MERGE_NOTES row).
 
   Also add the **build-namelist-side twin of the Step 3 runtime guard**, so the incompatibility is caught before the run starts rather than at initialization: after the `use_nvp` and water-tracer defaults are set, `fatal_error` if `use_nvp` is true and either `enable_water_isotopes` or `enable_water_tracer_consistency_checks` is. Both are already handled in `setup_logic_water_tracers` (:3394-3402), so their values are available via `$nl->get_value`. The Fortran `endrun` stays as the backstop — a user can set the namelist by hand.
 
-- [ ] **Step 5: Verify.** Build check (`cd test-bld && qcmd -- ./case.build`), unit tests (`cd src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp`; baseline is 59/59 passing), and — because this task touches the namelist — `bld/unit_testers/build-namelist_test.pl`, which is present. Expected: all pass; a run with `use_nvp` unset produces `lnd_in` identical to stock except the new `nvp_inparm` group at its default values.
+- [x] **Step 5: Verify.** Build check (`cd test-bld && qcmd -- ./case.build`), unit tests (`cd src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp`; baseline is 59/59 passing), and — because this task touches the namelist — `bld/unit_testers/build-namelist_test.pl`, which is present. Expected: all pass; a run with `use_nvp` unset produces `lnd_in` identical to stock except the new `nvp_inparm` group at its default values.
 
-- [ ] **Step 6: Commit** `git add -A && git commit -m "Add use_nvp namelist infrastructure and NVPParamsMod"` — then the review/approval gate (Execution Process).
+- [x] **Step 6: Commit** `git add -A && git commit -m "Add use_nvp namelist infrastructure and NVPParamsMod"` — then the review/approval gate (Execution Process).
 
 ---
 
@@ -173,20 +174,39 @@ end if
   - `col%nvp_layer_active(begc:endc)` logical, init `.false.`
   - `col%dz_nvp(begc:endc)` real(r8), init `0._r8`
   - `col%frac_nvp(begc:endc)` real(r8), init `0._r8`
-  - `pure function get_jtop_snow(c) result(j)` — `j = col%snl(c) + 1 + col%jbot_sno(c)`
-  - `pure function nvp_layer_exists(c)` — `col%jbot_sno(c) == -1`
-  - `pure function nvp_is_present(c)` — `nvp_layer_exists(c) .and. col%dz(c,0) > 0._r8`
-  - `pure function nvp_is_empty(c)` — `nvp_layer_exists(c) .and. .not. nvp_is_present(c)`
+  - Five `pure` **type-bound** functions on `column_type`, each taking `(this, c)` — called as `col%<name>(c)`, see Global Constraints for why type-bound:
+    - `col%get_jtop_snow(c)` — `snl(c) + 1 + jbot_sno(c)`
+    - `col%get_jbot_snow(c)` — `jbot_sno(c)`; pairs with the above so snow loops never touch the raw component
+    - `col%nvp_layer_exists(c)` — `jbot_sno(c) == -1`
+    - `col%nvp_is_present(c)` — slot exists **and** `dz(c,0) > 0._r8`, via a nested `if` so `dz(c,0)` is never read off an NVP column
+    - `col%nvp_is_empty(c)` — `nvp_layer_exists(c) .and. .not. nvp_is_present(c)`
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer.
+- [x] **Step 0: Plan review — DONE.** Resolutions, confirmed by the user, folded into Steps 1-2: (1) `nvp_is_present` is written as a nested `if` on `jbot_sno`, never as `.and.`, so the `col%dz(c,0)` read is structurally unreachable on non-NVP columns — Fortran does not guarantee `.and.` short-circuits and `dz` is NaN-initialized until `ZeroEmptySnowLayers` has run, so the naive form compares against NaN during init and trips Intel floating-invalid in DEBUG builds; (2) the four functions stay `pure`, which rules out `SHR_ASSERT_ALL_FL` inside them — accepted, since DEBUG builds already bounds-check the underlying array accesses. Context: our `ColumnType` is `save`/`private` with `col` a public module target (:108) and `contains` at :111, so the functions are public module procedures reading the global `col` and need explicit `public ::` declarations.
 
-- [ ] **Step 1:** Read their `<worktree>/src/main/ColumnType.F90` diff (`git diff ctsm5.4.028..HEAD -- src/main/ColumnType.F90` in the worktree) and add the four members with identical names, declaration comments per our conventions, allocation defaults as above (theirs; keep concrete defaults — a consistency check catches failure-to-set at init, Task 3).
+- [x] **Step 1:** Read their `<worktree>/src/main/ColumnType.F90` diff (`git diff ctsm5.4.028..HEAD -- src/main/ColumnType.F90` in the worktree) and add the four members with identical names, at their position (immediately after `snl`, before `dz`), and the matching `allocate`/`deallocate` lines in `Init`/`Clean` at their positions, with the allocation defaults above. Keep concrete defaults — a consistency check catches failure-to-set at init (Task 3). **Write our own declaration comments; do not port theirs.** Theirs carry `[PORTED by Hui Tang: ...]` markers and assert FATES semantics that are false here ("aggregated from FATES bc_out", "Updated each FATES dynamics timestep in ... wrap_update_hlmfates_dyn", "Consumed by NVPLayerDynamicsMod%UpdateNVPLayer") — our stub assigns these statically at init and has no `UpdateNVPLayer`. That guarantees a conflict on those comment lines; add a MERGE_NOTES row. Note `nvp_layer_active` is redundant with `jbot_sno == -1` and is write-only in our stub, carried solely so their code merges (spec §1.1) — do not make anything read it.
 
-- [ ] **Step 2:** Add the four public module functions with doc comments. `get_jtop_snow`'s comment must state (spec §2): "When snl==0 on an NVP column this returns 0 (the NVP index) — callers wanting a surface layer with actual mass must fall back to soil layer 1 when .not. nvp_is_present(c)."
+- [x] **Step 2:** Add the four functions as `pure` public module procedures (after `contains`, reading the global `col`; the module defaults to `private`, so each needs an explicit `public ::`). `get_jtop_snow`'s comment must state (spec §2): "When snl==0 on an NVP column this returns 0 (the NVP index) — callers wanting a surface layer with actual mass must fall back to soil layer 1 when .not. nvp_is_present(c)."
 
-- [ ] **Step 3: Run build check.** Expected: compiles; nothing consumes the members yet.
+  **`nvp_is_present` must not read `col%dz(c,0)` on non-NVP columns.** Fortran does not guarantee `.and.` short-circuits, and `col%dz` is NaN-initialized at allocation and only zeroed once `ZeroEmptySnowLayers` runs, so the naive `nvp_layer_exists(c) .and. col%dz(c,0) > 0._r8` can compare against NaN during initialization — the Intel floating-invalid class the spec blames for their expected-fails. Write it so the `dz` read is structurally unreachable unless the slot exists:
 
-- [ ] **Step 4: Commit** `git commit -am "Add NVP column members and index/presence query functions"` → review/approval gate.
+```fortran
+pure function nvp_is_present(c) result(present)
+  ! Moss physically present: the slot exists AND holds a layer of nonzero
+  ! thickness. dz(c,0) is only read where the slot exists -- elsewhere it is
+  ! snow storage and may be NaN before the first ZeroEmptySnowLayers call.
+  integer, intent(in) :: c
+  logical :: present
+  present = .false.
+  if (nvp_layer_exists(c)) then
+     present = (col%dz(c,0) > 0._r8)
+  end if
+end function nvp_is_present
+```
+  `nvp_is_empty` derives from these two and so inherits the same protection.
+
+- [x] **Step 3: Run build check.** Expected: compiles; nothing consumes the members yet.
+
+- [x] **Step 4: Commit** `git commit -am "Add NVP column members and index/presence query functions"` → review/approval gate.
 
 ---
 
@@ -216,7 +236,7 @@ end if
 frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 ```
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: (a) this task sets `jbot_sno=-1` while `InitSnowLayers` is not reindexed until Task 5, so `use_nvp=T` is not meaningfully runnable between Tasks 3 and 5 — intermediate commits are only expected to hold for `use_nvp=.false.` (already recorded in MERGE_NOTES by Task 0); (b) `src/biogeophys/CMakeLists.txt` does not list `NVPParamsMod.F90`. That was correct through Task 1 because nothing in the pFUnit build referenced it, but this task's `NVPWaterRetentionCurve`/`NVPHydraulicConductivity` pull `NVPParamsMod` into code the unit tests link, so the file must be added there or the unit-test build breaks. Check whether `NVPLayerDynamicsMod.F90` needs the same.
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: (a) this task sets `jbot_sno=-1` while `InitSnowLayers` is not reindexed until Task 5, so `use_nvp=T` is not meaningfully runnable between Tasks 3 and 5 — intermediate commits are only expected to hold for `use_nvp=.false.` (already recorded in MERGE_NOTES by Task 0); (b) `src/biogeophys/CMakeLists.txt` does not list `NVPParamsMod.F90`. That was correct through Task 1 because nothing in the pFUnit build referenced it, but this task's `NVPWaterRetentionCurve`/`NVPHydraulicConductivity` pull `NVPParamsMod` into code the unit tests link, so the file must be added there or the unit-test build breaks. Check whether `NVPLayerDynamicsMod.F90` needs the same. (c) Task 2's nested-`if` in `nvp_is_present` protects **non-NVP** columns only. On a column where `jbot_sno == -1`, the function reads `col%dz(c,0)` — which is still the allocation-time NaN until `NVPLayerInit` assigns it. So `NVPLayerInit` must set `dz(c,0)` before *any* presence query can run on that column, or DEBUG builds trip Intel floating-invalid. This reinforces the spec §7 ordering requirement (geometry before `InitSnowLayers`); verify the ordering rather than assuming it.
 
 - [ ] **Step 1:** Write the module (harvest physics functions; write `NVPLayerInit`/`NVPColdStart`/`NVPEffectiveFractions` fresh; adapt their `NVPLayerRestart` adding the guards). NO `UpdateNVPLayer` dynamic transitions (spec §2) — but name the file and keep subroutine granularity so their FATES-driven `UpdateNVPLayer` merges alongside cleanly.
 - [ ] **Step 2:** Wire calls: `NVPLayerInit` from `clm_initializeMod` after column types exist and **before** any snow initialization (verify by reading `initialize2` order); `NVPColdStart` in the cold-start-only block after `NVPLayerInit` (their `clm_initializeMod.F90:762-777` shows the block); `NVPLayerRestart` from `clm_instMod` (theirs: after FATES restart; ours has no FATES ordering need — place with other biogeophys restarts).

@@ -71,6 +71,8 @@ records which side wins at merge time.
 | `src/biogeophys/NVPParamsMod.F90` | Six stub-only parameters (`dz_nvp`, `frac_nvp`, `nvp_transmissivity`, `alb_nvp_vis`, `alb_nvp_nir`, `nvp_coldstart_saturation`) are namelist constants; theirs are FATES-prognostic (spec §1.8, §1.9). | Theirs. |
 | `bld/CLMBuildNamelist.pm` | No FATES restriction on `use_nvp` — the stub works in standard CLM configurations (spec §1.10). Also adds a build-namelist check rejecting `use_nvp` with water tracers (spec §5), which theirs lacks. | FATES restriction: theirs. Water-tracer check: ours, until tracer support lands. |
 | `bld/namelist_files/namelist_definition_ctsm.xml` | `nvp_inparm` is registered; their branch never registered the group, leaving it unsettable (spec §7, §9c.8). `rnvp_ice` is in our group though absent from theirs. | Ours — registering is the fix. |
+| `src/main/ColumnType.F90` | Member names and positions match theirs exactly, but the declaration comments are ours: theirs assert FATES semantics that are false here ("aggregated from FATES bc_out", "Updated each FATES dynamics timestep", "Consumed by NVPLayerDynamicsMod%UpdateNVPLayer"). Conflict is confined to the comment lines. | Theirs, once FATES drives the values. |
+| `src/main/ColumnType.F90` | Adds `get_jtop_snow` / `nvp_layer_exists` / `nvp_is_present` / `nvp_is_empty` — no counterpart on their branch, which re-derives these conditions inline per site (spec §1.2, §2). Purely additive, but their inline guards will conflict wherever later tasks replace them with calls. | Ours — the named predicates are the point of the honest-`snl` design. |
 
 ## Deferred items
 
