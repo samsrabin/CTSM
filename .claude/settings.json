@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./xmlquery DEBUG,COMPSET,GRID,NTASKS,COMP_INTERFACE)",
+      "Bash(./xmlquery CHARGE_ACCOUNT,PROJECT)",
+      "Read(//glade/u/home/samrabin/.claude/**)",
+      "Bash(qcmd -- ./case.build)",
+      "Bash(qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp)",
+      "Bash(jq -e '.permissions.allow | length' /glade/u/home/samrabin/.claude/settings.json && tail -12 /glade/derecho/scratch/samrabin/tmp/claude-37083/-glade-work-samrabin-ctsm-hui-moss-permanent-nvp-layer/f40bf551-99cf-4468-b4c5-03351848a2a8/tasks/bmf7adu77.output)"
+    ],
+    "deny": [
+      "Edit(//glade/work/samrabin/ctsm_hui-moss-permanent-nvp-layer/test-bld/**)"
+    ]
+  }
+}

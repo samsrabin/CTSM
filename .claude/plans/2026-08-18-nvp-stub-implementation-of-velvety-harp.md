@@ -76,7 +76,7 @@ cd <checkout>/src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py -
 ```
 Expected: all existing tests pass on the unmodified branch (this is the baseline).
 
-- [ ] **Step 5: Write `MERGE_NOTES.md`** with sections: "Workspace" (checkout path, branch, harvest path), "Verification commands" (the two commands above, verbatim), "Intentional merge conflicts" (empty table: | file | why ours differs | resolution |), "Deferred items" (copy the spec §8 table titles). This file accumulates one row per [fix] as tasks land.
+- [ ] **Step 5: Write `MERGE_NOTES.md`** with sections: "Workspace" (checkout path, branch, harvest path), "Verification commands" (the two commands above, verbatim), "Verification results" (empty; Task 17 fills it), "Intentional merge conflicts" (empty table: | file | why ours differs | resolution |), "Deferred items" (copy the spec §8 table titles). This file accumulates one row per [fix] as tasks land.
 
 - [ ] **Step 6: Commit**
 
@@ -450,7 +450,7 @@ Apply the spec §2 idiom table. Per-subroutine requirements (harvest anchors are
 
 ### Task 17: Verification & merge rehearsal (spec §10)
 
-No new source files. Run and record results in MERGE_NOTES.md § "Verification":
+No new source files. Run and record results in MERGE_NOTES.md § "Verification results":
 
 - [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Steps 1–4 need real cases on Derecho (compsets, resolutions, run lengths, baselines) that this plan never names — settle them here. Step 5's merge rehearsal must target whichever `ctsm5.4.028_nvp` commit is the actual merge destination, which may not be the commit harvested from.
 
