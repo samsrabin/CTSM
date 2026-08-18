@@ -1,0 +1,471 @@
+# NVP Stub Implementation Plan (executes `this-is-the-community-velvety-harp.md`)
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Spec:** `.claude/plans/this-is-the-community-velvety-harp.md` (the "design plan"; §-references below point there). This file is the task decomposition of that spec — the spec governs on any conflict.
+
+**Goal:** A stub NVP (moss) layer at index 0 on istsoil/istcrop columns, on a new branch from the `ctsm5.4.028` tag, bit-for-bit with stock when `use_nvp=.false.`, conservation-exact when on, engineered to merge into `ctsm5.4.028_nvp`.
+
+**Architecture:** Static per-column `jbot_sno` (0 or −1) + honest `snl`; NVP occupies matrix row −1 in the heat solve; centralized 4-way endmember fractions; constant namelist thickness/coverage/transmissivity; zero-thickness (`dz_nvp=0`) is first-class via the skip invariant. Code is harvested from the `ctsm5.4.028_nvp` worktree where the audit marked it sound, reimplemented where marked [fix].
+
+**Tech Stack:** CTSM Fortran (F2003), CTSM build-namelist (Perl/XML), pFUnit unit tests, git worktrees.
+
+## Global Constraints
+
+- Work happens in the **user's dedicated checkout with a pre-made working branch** (path and branch name confirmed with the user at execution start; based on `ctsm5.4.028`). Do NOT create a new branch or worktree for the implementation.
+- Harvest source (read-only): a git worktree of branch `ctsm5.4.028_nvp` at **`.worktrees/ctsm5.4.028_nvp`**, in the top level of the dedicated checkout, detached at **`103082a17`** — the commit the spec audited, so every "theirs `:NNNN`" line reference in this plan holds verbatim. The branch is not local; it lives on remote `huitang-earth` (`git@github.com:huitang-earth/CTSM.git`). Created once in Task 0:
+
+```bash
+git fetch huitang-earth ctsm5.4.028_nvp
+git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
+```
+
+  Add `.worktrees` to the `.gitignore` "DELETE THESE BEFORE MERGING" block (which already lists `test-bld`) so it never enters a commit. Referred to below as `<worktree>`. Submodules are deliberately not initialized — the stub harvests only CLM source (`src/main`, `src/biogeophys`, `bld/`) and has no FATES dependency.
+
+  The branch has moved on since the harvest commit, in `clm_varctl.F90`, `controlMod.F90`, both namelist XMLs, and `CLMBuildNamelist.pm` — **exactly Task 1's files**. So Task 1's "place `use_nvp` where their branch places it" anchors must be checked against the branch head as well as `<worktree>`, and Task 17's merge rehearsal targets the branch head at that time.
+- `use_nvp = .false.` must remain **bit-for-bit** with stock: every new conditional must reduce algebraically to stock when `col%jbot_sno(c) == 0` (which is everywhere when `use_nvp=.false.`).
+- Match `ctsm5.4.028_nvp` names exactly wherever a counterpart exists (spec §1.7): `col%jbot_sno`, `col%nvp_layer_active`, `col%dz_nvp`, `col%frac_nvp`, `NVPParamsMod`, `NVPLayerDynamicsMod`, `qflx_nvp_*`, `qflx_ev_nvp*`, `eflx_sh_nvp`, `H2ONVP`/`T_NVP`/… history names, restart names `DZ_NVP`/`FRAC_NVP`/`JBOT_SNO`.
+- Never assume `frac_nvp = 1` (spec §1.4). Never let snow loops touch index 0 on NVP columns (spec §2). All moss physics gates on `nvp_is_present(c)` (spec §2).
+- No debug writes. All `BalanceCheckMod` `endrun`s stay armed (spec §1.11).
+- Every code comment states a constraint, not a narration. New/changed comments in harvested code must be re-checked against OUR conventions (their stale comments caused bugs — spec §3).
+- Fortran style: match surrounding code (2-space indent, `_r8` literals, `associate` blocks, `SHR_ASSERT_ALL_FL` for bounds).
+
+## Execution Process (user-mandated — applies to every task)
+
+1. Work happens in the user's dedicated checkout on its working branch (confirmed in Task 0).
+2. **Every task opens with Step 0: plan review — performed by the orchestrating session, NOT by a subagent** (subagents cannot ask the user anything). Read this task's text against the spec and the actual code it will touch, then **STOP and put to the user**: clarifying questions, problems foreseen, cleanup the task text needs, and anything the task depends on that isn't true yet. Proceed to Step 1 only after the user answers. If Step 0 turns up nothing, say so in one line and ask to proceed anyway — the stop is unconditional.
+3. Step 0's resolutions are **written into this plan file** before the implementer is dispatched (amend the task's step text so the subagent actually sees them — it receives only its own task text, never this list, never the Self-Review section).
+4. **Fresh implementer subagent per task.** The subagent receives: this plan's task text as amended in Step 0 (only its own task), the spec path, the harvest-worktree path, the dedicated-checkout path, and the Global Constraints above.
+5. Each task ends with: verification passes (below) → **one commit** for the task.
+6. After the commit, run **two-stage review** (superpowers:requesting-code-review pattern): first a **spec-compliance** reviewer (does the diff implement this task's requirements and only them? cite spec §), then a **code-quality** reviewer (correctness, style, conservation hazards). Reviewers are fresh subagents that see the task text + the commit diff.
+7. Issues found → fix → **amend the task's commit** (`git commit --amend --no-edit`) → re-run the failed review stage.
+8. **STOP. Present the task's diff + review outcomes to the user. Do not start the next task until the user approves.** User feedback → fix → amend → re-present.
+
+**Verification before every commit:**
+- **Build check**: from the dedicated checkout, `cd test-bld && qcmd -- ./case.build` (a dedicated case at the top level of the checkout). Expected: build completes with no errors.
+- **Unit tests** (required for any commit that touches Fortran): from the checkout's `src/` directory, `qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp`. Expected: all tests pass.
+- Namelist-touching tasks additionally run `bld/unit_testers/build-namelist_test.pl`.
+
+---
+
+### Task 0: Checkout confirmation, verification harness, MERGE_NOTES
+
+**Files:**
+- Create: `MERGE_NOTES.md` (top level of the dedicated checkout)
+
+**Interfaces:**
+- Produces: confirmed dedicated-checkout path + working branch (recorded in MERGE_NOTES.md), verified build-check and unit-test commands, harvest-checkout path.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Scope is Task 0 only — questions about a later task belong to that task's own Step 0, not here. Already settled before this task began: the checkout path and working branch, and the harvest worktree's commit (Global Constraints).
+
+- [ ] **Step 1: Confirm the workspace with the user.** Ask for: the dedicated checkout's path and the working branch name. Verify: `git -C <checkout> status` shows that branch, based on `ctsm5.4.028` (`git merge-base HEAD ctsm5.4.028` = the tag commit).
+
+- [ ] **Step 2: Harvest worktree of `ctsm5.4.028_nvp`.** Create it at `.worktrees/ctsm5.4.028_nvp` per the Global Constraints (fetch from `huitang-earth`, `git worktree add`), at the commit settled in Step 0. Add `.worktrees` to `.gitignore`'s "DELETE THESE BEFORE MERGING" block. Verify: `git -C .worktrees/ctsm5.4.028_nvp log -1` shows the expected commit, and `git -C .worktrees/ctsm5.4.028_nvp diff --stat ctsm5.4.028..HEAD` lists the ~40 NVP files (the diff command every later task uses to read their code).
+
+- [ ] **Step 3: Verify the build check works before any changes**
+
+```bash
+cd <checkout>/test-bld && qcmd -- ./case.build
+```
+Expected: clean build of unmodified code. If `test-bld/` does not exist, stop and ask the user to set it up.
+
+- [ ] **Step 4: Verify the unit-test harness works before any changes**
+
+```bash
+cd <checkout>/src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp
+```
+Expected: all existing tests pass on the unmodified branch (this is the baseline).
+
+- [ ] **Step 5: Write `MERGE_NOTES.md`** with sections: "Workspace" (checkout path, branch, harvest path), "Verification commands" (the two commands above, verbatim), "Intentional merge conflicts" (empty table: | file | why ours differs | resolution |), "Deferred items" (copy the spec §8 table titles). This file accumulates one row per [fix] as tasks land.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add MERGE_NOTES.md && git commit -m "Add MERGE_NOTES scaffold for NVP stub work"
+```
+
+---
+
+### Task 1: `use_nvp` namelist + `NVPParamsMod`
+
+**Files:**
+- Create: `src/biogeophys/NVPParamsMod.F90`
+- Modify: `src/main/clm_varctl.F90` (**place `use_nvp` where the `ctsm5.4.028_nvp` branch has it: immediately after `use_fates_bgc`** — check their diff for the exact spot), `src/main/controlMod.F90` (namelist decl / broadcast / log at their branch's positions)
+- Modify: `bld/namelist_files/namelist_definition_ctsm.xml`, `bld/namelist_files/namelist_defaults_ctsm.xml`, `bld/CLMBuildNamelist.pm`
+
+**Interfaces:**
+- Produces: `use_nvp` (logical, `clm_varctl`); module `NVPParamsMod` with public reals `dz_nvp`, `frac_nvp`, `nvp_transmissivity`, `alb_nvp_vis`, `alb_nvp_nir`, `nvp_coldstart_saturation`, `thk_dry_nvp`, `csol_nvp`, `watsat_nvp`, `rnvp_min`, `rnvp_amp`, `rnvp_exp`, `rnvp_ice`, and `subroutine NVPParamsReadNamelist(NLFilename)`.
+- Consumes: nothing.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 3's water-tracer guard tells the implementer to grep for "whichever control variable governs tracers" — resolve that variable by name here rather than leaving an `endrun` condition to a guess.
+
+- [ ] **Step 1: Copy the parameter values from the harvest worktree.** Read `<worktree>/src/biogeophys/NVPParamsMod.F90` and `<worktree>/src/main/controlMod.F90` (their `nvp_inparm` group, ~line 272) for names/values/units of the physics constants. Our module additionally holds the stub-only parameters:
+
+```fortran
+module NVPParamsMod
+  ! Parameters for the non-vascular plant (NVP) layer.
+  ! Stub configuration: thickness/coverage/optics are namelist constants
+  ! (replaced by FATES-prognostic values in the ctsm5.4.028_nvp merge).
+  use shr_kind_mod, only : r8 => shr_kind_r8
+  implicit none
+  private
+  public :: NVPParamsReadNamelist
+
+  ! physics constants (names/values match ctsm5.4.028_nvp)
+  real(r8), public :: thk_dry_nvp = 0.05_r8   ! dry NVP thermal conductivity (W/m/K)
+  real(r8), public :: csol_nvp    = 0.58e6_r8 ! heat capacity of NVP solids (J/m3/K)
+  real(r8), public :: watsat_nvp  = 0.85_r8   ! NVP porosity (m3/m3)
+  real(r8), public :: rnvp_min    = <their value> ! min NVP evaporative resistance (s/m)
+  real(r8), public :: rnvp_amp    = <their value>
+  real(r8), public :: rnvp_exp    = <their value>
+  real(r8), public :: rnvp_ice    = <their value> ! resistance when frozen (s/m)
+
+  ! stub-only (intentional merge conflict: theirs are FATES-driven)
+  real(r8), public :: dz_nvp            = 0._r8  ! prescribed NVP thickness (m); 0 = moss absent
+  real(r8), public :: frac_nvp          = 0._r8  ! prescribed NVP areal coverage (0-1)
+  real(r8), public :: nvp_transmissivity = 1._r8 ! fraction of surface SW transmitted through NVP to soil
+  real(r8), public :: alb_nvp_vis       = 0.10_r8
+  real(r8), public :: alb_nvp_nir       = 0.25_r8
+  real(r8), public :: nvp_coldstart_saturation = 0.5_r8 ! initial NVP pore saturation at cold start (0-1)
+end module
+```
+(`<their value>` = literal numbers read from their branch in this step — the implementer copies them; they are data, not design.)
+
+- [ ] **Step 2: `NVPParamsReadNamelist`** — read group `nvp_inparm` (their group name) from `lnd_in` on masterproc, `shr_mpi_bcast` each member; call it from `controlMod` `control_init` next to the other param reads. Validity checks (spec §7): `endrun` unless `dz_nvp >= 0._r8`; `endrun` if `dz_nvp == 0 .and. frac_nvp > 0`; `endrun` unless `0 <= frac_nvp <= 1`, `0 <= nvp_transmissivity <= 1`, `0 <= nvp_coldstart_saturation <= 1`.
+
+- [ ] **Step 3: `use_nvp` in clm_varctl + controlMod**, mirroring `use_excess_ice` exactly (declaration default `.false.`, namelist entry in `clm_inparm`, mpi_bcast, log print). Add the water-tracer guard (spec §5): in `controlMod` after reads, `if (use_nvp .and. <water tracers enabled>) call endrun(...)` — find the tracer-enabled flag by grepping `water_inst` setup (`src/biogeophys/WaterMod.F90`, look for `enable_water_tracer_consistency_checks` / tracer count > 0 pattern) and use whichever control variable governs tracers.
+
+- [ ] **Step 4: XML registration.** `namelist_definition_ctsm.xml`: entries for `use_nvp` (group `clm_inparm`, logical) and all ten `nvp_inparm` reals (their group name; copy each entry's description from this plan's declarations); **place entries where the `ctsm5.4.028_nvp` branch places its NVP entries** (after the `use_fates_bgc`-adjacent block — read their XML diff). `namelist_defaults_ctsm.xml`: `use_nvp = .false.`, and defaults equal to the Fortran defaults above (spec §7: Fortran and XML must be identical), again at their branch's positions. `CLMBuildNamelist.pm`: `add_default` for `use_nvp` at their branch's position; do NOT add a FATES restriction (spec §1.10 — intentional conflict; add a MERGE_NOTES row).
+
+- [ ] **Step 5: Run build check** (includes `build-namelist_test.pl` if available). Expected: pass; a run with `use_nvp` unset produces `lnd_in` identical to stock except the new group with default values.
+
+- [ ] **Step 6: Commit** `git add -A && git commit -m "Add use_nvp namelist infrastructure and NVPParamsMod"` — then the review/approval gate (Execution Process).
+
+---
+
+### Task 2: ColumnType members and query functions
+
+**Files:**
+- Modify: `src/main/ColumnType.F90` (members ~line 60-80 to match their layout; alloc/dealloc in `Init`/`Clean` ~line 137/…)
+
+**Interfaces:**
+- Produces (used by every later task):
+  - `col%jbot_sno(begc:endc)` integer, init `0`
+  - `col%nvp_layer_active(begc:endc)` logical, init `.false.`
+  - `col%dz_nvp(begc:endc)` real(r8), init `0._r8`
+  - `col%frac_nvp(begc:endc)` real(r8), init `0._r8`
+  - `pure function get_jtop_snow(c) result(j)` — `j = col%snl(c) + 1 + col%jbot_sno(c)`
+  - `pure function nvp_layer_exists(c)` — `col%jbot_sno(c) == -1`
+  - `pure function nvp_is_present(c)` — `nvp_layer_exists(c) .and. col%dz(c,0) > 0._r8`
+  - `pure function nvp_is_empty(c)` — `nvp_layer_exists(c) .and. .not. nvp_is_present(c)`
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer.
+
+- [ ] **Step 1:** Read their `<worktree>/src/main/ColumnType.F90` diff (`git diff ctsm5.4.028..HEAD -- src/main/ColumnType.F90` in the worktree) and add the four members with identical names, declaration comments per our conventions, allocation defaults as above (theirs; keep concrete defaults — a consistency check catches failure-to-set at init, Task 3).
+
+- [ ] **Step 2:** Add the four public module functions with doc comments. `get_jtop_snow`'s comment must state (spec §2): "When snl==0 on an NVP column this returns 0 (the NVP index) — callers wanting a surface layer with actual mass must fall back to soil layer 1 when .not. nvp_is_present(c)."
+
+- [ ] **Step 3: Run build check.** Expected: compiles; nothing consumes the members yet.
+
+- [ ] **Step 4: Commit** `git commit -am "Add NVP column members and index/presence query functions"` → review/approval gate.
+
+---
+
+### Task 3: `NVPLayerDynamicsMod` — static init, restart, cold start
+
+**Files:**
+- Create: `src/biogeophys/NVPLayerDynamicsMod.F90`
+- Modify: `src/main/clm_initializeMod.F90` (call `NVPLayerInit` before `InitSnowLayers` runs; find `initialize2`'s ordering — `InitSnowLayers` is reached via cold-start init in `SnowHydrologyMod`; the assignment must precede it), `src/main/clm_instMod.F90` (call `NVPLayerRestart` in the restart sequence, `if (use_nvp)` — mirror their call site, their `clm_instMod.F90:637`)
+
+**Interfaces:**
+- Consumes: Task 1 params, Task 2 members/functions.
+- Produces:
+  - `subroutine NVPLayerInit(bounds)` — for each istsoil/istcrop column: `jbot_sno=-1`, `nvp_layer_active=.true.`, `col%dz_nvp = dz_nvp` (namelist), `col%frac_nvp = frac_nvp` (namelist), `col%dz(c,0)=dz_nvp`, `col%z(c,0)=-0.5_r8*dz_nvp`, `col%zi(c,-1)=-dz_nvp`; `endrun` if called on any other landunit type (spec §6 assertion). All other columns untouched (defaults stand).
+  - `subroutine NVPLayerRestart(bounds, ncid, flag)` — restartvars `DZ_NVP` (`interp`), `FRAC_NVP` (`interp`), `JBOT_SNO` (**`skip`** — spec §1.6); on read, derive `nvp_layer_active = (jbot_sno == -1)`; cross-flag guards (spec §7): on `flag=='read'`, if `use_nvp` and `JBOT_SNO` absent → `endrun("restart predates use_nvp; cold-start or interpolate")`; add the reverse guard where restart vars are probed with `use_nvp=.false.` — implement by always *probing* for `JBOT_SNO` presence (readvar pattern of `restUtilMod`) even when `use_nvp=.false.`, and `endrun("restart was written with use_nvp on; enable use_nvp or use a different initial file")` if found. Consistency check: after read with `use_nvp=T`, `endrun` if `abs(col%dz(c,0) - dz_nvp) > 1.e-12_r8` on any NVP column (namelist changed since restart write).
+  - `subroutine NVPColdStart(bounds)` — for `nvp_is_present` columns only: fill layer-0 pore water at saturation `nvp_coldstart_saturation` (namelist, Task 1 — parameterized to facilitate testing), partitioned by the column's initial `t_soisno(c,1)`: liquid if `>= tfrz`, ice otherwise (spec §7 — climate-agnostic, unlike their frozen-only `NVPColdStartIce`); zero for `nvp_is_empty`.
+  - Physics functions harvested verbatim from `<worktree>/src/biogeophys/NVPLayerDynamicsMod.F90` (their lines 223–388): `NVPWaterRetentionCurve`, `NVPHydraulicConductivity`, `NVPEvaporation`'s resistance formula extracted as `function NVPEvapResistance(fwet_nvp, frozen) result(rnvp)` using Task-1 `rnvp_*` params.
+  - `elemental subroutine NVPEffectiveFractions(dz0, frac_nvp_col, frac_sno_eff, frac_h2osfc, frac_nvp_eff, frac_soil)` — THE single derivation (spec §4b):
+```fortran
+! Centralized 4-way endmember fractions. dz0 = col%dz(c,0).
+! Where the moss slot is empty, moss contributes nothing (skip invariant).
+if (dz0 > 0._r8) then
+   frac_nvp_eff = min(1._r8 - frac_h2osfc - frac_sno_eff, &
+                      max(0._r8, frac_nvp_col - frac_sno_eff))
+else
+   frac_nvp_eff = 0._r8
+end if
+frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
+```
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: this task sets `jbot_sno=-1` while `InitSnowLayers` is not reindexed until Task 5, so `use_nvp=T` is not meaningfully runnable between Tasks 3 and 5 — confirm that intermediate commits are only expected to hold for `use_nvp=.false.`, and state it in MERGE_NOTES.
+
+- [ ] **Step 1:** Write the module (harvest physics functions; write `NVPLayerInit`/`NVPColdStart`/`NVPEffectiveFractions` fresh; adapt their `NVPLayerRestart` adding the guards). NO `UpdateNVPLayer` dynamic transitions (spec §2) — but name the file and keep subroutine granularity so their FATES-driven `UpdateNVPLayer` merges alongside cleanly.
+- [ ] **Step 2:** Wire calls: `NVPLayerInit` from `clm_initializeMod` after column types exist and **before** any snow initialization (verify by reading `initialize2` order); `NVPColdStart` in the cold-start-only block after `NVPLayerInit` (their `clm_initializeMod.F90:762-777` shows the block); `NVPLayerRestart` from `clm_instMod` (theirs: after FATES restart; ours has no FATES ordering need — place with other biogeophys restarts).
+- [ ] **Step 3: Run build check.** Expected: compiles. `use_nvp=F` runs never enter any new code (all call sites guarded `if (use_nvp)` except the reverse restart probe, which is read-only).
+- [ ] **Step 4: Commit** `git commit -am "Add NVPLayerDynamicsMod: static NVP layer init, restart, cold start"` → review/approval gate. Add MERGE_NOTES rows (static init vs their UpdateNVPLayer; restart guards).
+
+---
+
+### Task 4: NVP state/flux/diagnostic variables + history fields
+
+**Files:**
+- Modify: `src/biogeophys/TemperatureType.F90` (`t_nvp_col` + restart `T_NVP` + history `T_NVP`), `src/biogeophys/WaterStateType.F90` (`h2onvp_col` + restart/history `H2ONVP`), `src/biogeophys/WaterDiagnosticBulkType.F90` (`fwet_nvp_col` + restart/history `FWET_NVP`; `vwc_nvp_col` + history `VWC_NVP`), `src/biogeophys/WaterDiagnosticType.F90` (`qg_nvp_col`), `src/biogeophys/WaterFluxBulkType.F90` (`qflx_ev_nvp_patch/_col/_eff_col`, `qflx_nvp_infl_col`, `qflx_nvp_drain_col`, `qflx_nvp_to_snow_col` + their six history fields, all `inactive`), `src/biogeophys/EnergyFluxType.F90` (`eflx_sh_nvp_patch` + history `EFLX_SH_NVP`), `src/biogeophys/SolarAbsorbedType.F90` (`sabg_nvp_patch`)
+
+**Interfaces:**
+- Consumes: `use_nvp`.
+- Produces: the variables above, allocated with the same defaults their branch uses **except**: initialize ALL new flux variables to `0._r8` (not `nan`) — the audit showed their `nan`-initialized `qflx_ev_nvp_patch` propagating NaN through an unconditional `p2c`; zero-init makes every consumer safe when `use_nvp=F` or before first assignment. History/restart registration guarded `if (use_nvp)`.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: the zero-init-instead-of-`nan` policy in **Interfaces** departs from CTSM's house convention and discards the use-before-set tripwire; the specific hazard it cites (unconditional `p2c` of `qflx_ev_nvp_patch`) is already handled by Task 13's `if (use_nvp)` guard. Get an explicit decision.
+
+- [ ] **Step 1:** For each file, read their diff (`git diff ctsm5.4.028..HEAD -- <file>` in the worktree) and port the member/alloc/history/restart additions with the zero-init policy above. Skip anything referencing FATES or `UpdateNVPLayer`.
+- [ ] **Step 2: Run build check.**
+- [ ] **Step 3: Commit** `git commit -am "Add NVP state, flux, and diagnostic variables with history/restart"` → review/approval gate.
+
+---
+
+### Task 5: Snow layer lifecycle reindex (SnowHydrologyMod part 1)
+
+**Files:**
+- Modify: `src/biogeophys/SnowHydrologyMod.F90` — subroutines `InitSnowLayers`, `Bulk_InitializeSnowPack`, `UpdateState_InitializeSnowPack`, `CombineSnowLayers`, `DivideSnowLayers`, `SnowCompaction`, `ZeroEmptySnowLayers`, `PostPercolation_AdjustLayerThicknesses`, and the `swe_old` fill (~stock line 502)
+
+**Interfaces:**
+- Consumes: `get_jtop_snow`, `col%jbot_sno`, `nvp_is_present` (Task 2). `snl` semantics: stock (−#snow layers) everywhere.
+- Produces: snow layers live at `get_jtop_snow(c) : col%jbot_sno(c)` on all columns; geometry recursions anchored at `zi(c,col%jbot_sno(c))`; max snow layers `nlevsno-1` on NVP columns.
+
+Apply the spec §2 idiom table. Per-subroutine requirements (harvest anchors are their-branch line numbers from the audit):
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: (a) **Step 3 contains unretracted thinking-out-loud** ("…simpler and equivalent:", "`do j = jbot, -nlevsno+1+jbot?…`") — rewrite it as a single unambiguous instruction before dispatch; (b) the Self-Review assigns the spec §2 `ch4Mod` clarifying comment to Step 5's sweep scope, but Step 5's text never mentions it — add it or drop it deliberately; (c) this is the first task that can break `use_nvp=.false.` bit-for-bit, so settle whether a case-level stock comparison joins the per-commit verification here.
+
+- [ ] **Step 1 — `InitSnowLayers` (stock ~3134-3297 in their numbering; [fix], theirs unmodified):** cold-start snow placement: `dz(c,jbot_sno)` down to `dz(c,jbot_sno-k)`; layer-count logic unchanged but capped at `nlevsno-1` when `nvp_layer_exists(c)`; geometry loop `do j = col%jbot_sno(c), snl(c)+1+col%jbot_sno(c), -1` anchored at `zi(c,jbot_sno)` (which `NVPLayerInit` set to `-dz_nvp`… note: anchor value is `zi(c,jbot_sno(c))` itself — for NVP columns `zi(c,-1) = -dz_nvp` already; do NOT reset it here). The lake short-circuit and no-snow branches zero only slots `≤ jbot_sno` (never slot 0 on NVP columns — that's moss geometry).
+- [ ] **Step 2 — `Bulk_InitializeSnowPack`/`UpdateState_InitializeSnowPack` (theirs :944-1029, [harvest, adapt]):** first layer at index `jbot_sno` with `snl=-1` (honest); `zi(c,jbot_sno-1) = zi(c,jbot_sno) - dz(c,jbot_sno)`; `t_soisno/h2osoi/frac_iceold` writes at `(c,jbot_sno)`.
+- [ ] **Step 3 — `CombineSnowLayers` (theirs :2171-2634, [harvest+fix]):** loop `do j = msn_old(c)+1+jbot, jbot` where `jbot=col%jbot_sno(c)`… simpler and equivalent: keep their `merge`-style upper bound but per spec §4d re-express: vanishing-layer hand-off target `j+1`: when `j==jbot` the receiver is moss (if present) else stock target — **[fix]** route through to soil layer 1 / `qflx_sl_top_soil` booking when `nvp_is_empty(c)`; **[fix]** set `qflx_sl_top_soil` for the `j==jbot` dissolution in ALL cases (their gap, audit §1b); **[fix]** do NOT merge aerosols into slot 0 (drop them, matching the whole-pack disposal); dz-merge guard `if (j < jbot)`; neighbor test `else if (i == jbot)`; whole-pack disappearance: `zwice/zwliq` sums over `get_jtop_snow..jbot`; liquid → moss when `nvp_is_present`, else stock (`h2osoi_liq(c,1)` for soil/crop/urban); geometry recursion `do j = jbot, -nlevsno+1+jbot?…` — concretely: `do j = col%jbot_sno(c), get_jtop_snow_min, -1` re-anchored at `zi(c,jbot)`; stock entry guard `snl(c) < -1` and `EXIT` threshold are CORRECT under honest snl — do not port their `snl==-1→0` fixups.
+- [ ] **Step 4 — `DivideSnowLayers` (theirs :2637-3068, [harvest, adapt]):** staging `dzsno(c,k) = frac_sno*dz(c, k+snl(c)+jbot)` (i.e., stock map shifted by `jbot`); `msno = abs(snl(c))` (honest — no `-1`); subdivision cap `k < nlevsno - merge(1,0,nvp_layer_exists(c))` (theirs :2815, keep); un-staging never writes slot 0 on NVP columns (structural via the shifted map); `snl = -msno` stock; geometry re-anchored at `zi(c,jbot)`. Delete nothing else; do not port their debug blocks.
+- [ ] **Step 5 — `SnowCompaction`, `ZeroEmptySnowLayers`, `PostPercolation_AdjustLayerThicknesses`, `swe_old`:** change loop ends `0 → col%jbot_sno(c)` and guards `j >= snl(c)+1 → j >= get_jtop_snow(c)`; with those bounds their `cycle j==0` guards are unnecessary — the loops simply never reach 0 ([fix] for `swe_old`, which their branch left including moss).
+- [ ] **Step 6: Run build check.**
+- [ ] **Step 7: Commit** `git commit -am "Reindex snow layer lifecycle for NVP slot at index 0"` → review/approval gate. MERGE_NOTES rows for every divergence from their guards (honest-snl sites).
+
+---
+
+### Task 6: Percolation, drain, capping, aerosols (SnowHydrologyMod part 2 + AerosolMod)
+
+**Files:**
+- Modify: `src/biogeophys/SnowHydrologyMod.F90` — `SnowWater`, `BulkFlux_SnowPercolation`, `UpdateState_SnowPercolation`, `TracerFlux_SnowPercolation`, `SumFlux_AddSnowPercolation`, `CalcAndApplyAerosolFluxes`, `SnowCapping` + 5 helpers (stock ~3121-3693)
+- Modify: `src/biogeophys/AerosolMod.F90` (`AerosolMasses` guard, theirs :570-580)
+
+**Interfaces:**
+- Consumes: Task 2 functions; Task 4 fluxes (`qflx_nvp_*` not yet — Task 13 wires the moss water budget; this task only routes snow-side water).
+- Produces: `qflx_snow_percolation(c, col%jbot_sno(c))` = flux out of the snowpack bottom; when `nvp_is_present`, it is deposited in `h2osoi_liq(c,0)` and `qflx_snow_drain` books it; when `nvp_is_empty` or `jbot_sno==0`, stock routing (drain hand-off, nothing stored at 0).
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 4 leaves the `SnowCapping` refactor shape ("gather-and-scatter vs. indexed dummies — whichever produces the smaller diff") to the implementer; decide it here so the two-stage reviewers have a fixed target.
+
+- [ ] **Step 1 — `BulkFlux_SnowPercolation` (theirs :1342-1451, [harvest]):** three-way structure on `jbot_sno`; keep their zero-denominator guard; loop `do j = get_jtop_snow(c), col%jbot_sno(c)` so slot 0 never enters (their version entered j=0 and zeroed it — ours is structural; simpler, note in MERGE_NOTES).
+- [ ] **Step 2 — `UpdateState_SnowPercolation` ([harvest+fix]):** deposit `perc(c,j-1)` into layer `j` for `j = get_jtop_snow(c)+1 .. jbot`; then the bottom outflow: `if (nvp_is_present(c)) h2osoi_liq(c,0) += perc(c,jbot)*dtime` else leave for the drain hand-off (**zero-dz [fix]**, spec §4a).
+- [ ] **Step 3 — `SumFlux_AddSnowPercolation` (theirs :1890-1953, [harvest]):** `qflx_snow_drain += perc(c,jbot)`; when moss received it, exclude from `qflx_rain_plus_snomelt` (their logic keyed on `nvp_layer_active` → ours keys on `nvp_is_present`).
+- [ ] **Step 4 — `SnowCapping` + helpers ([fix], theirs unmodified):** every `(begc:endc, 0)` slice argument becomes a per-column gather at `col%jbot_sno(c)`. Mechanically: change the helper dummies from slices to indexed access, or build local gathered arrays `x_bottom(c) = x(c, col%jbot_sno(c))` before the calls and scatter back after — choose whichever produces the smaller diff (read the six routines first; they are slice-plumbing, ~3181-3244, 3288-3694 stock). Moss is never capped (bottom = bottom SNOW layer).
+- [ ] **Step 5 — Aerosols:** `AerosolMasses` guard `j <= col%jbot_sno(c)` ([harvest], their 6-liner); `CalcAndApplyAerosolFluxes` cascade loop ends at `jbot_sno` (structural exclusion of slot 0 — their version leaked `qin` into `mss_*(c,0)`; ours doesn't: MERGE_NOTES row, spec §4g).
+- [ ] **Step 6: Run build check.**
+- [ ] **Step 7: Commit** `git commit -am "Route snow percolation, capping, and aerosols around the NVP slot"` → review/approval gate.
+
+---
+
+### Task 7: Thermal properties + heat-diffusion factors (SoilTemperatureMod part 1)
+
+**Files:**
+- Modify: `src/biogeophys/SoilTemperatureMod.F90` — `SoilThermProp` (stock 602-901), `ComputeHeatDiffFluxAndFactor` (stock 1799-1910)
+
+**Interfaces:**
+- Consumes: `NVPParamsMod` (`thk_dry_nvp`, `csol_nvp`, `watsat_nvp`), Task 2 functions.
+- Produces: `thk(c,0)`/`cv(c,0)` for present moss; `tk(c,0)` = moss↔soil interface conductivity, `tk(c,-1)` = snow↔moss; `fact(c,0)`/`fn(c,0)` **always defined** on NVP columns (their critical gap).
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 3 opens with a rhetorical self-question ("generic loop skips `j==0` and `j==-1`? No —") — rewrite as a direct instruction; and it hands the implementer the zero-thickness half-thickness conductances that Task 8 Step 3 then consumes, so pin the exact expressions here, once, for both tasks.
+
+- [ ] **Step 1 — snow branches:** snow-conductivity loop bound and `bw` guard: `snl(c)+1 <= j <= 0` becomes `get_jtop_snow(c) <= j <= col%jbot_sno(c)` (structural exclusion; do not port their `.NOT.(...j==0)` guard).
+- [ ] **Step 2 — NVP `thk(c,0)`/`cv(c,0)` ([harvest] theirs :885-907, :1038-1061):** their Farouki-style `thk` (guards: `dz>0`, `satw>1e-6`) and per-moss-area `cv` with `thin_sfclayer` floor, `if (nvp_is_present(c))`. For `nvp_is_empty(c)`: `thk(c,0)=0`, `cv(c,0)=thin_sfclayer` and they are never consumed (Task 8's continuity row).
+- [ ] **Step 3 — interface conductivities:** generic loop skips `j==0` and `j==-1`? No — keep the generic loop over `get_jtop_snow(c) <= j <= nlevgrnd-1` INCLUDING j=0 and j=−1 for `nvp_is_present` columns (their :947-968 shows both degenerate gracefully); add the explicit presence-predicate collapse for `nvp_is_empty`: `tk(c,0) = <direct snow-or-surface↔soil conductance>` and `tk(c,-1)` per §3 zero-dz (half-thickness node-to-interface conductances). Write a comment stating the constraint: "zero-thickness NVP: interface conductances measured to the coincident interface; the layer contributes no resistance."
+- [ ] **Step 4 — `h2osno_no_layers` heat ([fix], spec §6 orphan):** `cv(c,1) += cpice*h2osno_no_layers` becomes `cv(c,0) += …` when `nvp_is_present(c)` (layerless snow sits on the moss), else stock.
+- [ ] **Step 5 — `ComputeHeatDiffFluxAndFactor` ([fix], their critical gap):** guard `if (j >= col%snl(c)+1)` becomes `if (j >= get_jtop_snow(c))` — on an NVP column with `snl==0` this includes `j=0`, so `fact(c,0)`/`fn(c,0)` are always computed. For `nvp_is_empty`, `fact(c,0)` computes to 0 (dz factor) — acceptable because no Task-8/9 consumer touches it on empty columns (verified by the golden test).
+- [ ] **Step 6: Run build check.**
+- [ ] **Step 7: Commit** `git commit -am "NVP thermal properties and always-defined heat-diffusion factors"` → review/approval gate.
+
+---
+
+### Task 8: Banded matrix, RHS, assembly, jtop (SoilTemperatureMod part 2)
+
+**Files:**
+- Modify: `src/biogeophys/SoilTemperatureMod.F90` — `SoilTemperature` (jtop ~273, load/unload 396-434), `SetRHSVec*` (1913-2353), `SetMatrix*` (2356-2926), `AssembleMatrixFromSubmatrices` (2474-2588 incl. sparsity diagram)
+
+**Interfaces:**
+- Consumes: Task 7 `tk`/`cv`/`fact`/`fn`; `NVPEffectiveFractions` (Task 3); `hs_nvp`/`dhsdT` come from `ComputeGroundHeatFluxAndDeriv` (extended in Task 11 — until then `hs_nvp` is a new local computed as 0; see Step 4).
+- Produces: NVP at matrix row −1 (`tvector(c,-1) = t_soisno(c,0)` on NVP columns); `jtop(c) = snl(c) + col%jbot_sno(c)`; conservation-closed moss↔soil coupling weights; flux-continuity row for `nvp_is_empty`.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. **Known going in — this is the most important Step 0 in the plan:** Step 2(a) is a half-retracted sentence ("…soil row's coupling weight = `frac_nvp_eff + frac_sno_eff`… NO — the fixed rule:") covering the moss↔soil conduction closure, which spec §3 requires to balance identically for **all** admissible fractions including `frac_sno_eff > frac_nvp` (the regime where their branch creates energy). Derive `w_iface` explicitly, write the algebra into this task's text, and only then dispatch. Also confirm Step 3's band spans stay inside `nband=5`.
+
+- [ ] **Step 1 — row mapping:** load/unload loops: snow `do j = get_jtop_snow(c), col%jbot_sno(c); tvector(c,j-1)=t_soisno(c,j)`; NVP: `if (nvp_layer_exists(c)) tvector(c,-1) = t_soisno(c,0)`; `jtop(c) = snl(c) + col%jbot_sno(c)` (uniform, no special case — spec §3). Post-solve unload mirrors, plus for `nvp_is_empty(c)`: `t_soisno(c,0) = t_soisno(c,1)` tie-value (spec §3, with the documented rationale comment).
+- [ ] **Step 2 — harvest their block structure** (`SetRHSVec_Snow` :2726-2770, `SetMatrix_Snow` :3363-3414, `SetRHSVec_Soil` :2963-3037, `SetMatrix_Soil` :3541-3619 in their numbering) with these **[fix]** deltas (spec §3): (a) ONE weight derivation — moss equation is per-moss-area (divide by `frac_nvp`), so the column-level moss↔soil flux weight is `frac_nvp` on BOTH sides: soil row's coupling weight = `frac_nvp_eff + frac_sno_eff`… NO — the fixed rule: derive the per-column interface flux once, `F = w_iface * tk(c,0)/dzm * ΔT` with `w_iface = frac_nvp_col_weight` chosen so moss loss = soil gain identically; implement by computing `w_iface` in one place (local function or block) used by all four sub-blocks; document the algebra in the code comment. (b) no `frac_h2osfc` double-subtraction: NVP soil branches use the stock convention (`frac_soil` from `NVPEffectiveFractions` replaces `1-frac_sno_eff` exactly once; the trailing h2osfc block stays stock). (c) delete their ad-hoc `frac_nvp_eff*sabg_soil_col` RHS term (spec §9b) — Task 12 provides the consistent partition.
+- [ ] **Step 3 — flux-continuity row for `nvp_is_empty`:** in `SetMatrix_Snow`/`SetRHSVec_Snow`'s NVP branch: if empty, row −1 gets `g_a*T_snowbot_or_zero - (g_a+g_b)*T_0 + g_b*T_1 = 0` with `g_a` = conductance snow-node→interface (or 0 when `snl==0`, then the row is `T_0 - T_1 = 0`), `g_b` = conductance interface→soil-1-node; both from half-thicknesses (Task 7 Step 3 values). RHS = 0. Off-diagonal spans: snow row −2 (span 1… wait, snow bottom is row −2, moss row −1: span 1) and soil row 1 (span 2) — inside nband=5.
+- [ ] **Step 4 — `hs_nvp`:** declare the local + zero-fill in `ComputeGroundHeatFluxAndDeriv`'s outputs now (so this task builds); Task 11 fills it. Mark with a comment: "filled by surface-flux task".
+- [ ] **Step 5 — assembly + docs:** extend `AssembleMatrixFromSubmatrices` band placements for the new row-−1 couplings (read their :3246-3275) and **redraw the ASCII sparsity diagram** labeling row −1 as "NVP layer (moss) on NVP columns / bottom snow otherwise" (spec §3 doc fix).
+- [ ] **Step 6: Run build check.**
+- [ ] **Step 7: Commit** `git commit -am "NVP row in the heat solve with conservation-closed coupling and zero-dz continuity"` → review/approval gate.
+
+---
+
+### Task 9: Phase change (SoilTemperatureMod part 3)
+
+**Files:**
+- Modify: `src/biogeophys/SoilTemperatureMod.F90` — `Phasechange` (stock 1133-1540), `PhaseChangeH2osfc` (stock 904-1130)
+
+**Interfaces:**
+- Consumes: `fact(c,0)` (Task 7), `NVPEffectiveFractions`, `nvp_is_present`.
+- Produces: NVP melt/freeze with plain-`tfrz` criterion, per-moss-area weighting consistent with Task 8; NVP excluded from `qflx_snomelt/snofrz` but in `xmf`; `t_nvp_col` sync; moss ice capped at pore capacity (`watsat_nvp*denice*dz(c,0)`) with excess pushed per spec §4a.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 1's weighting must be re-derived against whatever Task 8 Step 0 settled as the single weight rule — carry that derivation in verbatim rather than restating it. Step 3 trails off mid-reasoning ("else stock `(c,0)`-as-snow… careful:"); resolve it against the spec §6 orphan table first.
+
+- [ ] **Step 1 — `Phasechange` [harvest]** their buried (`snl<0`, :1490-1505) and exposed (`snl==0`, :1526-1550) NVP blocks, their `hm(c,0)`/T-correction weighting (:1658-1677, 1783-1893) re-derived against Task 8's single weight rule, their melt-flux exclusions (:1829-1843) and `t_nvp_col` re-sync (:1907-1913). All guarded `nvp_is_present` (empty moss: no mass, block skipped — [fix] explicit guard rather than relying on zero mass).
+- [ ] **Step 2 — snow/soil boundary tests:** every `j < 1`/`j <= 0` snow-vs-soil discriminator in `Phasechange` becomes `j <= col%jbot_sno(c)` EXCEPT the new NVP-specific `j == 0` blocks (spec §2 idiom table).
+- [ ] **Step 3 — `PhaseChangeH2osfc` [harvest+fix]:** their `snl<0` reroutes to `(c,jbot)` = bottom snow ([harvest], re-expressed via `jbot_sno`); the `snl==0` branches ([fix], their gap): frozen-h2osfc ice deposits into moss when `nvp_is_present` (with the pore-capacity cap) else stock `(c,0)`-as-snow… careful: stock `snl==0` writes `h2osoi_ice(c,0)`/`t_soisno(c,0)` as the *newly created* snow slot — on NVP columns that must become `(c,jbot_sno)` creation or moss deposit per the spec §6 orphan table (moss when present). Do not overwrite moss temperature with `t_h2osfc` (spec §3 fix).
+- [ ] **Step 4: Run build check.**
+- [ ] **Step 5: Commit** `git commit -am "NVP phase change with consistent weighting and h2osfc rerouting"` → review/approval gate.
+
+---
+
+### Task 10: Ground temperature blends + surface humidity
+
+**Files:**
+- Modify: `src/biogeophys/SoilTemperatureMod.F90` (t_grnd, stock 548-568), `src/biogeophys/BiogeophysPreFluxCalcsMod.F90` (:334-341 + `tssbef` loop bounds :302-312), `src/biogeophys/SoilFluxesMod.F90` (t_grnd0 :175-181 — blend only; energy check is Task 11), `src/biogeophys/HydrologyNoDrainageMod.F90` (:555-570 blend; SNOWICE/SNOWLIQ loop bounds :442-499), `src/biogeophys/SurfaceHumidityMod.F90` (qg blend, their :~165-290)
+
+**Interfaces:**
+- Consumes: `NVPEffectiveFractions`, `t_soisno(c,0)`, `NVPWaterRetentionCurve` (for `hr_nvp`), Task 4 `qg_nvp_col`.
+- Produces: all four t_grnd-family blends as `frac_sno_eff*T(get_jtop_snow) + frac_nvp_eff*T(c,0) + frac_soil*T(c,1) + frac_h2osfc*t_h2osfc` — same fraction call, all sites; `qg`/`dqgdT` 4-way blend with `hr_nvp` (frozen guard `hr_nvp=1`).
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer.
+
+- [ ] **Step 1:** Update the three t_grnd/t_grnd0 sites + surface-T uses of `t_soisno(c,snl(c)+1)` in these files → `t_soisno(c, get_jtop_snow(c))` with the documented fallback: when `snl==0 .and. .not. nvp_is_present(c)`, the blend's moss term is zero (fractions handle it) and `get_jtop_snow` is never used as a mass-bearing index.
+- [ ] **Step 2:** `SurfaceHumidityMod` [harvest] their `qg_nvp` (retention-curve humidity, frozen branch) with the **[fix]**: gate on `nvp_is_present(c)` (their gap: `frac_nvp>0` with no layer → bone-dry fraction).
+- [ ] **Step 3:** Loop-bound sweeps in these files per the §2 idiom table (`tssbef`, SNOWICE/SNOWLIQ, `t_sno_mul_mss`).
+- [ ] **Step 4: Run build check. Step 5: Commit** `git commit -am "4-way ground temperature and humidity blends"` → review/approval gate.
+
+---
+
+### Task 11: Surface fluxes + ground heat flux + energy check
+
+**Files:**
+- Modify: `src/biogeophys/SoilTemperatureMod.F90` (`ComputeGroundHeatFluxAndDeriv` stock 1543-1796: `lwrad_emit_nvp`, `hs_nvp` fill, `eflx_gnet_nvp`), `src/biogeophys/BareGroundFluxesMod.F90` (their +184 diff), `src/biogeophys/CanopyFluxesMod.F90` (their +162 diff), `src/biogeophys/SoilFluxesMod.F90` (their +358 diff: `qflx_evap_grnd_eff`, lw_grnd both places, `eflx_soil_grnd`, errsoi)
+
+**Interfaces:**
+- Consumes: Task 10 blends, Task 4 fluxes, `NVPEvapResistance`, `NVPEffectiveFractions`, `fwet_nvp_col`.
+- Produces: `hs_nvp(c)` (fills Task 8's zero local), `eflx_sh_nvp_patch`, `qflx_ev_nvp_patch`, 4-way `qflx_evap_grnd_eff`, errsoi with moss storage term weighted `frac_nvp` ([fix], spec §3) and skipped when `nvp_is_empty` ([fix], spec §3 zero-dz).
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 2 references `sabg_nvp`, which Task 12 produces — confirm the forward dependency is a zero-valued placeholder here (as `hs_nvp` was in Task 8 Step 4) and not a build break.
+
+- [ ] **Step 1 [harvest]:** their per-surface resistances (`raiw_nvp`, dew branch, `wtgq_*` 4-way) — `rnvp` via `NVPEvapResistance` (single source, Task 3). **[fix]** one gate everywhere: `frac_nvp_eff > 0` (from the centralized call) in BOTH modules.
+- [ ] **Step 2 [harvest]:** `lw_grnd` 4-way in BOTH SoilFluxes places and BOTH CanopyFluxes places (their two-places lesson, spec §4b); `eflx_soil_grnd` solar/latent terms per their :472-486 with Task 12's partition names (`sabg_nvp`); `qflx_evap_grnd_eff` (:433-446) and its uses (:553-571).
+- [ ] **Step 3 [harvest+fix]:** `ComputeGroundHeatFluxAndDeriv`: `lwrad_emit_nvp = emg*sb*t_soisno(c,0)**4`; `hs_nvp` accumulation over patches — **[fix]** the accumulation must use the same patch gate as the flux definitions so atmosphere-seen flux == moss-lost flux for any patch structure (audit's non-veg-patch inconsistency).
+- [ ] **Step 4 [fix]:** errsoi: moss term `- frac_nvp * (t_soisno(c,0)-tssbef(c,0))/fact(c,0)` when `nvp_is_present`; nothing when empty; snow terms' `j<1` discriminator → `j <= col%jbot_sno(c)`.
+- [ ] **Step 5: Run build check. Step 6: Commit** `git commit -am "NVP surface energy/moisture fluxes and energy-balance accounting"` → review/approval gate.
+
+---
+
+### Task 12: Radiation (constant transmissivity)
+
+**Files:**
+- Modify: `src/biogeophys/SurfaceRadiationMod.F90` (stock 745-852), `src/biogeophys/SurfaceAlbedoMod.F90` (ground-albedo blend, their :868-879 region), `src/biogeophys/SolarAbsorbedType.F90` (`sabg_nvp_patch` exists from Task 4)
+
+**Interfaces:**
+- Consumes: `nvp_transmissivity`, `alb_nvp_vis/nir`, `NVPEffectiveFractions`, `sabg_lyr`.
+- Produces: `sabg_nvp(p)` = `(1-nvp_transmissivity) * <flux reaching NVP surface>`; slot 1 keeps the transmitted remainder; `sabg_lyr` sums conserve with the `endrun` **armed** (no bypass — spec §4f); ground albedo blend uses `alb_nvp_vis/nir` over the exposed-moss fraction.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: **Step 1 contains unretracted thinking-out-loud** ("`sabg_nvp(p) = (1-nvp_transmissivity)*sabg_lyr(p,1)` … NO — slot semantics:") — settle what "the flux reaching the NVP surface" is in each `snl` regime and rewrite the step before dispatch. Spec §4f requires transmissivity ≡ 1 to reproduce stock exactly and the `sabg_lyr` `endrun` to stay armed.
+
+- [ ] **Step 1:** In `SurfaceRadiation`, after the existing snl-dependent `sabg_lyr` fill: on `nvp_is_present` columns, `sabg_nvp(p) = (1-nvp_transmissivity)*sabg_lyr(p,1)` … NO — slot semantics: the flux reaching the NVP surface is `sabg_lyr(p,1)` (SNICAR's through-snow output) for `snl<0`, or `sabg(p)`'s ground share for `snl==0`; set `sabg_lyr(p,0) = sabg_nvp(p)` and `sabg_lyr(p,1) = <reaching> - sabg_nvp(p)`. Transmissivity forced to 1 when `nvp_is_empty` (fraction rule makes `sabg_nvp=0`). Hardcoded stock splits (`snl==-1` 0.6/0.4) keep their slot arithmetic but slot indices via `jbot_sno` (spec §4f "slot numbers become jbot_sno-relative").
+- [ ] **Step 2:** `sabg_pen`, `sabg_snl_sum`, and the conservation check updated for the new slot-0 meaning; the `endrun` tolerance unchanged and armed.
+- [ ] **Step 3:** `SurfaceAlbedoMod`: exposed-moss fraction of the ground albedo uses `alb_nvp_vis/nir` (simplified from their Beer-effective form; note MERGE_NOTES row: theirs supersedes at merge). `albsfc` (under-snow) stays soil albedo (their SNICAR handles under-snow moss at merge; our slot-0 assignment covers the stub).
+- [ ] **Step 4:** `SoilFluxesMod` `sabg_chk` consistency (Task 11's `eflx_soil_grnd` used the same partition — verify with a grep that `sabg_nvp` appears in exactly: SurfaceRadiation (producer), eflx_soil_grnd, sabg_chk, hs_nvp).
+- [ ] **Step 5: Run build check. Step 6: Commit** `git commit -am "Constant-transmissivity NVP radiation partition"` → review/approval gate.
+
+---
+
+### Task 13: NVP water balance + soil-side plumbing
+
+**Files:**
+- Modify: `src/biogeophys/NVPLayerDynamicsMod.F90` (add `NVPWaterBalance_Column`), `src/biogeophys/HydrologyNoDrainageMod.F90` (call site after `SnowWater`, before `SetQflxInputs` — their :324-330), `src/biogeophys/SoilHydrologyMod.F90` (`SetQflxInputs` :302-412 their numbering; `Infiltration` :492-510; `RenewCondensation` :2637-2746), `src/biogeophys/SurfaceWaterMod.F90` (:331), `src/main/clm_driver.F90` (`p2c` of `qflx_ev_nvp_patch`, their :1726-1743, guarded `if (use_nvp)`)
+
+**Interfaces:**
+- Consumes: Task 4 fluxes, Task 3 physics functions, `NVPEffectiveFractions`.
+- Produces: closed moss water budget: in = `frac_nvp_eff`-share of `qflx_rain_plus_snomelt` + snow percolation deposit (Task 6) + dew share; out = `qflx_ev_nvp_eff_col` + `qflx_nvp_drain_col` (Darcy + saturation excess) + `qflx_nvp_to_snow_col` (ice push, only when snow exists); `qflx_infl += qflx_nvp_drain_col`.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 1(b) replaces their water-creating `max(0, h2osoi_net)` clamp with "limit evaporation to available water and pass any residual demand to the soil-evap pathway" — confirm where that residual lands and that Task 11's `qflx_evap_grnd_eff` decomposition can absorb it without double-counting.
+
+- [ ] **Step 1 [harvest+fix] `NVPWaterBalance_Column`** from theirs (:394-661): keep Darcy exchange (upstream-weighted K, caps both directions), saturation excess, `fwet_nvp`/`vwc_nvp`/`h2onvp` diagnostics. **Fixes:** (a) the infiltration credit uses THE SAME `frac_nvp_eff` and the same withheld amount as `SetQflxInputs` (close the rain-through-snow leak: whatever `SetQflxInputs` withholds is exactly what the moss is credited, same timestep, all `snl`); (b) no `max(0, h2osoi_net)` clamp — instead limit evaporation to available water and pass any residual demand to the soil-evap pathway (read their clamp at :591 and the surrounding budget to place the limiter on the demand side); (c) ice cap: excess ice → snow (`qflx_nvp_to_snow_col`, only when `snl<0`); when no snow, cap is enforced in Phasechange (Task 9) so this path never triggers — add an `endrun` if it would (defensive, cites the invariant).
+- [ ] **Step 2 [fix] `SetQflxInputs`:** ONE fraction (`NVPEffectiveFractions`), withheld amount `frac_nvp_eff*(qflx_top_soil - qflx_sat_excess_surf)` recorded into `qflx_nvp_infl_col` (consumed by Step 1 the same timestep); evap partition uses the same call. Zero-dz: fraction rule → stock.
+- [ ] **Step 3 [harvest] `Infiltration`:** `qflx_infl += qflx_nvp_drain_col` (guarded `use_nvp`; the flux is zero-init so the guard is belt-and-braces).
+- [ ] **Step 4 [fix] `RenewCondensation`:** no-snow dew/frost target: moss (`h2osoi_liq/ice(c,0)`) scaled by the exposed-moss share when `nvp_is_present`, soil layer 1 for the rest — using the same fractions; sublimation debit excludes what `qflx_ev_nvp` already took (read Task 11's `qflx_evap_grnd_eff` decomposition to identify the double-debit and remove exactly it).
+- [ ] **Step 5 [fix] `SurfaceWaterMod`:** too-small-h2osfc → `h2osoi_liq(c,0)` when `nvp_is_present`, else stock.
+- [ ] **Step 6: Run build check. Step 7: Commit** `git commit -am "NVP water balance and soil-side routing"` → review/approval gate.
+
+---
+
+### Task 14: Conservation accounting
+
+**Files:**
+- Modify: `src/biogeophys/TotalWaterAndHeatMod.F90` (:282, :485, :688-757, :1015 stock), `src/biogeophys/WaterStateType.F90` (`CalculateTotalH2osno` :891, `CheckSnowConsistency` :936), `src/biogeophys/BalanceCheckMod.F90` (snow sources :813-840 their numbering)
+
+**Interfaces:**
+- Consumes: everything prior.
+- Produces: moss water+heat in column totals exactly once (both `snl` states); moss excluded from `h2osno_total`; `qflx_nvp_to_snow_col` as a snow source; NO `select type` downcast.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 3 offers two ways to avoid the `select type` downcast (move the flux to the generic `waterflux_type`, or correct in a bulk-only wrapper) — pick one here.
+
+- [ ] **Step 1:** snow loops in `TotalWaterAndHeatMod` → `get_jtop_snow..jbot_sno` bounds; add the moss terms unconditionally on `nvp_layer_exists` columns (zero when empty): water mass `h2osoi_liq/ice(c,0)`; heat: `AccumulateLiquidWaterHeat(t_soisno(c,0), h2osoi_liq(c,0))` + ice `TempToHeat(cv=h2osoi_ice(c,0)*cpice)` + solid `TempToHeat(cv=csol_nvp*(1-watsat_nvp)*dz(c,0))` — **both** mass and heat, **both** with the same single predicate (their §2b bug: heat side missing when `snl==0`).
+- [ ] **Step 2:** `CalculateTotalH2osno` excludes slot 0 via the loop bound; `CheckSnowConsistency` range shifts likewise. Layerless-snow heat temperature source: `t_soisno(c, merge(0, 1, nvp_is_present(c)))` at their :688 counterpart (consistent with Task 7 Step 4).
+- [ ] **Step 3 [fix]:** `BalanceCheckMod`: add `qflx_nvp_to_snow_col` to `snow_sources` WITHOUT `select type` — route it via the generic `waterflux_type` (add the member there rather than the bulk type; check how `qflx_snow_drain` is declared — same home) or compute the correction in a bulk-only wrapper before the generic check. `qflx_sl_top_soil` now set correctly by Task 5, so no other snow-balance change. All `endrun`s untouched (armed).
+- [ ] **Step 4: Run build check. Step 5: Commit** `git commit -am "NVP conservation accounting in totals and balance checks"` → review/approval gate.
+
+---
+
+### Task 15: History snow-field fill + SNO_* slices
+
+**Files:**
+- Modify: `src/main/histFileMod.F90` (`hist_set_snow_field_2d` :2209-2300), plus the 19 `SNO_*` field registrations if their slices need bound changes (they are `(:, -nlevsno+1:0)` literals — with the moss in slot 0, the fill routine's exclusion is the fix; slices can stay if the fill never reads slot 0 on NVP columns — decide by reading the fill)
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer.
+
+- [ ] **Step 1:** `hist_set_snow_field_2d`: bottom-justification ends at `col%jbot_sno(c)` instead of 0; `num_snow_layers = abs(snl(c))` is already honest. Verify no `SNO_*` field can expose slot 0 on NVP columns; adjust slices only if the fill alone is insufficient.
+- [ ] **Step 2: Run build check. Step 3: Commit** `git commit -am "Exclude NVP slot from snow history fields"` → review/approval gate.
+
+---
+
+### Task 16: Unit tests
+
+**Files:**
+- Modify: `src/unit_test_shr/unittestSubgridMod.F90` (:471-493 `init_nlevsno` area — add optional `jbot_sno` setup), `src/biogeophys/test/SnowHydrology_test/*`, `src/biogeophys/test/TotalWaterAndHeat_test/*`, `src/biogeophys/test/Balance_test/*` (run existing suites both ways; add NVP-specific cases)
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: these tests arrive after the code they cover. Confirm whether that ordering stands, or whether the case (a)/(b)/(c) tests should instead be written alongside Tasks 5 and 14 (superpowers:test-driven-development would put them first).
+
+- [ ] **Step 1:** Parameterize the test-subgrid snow setup over `jbot_sno` (default 0 → all existing tests unchanged). Add cases: (a) `CalculateTotalH2osno` excludes slot 0 when `jbot_sno=-1`; (b) CombineSnowLayers vanishing bottom layer on an NVP column deposits into slot 0 when `dz(c,0)>0` and passes through when `dz(c,0)=0` with `qflx_sl_top_soil` booked; (c) TotalWaterAndHeat counts moss water+heat exactly once for `snl==0` and `snl<0`.
+- [ ] **Step 2:** Run the pFUnit suites (the standard per-commit unit-test command from the Execution Process — from `src/`, `qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp`) with the new cases included.
+- [ ] **Step 3: Commit** `git commit -am "Unit tests for NVP snow indexing and conservation"` → review/approval gate.
+
+---
+
+### Task 17: Verification & merge rehearsal (spec §10)
+
+No new source files. Run and record results in MERGE_NOTES.md § "Verification":
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Steps 1–4 need real cases on Derecho (compsets, resolutions, run lengths, baselines) that this plan never names — settle them here. Step 5's merge rehearsal must target whichever `ctsm5.4.028_nvp` commit is the actual merge destination, which may not be the commit harvested from.
+
+- [ ] **Step 1:** `use_nvp=.false.` bit-for-bit vs `ctsm5.4.028` — strongest available: full case SMS comparison on the user's machine; locally: assert `git diff ctsm5.4.028 -- src/ | grep -v <new files>` touches only guarded lines, and unit suites pass with `jbot_sno=0`.
+- [ ] **Step 2:** Golden zero-thickness: `use_nvp=T, dz_nvp=0, frac_nvp=0` vs `use_nvp=F` (case-level, user's machine; unit-level analogs from Task 16 locally).
+- [ ] **Step 3:** Partial-cover closure: `frac_nvp=0.3` and `0.7`, winter-crossing run, all balance checks armed — zero balance failures.
+- [ ] **Step 4:** ERS exact-restart with `use_nvp=T, dz_nvp>0`.
+- [ ] **Step 5:** Merge rehearsal: `git worktree add /tmp/nvp_merge_rehearsal ctsm5.4.028_nvp && cd /tmp/nvp_merge_rehearsal && git merge --no-commit --no-ff <working branch from Task 0>`; diff the conflict list against MERGE_NOTES "Intentional merge conflicts"; record; `git merge --abort`, remove the rehearsal worktree.
+- [ ] **Step 6: Commit MERGE_NOTES updates** → final review/approval gate.
+
+---
+
+## Self-Review (performed per writing-plans skill)
+
+- **Spec coverage:** §1 decisions → Tasks 1-3 (1,2,7,8), §2 → Tasks 2,5; §3 → Tasks 7-9; §4a → 6,13; §4b → 10,11; §4c → 9; §4d → 5; §4e → 6; §4f → 12; §4g → 6; §5 → 14; §6 → 3; §7 → 1,3,15,16; §10 → 17. Gap check: spec §7 cold-start ordering → Task 3 Step 2 + Task 5 Step 1; `ch4Mod` clarifying comment (spec §2) → **added to Task 5 Step 5's sweep scope** (one comment at ch4Mod's `j==0` pseudo-layer sites; include in that commit).
+- **Type consistency:** `get_jtop_snow`/`nvp_layer_exists`/`nvp_is_present`/`nvp_is_empty` (Task 2) used with those exact names throughout; `NVPEffectiveFractions` (Task 3) is the only fraction source in Tasks 8-13; `NVPParamsMod` names match Task 1 declarations.
+- **Placeholders:** `<their value>` items in Task 1 are read-from-disk data, not deferred design; Task 8 Step 2's weight rule states the governing constraint (moss loss = soil gain identically) with implementation latitude — resolved in **Task 8 Step 0** (the derivation is written into the task text before dispatch), then re-checked by the spec-compliance reviewer to confirm the algebra note landed in code comments.
+- **Note on this section:** implementer subagents never see it — they receive only their own task's text (Execution Process 4). Anything recorded here that an implementer must act on has to be written into the task's steps, which is what each task's Step 0 is for. The `ch4Mod` item above is exactly this failure mode: it is claimed as "added to Task 5 Step 5" but Task 5 Step 5's text never mentions it, so Task 5 Step 0 must land it there or drop it deliberately.
