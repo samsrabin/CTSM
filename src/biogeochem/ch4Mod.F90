@@ -3644,6 +3644,12 @@ contains
       enddo
 
 
+      ! Index 0 in the j = 0,nlevsoi loops below is the atmosphere pseudo-layer,
+      ! not the NVP slot, so the snow-index transformations that replace index 0
+      ! with col%jbot_sno(c) must not be applied to them. This exemption covers
+      ! those loops only, NOT the whole file: the "Add snow resistance" block
+      ! further down is a genuine snow loop and does need the transformation.
+
       ! Set the Henry's Law coefficients
       do j = 0,nlevsoi
          do fc = 1, num_methc
@@ -3779,6 +3785,11 @@ contains
 
 
          ! Adjust the grnd_ch4_cond to keep it positive, and add the snow resistance & pond resistance
+         ! A real snow loop, unlike the j = 0,nlevsoi loops above: these bounds, the
+         ! j >= snl(c)+1 guard and the j == 0 test below all address snow slots, so
+         ! all three need the NVP transformation. Left stock for now, so on an NVP
+         ! column this counts the moss layer as snow, misses the top snow layer, and
+         ! divides by dz(c,0) at the icefrac line below.
          do j = -nlevsno + 1,0
             do fc = 1, num_methc
                c = filter_methc (fc)

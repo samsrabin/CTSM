@@ -910,7 +910,9 @@ contains
        c = filter_c(fc)
        h2osno_total(c) = this%h2osno_no_layers_col(c)
 
-       do j = col%snl(c)+1, 0
+       ! h2osno_total is snow only: the NVP slot is excluded by definition, and
+       ! the range must still reach the top snow layer on an NVP column.
+       do j = col%get_jtop_snow(c), col%get_jbot_snow(c)
           h2osno_total(c) = &
                h2osno_total(c) + &
                this%h2osoi_ice_col(c,j) + &
@@ -955,7 +957,9 @@ contains
           end if
        end if
 
-       do j = -nlevsno+1, col%snl(c)
+       ! Only the slots above the pack are "outside resolved snow layers". The NVP
+       ! slot holds moss water at all times, so it must stay out of this scan.
+       do j = -nlevsno+1, col%get_jtop_snow(c)-1
           ice_bad = (this%h2osoi_ice_col(c,j) /= 0._r8 .and. this%h2osoi_ice_col(c,j) /= spval)
           liq_bad = (this%h2osoi_liq_col(c,j) /= 0._r8 .and. this%h2osoi_liq_col(c,j) /= spval)
           if (ice_bad .or. liq_bad) then

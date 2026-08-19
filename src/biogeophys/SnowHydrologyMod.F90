@@ -23,7 +23,6 @@ module SnowHydrologyMod
   use column_varcon   , only : icol_roof, icol_sunwall, icol_shadewall
   use clm_varpar      , only : nlevsno, nlevsoi, nlevgrnd, nlevmaxurbgrnd
   use clm_varctl      , only : iulog, use_subgrid_fluxes
-  use clm_varctl      , only : use_nvp   ! only for the temporary NVP guards; goes with them
   use clm_varcon      , only : h2osno_max, hfus, denh2o, denice, rpi, spval, tfrz
   use clm_varcon      , only : cpice, cpliq
   use atm2lndType     , only : atm2lnd_type
@@ -497,10 +496,13 @@ contains
        ! set temporary variables prior to updating
        temp_snow_depth(c) = snow_depth(c)
        ! save initial snow content
-       do j= -nlevsno+1,snl(c)
+       ! swe_old covers snow only. Its one consumer is the melt-compaction term in
+       ! SnowCompaction, which reads it inside the snow-range guard, so on an NVP
+       ! column slot 0 is left unwritten and nothing reads it.
+       do j= -nlevsno+1,col%get_jtop_snow(c)-1
           swe_old(c,j) = 0.0_r8
        end do
-       do j= snl(c)+1,0
+       do j= col%get_jtop_snow(c),col%get_jbot_snow(c)
           swe_old(c,j)=h2osoi_liq(c,j)+h2osoi_ice(c,j)
        end do
 
@@ -553,7 +555,7 @@ contains
        ! update change in snow depth
        if (snl(c) < 0) then
           dz_snowf = (snow_depth(c) - temp_snow_depth(c)) / dtime
-          dz(c,snl(c)+1) = dz(c,snl(c)+1)+dz_snowf*dtime
+          dz(c,col%get_jtop_snow(c)) = dz(c,col%get_jtop_snow(c))+dz_snowf*dtime
        end if
 
     end do
@@ -600,7 +602,7 @@ contains
        else
           ! The change of ice partial density of surface node due to precipitation. Only
           ! ice part of snowfall is added here, the liquid part will be added later.
-          h2osoi_ice(c,snl(c)+1) = h2osoi_ice(c,snl(c)+1) + (qflx_snow_grnd(c) * dtime)
+          h2osoi_ice(c,col%get_jtop_snow(c)) = h2osoi_ice(c,col%get_jtop_snow(c)) + (qflx_snow_grnd(c) * dtime)
        end if
     end do
 
@@ -1756,7 +1758,7 @@ contains
     do j = -nlevsno+1, 0
        do fc = 1, num_snowc
           c = filter_snowc(fc)
-          if (j >= snl(c)+1) then
+          if (j >= col%get_jtop_snow(c) .and. j <= col%get_jbot_snow(c)) then
              dz(c,j) = max(dz(c,j),h2osoi_liq(c,j)/denh2o + h2osoi_ice(c,j)/denice)
           end if
        end do
@@ -1970,7 +1972,7 @@ contains
        do fc = 1, num_snowc
           c = filter_snowc(fc)
           g = col%gridcell(c)
-          if (j >= snl(c)+1) then
+          if (j >= col%get_jtop_snow(c) .and. j <= col%get_jbot_snow(c)) then
 
              wx = (h2osoi_ice(c,j) + h2osoi_liq(c,j))
              void = 1._r8 - (h2osoi_ice(c,j)/denice + h2osoi_liq(c,j)/denh2o)&
@@ -2029,7 +2031,8 @@ contains
 
                       ! 2nd term is delta fsno over fsno, allowing for negative values for ddz3
                       if((swe_old(c,j) - wx) > 0._r8) then
-                         wsum = sum(h2osoi_liq(c,snl(c)+1:0)+h2osoi_ice(c,snl(c)+1:0))
+                         wsum = sum(h2osoi_liq(c,col%get_jtop_snow(c):col%get_jbot_snow(c)) &
+                              + h2osoi_ice(c,col%get_jtop_snow(c):col%get_jbot_snow(c)))
                          fsno_melt = scf_method%FracSnowDuringMelt( &
                               c            = c, &
                               h2osno_total = wsum, &
@@ -2272,10 +2275,6 @@ contains
              ! Booked whatever received the water: qflx_sl_top_soil records that the
              ! snow pack lost it at the bottom, not where it went. Its only consumer
              ! is snow_sinks in BalanceCheckMod, so the sink is owed either way.
-             ! This is not yet consistent with the other side of that balance:
-             ! CalculateTotalH2osno still indexes snl(c)+1:0, which on an NVP column
-             ! both includes the moss slot and misses the top snow layer. errh2osno
-             ! closes only once that is reindexed too.
              if (j == jbot) then
 
                 do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
@@ -2542,8 +2541,9 @@ contains
 
     ! Reset the node depth and the depth of layer interface
 
-    ! Anchored at zi(c,jbot), which NVPLayerInit set to -dz_nvp; the guard keeps
-    ! the recursion off slot 0 so that anchor is never overwritten.
+    ! Anchored at zi(c,jbot): the soil surface off NVP columns, and on them the NVP
+    ! layer top that NVPLayerInit set to -dz_nvp, which the guard keeps the recursion
+    ! off slot 0 so as never to overwrite.
     do j = 0, -nlevsno+1, -1
        do fc = 1, num_snowc
           c = filter_snowc(fc)
@@ -2576,6 +2576,7 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: j, c, fc, k                              ! indices
+    integer  :: jbot                                     ! index of the bottom snow layer (0, or -1 with NVP)
     integer  :: wi                                       ! index of water tracer or bulk
     integer  :: i_bulk                                   ! index of bulk water
     real(r8) :: drr                                      ! thickness of the combined [m]
@@ -2643,19 +2644,8 @@ contains
          z          => col%z                              & ! Output: [real(r8) (:,:) ] layer thickness (m)
     )
 
-    ! This routine still assumes the pack ends at slot 0, so on a column that
-    ! carries the NVP slot it would stage and subdivide the NVP layer as if it
-    ! were snow. Remove this guard when DivideSnowLayers is reindexed.
-    if (use_nvp) then
-       do fc = 1, num_snowc
-          c = filter_snowc(fc)
-          if (col%nvp_layer_exists(c)) then
-             call endrun(msg='ERROR: DivideSnowLayers is not yet reindexed for the NVP '// &
-                  'slot, so snow on an NVP column cannot be subdivided. '//errMsg(sourcefile, __LINE__))
-          end if
-       end do
-    end if
-
+    ! The two is_lake blocks below stay stock: NVP columns are istsoil/istcrop
+    ! only, so nvp_layer_exists(c) is false and jbot is 0 on every lake column.
     if ( is_lake ) then
        ! Initialize for consistency check
        do j = -nlevsno+1,0
@@ -2690,36 +2680,40 @@ contains
     ! Begin calculation - note that the following column loops are only invoked
     ! for snow-covered columns
 
+    ! The stock staging map shifted by jbot, so staging slot j draws from column
+    ! index j+snl(c)+jbot, which runs get_jtop_snow(c) .. jbot: the NVP slot is
+    ! never staged as snow. snl counts snow only, so abs(snl(c)) needs no adjustment.
     do j = 1,nlevsno
        do fc = 1, num_snowc
           c = filter_snowc(fc)
+          jbot = col%get_jbot_snow(c)
           if (j <= abs(snl(c))) then
              if (is_lake) then
-                dzsno(c,j) = dz(c,j+snl(c))
+                dzsno(c,j) = dz(c,j+snl(c)+jbot)
              else
-                dzsno(c,j) = frac_sno(c)*dz(c,j+snl(c))
+                dzsno(c,j) = frac_sno(c)*dz(c,j+snl(c)+jbot)
              end if
 
              do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                 associate(w => water_inst%bulk_and_tracers(wi))
 
-                swice(wi,c,j) = w%waterstate_inst%h2osoi_ice_col(c,j+snl(c))
-                swliq(wi,c,j) = w%waterstate_inst%h2osoi_liq_col(c,j+snl(c))
+                swice(wi,c,j) = w%waterstate_inst%h2osoi_ice_col(c,j+snl(c)+jbot)
+                swliq(wi,c,j) = w%waterstate_inst%h2osoi_liq_col(c,j+snl(c)+jbot)
 
                 end associate
              end do
 
-             tsno(c,j)  = t_soisno(c,j+snl(c))
+             tsno(c,j)  = t_soisno(c,j+snl(c)+jbot)
 
-             mbc_phi(c,j) = mss_bcphi(c,j+snl(c))
-             mbc_pho(c,j) = mss_bcpho(c,j+snl(c))
-             moc_phi(c,j) = mss_ocphi(c,j+snl(c))
-             moc_pho(c,j) = mss_ocpho(c,j+snl(c))
-             mdst1(c,j)   = mss_dst1(c,j+snl(c))
-             mdst2(c,j)   = mss_dst2(c,j+snl(c))
-             mdst3(c,j)   = mss_dst3(c,j+snl(c))
-             mdst4(c,j)   = mss_dst4(c,j+snl(c))
-             rds(c,j)     = snw_rds(c,j+snl(c))
+             mbc_phi(c,j) = mss_bcphi(c,j+snl(c)+jbot)
+             mbc_pho(c,j) = mss_bcpho(c,j+snl(c)+jbot)
+             moc_phi(c,j) = mss_ocphi(c,j+snl(c)+jbot)
+             moc_pho(c,j) = mss_ocpho(c,j+snl(c)+jbot)
+             mdst1(c,j)   = mss_dst1(c,j+snl(c)+jbot)
+             mdst2(c,j)   = mss_dst2(c,j+snl(c)+jbot)
+             mdst3(c,j)   = mss_dst3(c,j+snl(c)+jbot)
+             mdst4(c,j)   = mss_dst4(c,j+snl(c)+jbot)
+             rds(c,j)     = snw_rds(c,j+snl(c)+jbot)
           end if
        end do
     end do
@@ -2733,8 +2727,12 @@ contains
        ! number of layers (msno) may increase during the loop.
        ! Impose k < nlevsno; the special case 'k == nlevsno' is not relevant,
        ! as it is neither allowed to subdivide nor does it have layers below.
+       ! Where the NVP slot takes index 0 the snow capacity is nlevsno-1: dz and z
+       ! start at -nlevsno+1 and zi at -nlevsno, and a full stock pack already
+       ! reaches both bounds exactly, so msno must stop one short there.
        k = 1
-       loop_layers: do while( k <= msno .and. k < nlevsno )
+       loop_layers: do while( k <= msno .and. &
+            k < nlevsno - merge(1, 0, col%nvp_layer_exists(c)) )
 
           ! Current layer is bottom layer
           if (k == msno) then
@@ -2871,35 +2869,38 @@ contains
 
     end do loop_snowcolumns
 
+    ! Inverse of the staging map: the guard, not the loop bounds, keeps the NVP
+    ! slot out, and staging index j-snl(c)-jbot stays within 1 .. msno.
     do j = -nlevsno+1,0
        do fc = 1, num_snowc
           c = filter_snowc(fc)
-          if (j >= snl(c)+1) then
+          jbot = col%get_jbot_snow(c)
+          if (j >= col%get_jtop_snow(c) .and. j <= jbot) then
              if (is_lake) then
-                dz(c,j) = dzsno(c,j-snl(c))
+                dz(c,j) = dzsno(c,j-snl(c)-jbot)
              else
-                dz(c,j) = dzsno(c,j-snl(c))/frac_sno(c)
+                dz(c,j) = dzsno(c,j-snl(c)-jbot)/frac_sno(c)
              end if
 
              do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                 associate(w => water_inst%bulk_and_tracers(wi))
 
-                w%waterstate_inst%h2osoi_ice_col(c,j) = swice(wi,c,j-snl(c))
-                w%waterstate_inst%h2osoi_liq_col(c,j) = swliq(wi,c,j-snl(c))
+                w%waterstate_inst%h2osoi_ice_col(c,j) = swice(wi,c,j-snl(c)-jbot)
+                w%waterstate_inst%h2osoi_liq_col(c,j) = swliq(wi,c,j-snl(c)-jbot)
 
                 end associate
              end do
 
-             t_soisno(c,j)   = tsno(c,j-snl(c))
-             mss_bcphi(c,j)   = mbc_phi(c,j-snl(c))
-             mss_bcpho(c,j)   = mbc_pho(c,j-snl(c))
-             mss_ocphi(c,j)   = moc_phi(c,j-snl(c))
-             mss_ocpho(c,j)   = moc_pho(c,j-snl(c))
-             mss_dst1(c,j)    = mdst1(c,j-snl(c))
-             mss_dst2(c,j)    = mdst2(c,j-snl(c))
-             mss_dst3(c,j)    = mdst3(c,j-snl(c))
-             mss_dst4(c,j)    = mdst4(c,j-snl(c))
-             snw_rds(c,j)     = rds(c,j-snl(c))
+             t_soisno(c,j)   = tsno(c,j-snl(c)-jbot)
+             mss_bcphi(c,j)   = mbc_phi(c,j-snl(c)-jbot)
+             mss_bcpho(c,j)   = mbc_pho(c,j-snl(c)-jbot)
+             mss_ocphi(c,j)   = moc_phi(c,j-snl(c)-jbot)
+             mss_ocpho(c,j)   = moc_pho(c,j-snl(c)-jbot)
+             mss_dst1(c,j)    = mdst1(c,j-snl(c)-jbot)
+             mss_dst2(c,j)    = mdst2(c,j-snl(c)-jbot)
+             mss_dst3(c,j)    = mdst3(c,j-snl(c)-jbot)
+             mss_dst4(c,j)    = mdst4(c,j-snl(c)-jbot)
+             snw_rds(c,j)     = rds(c,j-snl(c)-jbot)
 
           end if
        end do
@@ -2945,10 +2946,13 @@ contains
 
     ! Reset the node depth and the depth of layer interface
 
+    ! Anchored at zi(c,jbot): the soil surface off NVP columns, and on them the NVP
+    ! layer top that NVPLayerInit set to -dz_nvp, which the guard keeps the recursion
+    ! off slot 0 so as never to overwrite.
     do j = 0, -nlevsno+1, -1
        do fc = 1, num_snowc
           c = filter_snowc(fc)
-          if (j >= snl(c)+1) then
+          if (j >= col%get_jtop_snow(c) .and. j <= col%get_jbot_snow(c)) then
              z(c,j)    = zi(c,j) - 0.5_r8*dz(c,j)
              zi(c,j-1) = zi(c,j) - dz(c,j)
           end if
@@ -2997,7 +3001,10 @@ contains
     do j = -nlevsno+1,0
        do fc = 1, num_snowc
           c = filter_snowc(fc)
-          if (j <= snl(c) .and. snl(c) > -nlevsno) then
+          ! The complement of the snow range: only slots above the pack are zeroed.
+          ! On an NVP column get_jtop_snow(c) is snl(c), so j < get_jtop_snow(c)
+          ! keeps this off slot 0 even when snl(c) == 0 and the pack is empty.
+          if (j < col%get_jtop_snow(c) .and. col%get_jtop_snow(c) > -nlevsno+1) then
              do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                 associate(w => water_inst%bulk_and_tracers(wi))
                 w%waterstate_inst%h2osoi_ice_col(c,j) = 0._r8

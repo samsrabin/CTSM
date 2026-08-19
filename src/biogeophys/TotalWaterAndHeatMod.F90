@@ -279,7 +279,11 @@ contains
        ice_mass(c) = ice_mass(c) + snocan_col(c)
 
        ice_mass(c) = ice_mass(c) + h2osno_no_layers(c)
-       do j = snl(c)+1,0
+       ! The upper bound stays 0 so the NVP slot is inside the column total: the
+       ! snow-to-moss hand-off must remain an internal transfer, or errh2o reads
+       ! it as a source. The lower bound has to reach the top snow layer, which
+       ! is get_jtop_snow(c) and not snl(c)+1 once the NVP slot takes index 0.
+       do j = col%get_jtop_snow(c),0
           liquid_mass(c) = liquid_mass(c) + h2osoi_liq(c,j)
           ice_mass(c) = ice_mass(c) + h2osoi_ice(c,j)
        end do
@@ -688,7 +692,11 @@ contains
        j = 1
        heat_ice(c) = heat_ice(c) + &
             TempToHeat(temp = t_soisno(c,j), cv = (h2osno_no_layers(c)*cpice))
-       do j = snl(c)+1,0
+       ! The upper bound stays 0 so the NVP slot is inside the column total: the
+       ! snow-to-moss hand-off must remain an internal transfer, or errsoi reads
+       ! it as a source. The lower bound has to reach the top snow layer, which
+       ! is get_jtop_snow(c) and not snl(c)+1 once the NVP slot takes index 0.
+       do j = col%get_jtop_snow(c),0
           call AccumulateLiquidWaterHeat( &
                temp = t_soisno(c,j), &
                h2o = h2osoi_liq(c,j), &
