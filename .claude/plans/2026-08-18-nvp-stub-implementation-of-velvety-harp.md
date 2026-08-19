@@ -41,7 +41,11 @@ git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
 5. Each task ends with: verification passes (below) → **one commit** for the task.
 6. After the commit, run **two-stage review** (superpowers:requesting-code-review pattern): first a **spec-compliance** reviewer (does the diff implement this task's requirements and only them? cite spec §), then a **code-quality** reviewer (correctness, style, conservation hazards). Reviewers are fresh subagents that see the task text + the commit diff.
 7. Issues found → fix → **amend the task's commit** (`git commit --amend --no-edit`) → re-run the failed review stage.
-8. **STOP. Present the task's diff + review outcomes to the user. Do not start the next task until the user approves.** User feedback → fix → amend → re-present.
+8. **Before presenting, run two mechanical sweeps.** Both close failures that have already recurred in this plan; neither is a judgment call, so do them by inspection rather than from memory.
+   - **Plan consistency.** For every decision made in this task's Step 0 or during its reviews, ask what *else* in the plan it contradicts — not whether the plan reads consistently. A decision usually needs edits somewhere other than where it was made: Task 2's type-bound choice belonged in Global Constraints, because implementers never see another task's text; Task 4's zero-init decision left a justification in its own Interfaces block that later turned out to be wrong. Correct stale text in place; do not merely append the new decision beside it.
+   - **MERGE_NOTES completeness.** List every `[fix]`, every deliberate divergence from `ctsm5.4.028_nvp`, and every file this task touched that their branch also touches. Each needs a row. Task 17's merge rehearsal compares the real conflict set against that table, so an unlogged divergence surfaces there as an unexplained conflict. This was missed in Tasks 3 and 4.
+
+9. **STOP. Present the task's diff + review outcomes to the user. Do not start the next task until the user approves.** User feedback → fix → amend → re-present.
 
 **Verification before every commit:**
 - **Build check**: from the dedicated checkout, `cd test-bld && qcmd -- ./case.build` (a dedicated case at the top level of the checkout). Expected: build completes with no errors. `test-bld/` is write-protected — run the build from it, never edit anything under it.
