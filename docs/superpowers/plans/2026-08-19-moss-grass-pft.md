@@ -69,8 +69,8 @@ of labor:**
 
 Work spans two repositories:
 
-- **CTSM branch:** `hui-moss/moss-grass-pft` (already exists; spec committed there).
-- **FATES branch:** create `hui-moss/moss-grass-pft` in `src/fates/`, branched from
+- **CTSM branch:** `adrianna-moss-grass-pft` (already exists; spec committed there).
+- **FATES branch:** create `adrianna-moss-grass-pft` in `src/fates/`, branched from
   `e027a4030` (the commit pinned by `ctsm5.4.028`). Push over **SSH** to Sam's fork:
   remote `git@github.com:samsrabin/fates.git`. (The `.gitmodules` `url` entries stay in
   their existing `https://` form for downstream consumers; only the push transport is
@@ -194,7 +194,7 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   live a=0.3, b=0.7; dead a=0.05, b=0.75 as placeholder defaults pending tuning —
   confirm Sam is OK with placeholders that will be tuned in Task 12).
 - [ ] **Step 1: FATES branch setup.** In `src/fates/`:
-  `git checkout -b hui-moss/moss-grass-pft e027a4030d2a0f09039fb337ad67ced7461dd4f0`,
+  `git checkout -b adrianna-moss-grass-pft e027a4030d2a0f09039fb337ad67ced7461dd4f0`,
   and add/verify the SSH push remote `git@github.com:samsrabin/fates.git`.
 - [ ] **Step 2: XML definitions.** Add to `namelist_definition_ctsm.xml` (group
   `clm_inparm`), following the `use_fates_sp` entry format:
