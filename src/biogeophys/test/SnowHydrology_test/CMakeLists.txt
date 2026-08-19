@@ -1,7 +1,10 @@
 set (pfunit_sources
+  test_SnowHydrology_divideSnowLayers.pf
   test_SnowHydrology_initSnowLayers.pf
   test_SnowHydrology_newSnowBulkDensity.pf
-  test_SnowHydrology_SnowCappingExcess.pf)
+  test_SnowHydrology_postPercolation.pf
+  test_SnowHydrology_SnowCappingExcess.pf
+  test_SnowHydrology_zeroEmptySnowLayers.pf)
 
 add_pfunit_ctest(SnowHydrology
   TEST_SOURCES "${pfunit_sources}"

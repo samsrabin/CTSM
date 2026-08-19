@@ -68,6 +68,7 @@ module SnowHydrologyMod
   ! The following are public just for the sake of unit testing:
   public :: SnowCappingExcess          ! Determine the excess snow that needs to be capped
   public :: SnowHydrologySetControlForTesting ! Set some of the control settings
+  public :: PostPercolation_AdjustLayerThicknesses ! Adjust layer thickness for any water+ice content changes after percolation through the snow pack
 
   type, private :: params_type
       real(r8) :: wimp                  ! Water impremeable if porosity less than wimp (unitless)
@@ -106,7 +107,6 @@ module SnowHydrologyMod
   private :: TracerFlux_SnowPercolation ! Calculate liquid percolation through the snow pack, for one tracer
   private :: UpdateState_SnowPercolation ! Update h2osoi_liq for snow percolation, for bulk or one tracer
   private :: CalcAndApplyAerosolFluxes ! Calculate and apply fluxes of aerosols through the snow pack
-  private :: PostPercolation_AdjustLayerThicknesses ! Adjust layer thickness for any water+ice content changes after percolation through the snow pack
   private :: BulkDiag_SnowWaterAccumulatedSnow ! Update int_snow, and reset accumulated snow when no snow present
   private :: SumFlux_AddSnowPercolation ! Calculate summed fluxes accounting for qflx_snow_percolation and similar fluxes
   private :: InitFlux_SnowCapping ! Initialize snow capping fluxes to 0

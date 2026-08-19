@@ -7,31 +7,77 @@ module test_total_water_and_heat
   use shr_kind_mod , only : r8 => shr_kind_r8
   use unittestSubgridMod
   use unittestSimpleSubgridSetupsMod
+  use unittestFilterBuilderMod, only : filter_from_range
+  use unittestWaterTypeFactory, only : unittest_water_type_factory_type
+  use WaterType, only : water_type
+  use ColumnType, only : col
   use clm_varcon, only : tfrz, cpliq, hfus
+  use clm_varpar, only : nlevsno
 
   implicit none
 
   @TestCase
   type, extends(TestCase) :: TestTWAH
+     type(unittest_water_type_factory_type) :: water_factory
+     type(water_type) :: water_inst
    contains
      procedure :: setUp
      procedure :: tearDown
+     procedure :: setupColumn
   end type TestTWAH
 
   real(r8), parameter :: tol = 1.e-13_r8
   real(r8), parameter :: irrelevant_temp = tfrz + 9999._r8
 
+  integer, parameter :: my_nlevsoi = 3
+  integer, parameter :: nlevgrnd_additional = 1
+  integer, parameter :: my_nlevsno = 5
+
+  ! Water put in the top snow layer and in the slot at index 0, distinct so that either
+  ! bound of the snow-and-NVP sum can be pinned separately.
+  real(r8), parameter :: ice_top = 100._r8, liq_top = 1._r8
+  real(r8), parameter :: ice_zero = 400._r8, liq_zero = 4._r8
+
+  ! Water put in a slot above the pack, which no bound may reach.
+  real(r8), parameter :: ice_above = 999._r8, liq_above = 9._r8
+
 contains
 
   subroutine setUp(this)
     class(TestTWAH), intent(inout) :: this
+
+    call this%water_factory%init()
+    call this%water_factory%setup_before_subgrid( &
+         my_nlevsoi = my_nlevsoi, &
+         nlevgrnd_additional = nlevgrnd_additional, &
+         my_nlevsno = my_nlevsno)
   end subroutine setUp
 
   subroutine tearDown(this)
     class(TestTWAH), intent(inout) :: this
 
+    call this%water_factory%teardown(this%water_inst)
     call unittest_subgrid_teardown()
   end subroutine tearDown
+
+  subroutine setupColumn(this, snl, jbot_sno)
+    ! Build a single column with the given snow layer count and bottom snow index, and
+    ! empty every snow-range slot so that a later assignment is the only water there.
+    class(TestTWAH), intent(inout) :: this
+    integer, intent(in) :: snl
+    integer, intent(in) :: jbot_sno
+
+    call setup_single_veg_patch(pft_type = 1)
+    col%jbot_sno(bounds%begc:bounds%endc) = jbot_sno
+    call this%water_factory%setup_after_subgrid(snl = snl, dz = 0.05_r8)
+    call this%water_factory%create_water_type(this%water_inst)
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    ws%h2osoi_ice_col(bounds%begc:bounds%endc, -nlevsno+1:0) = 0._r8
+    ws%h2osoi_liq_col(bounds%begc:bounds%endc, -nlevsno+1:0) = 0._r8
+    ws%h2osno_no_layers_col(bounds%begc:bounds%endc) = 0._r8
+    end associate
+  end subroutine setupColumn
 
   ! ------------------------------------------------------------------------
   ! Tests of LiquidWaterHeat
@@ -183,5 +229,92 @@ contains
 
     @assertEqual(expected_total_heat, heat_diff, tolerance=tol)
   end subroutine AdjustDeltaHeatVeryHotTemperature
+
+  ! ------------------------------------------------------------------------
+  ! Tests of ComputeLiqIceMassNonLake
+  ! ------------------------------------------------------------------------
+
+  @Test
+  subroutine ComputeLiqIceMass_nvp(this)
+    ! The column total spans get_jtop_snow(c) .. 0, so on an NVP column it must reach the
+    ! top snow layer at snl and must still include the moss slot at 0: snow handing water
+    ! to the moss is an internal transfer, not a sink.
+    class(TestTWAH), intent(inout) :: this
+    integer :: num_c, c
+    integer, allocatable :: filter_c(:)
+    real(r8) :: liquid_base(1), ice_base(1)
+    real(r8) :: liquid_mass(1), ice_mass(1)
+
+    call this%setupColumn(snl = -3, jbot_sno = -1)
+    call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
+    c = bounds%begc
+    liquid_base(:) = 0._r8
+    ice_base(:) = 0._r8
+    liquid_mass(:) = 0._r8
+    ice_mass(:) = 0._r8
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    call ComputeLiqIceMassNonLake(bounds, num_c, filter_c, &
+         ws, this%water_inst%waterdiagnosticbulk_inst, &
+         subtract_dynbal_baselines = .false., &
+         liquid_mass = liquid_base, ice_mass = ice_base)
+
+    ws%h2osoi_ice_col(c,-4) = ice_above
+    ws%h2osoi_liq_col(c,-4) = liq_above
+    ws%h2osoi_ice_col(c,-3) = ice_top
+    ws%h2osoi_liq_col(c,-3) = liq_top
+    ws%h2osoi_ice_col(c, 0) = ice_zero
+    ws%h2osoi_liq_col(c, 0) = liq_zero
+
+    call ComputeLiqIceMassNonLake(bounds, num_c, filter_c, &
+         ws, this%water_inst%waterdiagnosticbulk_inst, &
+         subtract_dynbal_baselines = .false., &
+         liquid_mass = liquid_mass, ice_mass = ice_mass)
+    end associate
+
+    @assertEqual(ice_top + ice_zero, ice_mass(c) - ice_base(c), tolerance=tol)
+    @assertEqual(liq_top + liq_zero, liquid_mass(c) - liquid_base(c), tolerance=tol)
+  end subroutine ComputeLiqIceMass_nvp
+
+  @Test
+  subroutine ComputeLiqIceMass_stock(this)
+    ! Without the NVP slot the top snow layer is snl+1, one slot lower, and index 0 is
+    ! ordinary bottom snow.
+    class(TestTWAH), intent(inout) :: this
+    integer :: num_c, c
+    integer, allocatable :: filter_c(:)
+    real(r8) :: liquid_base(1), ice_base(1)
+    real(r8) :: liquid_mass(1), ice_mass(1)
+
+    call this%setupColumn(snl = -3, jbot_sno = 0)
+    call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
+    c = bounds%begc
+    liquid_base(:) = 0._r8
+    ice_base(:) = 0._r8
+    liquid_mass(:) = 0._r8
+    ice_mass(:) = 0._r8
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    call ComputeLiqIceMassNonLake(bounds, num_c, filter_c, &
+         ws, this%water_inst%waterdiagnosticbulk_inst, &
+         subtract_dynbal_baselines = .false., &
+         liquid_mass = liquid_base, ice_mass = ice_base)
+
+    ws%h2osoi_ice_col(c,-3) = ice_above
+    ws%h2osoi_liq_col(c,-3) = liq_above
+    ws%h2osoi_ice_col(c,-2) = ice_top
+    ws%h2osoi_liq_col(c,-2) = liq_top
+    ws%h2osoi_ice_col(c, 0) = ice_zero
+    ws%h2osoi_liq_col(c, 0) = liq_zero
+
+    call ComputeLiqIceMassNonLake(bounds, num_c, filter_c, &
+         ws, this%water_inst%waterdiagnosticbulk_inst, &
+         subtract_dynbal_baselines = .false., &
+         liquid_mass = liquid_mass, ice_mass = ice_mass)
+    end associate
+
+    @assertEqual(ice_top + ice_zero, ice_mass(c) - ice_base(c), tolerance=tol)
+    @assertEqual(liq_top + liq_zero, liquid_mass(c) - liquid_base(c), tolerance=tol)
+  end subroutine ComputeLiqIceMass_stock
 
 end module test_total_water_and_heat

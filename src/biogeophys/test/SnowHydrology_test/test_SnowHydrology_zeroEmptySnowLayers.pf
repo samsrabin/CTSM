@@ -1,0 +1,223 @@
+module test_SnowHydrology_zeroEmptySnowLayers
+
+  ! Tests of SnowHydrologyMod: ZeroEmptySnowLayers
+
+  use funit
+  use SnowHydrologyMod, only : ZeroEmptySnowLayers
+  use shr_kind_mod, only : r8 => shr_kind_r8
+  use unittestSubgridMod
+  use unittestSimpleSubgridSetupsMod, only : setup_single_veg_patch
+  use unittestFilterBuilderMod, only : filter_from_range
+  use unittestWaterTypeFactory, only : unittest_water_type_factory_type
+  use WaterType, only : water_type
+  use TemperatureType, only : temperature_type
+  use ColumnType, only : col
+  use clm_varpar, only : nlevsno, nlevgrnd
+
+  implicit none
+
+  @TestCase
+  type, extends(TestCase) :: TestZeroEmpty
+     type(unittest_water_type_factory_type) :: water_factory
+     type(water_type) :: water_inst
+     type(temperature_type) :: temperature_inst
+     integer :: num_snowc
+     integer, allocatable :: filter_snowc(:)
+   contains
+     procedure :: setUp
+     procedure :: tearDown
+     procedure :: setupColumn
+     procedure :: assertSlotZeroed
+     procedure :: assertSlotSurvives
+  end type TestZeroEmpty
+
+  integer, parameter :: my_nlevsoi = 3
+  integer, parameter :: nlevgrnd_additional = 1
+  integer, parameter :: my_nlevsno = 5
+
+  real(r8), parameter :: tol = 1.e-13_r8
+
+  ! Scales giving each slot a distinct nonzero value in each quantity, so that a slot
+  ! that must survive cannot pass the test by already holding zero.
+  real(r8), parameter :: dz_scale = 0.01_r8
+  real(r8), parameter :: z_scale = -0.1_r8
+  real(r8), parameter :: zi_scale = -0.2_r8
+  real(r8), parameter :: ice_scale = 10._r8
+  real(r8), parameter :: liq_scale = 1._r8
+  real(r8), parameter :: t_base = 260._r8
+
+contains
+
+  pure function slot_value(j, scale) result(val)
+    ! Distinct and nonzero for every j in -nlevsno+1 .. 0.
+    integer, intent(in) :: j
+    real(r8), intent(in) :: scale
+    real(r8) :: val
+
+    val = scale * real(j + nlevsno + 1, r8)
+  end function slot_value
+
+  subroutine setUp(this)
+    class(TestZeroEmpty), intent(inout) :: this
+
+    ! t_soisno_col is a pointer with no default initialization, so its association
+    ! status is undefined until setupColumn allocates it; tearDown's associated() guard
+    ! only means anything once it is nullified here.
+    nullify(this%temperature_inst%t_soisno_col)
+
+    call this%water_factory%init()
+    call this%water_factory%setup_before_subgrid( &
+         my_nlevsoi = my_nlevsoi, &
+         nlevgrnd_additional = nlevgrnd_additional, &
+         my_nlevsno = my_nlevsno)
+  end subroutine setUp
+
+  subroutine tearDown(this)
+    class(TestZeroEmpty), intent(inout) :: this
+
+    if (associated(this%temperature_inst%t_soisno_col)) then
+       deallocate(this%temperature_inst%t_soisno_col)
+    end if
+    call this%water_factory%teardown(this%water_inst)
+    call unittest_subgrid_teardown()
+  end subroutine tearDown
+
+  subroutine setupColumn(this, snl, jbot_sno)
+    class(TestZeroEmpty), intent(inout) :: this
+    integer, intent(in) :: snl
+    integer, intent(in) :: jbot_sno
+
+    integer :: c, j
+
+    call setup_single_veg_patch(pft_type = 1)
+    col%jbot_sno(bounds%begc:bounds%endc) = jbot_sno
+    call this%water_factory%setup_after_subgrid(snl = snl, dz = 0.05_r8)
+    call this%water_factory%create_water_type(this%water_inst)
+    call filter_from_range(bounds%begc, bounds%endc, this%num_snowc, this%filter_snowc)
+
+    allocate(this%temperature_inst%t_soisno_col(bounds%begc:bounds%endc, -nlevsno+1:nlevgrnd))
+
+    c = bounds%begc
+    do j = -nlevsno+1, 0
+       col%dz(c,j) = slot_value(j, dz_scale)
+       col%z(c,j) = slot_value(j, z_scale)
+       col%zi(c,j-1) = slot_value(j, zi_scale)
+       this%temperature_inst%t_soisno_col(c,j) = t_base + slot_value(j, 1._r8)
+       this%water_inst%waterstatebulk_inst%h2osoi_ice_col(c,j) = slot_value(j, ice_scale)
+       this%water_inst%waterstatebulk_inst%h2osoi_liq_col(c,j) = slot_value(j, liq_scale)
+    end do
+  end subroutine setupColumn
+
+  subroutine assertSlotZeroed(this, j)
+    class(TestZeroEmpty), intent(in) :: this
+    integer, intent(in) :: j
+
+    integer :: c
+    real(r8) :: t, ice, liq
+
+    c = bounds%begc
+    t = this%temperature_inst%t_soisno_col(c,j)
+    ice = this%water_inst%waterstatebulk_inst%h2osoi_ice_col(c,j)
+    liq = this%water_inst%waterstatebulk_inst%h2osoi_liq_col(c,j)
+
+    @assertEqual(0._r8, col%dz(c,j))
+    @assertEqual(0._r8, col%z(c,j))
+    @assertEqual(0._r8, col%zi(c,j-1))
+    @assertEqual(0._r8, t)
+    @assertEqual(0._r8, ice)
+    @assertEqual(0._r8, liq)
+  end subroutine assertSlotZeroed
+
+  subroutine assertSlotSurvives(this, j)
+    class(TestZeroEmpty), intent(in) :: this
+    integer, intent(in) :: j
+
+    integer :: c
+    real(r8) :: t, ice, liq
+
+    c = bounds%begc
+    t = this%temperature_inst%t_soisno_col(c,j)
+    ice = this%water_inst%waterstatebulk_inst%h2osoi_ice_col(c,j)
+    liq = this%water_inst%waterstatebulk_inst%h2osoi_liq_col(c,j)
+
+    @assertEqual(slot_value(j, dz_scale), col%dz(c,j), tolerance=tol)
+    @assertEqual(slot_value(j, z_scale), col%z(c,j), tolerance=tol)
+    @assertEqual(slot_value(j, zi_scale), col%zi(c,j-1), tolerance=tol)
+    @assertEqual(t_base + slot_value(j, 1._r8), t, tolerance=tol)
+    @assertEqual(slot_value(j, ice_scale), ice, tolerance=tol)
+    @assertEqual(slot_value(j, liq_scale), liq, tolerance=tol)
+  end subroutine assertSlotSurvives
+
+  @Test
+  subroutine zeroEmpty_noSnow_nvp(this)
+    ! A snow-free NVP column: every slot above the moss is emptied, and slot 0 keeps the
+    ! values it came in with. zi(c,-1) is the interface below slot 0, so it survives too.
+    class(TestZeroEmpty), intent(inout) :: this
+    integer :: j
+
+    call this%setupColumn(snl = 0, jbot_sno = -1)
+
+    call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         col, this%water_inst, this%temperature_inst)
+
+    do j = -my_nlevsno+1, -1
+       call this%assertSlotZeroed(j)
+    end do
+    call this%assertSlotSurvives(0)
+  end subroutine zeroEmpty_noSnow_nvp
+
+  @Test
+  subroutine zeroEmpty_noSnow_stock(this)
+    ! Without the NVP slot, a snow-free column has nothing to keep: slot 0 is emptied
+    ! along with everything above it.
+    class(TestZeroEmpty), intent(inout) :: this
+    integer :: j
+
+    call this%setupColumn(snl = 0, jbot_sno = 0)
+
+    call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         col, this%water_inst, this%temperature_inst)
+
+    do j = -my_nlevsno+1, 0
+       call this%assertSlotZeroed(j)
+    end do
+  end subroutine zeroEmpty_noSnow_stock
+
+  @Test
+  subroutine zeroEmpty_partialPack_nvp(this)
+    ! With a pack occupying snl .. -1, only the slots above it are emptied; the pack and
+    ! the moss slot are left alone.
+    class(TestZeroEmpty), intent(inout) :: this
+    integer :: j
+
+    call this%setupColumn(snl = -2, jbot_sno = -1)
+
+    call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         col, this%water_inst, this%temperature_inst)
+
+    do j = -my_nlevsno+1, -3
+       call this%assertSlotZeroed(j)
+    end do
+    do j = -2, 0
+       call this%assertSlotSurvives(j)
+    end do
+  end subroutine zeroEmpty_partialPack_nvp
+
+  @Test
+  subroutine zeroEmpty_fullPack_nvp(this)
+    ! At the NVP capacity of nlevsno-1 snow layers there is nothing above the pack, so
+    ! nothing may be zeroed.
+    class(TestZeroEmpty), intent(inout) :: this
+    integer :: j
+
+    call this%setupColumn(snl = -(my_nlevsno-1), jbot_sno = -1)
+
+    call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         col, this%water_inst, this%temperature_inst)
+
+    do j = -my_nlevsno+1, 0
+       call this%assertSlotSurvives(j)
+    end do
+  end subroutine zeroEmpty_fullPack_nvp
+
+end module test_SnowHydrology_zeroEmptySnowLayers

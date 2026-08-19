@@ -1,0 +1,117 @@
+module test_SnowHydrology_postPercolation
+
+  ! Tests of SnowHydrologyMod: PostPercolation_AdjustLayerThicknesses
+
+  use funit
+  use SnowHydrologyMod, only : PostPercolation_AdjustLayerThicknesses
+  use shr_kind_mod, only : r8 => shr_kind_r8
+  use unittestSubgridMod
+  use unittestSimpleSubgridSetupsMod, only : setup_single_veg_patch
+  use unittestFilterBuilderMod, only : filter_from_range
+  use ColumnType, only : col
+  use clm_varcon, only : denh2o
+  use clm_varpar, only : nlevsno
+
+  implicit none
+
+  @TestCase
+  type, extends(TestCase) :: TestPostPercolation
+   contains
+     procedure :: setUp
+     procedure :: tearDown
+  end type TestPostPercolation
+
+  integer, parameter :: my_nlevsno = 5
+
+  real(r8), parameter :: tol = 1.e-13_r8
+
+  ! A thin layer whose liquid implies more thickness than it has, so the routine must
+  ! grow it wherever it is snow.
+  real(r8), parameter :: dz_thin = 0.01_r8
+  real(r8), parameter :: liq_over = 20._r8
+
+  ! A layer whose liquid implies less thickness than it has, so it must be left alone.
+  real(r8), parameter :: dz_thick = 0.05_r8
+  real(r8), parameter :: liq_under = 10._r8
+
+  ! Moss thickness, and moss liquid well in excess of it: index 0 is not snow on an NVP
+  ! column, so no amount of water there may change dz.
+  real(r8), parameter :: dz_nvp = 0.02_r8
+  real(r8), parameter :: liq_nvp = 100._r8
+
+contains
+
+  subroutine setUp(this)
+    class(TestPostPercolation), intent(inout) :: this
+
+    nlevsno = my_nlevsno
+  end subroutine setUp
+
+  subroutine tearDown(this)
+    class(TestPostPercolation), intent(inout) :: this
+
+    call unittest_subgrid_teardown()
+  end subroutine tearDown
+
+  @Test
+  subroutine postPercolation_nvp(this)
+    ! The pack runs snl .. -1: layers inside it grow to hold their water, while the slot
+    ! above the pack and the moss slot keep the thickness they came in with, however
+    ! much water sits in them.
+    class(TestPostPercolation), intent(inout) :: this
+    integer :: num_snowc
+    integer, allocatable :: filter_snowc(:)
+    real(r8) :: h2osoi_ice(1,-my_nlevsno+1:0)
+    real(r8) :: h2osoi_liq(1,-my_nlevsno+1:0)
+    real(r8) :: dz(1,-my_nlevsno+1:0)
+
+    call setup_single_veg_patch(pft_type = 1)
+    call filter_from_range(bounds%begc, bounds%endc, num_snowc, filter_snowc)
+    col%snl(bounds%begc:bounds%endc) = -3
+    col%jbot_sno(bounds%begc:bounds%endc) = -1
+
+    h2osoi_ice(:,:) = 0._r8
+    dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
+    h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
+
+    call PostPercolation_AdjustLayerThicknesses(bounds, num_snowc, filter_snowc, &
+         col%snl(bounds%begc:bounds%endc), h2osoi_ice, h2osoi_liq, dz)
+
+    @assertEqual(dz_thin, dz(1,-4), tolerance=tol)
+    @assertEqual(liq_over/denh2o, dz(1,-3), tolerance=tol)
+    @assertEqual(dz_thick, dz(1,-2), tolerance=tol)
+    @assertEqual(liq_over/denh2o, dz(1,-1), tolerance=tol)
+    @assertEqual(dz_nvp, dz(1,0), tolerance=tol)
+  end subroutine postPercolation_nvp
+
+  @Test
+  subroutine postPercolation_stock(this)
+    ! Without the NVP slot the pack runs snl+1 .. 0: index 0 is ordinary bottom snow and
+    ! grows, and one more slot above the pack is excluded instead.
+    class(TestPostPercolation), intent(inout) :: this
+    integer :: num_snowc
+    integer, allocatable :: filter_snowc(:)
+    real(r8) :: h2osoi_ice(1,-my_nlevsno+1:0)
+    real(r8) :: h2osoi_liq(1,-my_nlevsno+1:0)
+    real(r8) :: dz(1,-my_nlevsno+1:0)
+
+    call setup_single_veg_patch(pft_type = 1)
+    call filter_from_range(bounds%begc, bounds%endc, num_snowc, filter_snowc)
+    col%snl(bounds%begc:bounds%endc) = -3
+    col%jbot_sno(bounds%begc:bounds%endc) = 0
+
+    h2osoi_ice(:,:) = 0._r8
+    dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
+    h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
+
+    call PostPercolation_AdjustLayerThicknesses(bounds, num_snowc, filter_snowc, &
+         col%snl(bounds%begc:bounds%endc), h2osoi_ice, h2osoi_liq, dz)
+
+    @assertEqual(dz_thin, dz(1,-4), tolerance=tol)
+    @assertEqual(dz_thin, dz(1,-3), tolerance=tol)
+    @assertEqual(dz_thick, dz(1,-2), tolerance=tol)
+    @assertEqual(liq_over/denh2o, dz(1,-1), tolerance=tol)
+    @assertEqual(liq_nvp/denh2o, dz(1,0), tolerance=tol)
+  end subroutine postPercolation_stock
+
+end module test_SnowHydrology_postPercolation

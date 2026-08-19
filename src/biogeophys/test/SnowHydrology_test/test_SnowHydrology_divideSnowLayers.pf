@@ -1,0 +1,423 @@
+module test_SnowHydrology_divideSnowLayers
+
+  ! Tests of SnowHydrologyMod: DivideSnowLayers
+
+  use funit
+  use SnowHydrologyMod, only : DivideSnowLayers, InitSnowLayers
+  use SnowHydrologyMod, only : SnowHydrologySetControlForTesting, SnowHydrologyClean
+  use shr_kind_mod, only : r8 => shr_kind_r8
+  use unittestSubgridMod
+  use unittestSimpleSubgridSetupsMod, only : setup_single_veg_patch
+  use unittestFilterBuilderMod, only : filter_from_range
+  use unittestWaterTypeFactory, only : unittest_water_type_factory_type
+  use AerosolMod, only : aerosol_type
+  use TemperatureType, only : temperature_type
+  use WaterType, only : water_type
+  use ColumnType, only : col
+  use clm_varpar, only : nlevsno, nlevgrnd
+
+  implicit none
+
+  @TestCase
+  type, extends(TestCase) :: TestDivide
+     type(unittest_water_type_factory_type) :: water_factory
+     type(water_type) :: water_inst
+     type(temperature_type) :: temperature_inst
+     type(aerosol_type) :: aerosol_inst
+     integer :: num_snowc
+     integer, allocatable :: filter_snowc(:)
+   contains
+     procedure :: setUp
+     procedure :: tearDown
+     procedure :: setupColumn
+     procedure :: assertSlotUnchanged
+     procedure :: assertMossUntouched
+     procedure :: totalIce
+     procedure :: totalLiq
+  end type TestDivide
+
+  integer, parameter :: my_nlevsoi = 3
+  integer, parameter :: nlevgrnd_additional = 1
+  integer, parameter :: my_nlevsno = 5
+
+  real(r8), parameter :: tol = 1.e-13_r8
+
+  ! Moss thickness. Over dzmax_u(1) and dzmax_l(1), so a staging offset that pulled the
+  ! moss slot into the pack would subdivide it visibly, not just move values.
+  real(r8), parameter :: dz_nvp = 0.06_r8
+
+  ! Scales giving each slot a distinct nonzero value in each quantity, so that a wrong
+  ! staging offset moves values between slots visibly instead of shuffling equals.
+  real(r8), parameter :: ice_scale = 10._r8
+  real(r8), parameter :: liq_scale = 1._r8
+  real(r8), parameter :: rds_scale = 50._r8
+  real(r8), parameter :: t_base = 260._r8
+
+contains
+
+  pure function slot_value(j, scale) result(val)
+    ! Distinct and nonzero for every j in -nlevsno+1 .. 0.
+    integer, intent(in) :: j
+    real(r8), intent(in) :: scale
+    real(r8) :: val
+
+    val = scale * real(j + nlevsno + 1, r8)
+  end function slot_value
+
+  pure function aerosol_value(j, species) result(val)
+    ! Distinct across both slot and species, so a species-to-species mix-up in the
+    ! staging is as visible as a slot-to-slot one.
+    integer, intent(in) :: j
+    integer, intent(in) :: species
+    real(r8) :: val
+
+    val = 1.e-9_r8 * real(species, r8) * real(j + nlevsno + 1, r8)
+  end function aerosol_value
+
+  subroutine setUp(this)
+    class(TestDivide), intent(inout) :: this
+
+    ! These components are pointers with no default initialization, so their association
+    ! status is undefined until setupColumn allocates them; tearDown's associated()
+    ! guards only mean anything once they are nullified here.
+    nullify(this%temperature_inst%t_soisno_col)
+    nullify(this%aerosol_inst%mss_bcphi_col)
+    nullify(this%aerosol_inst%mss_bcpho_col)
+    nullify(this%aerosol_inst%mss_ocphi_col)
+    nullify(this%aerosol_inst%mss_ocpho_col)
+    nullify(this%aerosol_inst%mss_dst1_col)
+    nullify(this%aerosol_inst%mss_dst2_col)
+    nullify(this%aerosol_inst%mss_dst3_col)
+    nullify(this%aerosol_inst%mss_dst4_col)
+
+    call this%water_factory%init()
+    call this%water_factory%setup_before_subgrid( &
+         my_nlevsoi = my_nlevsoi, &
+         nlevgrnd_additional = nlevgrnd_additional, &
+         my_nlevsno = my_nlevsno)
+  end subroutine setUp
+
+  subroutine tearDown(this)
+    class(TestDivide), intent(inout) :: this
+
+    if (associated(this%temperature_inst%t_soisno_col)) then
+       deallocate(this%temperature_inst%t_soisno_col)
+    end if
+    if (associated(this%aerosol_inst%mss_bcphi_col)) then
+       deallocate(this%aerosol_inst%mss_bcphi_col)
+       deallocate(this%aerosol_inst%mss_bcpho_col)
+       deallocate(this%aerosol_inst%mss_ocphi_col)
+       deallocate(this%aerosol_inst%mss_ocpho_col)
+       deallocate(this%aerosol_inst%mss_dst1_col)
+       deallocate(this%aerosol_inst%mss_dst2_col)
+       deallocate(this%aerosol_inst%mss_dst3_col)
+       deallocate(this%aerosol_inst%mss_dst4_col)
+    end if
+    call this%water_factory%teardown(this%water_inst)
+    call SnowHydrologyClean()
+    call unittest_subgrid_teardown()
+  end subroutine tearDown
+
+  subroutine setupColumn(this, snl, jbot_sno, dz_layers)
+    class(TestDivide), intent(inout) :: this
+    integer, intent(in) :: snl
+    integer, intent(in) :: jbot_sno
+    real(r8), intent(in) :: dz_layers(:)  ! snow layer thicknesses, top layer first
+
+    integer :: c, j
+    real(r8), allocatable :: no_snow(:)
+
+    call setup_single_veg_patch(pft_type = 1)
+    col%jbot_sno(bounds%begc:bounds%endc) = jbot_sno
+
+    ! dzmin/dzmax_u/dzmax_l are allocated in InitSnowLayers and read by
+    ! DivideSnowLayers, so InitSnowLayers has to run first; a zero snow depth keeps it
+    ! from laying down a pack of its own.
+    call SnowHydrologySetControlForTesting()
+    allocate(no_snow(bounds%begc:bounds%endc))
+    no_snow(:) = 0._r8
+    call InitSnowLayers(bounds, no_snow)
+
+    call this%water_factory%setup_after_subgrid(snl = snl, dz = 0.05_r8)
+    call this%water_factory%create_water_type(this%water_inst)
+    call filter_from_range(bounds%begc, bounds%endc, this%num_snowc, this%filter_snowc)
+
+    allocate(this%temperature_inst%t_soisno_col(bounds%begc:bounds%endc, -nlevsno+1:nlevgrnd))
+    allocate(this%aerosol_inst%mss_bcphi_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+    allocate(this%aerosol_inst%mss_bcpho_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+    allocate(this%aerosol_inst%mss_ocphi_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+    allocate(this%aerosol_inst%mss_ocpho_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+    allocate(this%aerosol_inst%mss_dst1_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+    allocate(this%aerosol_inst%mss_dst2_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+    allocate(this%aerosol_inst%mss_dst3_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+    allocate(this%aerosol_inst%mss_dst4_col(bounds%begc:bounds%endc, -nlevsno+1:0))
+
+    c = bounds%begc
+
+    associate( &
+         ws => this%water_inst%waterstatebulk_inst, &
+         wd => this%water_inst%waterdiagnosticbulk_inst)
+
+    ! The un-staging divides by frac_sno_eff, so it has to be nonzero. One makes the
+    ! staging round trip exact.
+    wd%frac_sno_eff_col(c) = 1._r8
+
+    do j = -nlevsno+1, 0
+       this%temperature_inst%t_soisno_col(c,j) = t_base + slot_value(j, 1._r8)
+       ws%h2osoi_ice_col(c,j) = slot_value(j, ice_scale)
+       ws%h2osoi_liq_col(c,j) = slot_value(j, liq_scale)
+       wd%snw_rds_col(c,j) = slot_value(j, rds_scale)
+       this%aerosol_inst%mss_bcphi_col(c,j) = aerosol_value(j, 1)
+       this%aerosol_inst%mss_bcpho_col(c,j) = aerosol_value(j, 2)
+       this%aerosol_inst%mss_ocphi_col(c,j) = aerosol_value(j, 3)
+       this%aerosol_inst%mss_ocpho_col(c,j) = aerosol_value(j, 4)
+       this%aerosol_inst%mss_dst1_col(c,j) = aerosol_value(j, 5)
+       this%aerosol_inst%mss_dst2_col(c,j) = aerosol_value(j, 6)
+       this%aerosol_inst%mss_dst3_col(c,j) = aerosol_value(j, 7)
+       this%aerosol_inst%mss_dst4_col(c,j) = aerosol_value(j, 8)
+    end do
+
+    end associate
+
+    ! zi(c,0) is the soil surface datum on every column; on an NVP column the moss
+    ! occupies [-dz_nvp, 0] and zi(c,-1) is the anchor the snow recursion works down
+    ! from and must never move.
+    col%zi(c,0) = 0._r8
+    if (jbot_sno == -1) then
+       col%dz(c,0) = dz_nvp
+       col%z(c,0) = -0.5_r8 * dz_nvp
+       col%zi(c,-1) = -dz_nvp
+    end if
+
+    do j = 1, size(dz_layers)
+       col%dz(c, col%get_jtop_snow(c) + j - 1) = dz_layers(j)
+    end do
+  end subroutine setupColumn
+
+  function totalIce(this, jtop) result(total)
+    ! Ice summed over jtop .. the bottom snow index. jtop is passed rather than derived
+    ! from snl, so that a pack that grew when it should not have is seen as lost mass
+    ! rather than as a wider sum.
+    class(TestDivide), intent(in) :: this
+    integer, intent(in) :: jtop
+    real(r8) :: total
+
+    integer :: c, j
+
+    c = bounds%begc
+    total = 0._r8
+    do j = jtop, col%get_jbot_snow(c)
+       total = total + this%water_inst%waterstatebulk_inst%h2osoi_ice_col(c,j)
+    end do
+  end function totalIce
+
+  function totalLiq(this, jtop) result(total)
+    class(TestDivide), intent(in) :: this
+    integer, intent(in) :: jtop
+    real(r8) :: total
+
+    integer :: c, j
+
+    c = bounds%begc
+    total = 0._r8
+    do j = jtop, col%get_jbot_snow(c)
+       total = total + this%water_inst%waterstatebulk_inst%h2osoi_liq_col(c,j)
+    end do
+  end function totalLiq
+
+  subroutine assertSlotUnchanged(this, j)
+    ! Everything the staging map carries, for one slot.
+    class(TestDivide), intent(in) :: this
+    integer, intent(in) :: j
+
+    integer :: c
+    real(r8) :: ice, liq, t, rds
+    real(r8) :: aerosols(8)
+
+    c = bounds%begc
+    ice = this%water_inst%waterstatebulk_inst%h2osoi_ice_col(c,j)
+    liq = this%water_inst%waterstatebulk_inst%h2osoi_liq_col(c,j)
+    t = this%temperature_inst%t_soisno_col(c,j)
+    rds = this%water_inst%waterdiagnosticbulk_inst%snw_rds_col(c,j)
+    aerosols(1) = this%aerosol_inst%mss_bcphi_col(c,j)
+    aerosols(2) = this%aerosol_inst%mss_bcpho_col(c,j)
+    aerosols(3) = this%aerosol_inst%mss_ocphi_col(c,j)
+    aerosols(4) = this%aerosol_inst%mss_ocpho_col(c,j)
+    aerosols(5) = this%aerosol_inst%mss_dst1_col(c,j)
+    aerosols(6) = this%aerosol_inst%mss_dst2_col(c,j)
+    aerosols(7) = this%aerosol_inst%mss_dst3_col(c,j)
+    aerosols(8) = this%aerosol_inst%mss_dst4_col(c,j)
+
+    @assertEqual(slot_value(j, ice_scale), ice, tolerance=tol)
+    @assertEqual(slot_value(j, liq_scale), liq, tolerance=tol)
+    @assertEqual(t_base + slot_value(j, 1._r8), t, tolerance=tol)
+    @assertEqual(slot_value(j, rds_scale), rds, tolerance=tol)
+    @assertEqual(aerosol_value(j, 1), aerosols(1))
+    @assertEqual(aerosol_value(j, 2), aerosols(2))
+    @assertEqual(aerosol_value(j, 3), aerosols(3))
+    @assertEqual(aerosol_value(j, 4), aerosols(4))
+    @assertEqual(aerosol_value(j, 5), aerosols(5))
+    @assertEqual(aerosol_value(j, 6), aerosols(6))
+    @assertEqual(aerosol_value(j, 7), aerosols(7))
+    @assertEqual(aerosol_value(j, 8), aerosols(8))
+  end subroutine assertSlotUnchanged
+
+  subroutine assertMossUntouched(this)
+    class(TestDivide), intent(in) :: this
+
+    integer :: c
+
+    c = bounds%begc
+    @assertEqual(dz_nvp, col%dz(c,0), tolerance=tol)
+    @assertEqual(-0.5_r8*dz_nvp, col%z(c,0), tolerance=tol)
+    @assertEqual(-dz_nvp, col%zi(c,-1), tolerance=tol)
+    @assertEqual(0._r8, col%zi(c,0), tolerance=tol)
+    call this%assertSlotUnchanged(0)
+  end subroutine assertMossUntouched
+
+  @Test
+  subroutine divide_roundTrip_nvp(this)
+    ! No layer is over threshold, so the staging map and its inverse must compose to the
+    ! identity on every staged quantity, and the moss slot must never be staged at all.
+    class(TestDivide), intent(inout) :: this
+    real(r8), parameter :: dz_layers(3) = [0.01_r8, 0.03_r8, 0.1_r8]
+    integer :: j
+
+    call this%setupColumn(snl = -3, jbot_sno = -1, dz_layers = dz_layers)
+
+    call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
+
+    @assertEqual(-3, col%snl(bounds%begc))
+    do j = -3, -1
+       @assertEqual(dz_layers(j+4), col%dz(bounds%begc,j), tolerance=tol)
+       call this%assertSlotUnchanged(j)
+    end do
+    call this%assertMossUntouched()
+  end subroutine divide_roundTrip_nvp
+
+  @Test
+  subroutine divide_roundTrip_stock(this)
+    ! The same round trip without the NVP slot, where the pack ends at index 0.
+    class(TestDivide), intent(inout) :: this
+    real(r8), parameter :: dz_layers(3) = [0.01_r8, 0.03_r8, 0.1_r8]
+    integer :: j
+
+    call this%setupColumn(snl = -3, jbot_sno = 0, dz_layers = dz_layers)
+
+    call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
+
+    @assertEqual(-3, col%snl(bounds%begc))
+    do j = -2, 0
+       @assertEqual(dz_layers(j+3), col%dz(bounds%begc,j), tolerance=tol)
+       call this%assertSlotUnchanged(j)
+    end do
+  end subroutine divide_roundTrip_stock
+
+  @Test
+  subroutine divide_subdivides_nvp(this)
+    ! A single snow layer over dzmax_l(1) splits in two. The new pack has to grow upward
+    ! from the moss, conserving mass, leaving dz(c,0) and the zi(c,-1) anchor alone, and
+    ! closing the interface recursion across every snow layer.
+    class(TestDivide), intent(inout) :: this
+    real(r8), parameter :: dz_layers(1) = [0.04_r8]
+    real(r8) :: ice_before, liq_before
+    integer :: c, j
+
+    call this%setupColumn(snl = -1, jbot_sno = -1, dz_layers = dz_layers)
+    c = bounds%begc
+    ice_before = this%totalIce(jtop = -1)
+    liq_before = this%totalLiq(jtop = -1)
+
+    call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
+
+    @assertEqual(-2, col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = -2), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = -2), tolerance=tol)
+    @assertEqual(dz_nvp, col%dz(c,0), tolerance=tol)
+    @assertEqual(-dz_nvp, col%zi(c,-1), tolerance=tol)
+    do j = -1, -2, -1
+       @assertEqual(col%zi(c,j-1), col%zi(c,j) - col%dz(c,j), tolerance=tol)
+       @assertEqual(col%z(c,j), col%zi(c,j) - 0.5_r8*col%dz(c,j), tolerance=tol)
+    end do
+  end subroutine divide_subdivides_nvp
+
+  @Test
+  subroutine divide_capsAtNlevsnoMinusOne_nvp(this)
+    ! The NVP slot costs one of the nlevsno slots, so the pack may not grow past
+    ! nlevsno-1 layers even with the bottom layer well over dzmax_l. At nlevsno layers
+    ! the top staging slot would map to column index -nlevsno, outside the -nlevsno+1:0
+    ! range of the un-staging loop, and that layer's ice, liquid, thickness and
+    ! temperature would be dropped without a trace.
+    class(TestDivide), intent(inout) :: this
+    real(r8), parameter :: dz_layers(4) = [0.01_r8, 0.03_r8, 0.1_r8, 1._r8]
+    real(r8) :: ice_before, liq_before
+    integer :: c, j
+
+    call this%setupColumn(snl = -(my_nlevsno-1), jbot_sno = -1, dz_layers = dz_layers)
+    c = bounds%begc
+    ice_before = this%totalIce(jtop = -(my_nlevsno-1))
+    liq_before = this%totalLiq(jtop = -(my_nlevsno-1))
+
+    call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
+
+    @assertEqual(-(my_nlevsno-1), col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = -(my_nlevsno-1)), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = -(my_nlevsno-1)), tolerance=tol)
+    do j = -(my_nlevsno-1), -1
+       @assertEqual(dz_layers(j+my_nlevsno), col%dz(c,j), tolerance=tol)
+    end do
+    call this%assertMossUntouched()
+  end subroutine divide_capsAtNlevsnoMinusOne_nvp
+
+  @Test
+  subroutine divide_growsToNlevsnoMinusOne_nvp(this)
+    ! The NVP cap is nlevsno-1 and no tighter: a pack below the cap whose bottom layer
+    ! is over dzmax_l must still divide, growing to the cap and no further, and it must
+    ! grow upward into the free slot rather than down over the moss.
+    class(TestDivide), intent(inout) :: this
+    real(r8), parameter :: dz_layers(3) = [0.01_r8, 0.03_r8, 0.5_r8]
+    real(r8) :: ice_before, liq_before
+    integer :: c
+
+    call this%setupColumn(snl = -3, jbot_sno = -1, dz_layers = dz_layers)
+    c = bounds%begc
+    ice_before = this%totalIce(jtop = -3)
+    liq_before = this%totalLiq(jtop = -3)
+
+    call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
+
+    @assertEqual(-(my_nlevsno-1), col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = -(my_nlevsno-1)), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = -(my_nlevsno-1)), tolerance=tol)
+    call this%assertMossUntouched()
+  end subroutine divide_growsToNlevsnoMinusOne_nvp
+
+  @Test
+  subroutine divide_capsAtNlevsno_stock(this)
+    ! Without the NVP slot the cap is the stock nlevsno: a pack one layer short of it,
+    ! with a bottom layer over dzmax_l, must be allowed to divide into the last slot.
+    class(TestDivide), intent(inout) :: this
+    real(r8), parameter :: dz_layers(4) = [0.01_r8, 0.03_r8, 0.1_r8, 1._r8]
+    integer, parameter :: snl_before = -(my_nlevsno-1)
+    real(r8) :: ice_before, liq_before
+    integer :: c
+
+    call this%setupColumn(snl = snl_before, jbot_sno = 0, dz_layers = dz_layers)
+    c = bounds%begc
+    ice_before = this%totalIce(jtop = snl_before+1)
+    liq_before = this%totalLiq(jtop = snl_before+1)
+
+    call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
+
+    @assertEqual(-my_nlevsno, col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = -my_nlevsno+1), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = -my_nlevsno+1), tolerance=tol)
+  end subroutine divide_capsAtNlevsno_stock
+
+end module test_SnowHydrology_divideSnowLayers

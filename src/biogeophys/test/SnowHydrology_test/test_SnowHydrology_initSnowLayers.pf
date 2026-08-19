@@ -76,9 +76,10 @@ contains
   @Test
   subroutine test_initSnowLayers_depth1_geometry(this)
     ! Geometry, not just the layer count: dz/z/zi must satisfy the layering
-    ! invariants. Asserted as invariants rather than literal thicknesses,
-    ! because the per-layer values come from dzmax_u, which is namelist state
-    ! this test does not pin.
+    ! invariants. Asserted as invariants rather than literal thicknesses:
+    ! SnowHydrologySetControlForTesting does pin the dzmax_u schedule those
+    ! thicknesses come from, but restating it here would only re-derive the
+    ! schedule instead of the property the layering has to satisfy.
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)
     integer :: c, j

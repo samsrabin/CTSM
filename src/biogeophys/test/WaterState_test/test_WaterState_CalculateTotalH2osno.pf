@@ -1,0 +1,169 @@
+module test_WaterState_CalculateTotalH2osno
+
+  ! Tests of WaterStateType: CalculateTotalH2osno
+
+  use funit
+  use shr_kind_mod, only : r8 => shr_kind_r8
+  use unittestSubgridMod
+  use unittestSimpleSubgridSetupsMod, only : setup_single_veg_patch
+  use unittestFilterBuilderMod, only : filter_from_range
+  use unittestWaterTypeFactory, only : unittest_water_type_factory_type
+  use WaterType, only : water_type
+  use ColumnType, only : col
+  use clm_varpar, only : nlevsno
+
+  implicit none
+
+  @TestCase
+  type, extends(TestCase) :: TestCalcTotalH2osno
+     type(unittest_water_type_factory_type) :: water_factory
+     type(water_type) :: water_inst
+   contains
+     procedure :: setUp
+     procedure :: tearDown
+     procedure :: setupColumn
+  end type TestCalcTotalH2osno
+
+  integer, parameter :: my_nlevsoi = 3
+  integer, parameter :: nlevgrnd_additional = 1
+  integer, parameter :: my_nlevsno = 5
+
+  real(r8), parameter :: tol = 1.e-13_r8
+
+  ! Layer water, distinct per slot so that an off-by-one in either loop bound changes
+  ! the total rather than reshuffling equal contributions.
+  real(r8), parameter :: ice_top = 100._r8, liq_top = 1._r8
+  real(r8), parameter :: ice_mid = 200._r8, liq_mid = 2._r8
+  real(r8), parameter :: ice_btm = 400._r8, liq_btm = 4._r8
+
+  ! Water held in the NVP slot. Never snow, so it must never enter h2osno_total.
+  real(r8), parameter :: ice_nvp = 1000._r8, liq_nvp = 10._r8
+
+contains
+
+  subroutine setUp(this)
+    class(TestCalcTotalH2osno), intent(inout) :: this
+
+    call this%water_factory%init()
+    call this%water_factory%setup_before_subgrid( &
+         my_nlevsoi = my_nlevsoi, &
+         nlevgrnd_additional = nlevgrnd_additional, &
+         my_nlevsno = my_nlevsno)
+  end subroutine setUp
+
+  subroutine tearDown(this)
+    class(TestCalcTotalH2osno), intent(inout) :: this
+
+    call this%water_factory%teardown(this%water_inst)
+    call unittest_subgrid_teardown()
+  end subroutine tearDown
+
+  subroutine setupColumn(this, snl, jbot_sno)
+    ! Build a single column with the given snow layer count and bottom snow index, and
+    ! clear all snow-range water. CheckSnowConsistency runs from inside the routine
+    ! under test and requires 0 or spval in every slot above the pack.
+    class(TestCalcTotalH2osno), intent(inout) :: this
+    integer, intent(in) :: snl
+    integer, intent(in) :: jbot_sno
+
+    call setup_single_veg_patch(pft_type = 1)
+    col%jbot_sno(bounds%begc:bounds%endc) = jbot_sno
+    call this%water_factory%setup_after_subgrid(snl = snl, dz = 0.05_r8)
+    call this%water_factory%create_water_type(this%water_inst)
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    ws%h2osoi_ice_col(bounds%begc:bounds%endc, -nlevsno+1:0) = 0._r8
+    ws%h2osoi_liq_col(bounds%begc:bounds%endc, -nlevsno+1:0) = 0._r8
+    ws%h2osno_no_layers_col(bounds%begc:bounds%endc) = 0._r8
+    end associate
+  end subroutine setupColumn
+
+  @Test
+  subroutine totalH2osno_stock(this)
+    ! Without the NVP slot the pack runs snl+1 .. 0, so the bottom snow layer is index 0
+    ! and its water belongs to the total.
+    class(TestCalcTotalH2osno), intent(inout) :: this
+    integer :: num_c, c
+    integer, allocatable :: filter_c(:)
+    real(r8) :: h2osno_total(1)
+    real(r8) :: expected
+
+    expected = ice_top + liq_top + ice_mid + liq_mid + ice_btm + liq_btm
+    call this%setupColumn(snl = -3, jbot_sno = 0)
+    call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
+    c = bounds%begc
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    ws%h2osoi_ice_col(c,-2) = ice_top
+    ws%h2osoi_liq_col(c,-2) = liq_top
+    ws%h2osoi_ice_col(c,-1) = ice_mid
+    ws%h2osoi_liq_col(c,-1) = liq_mid
+    ws%h2osoi_ice_col(c, 0) = ice_btm
+    ws%h2osoi_liq_col(c, 0) = liq_btm
+
+    call ws%CalculateTotalH2osno(bounds, num_c, filter_c, 'test', h2osno_total)
+    end associate
+
+    @assertEqual(expected, h2osno_total(c), tolerance=tol)
+  end subroutine totalH2osno_stock
+
+  @Test
+  subroutine totalH2osno_nvp(this)
+    ! With the NVP slot the pack runs snl .. -1: the total must reach the top snow layer
+    ! at snl and must stop short of the moss water at slot 0.
+    class(TestCalcTotalH2osno), intent(inout) :: this
+    integer :: num_c, c
+    integer, allocatable :: filter_c(:)
+    real(r8) :: h2osno_total(1)
+    real(r8) :: expected
+
+    expected = ice_top + liq_top + ice_mid + liq_mid + ice_btm + liq_btm
+    call this%setupColumn(snl = -3, jbot_sno = -1)
+    call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
+    c = bounds%begc
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    ws%h2osoi_ice_col(c,-3) = ice_top
+    ws%h2osoi_liq_col(c,-3) = liq_top
+    ws%h2osoi_ice_col(c,-2) = ice_mid
+    ws%h2osoi_liq_col(c,-2) = liq_mid
+    ws%h2osoi_ice_col(c,-1) = ice_btm
+    ws%h2osoi_liq_col(c,-1) = liq_btm
+    ws%h2osoi_ice_col(c, 0) = ice_nvp
+    ws%h2osoi_liq_col(c, 0) = liq_nvp
+
+    call ws%CalculateTotalH2osno(bounds, num_c, filter_c, 'test', h2osno_total)
+    end associate
+
+    @assertEqual(expected, h2osno_total(c), tolerance=tol)
+  end subroutine totalH2osno_nvp
+
+  @Test
+  subroutine totalH2osno_nvpNoSnowLayers(this)
+    ! A snow-free NVP column: the pack is empty, so the total is the layerless snow
+    ! alone. The total itself discriminates nothing here -- at snl == 0 the stock sum
+    ! loop is empty too -- so what this case tests is that it completes at all: with
+    ! stock CheckSnowConsistency bounds the moss ice at slot 0 trips ice_bad and endrun
+    ! aborts the run. The moss water is the whole point of the setup and must stay.
+    class(TestCalcTotalH2osno), intent(inout) :: this
+    integer :: num_c, c
+    integer, allocatable :: filter_c(:)
+    real(r8) :: h2osno_total(1)
+    real(r8), parameter :: h2osno_no_layers = 33._r8
+
+    call this%setupColumn(snl = 0, jbot_sno = -1)
+    call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
+    c = bounds%begc
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    ws%h2osno_no_layers_col(c) = h2osno_no_layers
+    ws%h2osoi_ice_col(c, 0) = ice_nvp
+    ws%h2osoi_liq_col(c, 0) = liq_nvp
+
+    call ws%CalculateTotalH2osno(bounds, num_c, filter_c, 'test', h2osno_total)
+    end associate
+
+    @assertEqual(h2osno_no_layers, h2osno_total(c), tolerance=tol)
+  end subroutine totalH2osno_nvpNoSnowLayers
+
+end module test_WaterState_CalculateTotalH2osno
