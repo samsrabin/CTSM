@@ -44,18 +44,23 @@ The main session is the **orchestrator**. For each task, in order:
 
 ### Standing verification rule (every task)
 
-Testing and diagnostics land WITH the capability they verify, not at the end:
+Testing and diagnostics land WITH the capability they verify, not at the end. **Division
+of labor:**
 
-- **Every task that touches Fortran** ends by re-running the Task 0 ALP2 baseline tests
-  with baseline comparison — `use_moss` off must stay bit-for-bit throughout
-  development, not just at the finish.
-- **From Task 5 onward** (the first runnable moss configuration), every task also
-  re-runs the moss ALP2 smoke + exact-restart tests (conservation checks are fatal, so
-  every task proves conservation as it lands) and checks the task-specific expectations
-  listed in its verification step — usually via history variables added in that same
-  task.
-- FATES functional tests (`fuel`, `allometry`, unit tests) run whenever the task touches
-  code they cover.
+- **Claude (required, every Fortran-touching task):** (a) verify CTSM-FATES **builds**:
+  from the top of the checkout, `cd test-bld && qcmd -- ./case.build` (the `test-bld/`
+  case will exist on the implementation machine; if it is missing, ask Sam rather than
+  creating one); (b) run the FATES functional/unit tests covering the touched code
+  (`python run_functional_tests.py fuel|allometry`, `python run_unit_tests.py`).
+  Claude performs **no other testing** — nothing that runs CTSM-FATES.
+- **Sam (and Sam alone; may choose to skip):** all testing that actually RUNS
+  CTSM-FATES — the ALP2 baseline b4b comparisons, the moss smoke + exact-restart tests,
+  and science-sanity runs. Wherever a task's verification step names such a test,
+  Claude's job is to prepare the test commands and expected outcomes and present them
+  with the commit; Sam decides whether to run them, and task approval proceeds on Sam's
+  say-so either way.
+- The b4b intent stands throughout: `use_moss` off must remain bit-for-bit; the ALP2
+  baselines (Task 0) are the instrument whenever Sam chooses to run them.
 
 ### Git choreography
 
@@ -90,7 +95,9 @@ carry a FATES pointer bump) + at most one FATES commit.
 - New moss history variables follow the existing conditional-registration patterns in
   `main/FatesHistoryInterfaceMod.F90` (register only when `hlm_use_moss==itrue`;
   patch→site averaging per existing helpers). The first task to add one (Task 6)
-  establishes the pattern; later tasks follow it.
+  establishes the pattern; later tasks follow it. **Every task that adds a
+  moss-specific history variable also adds it to the output list (`hist_fincl`) in the
+  `FatesNvp` testmod's `user_nl_clm`, in that same task.**
 - Reference implementations to harvest are on `ctsm5.4.028_nvp` (worktree at
   `.worktrees/nvp`) and FATES commit `33640d372` (available in `src/fates`'s object
   store; view files with `git -C src/fates show 33640d372:<path>`).
@@ -131,9 +138,10 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   suite is one `run_sys_tests` invocation); (c) confirm the fsurdat/paramfile testdata
   paths above are already populated on the target machine's `$DIN_LOC_ROOT`; (d) which
   machine runs the suite (the NVP entries are defined on derecho intel/gnu — confirm).
-  Forward check: our tests must NOT reference `FatesNvp`/`FatesNvpOff` testmods (they
-  don't exist on this branch) — the NVP branch's test entries are adapted by dropping
-  those testmod components.
+  Forward check: the `FatesNvp`/`FatesNvpOff` testmods do not exist on this branch
+  yet — they arrive (adapted) in Task 5, which also brings the remaining NVP-branch
+  tests. Task 0's two baseline tests reference only `FatesColdSatPhen` +
+  `FatesALP2Bare{,Grass}`.
 - [ ] **Step 1: copy the two testmod dirs** from the NVP worktree verbatim (they contain
   only `fsurdat` and `fates_paramfile` settings — keep the paramfile line pointing at
   the existing testdata JSON for now; Task 5 adds moss variants).
@@ -142,10 +150,10 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
 - [ ] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
   compset `I2000Clm60FatesSpRsGs`, testmods `clm/FatesColdSatPhen--clm/FatesALP2Bare`
   and `...BareGrass`), machines/compilers/categories per Step 0.
-- [ ] **Step 4: run and generate baselines.** On the target machine, run both tests with
-  baseline generation (`run_sys_tests ... --generate <baseline-tag>`); they must PASS
-  at base code. Record the baseline tag — every subsequent Fortran-touching task
-  compares against it.
+- [ ] **Step 4: run and generate baselines (Sam).** On the target machine, run both
+  tests with baseline generation (`run_sys_tests ... --generate <baseline-tag>`); they
+  must PASS at base code. Record the baseline tag — later tasks' b4b comparisons use
+  it whenever Sam chooses to run them. Claude prepares the exact commands.
 - [ ] **Step 5: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
   and tests").
 
@@ -415,43 +423,57 @@ end if
 ### Task 5: First moss run — moss testmods and system tests
 
 **Files:**
-- Create: `cime_config/testdefs/testmods_dirs/clm/FatesMoss/user_nl_clm` (+
-  `include_user_mods`)
+- Create: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (adapted from
+  the NVP branch's dir of the same name)
+- Create: `cime_config/testdefs/testmods_dirs/clm/FatesNvpOff/{user_nl_clm,include_user_mods}`
+  (ditto)
+- Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2BareMoss/user_nl_clm` (ditto)
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2BareGrassMoss/user_nl_clm`
-  (adapted from the NVP branch's dir of the same name)
+  (ditto)
 - Modify: `cime_config/testdefs/testlist_clm.xml`
 
 **Interfaces:**
 - Consumes: `use_moss` (Task 1), moss JSON (Task 2), `fates_vascular` checks (Task 3),
   8-class runtime sizing (Task 4).
-- Produces: the **moss smoke + exact-restart tests** every subsequent task re-runs
-  (standing verification rule): an `SMS_Ld5_D` and an `ERS_D` moss test at ALP2. At
+- Produces: the moss test set every subsequent task hands to Sam (standing
+  verification rule): smoke (`SMS_Ld5_D`) and exact-restart (`ERS_D`) moss tests at
+  ALP2, including tests exercising the **nocomp fixed-biogeography** configuration. At
   this point moss runs as an inert grass-like PFT (fuel classes 7–8 exist but are
   empty; no moss physiology yet) — the tests prove the configuration runs, restarts
-  exactly, and conserves.
+  exactly, and conserves. `FatesNvp`'s `user_nl_clm` is also where Tasks 6–10 add
+  their new history variables as outputs.
 
-- [ ] **Step 0 (orchestrator):** Inspect the NVP branch's `FatesALP2BareGrassMoss` and
-  `FatesALP2BareMoss` testmods (`.worktrees/nvp/cime_config/testdefs/testmods_dirs/clm/`)
-  for the fsurdat and PFT-mapping choices that put moss on the ALP2 site. Resolve the
-  compset question with Sam: the Task 0 baseline tests use the SP compset
-  (`I2000Clm60FatesSpRsGs` + `FatesColdSatPhen`), but moss must be **prognostic** —
-  the moss tests need a nocomp fixed-biogeography configuration (spec §2). Identify
-  the right compset/testmod combination (survey existing `FatesCold*` testmods for a
-  nocomp + fixed-biogeography precedent) and confirm the choice with Sam. Forward
-  check: Tasks 6–11 each re-run these tests and inspect their history output.
-- [ ] **Step 1: `FatesMoss` testmod.** `use_moss = .true.`, `fates_paramfile` pointing
-  at the committed Task 2 JSON (in-repo path), nocomp fixed-biogeography settings per
-  Step 0.
-- [ ] **Step 2: ALP2 moss testmod + testlist.** Adapt `FatesALP2BareGrassMoss` (fsurdat
-  with moss-compatible PFT weights); add `SMS_Ld5_D` and `ERS_D` tests composing
-  `FatesMoss` with the ALP2 testmods, category per Task 0's choice.
-- [ ] **Step 3: run.** Both tests PASS: run completes with the moss PFT active,
-  restarts exactly, all conservation checks (fatal) clean. Also run the abort case:
-  `use_moss=.true.` with the default 6-class JSON → clean, informative abort (Task 3/4
-  checks).
-- [ ] **Step 4: baseline the moss tests** (`--generate`) so later tasks can see exactly
-  what each change does to moss behavior (expected diffs get re-baselined task by
-  task; unexpected diffs are caught).
+NVP-branch source material (adapt, keeping the testmod names): `FatesNvp` (sets
+`use_nvp=.true.`, `use_nvp_undersnow`, `nvp_rad_model_ground`, `use_bedrock=.true.`),
+`FatesNvpOff` (includes `FatesNvp`, overrides `use_nvp=.false.`), `FatesALP2BareMoss`
+and `FatesALP2BareGrassMoss` (moss fsurdat variants `_moss`/`_grassmoss` +
+NVP-branch moss param JSONs).
+
+- [ ] **Step 0 (orchestrator):** Inspect the four NVP-branch testmods and the full
+  NVP-branch `testlist_clm.xml` block at `1x1_ALP2` (including entries beyond the four
+  Task 0 brought in — identify the ones exercising nocomp fixed-biogeography, per the
+  NVP test comments). Adaptation decisions to confirm with Sam: (a) `FatesNvp` on our
+  branch sets `use_moss=.true.` (the `use_nvp*`/`nvp_rad_model_ground` settings don't
+  exist here) — keep `use_bedrock=.true.`?; (b) `FatesNvpOff` correspondingly
+  overrides `use_moss=.false.`; (c) the two ALP2 moss testmods keep their fsurdat
+  paths but point `fates_paramfile` at the committed Task 2 JSON (the NVP-branch
+  JSONs lack the 8-entry litterclass dimension); (d) which NVP-branch test entries to
+  bring in, and under which categories. Forward check: Tasks 6–11 hand these tests to
+  Sam and Tasks 6–10 append history variables to `FatesNvp/user_nl_clm`.
+- [ ] **Step 1: port the four testmods**, adapted per Step 0.
+- [ ] **Step 2: testlist.** Add the remaining NVP-branch tests (adapted testmod
+  compositions), covering: SP-mode moss (`FatesColdSatPhen--FatesNvp--FatesALP2*Moss`
+  patterns), the `FatesNvpOff` twins (moss code present but off — b4b sentinels), and
+  the nocomp fixed-biogeography moss tests identified in Step 0; include an `ERS_D`
+  exact-restart variant.
+- [ ] **Step 3: build check (Claude) + run (Sam).** Claude: `cd test-bld && qcmd --
+  ./case.build` passes. Sam (optional): run the new tests — expected: PASS with moss
+  as an inert grass-like PFT, exact restart, fatal conservation checks clean; the
+  abort case (`use_moss=.true.` with the default 6-class JSON) aborts cleanly with the
+  Task 3/4 messages; `FatesNvpOff` tests compare b4b against the Task 0 baselines.
+- [ ] **Step 4: baseline the moss tests (Sam, optional)** (`--generate`) so later tasks
+  can see exactly what each change does to moss behavior (expected diffs get
+  re-baselined task by task; unexpected diffs are caught).
 - [ ] **Step 5: reviews, then commit.**
 
 ### Task 6: Live-moss fuel routing, cohort burn keying, and live-moss history
@@ -463,6 +485,8 @@ end if
 - Modify (FATES): `biogeochem/EDPatchDynamicsMod.F90` (cohort burn keying, ~lines
   1096–1103)
 - Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_LIVEMOSS_FUEL`)
+- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (add the new
+  history variable to the output list)
 
 **Interfaces:**
 - Consumes: `prt_params%vascular` (Task 3), `fuel_classes%live_moss()` (Task 4).
@@ -521,6 +545,8 @@ end if
   patch litter totals in `EDTypesMod.F90` / `FatesUtilsMod` — Step 0 enumerates)
 - Modify (FATES): `fire/SFMainMod.F90` (`loading(dead_moss) = sum(litt%moss_fines(:))`)
 - Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_FINES`)
+- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (add the new
+  history variable to the output list)
 
 **Interfaces:**
 - Consumes: `prt_params%vascular` (Task 3), `fuel_classes%dead_moss()` (Task 4).
@@ -579,6 +605,8 @@ end if
   the single update point)
 - Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_FWET`,
   `FATES_MOSS_FWET_SOIL`, `FATES_MOSS_FWET_CANOPY`)
+- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (add the new
+  history variables to the output list)
 
 **Interfaces:**
 - Consumes: `bc_in%h2o_liqvol_sl(:)`, `bc_in%watsat_sl(:)` (existing;
@@ -668,6 +696,8 @@ end if
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (add `moss_vcmax_scaler` patch member,
   init 0, beside `fwet_moss` from Task 8)
 - Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_VCMAX_SCALER`)
+- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (add the new
+  history variable to the output list)
 
 **Interfaces:**
 - Consumes: `prt_params%vascular` (Task 3), `currentPatch%fwet_moss` (Task 8).
