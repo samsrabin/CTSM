@@ -208,6 +208,60 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   owns the baseline tag and its naming convention — Claude does not write the
   `run_sys_tests` invocations and does not need to know the tag.
 
+### Task 0b: Fix NaN `rootr_patch` below bedrock in the FATES interface
+
+Not in the original plan. Added 2026-08-19 after Task 0's `FatesALP2BareGrass` test
+failed on derecho/intel with `forrtl (65): floating invalid` at
+`SoilWaterPlantSinkMod.F90:398`. Root cause is a **pre-existing CTSM–FATES interface
+bug**, not anything Task 0 introduced — the NVP branch's `wrap_btran` is byte-identical
+and its `ExpectedTestFails.xml` documents the same failure ("Floating invalid, doesn't
+happen with gnu") across 10 ALP2 entries. We fix it rather than copying that workaround
+because Task 0's two tests are the project's b4b baseline instrument, and a baseline test
+that is an expected RUN FAIL on intel generates no baseline — silently reducing b4b
+coverage to gnu-only for every later task, on the very compiler that hides NaN.
+
+**Files:**
+- Modify: `src/utils/clmfates_interfaceMod.F90` (`wrap_btran`, the `rootr` fill loop
+  at ~line 2586–2603)
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: `soilstate_inst%rootr_patch(p, :)` fully defined over `1:nlevgrnd` for every
+  active FATES patch, instead of only `1:bc_in%nlevsoil`. All later tasks inherit this;
+  no new symbols.
+
+- [x] **Step 0 (orchestrator) — COMPLETE (2026-08-19).** Root cause established:
+  - `SoilStateType.F90:163` allocates `rootr_patch(begp:endp,1:nlevgrnd)` and
+    initialises it to NaN, so any element never assigned holds NaN on both compilers.
+  - `wrap_btran` fills `rootr(p,j)` only over `do j = 1,nlevsoil`, where `nlevsoil` is
+    FATES's **per-column** count, set from `col%nbedrock(c)`
+    (`clmfates_interfaceMod.F90:959` → `FatesInterfaceMod.F90:461`).
+  - `Compute_EffecRootFrac_And_VertTranSink_Default` consumes `do j = 1,nlevsoi`
+    (**global**) and multiplies `rootr_patch(p,j)` at `SoilWaterPlantSinkMod.F90:397-398`.
+    The divide at `:416` is already guarded by `temp(c)/=0`; the operand arrives invalid.
+  - ALP2's fsurdat has `zbedrock = 0.4` m, so with `use_bedrock = .true.` (Task 0)
+    `col%nbedrock` is ~layer 5 of 20 and layers ~6–20 stay NaN. Intel's debug build traps
+    it; gnu does not, which is why gnu "passes" — same arithmetic, untrapped, with NaN
+    propagating into `rootr_col` and `qflx_rootsoi_col`.
+  - Sam's decisions: fix the root cause (not `ExpectedTestFails`), and do not investigate
+    whether gnu has historically been writing NaN into history output.
+- [ ] **Step 1: zero the sub-bedrock layers.** In `wrap_btran`, after the
+  `do j = 1,nlevsoil` fill loop, set `rootr(p, nlevsoil+1 : nlevgrnd) = 0._r8` for each
+  active patch. Zero to `nlevgrnd`, not `nlevsoi`: `rootr_patch` is allocated to
+  `nlevgrnd` and `ch4Mod` / `SoilMoistStressMod` also read it. Physically this states
+  that there is no root water uptake below bedrock, which is what FATES already means by
+  truncating its column there. Guard against `nlevsoil >= nlevgrnd` so the assignment is
+  a no-op rather than an out-of-bounds slice. Follow the surrounding style; no churn.
+- [ ] **Step 2: verify (Claude).** Fortran-touching, so the standing rule applies:
+  `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` must succeed. No FATES
+  functional test covers this interface path, so there is nothing to add there.
+- [ ] **Step 3: reviews, then commit.** Expected outcomes to state for Sam: the intel
+  `FatesALP2BareGrass` test now runs to completion; the gnu twin still passes. Answer
+  changes are confined to values that were previously NaN, so any configuration that was
+  producing valid numbers is unaffected — worth saying explicitly since this lands before
+  baselines are generated. Flag the commit as a candidate for a standalone upstream CTSM
+  PR, since it fixes a bug unrelated to moss.
+
 ### Task 1: `use_moss` and moss scalar namelist plumbing
 
 **Files:**
