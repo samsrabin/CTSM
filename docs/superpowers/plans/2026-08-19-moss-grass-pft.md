@@ -17,8 +17,11 @@ new `bc_in` field (canopy wetted fraction). Spec:
 `docs/superpowers/specs/2026-08-19-moss-grass-pft-design.md`.
 
 **Tech Stack:** Fortran (CTSM + FATES submodule), CTSM build-namelist (Perl/XML), FATES
-functional tests (CMake/Python, `src/fates/testing/`), python/xarray for parameter-file
-construction.
+functional tests (CMake/Python, `src/fates/testing/`). The FATES parameter file is
+**JSON, read directly at runtime** (`JSONRead`, `FatesInterfaceMod.F90:118-122`; the
+default `fates_paramfile` points at `src/fates/parameter_files/fates_params_default.json`)
+— parameter-file work is JSON editing via FATES's patch tooling, no netCDF involved. The
+CTSM parameter file is untouched.
 
 ## Process (custom orchestration loop — REQUIRED)
 
@@ -44,9 +47,11 @@ The main session is the **orchestrator**. For each task, in order:
 Work spans two repositories:
 
 - **CTSM branch:** `hui-moss/moss-grass-pft` (already exists; spec committed there).
-- **FATES branch:** create `moss-grass-pft` in `src/fates/`, branched from
-  `e027a4030` (the commit pinned by `ctsm5.4.028`), pushed to
-  `https://github.com/samsrabin/fates`.
+- **FATES branch:** create `hui-moss/moss-grass-pft` in `src/fates/`, branched from
+  `e027a4030` (the commit pinned by `ctsm5.4.028`). Push over **SSH** to Sam's fork:
+  remote `git@github.com:samsrabin/fates.git`. (The `.gitmodules` `url` entries stay in
+  their existing `https://` form for downstream consumers; only the push transport is
+  SSH.)
 
 Per task that touches FATES: commit in `src/fates/` first, then commit in CTSM (including
 the submodule pointer bump and, in the first FATES-touching task, the `.gitmodules`
@@ -72,6 +77,54 @@ carry a FATES pointer bump) + at most one FATES commit.
   store; view files with `git -C src/fates show 33640d372:<path>`).
 
 ---
+
+### Task 0: Bring in the ALP2 baseline testmods and tests
+
+**Files:**
+- Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2Bare/user_nl_clm` (+
+  `include_user_mods` if the NVP branch's version has one)
+- Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2BareGrass/user_nl_clm` (+ ditto)
+- Modify: `cime_config/testdefs/testlist_clm.xml`
+- Modify: `.gitmodules` + submodule pointers for `ccs_config` and `cdeps`
+
+**Interfaces:**
+- Consumes: nothing (pure test infrastructure at the base code).
+- Produces: runnable baseline tests at the ALP2 site, e.g.
+  `SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.clm-FatesColdSatPhen--clm-FatesALP2Bare`
+  (and the `FatesALP2BareGrass` twin). Task 12 builds its moss tests on this site.
+
+Source material is on the NVP branch (worktree `.worktrees/nvp`):
+`cime_config/testdefs/testmods_dirs/clm/FatesALP2Bare{,Grass}/` (each sets `fsurdat` to
+`$DIN_LOC_ROOT/lnd/clm2/testdata/moss/fsurdat/surfdata_ALP2_hist_2000_16pfts_c260427_{bare,grass}.nc`
+and `fates_paramfile` to a JSON under `$DIN_LOC_ROOT/lnd/clm2/testdata/moss/fates_paramfile/`),
+plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRsGs`
+(~lines 4969–5030 there). The `1x1_ALP2` grid definition requires the NVP branch's
+`ccs_config` (`samsrabin/ccs_config_cesm.git` @ `b6387972b`) and `cdeps`
+(@ `42f9a6b06`) fork pointers.
+
+- [ ] **Step 0 (orchestrator):** Diff the two testmod dirs and the relevant testlist
+  entries out of the NVP worktree. Confirm with Sam: (a) point `ccs_config`/`cdeps` at
+  the same fork commits as the NVP branch (needed for `1x1_ALP2`; note the standing
+  caveat that fork pointers must be reverted/upstreamed before any merge to CTSM
+  master); (b) which testlist categories to use on our branch (the NVP entries use
+  `fates` plus NVP-specific categories — suggest a new `fates_moss` category so the
+  suite is one `run_sys_tests` invocation); (c) confirm the fsurdat/paramfile testdata
+  paths above are already populated on the target machine's `$DIN_LOC_ROOT`. Forward
+  check: our tests must NOT reference `FatesNvp`/`FatesNvpOff` testmods (they don't
+  exist on this branch) — the NVP branch's test entries are adapted by dropping those
+  testmod components.
+- [ ] **Step 1: copy the two testmod dirs** from the NVP worktree verbatim (they contain
+  only `fsurdat` and `fates_paramfile` settings — keep the paramfile line pointing at
+  the existing testdata JSON for now; Task 12 adds moss-paramfile variants).
+- [ ] **Step 2: update submodules.** Edit `.gitmodules` (`ccs_config`, `cdeps`: url +
+  fxtag per Step 0) and check out the corresponding submodule commits.
+- [ ] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
+  compset `I2000Clm60FatesSpRsGs`, testmods `clm/FatesColdSatPhen--clm/FatesALP2Bare`
+  and `...BareGrass`), machines/compilers/categories per Step 0.
+- [ ] **Step 4: verify.** On the target machine, run both tests; they must PASS at base
+  code (this is the pre-moss baseline). Record run dirs for later comparison.
+- [ ] **Step 5: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
+  and tests").
 
 ### Task 1: `use_moss` and moss scalar namelist plumbing
 
@@ -106,8 +159,9 @@ carry a FATES pointer bump) + at most one FATES commit.
   prefix); (b) default values for the four fuel-moisture coefficients (suggest
   live a=0.3, b=0.7; dead a=0.05, b=0.75 as placeholder defaults pending tuning —
   confirm Sam is OK with placeholders that will be tuned in Task 12).
-- [ ] **Step 1: FATES branch setup.** In `src/fates/`: `git checkout -b moss-grass-pft
-  e027a4030d2a0f09039fb337ad67ced7461dd4f0`.
+- [ ] **Step 1: FATES branch setup.** In `src/fates/`:
+  `git checkout -b hui-moss/moss-grass-pft e027a4030d2a0f09039fb337ad67ced7461dd4f0`,
+  and add/verify the SSH push remote `git@github.com:samsrabin/fates.git`.
 - [ ] **Step 2: XML definitions.** Add to `namelist_definition_ctsm.xml` (group
   `clm_inparm`), following the `use_fates_sp` entry format:
 
@@ -180,47 +234,60 @@ call set_fates_ctrlparms('moss_fm_live_a',rval=moss_fuel_moisture_live_a)
   ctrlparms"; CTSM commit "Add use_moss and moss scalar namelist plumbing" including
   `.gitmodules` update and submodule pointer bump).
 
-### Task 2: Moss parameter file
+### Task 2: Moss parameter file (JSON)
 
 **Files:**
-- Create: `tools/make_moss_paramfile.py`
-- Create (generated, kept locally / on inputdata, not committed to git): moss parameter
-  netCDF, e.g. `fates_params_moss.nc`
+- Create (FATES): `parameter_files/fates_params_moss.json` (committed — the default
+  JSON is in-repo and read directly at runtime, so the moss file is too)
+- Create (FATES): the generator — either a patch file consumed by the existing
+  `tools/batch_patch_params.py` (precedent: `parameter_files/patch_default_bciopt224.json`)
+  or, if the patch tool cannot add a PFT column / grow a dimension, a small
+  `tools/make_moss_params.py` using only the `json` stdlib module
 
 **Interfaces:**
-- Produces: a FATES parameter netCDF with (a) a 15th PFT column `moss`; (b) new per-PFT
-  variable `fates_vascular` (1 for PFTs 1–14, 0 for moss); (c) `fates_litterclass`
-  dimension grown 6 → 8, with entries 7 (live moss) and 8 (dead moss) added to every
-  litterclass-dimensioned variable (`fates_fire_SAV`, `fates_fire_FBD`,
-  `fates_fire_min_moisture`, `fates_fire_mid_moisture`,
+- Produces: a FATES parameter **JSON** with (a) a 15th PFT column `moss`; (b) new
+  per-PFT variable `fates_vascular` (1 for PFTs 1–14, 0 for moss); (c)
+  `fates_litterclass` dimension grown 6 → 8, with entries 7 (live moss) and 8 (dead
+  moss) added to every litterclass-dimensioned variable (`fates_fire_SAV`,
+  `fates_fire_FBD`, `fates_fire_min_moisture`, `fates_fire_mid_moisture`,
   `fates_fire_low_moisture_Coeff/Slope`, `fates_fire_mid_moisture_Coeff/Slope`,
-  `fates_frag_maxdecomp`). Consumed by every subsequent task's testing.
+  `fates_frag_maxdecomp`). Consumed by every subsequent task's testing via the
+  `fates_paramfile` namelist setting.
 
 - [ ] **Step 0 (orchestrator):** Inspect the NVP branch's moss parameter file
   (`git -C src/fates show 8382939b9:parameter_files/fates_params_default_moss.json`)
-  and the default file's structure; confirm how a netCDF parameter file is produced
-  from/alongside the JSON in this FATES version (check `tools/write_json.py`,
-  `batch_patch_params.py`, and how the NVP branch produced its testdata `.nc` files).
-  Decide (with Sam if ambiguous) where the generated file lives for testing (suggest:
-  alongside the case, path set via `fates_paramfile` namelist). Forward check: Task 3
-  reads `fates_vascular`; Task 4 requires exactly 8 litterclass entries when
-  `use_moss` is on.
-- [ ] **Step 1: write `tools/make_moss_paramfile.py`.** Python/xarray script that: opens
-  a default FATES parameter netCDF; appends a 15th PFT by copying the arctic C3 grass
-  column; overrides moss values harvested from the NVP branch's moss column
-  (vcmax25top=30.0, slatop=0.027, `fates_woody=0`, plus the spec §3 corrections:
-  `fates_recruit_seed_alloc=0.1`, `fates_recruit_seed_dbh_repro_threshold=0.001`,
-  `fates_allom_dbh_maxheight=0.1`, realistic `fates_recruit_height_min=0.02`,
-  layer-1-concentrated rooting profile e.g. `fates_allom_fnrt_prof_a=30`); adds
-  `fates_vascular` (dims: `fates_pft`; 1.0 everywhere, 0.0 for moss); extends
-  `fates_litterclass` to 8 copying dead-leaves values (SAV=66.0, FBD=4.0, etc.) into
-  slots 7–8 as starting values; updates `fates_hlm_pft_map` so moss maps to the arctic
-  C3 grass HLM index (following the NVP branch's mapping); writes the new netCDF.
-- [ ] **Step 2: generate and inspect.** Run the script; `ncdump -h` the output and
-  verify: `fates_pft = 15`, `fates_litterclass = 8`, `fates_vascular` present,
-  `ncdump -v fates_vascular,fates_woody` shows moss = (0, 0).
-- [ ] **Step 3: reviews, then commit** the script (CTSM repo; the generated `.nc` is a
-  data artifact, not committed).
+  and the default JSON's structure (dimensions section, per-variable dim lists).
+  Check whether `tools/batch_patch_params.py` supports adding a PFT column and growing
+  the `fates_litterclass` dimension; pick patch-file vs. standalone-script accordingly.
+  Forward check: Task 3 reads `fates_vascular`; Task 4 requires exactly 8 litterclass
+  entries when `use_moss` is on; Task 12's testmods point `fates_paramfile` at this
+  committed JSON.
+- [ ] **Step 1: build the moss JSON.** Starting from `fates_params_default.json`:
+  append a 15th PFT by copying the arctic C3 grass column; override moss values
+  harvested from the NVP branch's moss column (vcmax25top=30.0, slatop=0.027,
+  `fates_woody=0`, plus the spec §3 corrections: `fates_recruit_seed_alloc=0.1`,
+  `fates_recruit_seed_dbh_repro_threshold=0.001`, `fates_allom_dbh_maxheight=0.1`,
+  realistic `fates_recruit_height_min=0.02`, layer-1-concentrated rooting profile e.g.
+  `fates_allom_fnrt_prof_a=30`); add `fates_vascular` (dims: `fates_pft`; 1 everywhere,
+  0 for moss); extend `fates_litterclass` to 8, copying dead-leaves values (SAV=66.0,
+  FBD=4.0, etc.) into slots 7–8 as starting values; update `fates_hlm_pft_map` so moss
+  maps to the arctic C3 grass HLM index (following the NVP branch's mapping). Keep the
+  generation reproducible (patch file or script committed alongside).
+- [ ] **Step 2: generate and inspect.** Verify with a python check, e.g.:
+
+```bash
+python -c "
+import json; p = json.load(open('parameter_files/fates_params_moss.json'))
+assert p['dimensions']['fates_pft'] == 15
+assert p['dimensions']['fates_litterclass'] == 8
+v = p['variables']['fates_vascular']['data']; assert v[-1] == 0 and all(x==1 for x in v[:-1])
+assert p['variables']['fates_woody']['data'][-1] == 0
+print('OK')"
+```
+
+  (adjust key paths to the actual JSON schema found in Step 0).
+- [ ] **Step 3: reviews, then commit** (FATES commit: moss JSON + generator; CTSM
+  pointer bump).
 
 ### Task 3: `fates_vascular` in FATES + moss identification
 
@@ -623,26 +690,27 @@ end if
 
 **Files:**
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesMoss/user_nl_clm`,
-  `.../FatesMoss/include_user_mods`, `.../FatesMoss/shell_commands` (if needed for the
-  parameter file path)
+  `.../FatesMoss/include_user_mods`
+- Modify: `cime_config/testdefs/testlist_clm.xml` (moss tests at the ALP2 site from
+  Task 0)
 - Modify: `cime_config/testdefs/ExpectedTestFails.xml` (only if genuinely needed)
-- Possibly modify: `bld/namelist_files/namelist_defaults_ctsm.xml` (moss paramfile
-  default, if Sam wants one)
 
 **Interfaces:**
-- Consumes: everything.
+- Consumes: everything; in particular the ALP2 testmods/tests (Task 0) and the
+  committed moss JSON (Task 2, referenced by its in-repo path via `fates_paramfile`).
 - Produces: a runnable configuration demonstrating the spec's §10 test matrix.
 
-- [ ] **Step 0 (orchestrator):** Ask Sam: (a) which machine to run system tests on
-  (izumi/derecho/other) and which site/grid (an existing 1x1 boreal point vs. `f45`
-  smoke); (b) where the moss parameter file should live for tests (user_nl vs.
-  inputdata); (c) desired test list. Check the NVP branch's `FatesNvp` testmods as the
-  structural precedent (`.worktrees/nvp/cime_config/testdefs/testmods_dirs/clm/`).
-  Confirm compatibility: nothing in Tasks 1–11 left `use_moss=off` paths conditional
-  on moss data.
+- [ ] **Step 0 (orchestrator):** Ask Sam: (a) which machine runs the suite (the ALP2
+  tests from Task 0 are defined on derecho intel/gnu — confirm); (b) desired moss test
+  list (suggest: moss twins of the Task 0 Bare/BareGrass tests plus a
+  nocomp-fixedbiogeo moss test, exact-restart `ERS_D` variant included, one test per
+  `moss_height_allom` mode if cheap). Check the NVP branch's `FatesNvp` testmods as
+  structural precedent. Confirm compatibility: nothing in Tasks 1–11 left
+  `use_moss=off` paths conditional on moss data.
 - [ ] **Step 1: testmods.** `FatesMoss` testmod: FATES + nocomp fixed-biogeography +
-  SPITFIRE + `use_moss=.true.` + `fates_paramfile` pointing at the Task 2 file +
-  `moss_height_allom` exercised (one test each mode if cheap).
+  SPITFIRE + `use_moss=.true.` + `fates_paramfile` pointing at the Task 2 JSON +
+  `moss_height_allom` exercised; testlist entries composing it with the Task 0 ALP2
+  testmods.
 - [ ] **Step 2: run the §10 matrix** on the chosen machine:
   (a) `use_moss=.false.` bit-for-bit vs. baseline (`SMS_D` + baseline compare);
   (b) moss smoke + exact restart (`ERS_D`) with conservation checks fatal;
@@ -661,8 +729,9 @@ end if
 ## Self-review checklist (run after writing; completed 2026-08-19)
 
 1. **Spec coverage:** §3→Tasks 2–3; §4→Task 10; §5→Tasks 7, 9; §6→Tasks 4–6, 8;
-   §7→Task 7; §8→Task 1; §9→Task 11; §10→Task 12. §11/§12 are non-goals/limitations —
-   no tasks required.
+   §7→Task 7; §8→Task 1; §9→Task 11; §10→Tasks 0, 12 (Task 0 supplies the ALP2
+   baseline site infrastructure). §11/§12 are non-goals/limitations — no tasks
+   required.
 2. **Placeholder scan:** none of the banned patterns; open decisions are assigned to a
    specific Step 0 with a suggested answer.
 3. **Type consistency:** `prt_params%vascular`, `fuel_classes%live_moss()/dead_moss()`,
