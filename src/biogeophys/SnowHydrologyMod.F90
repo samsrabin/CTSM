@@ -23,6 +23,7 @@ module SnowHydrologyMod
   use column_varcon   , only : icol_roof, icol_sunwall, icol_shadewall
   use clm_varpar      , only : nlevsno, nlevsoi, nlevgrnd, nlevmaxurbgrnd
   use clm_varctl      , only : iulog, use_subgrid_fluxes
+  use clm_varctl      , only : use_nvp   ! only for the temporary NVP guards; goes with them
   use clm_varcon      , only : h2osno_max, hfus, denh2o, denice, rpi, spval, tfrz
   use clm_varcon      , only : cpice, cpliq
   use atm2lndType     , only : atm2lnd_type
@@ -933,6 +934,7 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: fc, c
+    integer :: jbot ! index of the bottom snow layer (0, or -1 with NVP)
 
     character(len=*), parameter :: subname = 'UpdateState_InitializeSnowPack'
     !-----------------------------------------------------------------------
@@ -944,8 +946,14 @@ contains
     do fc = 1, snowpack_initialized_filterc%num
        c = snowpack_initialized_filterc%indices(fc)
 
-       h2osoi_ice(c,0) = h2osno_no_layers(c)
-       h2osoi_liq(c,0) = 0._r8
+       ! The first snow layer is created at the bottom snow index, which is 0 off
+       ! NVP columns and -1 on them; slot 0 there holds the NVP layer, whose
+       ! water is not snow water. The dummies start at -nlevsno+1, so -1 is in
+       ! bounds.
+       jbot = col%get_jbot_snow(c)
+
+       h2osoi_ice(c,jbot) = h2osno_no_layers(c)
+       h2osoi_liq(c,jbot) = 0._r8
        h2osno_no_layers(c) = 0._r8
     end do
 
@@ -977,6 +985,7 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: fc, c
+    integer :: jbot ! index of the bottom snow layer (0, or -1 with NVP)
 
     character(len=*), parameter :: subname = 'Bulk_InitializeSnowPack'
     !-----------------------------------------------------------------------
@@ -994,17 +1003,23 @@ contains
     do fc = 1, snowpack_initialized_filterc%num
        c = snowpack_initialized_filterc%indices(fc)
 
+       ! The first snow layer is created at the bottom snow index, which is 0 off
+       ! NVP columns and -1 on them, and snl counts snow layers only, so it is -1
+       ! either way. The geometry is anchored at zi(c,jbot): the soil surface (0)
+       ! off NVP columns, the NVP top (-dz_nvp) on them.
+       jbot = col%get_jbot_snow(c)
+
        snl(c) = -1
-       dz(c,0) = snow_depth(c)
-       z(c,0) = -0.5_r8*dz(c,0)
-       zi(c,-1) = -dz(c,0)
+       dz(c,jbot) = snow_depth(c)
+       z(c,jbot) = zi(c,jbot) - 0.5_r8*dz(c,jbot)
+       zi(c,jbot-1) = zi(c,jbot) - dz(c,jbot)
        ! Currently, the water temperature for the precipitation is simply set
        ! as the surface air temperature
-       t_soisno(c,0) = min(tfrz, forc_t(c))
+       t_soisno(c,jbot) = min(tfrz, forc_t(c))
 
        ! This value of frac_iceold makes sense together with the state initialization:
        ! h2osoi_ice is non-zero, while h2osoi_liq is zero.
-       frac_iceold(c,0) = 1._r8
+       frac_iceold(c,jbot) = 1._r8
 
        snomelt_accum(c) = 0._r8
     end do
@@ -2157,6 +2172,19 @@ contains
          z                => col%z                                 & ! Output: [real(r8) (:,:) ] layer thickness (m)
     )
 
+    ! This routine still assumes the pack ends at slot 0, so on a column that
+    ! carries the NVP slot it would combine the NVP layer as if it were snow.
+    ! Remove this guard when CombineSnowLayers is reindexed.
+    if (use_nvp) then
+       do fc = 1, num_snowc
+          c = filter_snowc(fc)
+          if (col%nvp_layer_exists(c)) then
+             call endrun(msg='ERROR: CombineSnowLayers is not yet reindexed for the NVP '// &
+                  'slot, so snow on an NVP column cannot be combined. '//errMsg(sourcefile, __LINE__))
+          end if
+       end do
+    end if
+
     ! Determine model time step
 
     dtime = get_step_size_real()
@@ -2590,6 +2618,19 @@ contains
          zi         => col%zi                           , & ! Output: [real(r8) (:,:) ] interface level below a "z" level (m)
          z          => col%z                              & ! Output: [real(r8) (:,:) ] layer thickness (m)
     )
+
+    ! This routine still assumes the pack ends at slot 0, so on a column that
+    ! carries the NVP slot it would stage and subdivide the NVP layer as if it
+    ! were snow. Remove this guard when DivideSnowLayers is reindexed.
+    if (use_nvp) then
+       do fc = 1, num_snowc
+          c = filter_snowc(fc)
+          if (col%nvp_layer_exists(c)) then
+             call endrun(msg='ERROR: DivideSnowLayers is not yet reindexed for the NVP '// &
+                  'slot, so snow on an NVP column cannot be subdivided. '//errMsg(sourcefile, __LINE__))
+          end if
+       end do
+    end if
 
     if ( is_lake ) then
        ! Initialize for consistency check
@@ -3051,20 +3092,6 @@ contains
        ! bound below is the stock bound there.
        jbot = col%get_jbot_snow(c)
 
-       ! The full snow-layer reindex is not in this change, so the cold-start
-       ! snow placement below still writes slot 0. That is not a corner case:
-       ! every istsoil column at |lat| >= 60 cold starts with h2osno = 100,
-       ! i.e. snow_depth = 0.4 m -- exactly the population NVP exists for. Fail
-       ! here rather than silently overwrite the moss geometry with a snow
-       ! thickness, which would leave nvp_is_present true at the wrong dz and
-       ! put the snow loops off by one across the whole pack.
-       if (jbot < 0 .and. snow_depth(c) >= dzmin(1)) then
-          write(iulog,*) 'InitSnowLayers ERROR: column ', c, ' snow_depth = ', &
-               snow_depth(c), ' >= dzmin(1) = ', dzmin(1)
-          call endrun(msg='ERROR: use_nvp cold start with snow is not supported '// &
-               'until the snow layer lifecycle is reindexed. '//errMsg(sourcefile, __LINE__))
-       end if
-
        dz(c,-nlevsno+1:jbot  ) = spval
        z (c,-nlevsno+1:jbot  ) = spval
        zi(c,-nlevsno  :jbot-1) = spval
@@ -3102,7 +3129,7 @@ contains
 
        if (snow_depth(c) >= minbound .and. snow_depth(c) <= maxbound) then
           ! Special case: single layer
-          dz(c,0) = snow_depth(c)
+          dz(c,jbot) = snow_depth(c)
 
        else
           ! Search for appropriate number of layers (snl) by increasing the number
@@ -3111,7 +3138,11 @@ contains
           minbound = maxbound
           maxbound = sum(dzmax_u(1:-snl(c)))
 
-          do while(snow_depth(c) > maxbound .and. -snl(c) < nlevsno )
+          ! The NVP slot consumes one of the nlevsno slots, so a column that has
+          ! it can hold at most nlevsno-1 snow layers. merge() is 0 off NVP
+          ! columns, where the cap is the stock nlevsno.
+          do while(snow_depth(c) > maxbound .and. &
+               -snl(c) < nlevsno - merge(1, 0, col%nvp_layer_exists(c)) )
              snl(c) = snl(c) - 1
              minbound = maxbound
              maxbound = sum(dzmax_u(1:-snl(c)))
@@ -3119,22 +3150,25 @@ contains
 
           ! Set thickness of all layers except bottom two
           do j = 1, -snl(c)-2
-             dz(c,j+snl(c))  = dzmax_u(j)
+             dz(c,j+snl(c)+jbot)  = dzmax_u(j)
           enddo
 
           ! Determine whether the two bottom layers should be equal in size,
           ! or not. The rule here is: always create equal size when possible.
           if (snow_depth(c) <= sum(dzmax_u(1:-snl(c)-2)) + 2 * dzmax_u(-snl(c)-1)) then
-             dz(c,-1) = (snow_depth(c) - sum(dzmax_u(1:-snl(c)-2))) / 2._r8
-             dz(c,0)  = dz(c,-1)
+             dz(c,jbot-1) = (snow_depth(c) - sum(dzmax_u(1:-snl(c)-2))) / 2._r8
+             dz(c,jbot)   = dz(c,jbot-1)
           else
-             dz(c,-1) = dzmax_u(-snl(c)-1)
-             dz(c,0)  = snow_depth(c) - sum(dzmax_u(1:-snl(c)-1))
+             dz(c,jbot-1) = dzmax_u(-snl(c)-1)
+             dz(c,jbot)   = snow_depth(c) - sum(dzmax_u(1:-snl(c)-1))
           endif
        endif
 
-       ! Initialize the node depth and the depth of layer interface
-       do j = 0, snl(c)+1, -1
+       ! Initialize the node depth and the depth of layer interface. The
+       ! recursion is anchored at zi(c,jbot), which is the soil surface off NVP
+       ! columns and the NVP top (-dz_nvp, from NVPLayerInit) on them; either
+       ! way it is already set and must not be reassigned here.
+       do j = jbot, snl(c)+1+jbot, -1
           z(c,j)    = zi(c,j) - 0.5_r8*dz(c,j)
           zi(c,j-1) = zi(c,j) - dz(c,j)
        end do
