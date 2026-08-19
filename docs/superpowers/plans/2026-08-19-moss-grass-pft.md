@@ -39,8 +39,10 @@ The main session is the **orchestrator**. For each task, in order:
    conservation). Address all reviewer findings — re-dispatching the implementer as
    needed — before committing.
 4. **Commit** only after reviewer comments are accounted for (see Git choreography).
-5. **Present the commit to Sam for review. Do not start the next task until Sam
-   approves.**
+5. **Present the commit to Sam for review**, including the prepared system-test
+   commands and expected outcomes. **Running those CTSM-FATES tests is part of Sam's
+   review** — Sam may run them or skip them. Do not start the next task until Sam
+   approves.
 
 ### Standing verification rule (every task)
 
@@ -55,10 +57,11 @@ of labor:**
   Claude performs **no other testing** — nothing that runs CTSM-FATES.
 - **Sam (and Sam alone; may choose to skip):** all testing that actually RUNS
   CTSM-FATES — the ALP2 baseline b4b comparisons, the moss smoke + exact-restart tests,
-  and science-sanity runs. Wherever a task's verification step names such a test,
-  Claude's job is to prepare the test commands and expected outcomes and present them
-  with the commit; Sam decides whether to run them, and task approval proceeds on Sam's
-  say-so either way.
+  and science-sanity runs. **These happen as part of Sam's post-commit review (loop
+  step 5), not as a pre-commit gate.** Wherever a task's verification step names such
+  a test, read it as: Claude prepares the commands and expected outcomes and presents
+  them with the commit; Sam decides whether to run them during review, and approval
+  proceeds on Sam's say-so either way.
 - The b4b intent stands throughout: `use_moss` off must remain bit-for-bit; the ALP2
   baselines (Task 0) are the instrument whenever Sam chooses to run them.
 
@@ -150,12 +153,12 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
 - [ ] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
   compset `I2000Clm60FatesSpRsGs`, testmods `clm/FatesColdSatPhen--clm/FatesALP2Bare`
   and `...BareGrass`), machines/compilers/categories per Step 0.
-- [ ] **Step 4: run and generate baselines (Sam).** On the target machine, run both
-  tests with baseline generation (`run_sys_tests ... --generate <baseline-tag>`); they
-  must PASS at base code. Record the baseline tag — later tasks' b4b comparisons use
-  it whenever Sam chooses to run them. Claude prepares the exact commands.
+- [ ] **Step 4: prepare the baseline-generation commands.** Claude writes out the exact
+  `run_sys_tests ... --generate <baseline-tag>` invocations and expected outcomes
+  (both tests PASS at base code) to present with the commit.
 - [ ] **Step 5: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
-  and tests").
+  and tests"). During post-commit review, Sam (optionally) runs the tests and generates
+  the baselines; the recorded baseline tag is what later tasks' b4b comparisons use.
 
 ### Task 1: `use_moss` and moss scalar namelist plumbing
 
@@ -466,15 +469,16 @@ NVP-branch moss param JSONs).
   patterns), the `FatesNvpOff` twins (moss code present but off — b4b sentinels), and
   the nocomp fixed-biogeography moss tests identified in Step 0; include an `ERS_D`
   exact-restart variant.
-- [ ] **Step 3: build check (Claude) + run (Sam).** Claude: `cd test-bld && qcmd --
-  ./case.build` passes. Sam (optional): run the new tests — expected: PASS with moss
-  as an inert grass-like PFT, exact restart, fatal conservation checks clean; the
-  abort case (`use_moss=.true.` with the default 6-class JSON) aborts cleanly with the
-  Task 3/4 messages; `FatesNvpOff` tests compare b4b against the Task 0 baselines.
-- [ ] **Step 4: baseline the moss tests (Sam, optional)** (`--generate`) so later tasks
-  can see exactly what each change does to moss behavior (expected diffs get
-  re-baselined task by task; unexpected diffs are caught).
-- [ ] **Step 5: reviews, then commit.**
+- [ ] **Step 3: build check.** `cd test-bld && qcmd -- ./case.build` passes.
+- [ ] **Step 4: prepare the system-test hand-off.** Claude writes out the new tests'
+  invocations and expected outcomes for Sam's review: PASS with moss as an inert
+  grass-like PFT, exact restart, fatal conservation checks clean; the abort case
+  (`use_moss=.true.` with the default 6-class JSON) aborts cleanly with the Task 3/4
+  messages; `FatesNvpOff` tests compare b4b against the Task 0 baselines; optionally
+  `--generate` moss baselines so later tasks can see exactly what each change does to
+  moss behavior.
+- [ ] **Step 5: reviews, then commit.** Sam's post-commit review optionally runs the
+  hand-off.
 
 ### Task 6: Live-moss fuel routing, cohort burn keying, and live-moss history
 
