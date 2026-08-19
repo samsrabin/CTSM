@@ -38,6 +38,15 @@ cd src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir 
 
 Namelist-touching tasks additionally run `bld/unit_testers/build-namelist_test.pl`.
 
+**Five aux_clm tests fail for a reason that is not ours**, and will keep doing so:
+`ERS_D_Ld7...decStart1851_noinitial`, `ERS_D...I2000Clm60FatesRs...FatesCold`,
+`SMS_D_Ly6...cropMonthOutput`, `SMS_Ld10_D...NEON-FATES-NIWO`, and
+`SMS_Lm3_D...FatesColdHydro` — all intel, debug, mpi-serial, and all running BGC or
+FATES so they initialize the CH4 inundated-fraction stream. CTSM issue #3798: a
+divide-by-zero in the ESMF regrid when `ch4finundatedmapalgo == bilinear` under
+intel/2025.3.2. They are in `ExpectedTestFails.xml`; the entries originally carried a
+testid suffix that stopped them auto-classifying, fixed in `6ad7df015`.
+
 **Namelist baselines change from Task 1 onward.** Every generated `lnd_in` now carries
 `use_nvp` in `clm_inparm` plus a 17-variable `nvp_inparm` group, so the test suite's
 namelist-comparison baselines need regenerating. Expected for a namelist addition, but
@@ -54,7 +63,7 @@ Filled by Task 18. One row per spec §10 gate.
 
 | Gate | Configuration | Result |
 |---|---|---|
-| Bit-for-bit vs `ctsm5.4.028` | `use_nvp=.false.` | |
+| Bit-for-bit vs `ctsm5.4.028` | `use_nvp=.false.` | **Interim pass at `23a59c7a9` (through Task 4).** aux_clm on derecho: **285 BASELINE PASS**, 3 BASELINE FAIL — two flagged EXPECTED FAIL, one (`SSPMATRIXCN_Ly5...ciso_monthly`) a stale baseline whose files are dated 2027-12 against our 2016-12, so cprnc compared nothing. Re-run at Task 18. |
 | Golden zero-thickness | `use_nvp=T, dz_nvp=0, frac_nvp=0` vs `use_nvp=F` | |
 | Partial-cover closure | `frac_nvp=0.3`, `0.7`, winter-crossing | |
 | Exact restart | `ERS`, `use_nvp=T, dz_nvp>0` | |
@@ -79,6 +88,7 @@ records which side wins at merge time.
 | `src/biogeophys/SnowHydrologyMod.F90` | `InitSnowLayers` blanket slot assignments stop at `col%get_jbot_snow(c)` so they cannot overwrite the NVP geometry with `spval`. Their branch left `InitSnowLayers` unmodified, which is why their cold-start snow lands in the moss slot (spec §4d). Superseded by the Task 5 reindex. | Ours. |
 | `src/biogeophys/WaterFluxType.F90` vs `WaterFluxBulkType.F90` | `qflx_nvp_to_snow_col` is declared in the **generic** `waterflux_type`; theirs is in the bulk type. `BalanceCheck` takes `class(waterflux_type)`, so the bulk placement is what forced their `select type` downcast, which spec §5 rejects. At merge the two declarations collide as a duplicate name. Consequence: the variable and its `QFLX_NVP_TO_SNOW` history field now exist on every water-tracer instance, not bulk only. | Ours — the whole point is that Task 14's snow balance reaches it without a downcast. |
 | `src/biogeophys/WaterDiagnosticType.F90` vs `WaterDiagnosticBulkType.F90` | `qg_nvp_col` is declared in the generic `waterdiagnostic_type`, alongside `qg_col`; theirs is in the bulk type. Same duplicate-name collision at merge. | Ours. |
+| `cime_config/testdefs/ExpectedTestFails.xml` | Five CTSM issue #3798 entries had their testid suffix stripped so they classify in any run, not only the one they were recorded from (`6ad7df015`). Unrelated to NVP, but their branch also edits this file, so it may conflict. | Either — the change is upstream-appropriate and belongs in a CTSM PR of its own. |
 
 ## Deferred items
 
