@@ -552,7 +552,9 @@ contains
     ! the layer's water came off the initial or restart file. is_cold_start is
     ! not resolved until the block above, so this cannot move up next to
     ! NVPLayerInit. No-op unless use_nvp.
+    if (masterproc) write(iulog,*) 'NVP_TRACE: initialize2 is_cold_start = ', is_cold_start
     if (is_cold_start) then
+       if (masterproc) write(iulog,*) 'NVP_TRACE: initialize2 calling NVPColdStart'
        call NVPColdStart(bounds_proc, temperature_inst, water_inst%waterstatebulk_inst, &
             water_inst%waterdiagnosticbulk_inst)
     end if

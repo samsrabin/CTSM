@@ -198,6 +198,8 @@ contains
     use ExcessIceStreamType                , only : excessicestream_type, UseExcessIceStreams
 
     use initVerticalMod                    , only : initVertical
+    use spmdMod                            , only : masterproc   ! NVP_TRACE: support
+    use clm_varctl                         , only : use_nvp      ! NVP_TRACE: support
     use SnowHydrologyMod                   , only : InitSnowLayers
     use NVPLayerDynamicsMod                , only : NVPLayerInit
     use accumulMod                         , only : print_accum_fields
@@ -292,11 +294,15 @@ contains
     ! which lays out the snow slots against col%jbot_sno. No-op unless use_nvp.
     !-----------------------------------------------
 
+    if (masterproc) write(iulog,*) 'NVP_TRACE: clm_instInit calling NVPLayerInit, use_nvp = ', use_nvp
+
     call NVPLayerInit(bounds)
 
     !-----------------------------------------------
     ! Set cold-start values for snow levels, snow layers and snow interfaces
     !-----------------------------------------------
+
+    if (masterproc) write(iulog,*) 'NVP_TRACE: clm_instInit calling InitSnowLayers (must follow NVPLayerInit)'
 
     call InitSnowLayers(bounds, snow_depth_col(bounds%begc:bounds%endc))
 
@@ -528,6 +534,7 @@ contains
     use decompMod       , only : get_proc_bounds, get_proc_clumps, get_clump_bounds
     use clm_varpar      , only : nlevsno
     use clm_varctl      , only : use_nvp
+    use spmdMod         , only : masterproc   ! NVP_TRACE: support
     use NVPLayerDynamicsMod, only : NVPLayerRestart
 
     !
@@ -552,6 +559,8 @@ contains
     ! use_nvp mismatch before any state has been read against the wrong layout.
     ! 'define' and 'write' only under use_nvp; 'read' always, because the probe
     ! for a file written with the other setting of use_nvp lives in there.
+    if (masterproc) write(iulog,*) 'NVP_TRACE: clm_instRest flag = ', trim(flag), &
+         ' entering NVPLayerRestart = ', (use_nvp .or. flag == 'read')
     if (use_nvp .or. flag == 'read') then
        call NVPLayerRestart(bounds, ncid, flag=flag)
     end if

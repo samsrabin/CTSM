@@ -2,7 +2,7 @@
 
 Working notes for merging this branch into `ctsm5.4.028_nvp`. Every deliberate
 divergence from that branch gets a row in "Intentional merge conflicts" as the
-task that creates it lands, so the merge rehearsal (Task 17) has a checklist to
+task that creates it lands, so the merge rehearsal (Task 18) has a checklist to
 compare the real conflict set against.
 
 Plan: `.claude/plans/2026-08-18-nvp-stub-implementation-of-velvety-harp.md`
@@ -46,11 +46,11 @@ it must be called out in the PR.
 **Intermediate commits are only expected to hold for `use_nvp = .false.`.** The
 `use_nvp = .true.` path is not coherent until the full task stack has landed —
 `jbot_sno` is set (Task 3) before the snow lifecycle is reindexed to respect it
-(Task 5), among others. `use_nvp=T` validation belongs to Task 17.
+(Task 5), among others. `use_nvp=T` validation belongs to Task 18.
 
 ## Verification results
 
-Filled by Task 17. One row per spec §10 gate.
+Filled by Task 18. One row per spec §10 gate.
 
 | Gate | Configuration | Result |
 |---|---|---|

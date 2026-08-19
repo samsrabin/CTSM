@@ -10,6 +10,8 @@ module WaterFluxType
   use clm_varpar     , only : nlevsno, nlevsoi
   use clm_varcon     , only : spval
   use decompMod      , only : bounds_type
+  use spmdMod        , only : masterproc   ! NVP_TRACE: support
+  use clm_varctl     , only : iulog         ! NVP_TRACE: support
   use decompMod      , only : subgrid_level_patch, subgrid_level_column, subgrid_level_landunit, subgrid_level_gridcell
   use LandunitType   , only : lun                
   use ColumnType     , only : col                
@@ -138,7 +140,9 @@ contains
     this%info => info
 
     call this%InitAllocate(bounds, tracer_vars)
+    if (masterproc) write(iulog,*) 'NVP_TRACE: waterflux Init: InitAllocate done (ival), calling InitHistory (sets spval)'
     call this%InitHistory(bounds)
+    if (masterproc) write(iulog,*) 'NVP_TRACE: waterflux Init: InitHistory done, calling InitCold (must restore 0)'
     call this%InitCold(bounds)
 
   end subroutine Init

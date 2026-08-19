@@ -193,6 +193,8 @@ contains
 
     call restFile_dimcheck( ncid )
 
+    if (masterproc) write(iulog,*) 'NVP_TRACE: restFile_read calling subgridRestRead ', &
+         '(restores DZSNO into col%dz slot 0; must precede clm_instRest)'
     call subgridRestRead(bounds_proc, ncid)
 
     ! Now that we have updated subgrid information, update the filters, active flags,
@@ -212,6 +214,7 @@ contains
 
     call accumulRest( ncid, flag='read' )
 
+    if (masterproc) write(iulog,*) 'NVP_TRACE: restFile_read calling clm_instRest flag = read'
     call clm_instRest( bounds_proc, ncid, flag='read', &
          writing_finidat_interp_dest_file=.false.)
 

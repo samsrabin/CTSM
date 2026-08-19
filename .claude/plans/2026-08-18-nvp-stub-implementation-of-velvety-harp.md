@@ -22,12 +22,18 @@ git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
 
   Add `.worktrees` to the `.gitignore` "DELETE THESE BEFORE MERGING" block (which already lists `test-bld`) so it never enters a commit. Referred to below as `<worktree>`. Submodules are deliberately not initialized — the stub harvests only CLM source (`src/main`, `src/biogeophys`, `bld/`) and has no FATES dependency.
 
-  The branch has moved on since the harvest commit, in `clm_varctl.F90`, `controlMod.F90`, both namelist XMLs, and `CLMBuildNamelist.pm` — **exactly Task 1's files**. So Task 1's "place `use_nvp` where their branch places it" anchors must be checked against the branch head as well as `<worktree>`, and Task 17's merge rehearsal targets the branch head at that time.
+  The branch has moved on since the harvest commit, in `clm_varctl.F90`, `controlMod.F90`, both namelist XMLs, and `CLMBuildNamelist.pm` — **exactly Task 1's files**. So Task 1's "place `use_nvp` where their branch places it" anchors must be checked against the branch head as well as `<worktree>`, and Task 18's merge rehearsal targets the branch head at that time.
 - `use_nvp = .false.` must remain **bit-for-bit** with stock: every new conditional must reduce algebraically to stock when `col%jbot_sno(c) == 0` (which is everywhere when `use_nvp=.false.`).
 - Match `ctsm5.4.028_nvp` names exactly wherever a counterpart exists (spec §1.7): `col%jbot_sno`, `col%nvp_layer_active`, `col%dz_nvp`, `col%frac_nvp`, `NVPParamsMod`, `NVPLayerDynamicsMod`, `qflx_nvp_*`, `qflx_ev_nvp*`, `eflx_sh_nvp`, `H2ONVP`/`T_NVP`/… history names, restart names `DZ_NVP`/`FRAC_NVP`/`JBOT_SNO`.
 - Never assume `frac_nvp = 1` (spec §1.4). Never let snow loops touch index 0 on NVP columns (spec §2). All moss physics gates on `nvp_is_present(c)` (spec §2).
 - **The five NVP index queries are type-bound, not module procedures** (settled in Task 2). Call them on the column object — `col%get_jtop_snow(c)`, `col%get_jbot_snow(c)`, `col%nvp_layer_exists(c)`, `col%nvp_is_present(c)`, `col%nvp_is_empty(c)` — so the spec §2 idiom table reads `do j = col%get_jtop_snow(c), col%get_jbot_snow(c)`. **In a routine that takes `col` as a dummy argument, this matters for correctness, not style:** referencing the module `col` through host association while it is argument-associated is not conforming (F2018 15.5.2.13) and lets a compiler assume the read cannot alias writes through the dummy. `SnowHydrologyMod`'s `ZeroEmptySnowLayers` is exactly such a routine, and five other files use the same pattern. Prefer `col%get_jbot_snow(c)` over the raw `col%jbot_sno(c)` component at call sites.
-- No debug writes. All `BalanceCheckMod` `endrun`s stay armed (spec §1.11).
+- All `BalanceCheckMod` `endrun`s stay armed (spec §1.11).
+- **Debug traces are allowed during development and are removed in Task 17.** Spec §1.11 permits `if (use_nvp)`-guarded, rate-limited diagnostics; this relaxes that further for the duration of the build-out, because the call-order questions this plan keeps raising are only answerable from a real run. Rules that make the removal mechanical and keep `use_nvp=.false.` honest:
+  - Every trace line is prefixed **`NVP_TRACE:`** and is the only thing on its line. Task 17 removes them by that marker, so a trace without it will survive and ship.
+  - Guard with `if (masterproc)` — 128 ranks otherwise.
+  - **Traces go AROUND call sites, not inside `use_nvp`-guarded routines.** A trace inside `NVPLayerInit` never fires with the flag off, which tells you nothing; a trace at the call site tells you the call was reached and whether it did anything. Trace the skipped case too.
+  - Trace the non-NVP routines whose firing order NVP depends on, not just NVP's own — the orderings that have actually mattered are `control_init` → `WaterType%ReadNamelist`, `NVPLayerInit` → `InitSnowLayers`, `subgridRestRead` → `clm_instRest`, and `InitAllocate` → `InitHistory` → `InitCold`. The last of these was got wrong in Task 4 despite being knowable by reading.
+  - Init-time only, or otherwise one-shot. Nothing inside a timestep loop.
 - Every code comment states a constraint, not a narration. New/changed comments in harvested code must be re-checked against OUR conventions (their stale comments caused bugs — spec §3).
 - Fortran style: match surrounding code (2-space indent, `_r8` literals, `associate` blocks, `SHR_ASSERT_ALL_FL` for bounds).
 - **Never change a line only for whitespace.** No re-aligning an existing declaration or `use` block to accommodate a longer new name, no stripping trailing whitespace on lines you did not otherwise need to touch, no reindenting untouched code. Let a new line be wider than its neighbors rather than moving them. Whitespace-only edits inflate the diff, land in `git blame`, and manufacture merge conflicts against `ctsm5.4.028_nvp` for no benefit. Check before finishing: `git diff --numstat` and `git diff -w --numstat` must report the same counts for every file.
@@ -43,7 +49,7 @@ git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
 7. Issues found → fix → **amend the task's commit** (`git commit --amend --no-edit`) → re-run the failed review stage.
 8. **Before presenting, run two mechanical sweeps.** Both close failures that have already recurred in this plan; neither is a judgment call, so do them by inspection rather than from memory.
    - **Plan consistency.** For every decision made in this task's Step 0 or during its reviews, ask what *else* in the plan it contradicts — not whether the plan reads consistently. A decision usually needs edits somewhere other than where it was made: Task 2's type-bound choice belonged in Global Constraints, because implementers never see another task's text; Task 4's zero-init decision left a justification in its own Interfaces block that later turned out to be wrong. Correct stale text in place; do not merely append the new decision beside it.
-   - **MERGE_NOTES completeness.** List every `[fix]`, every deliberate divergence from `ctsm5.4.028_nvp`, and every file this task touched that their branch also touches. Each needs a row. Task 17's merge rehearsal compares the real conflict set against that table, so an unlogged divergence surfaces there as an unexplained conflict. This was missed in Tasks 3 and 4.
+   - **MERGE_NOTES completeness.** List every `[fix]`, every deliberate divergence from `ctsm5.4.028_nvp`, and every file this task touched that their branch also touches. Each needs a row. Task 18's merge rehearsal compares the real conflict set against that table, so an unlogged divergence surfaces there as an unexplained conflict. This was missed in Tasks 3 and 4.
 
 9. **STOP. Present the task's diff + review outcomes to the user. Do not start the next task until the user approves.** User feedback → fix → amend → re-present.
 
@@ -83,7 +89,7 @@ cd <checkout>/src && qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py -
 ```
 Expected: all existing tests pass on the unmodified branch (this is the baseline).
 
-- [x] **Step 5: Write `MERGE_NOTES.md`** with sections: "Workspace" (checkout path, branch, harvest path), "Verification commands" (the two commands above, verbatim), "Verification results" (empty; Task 17 fills it), "Intentional merge conflicts" (empty table: | file | why ours differs | resolution |), "Deferred items" (copy the spec §8 table titles). This file accumulates one row per [fix] as tasks land.
+- [x] **Step 5: Write `MERGE_NOTES.md`** with sections: "Workspace" (checkout path, branch, harvest path), "Verification commands" (the two commands above, verbatim), "Verification results" (empty; Task 18 fills it), "Intentional merge conflicts" (empty table: | file | why ours differs | resolution |), "Deferred items" (copy the spec §8 table titles). This file accumulates one row per [fix] as tasks land.
 
 - [x] **Step 6: Commit**
 
@@ -511,7 +517,25 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 
 ---
 
-### Task 17: Verification & merge rehearsal (spec §10)
+### Task 17: Remove the NVP debug traces
+
+Runs **before** Task 18 so the final verification gates and the merge rehearsal see the code that actually ships. Every trace added under the Global Constraints debug-trace rule is removed here.
+
+**Files:** whichever carry `NVP_TRACE:` when this task starts — do not work from a list written earlier, it will be stale.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: decide whether any trace has proven useful enough to keep as a permanent `if (use_nvp)`-guarded diagnostic, which spec §1.11 does allow — if so it stops being a trace, loses the marker, and gets a comment saying what invariant it reports.
+
+- [ ] **Step 1: Remove them.** `grep -rn 'NVP_TRACE:' src/ bld/` is the complete work list. Delete each line, and any `if (masterproc)` wrapper, `use` statement, or local variable that existed only to support it. Removing a trace must not change indentation or spacing of surviving lines.
+
+- [ ] **Step 2: Prove none survive.** `grep -rn 'NVP_TRACE:' src/ bld/` returns nothing. Also confirm no orphaned `use shr_sys_mod, only : ...`/`masterproc` imports remain that nothing else uses — a dangling import compiles fine and ships as noise.
+
+- [ ] **Step 3: Verify.** Build check and unit tests (baseline 59/59). Then the check that matters: `git diff ctsm5.4.028 -- src/ bld/` must contain **zero** `write(iulog` additions outside `if (use_nvp)` guards. Spec §9c.2 lists their branch's ~128 debug writes, many unguarded, as the blocking defect that makes `use_nvp=.false.` non-bit-for-bit. This step is what keeps us from shipping the same defect.
+
+- [ ] **Step 4: Commit** `git commit -am "Remove NVP development debug traces"` → review/approval gate.
+
+---
+
+### Task 18: Verification & merge rehearsal (spec §10)
 
 No new source files. Run and record results in MERGE_NOTES.md § "Verification results":
 
