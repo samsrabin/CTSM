@@ -57,14 +57,20 @@ etc.), with these deliberate settings:
   (currently unread there) as the flag that marks moss/NVP PFTs. Grass = `woody==0 &&
   vascular==1`; moss = `woody==0 && vascular==0`. Per-PFT parameters necessarily live on
   the parameter file.
-- **Reproduction fixed:** grass defaults give `seed_alloc = 0` below a 3 cm dbh
-  reproduction threshold that moss (dbh ~0.03 cm) never crosses — moss would go extinct.
-  Set `fates_recruit_seed_alloc > 0` and drop the dbh threshold to ~0. ("Seed" is a mass
-  pool with first-order germination; representationally fine for spores/fragments.)
-- `fates_allom_dbh_maxheight < 15 cm` so germination takes the simple non-tree path,
-  skipping the tree-recruitment-scheme machinery.
-- Recruit height (`hgt_min`) toward the tall end of moss reality (~5–10 cm equivalent)
-  for numerical headroom above termination floors.
+- **Reproduction fixed (moss column only):** grass defaults give `seed_alloc = 0` below
+  a 3 cm dbh reproduction threshold that moss (dbh ~0.03 cm) never crosses — moss would
+  go extinct. For the moss column, set `fates_recruit_seed_alloc > 0` and drop the dbh
+  threshold to ~0; these are per-PFT (`fates_pft`-dimensioned) parameters, and all other
+  PFTs keep their defaults. ("Seed" is a mass pool with first-order germination;
+  representationally fine for spores/fragments.)
+- `fates_allom_dbh_maxheight < 15 cm` (moss column only) so germination takes the simple
+  non-tree path, skipping the tree-recruitment-scheme machinery. Grasses keep their
+  defaults (20–30 cm, which the tree-recruitment gate happens to classify as trees).
+- Recruit height (`hgt_min`): a **realistic** moss height — a taller recruit inflates
+  the allometric per-plant target biomass. Raise it only as a fallback if cohort
+  termination floors (`store_c` and number-density minima, which apply in all modes, not
+  just full competition) actually cull moss in testing; watch the termination-mortality
+  history diagnostics (`FATES_MORTALITY_TERMINATION_*`).
 - **Shallow grass-style roots, NOT the NVP branch's no-root profile mode 4.** Water
   conservation requires it: moss transpiration is extracted from soil through the
   FATES-supplied root profile (`rootr`); an all-zero profile would break the water budget
@@ -104,8 +110,16 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
   resistance factor `(1 − fwet)^12` (Porada et al. 2013).
 - **Wetness-limited capacity:** `vcmax × min(1, fwet/0.6)` (full capacity above 60%
   saturation; Porada et al. 2013).
-- **fwet proxy:** effective saturation of the top soil layer, computed from moisture
-  fields already present in `bc_in` (used by btran) — no new CTSM→FATES coupler fields.
+- **fwet proxy:** `fwet = max(top-soil-layer effective saturation, canopy wetted
+  fraction)` for the moss patch. The soil part comes from moisture fields already present
+  in `bc_in` (used by btran); the canopy wetted fraction is one new `bc_in` field (§7).
+- **Interception supplies the thallus-wetness signal.** Moss interception comes free and
+  unchanged from CTSM (`CanopyHydrologyMod`, no FATES branch): intercepted water enters
+  the patch canopy store (`liqcan`/`snocan`, capacity ~ LAI+SAI) and exits only by
+  evaporation from the wetted canopy fraction or by drip/throughfall to the ground —
+  never entering the plant, fully conserving. Because this is an existing
+  prognostic-water mechanism, the moss fwet proxy uses its wetted fraction directly (no
+  new water state is created), and drip additionally feeds the soil half of the proxy.
 - **Gas parameters use `t_veg`** (patch vegetation temperature) for moss initially. The
   NVP branch's per-cohort gas-parameter separation (FATES `33640d372`) is the drop-in
   pattern if a ground-temperature proxy is added later (§11).
@@ -120,32 +134,43 @@ checks remain fatal.
 
 ## 6. Fire
 
-All in FATES `fire/` plus the biomass routing points; design to be coordinated with
-Adrianna Foster:
+All in FATES `fire/` plus the biomass routing points:
 
-- **New seventh fuel class, "live moss,"** with its own SAV and bulk density (new entries
-  on the `fates_litterclass` dimension). Requires touching `FatesFuelClassesMod`
-  (`num_fuel_classes`), the length-6 parameter arrays, and the fragile CWD-index aliasing
-  in `EDPatchDynamicsMod` (burnt-litter loop assumes fuel classes 1–4 are CWD 1–4).
-- **Routing:** live biomass of moss PFTs (`vascular==0`) goes to the live-moss class
-  instead of live grass (`UpdateLiveGrass` in `FatesPatchMod`). Dead moss leaf litter
-  continues into the shared dead-leaves class (a distinct moss-duff class is a later
-  extension, §11).
-- **Moss fuel moisture is diagnostic from the fwet proxy** (top-layer soil saturation),
-  not the Nesterov index, via a moss branch in `UpdateFuelMoisture`. Initial functional
-  form: a simple monotonic mapping `moisture = a + b·fwet` (coefficients on the CTSM
-  namelist, §8), to be refined with Adrianna if a better-supported form exists.
-- **Burn response mirrors grass:** the live-moss class burns per its own effective
-  moisture; moss cohorts take `leaf_burn_frac` from the live-moss class's `frac_burnt`
-  (analogous to the existing live-grass keying in `EDPatchDynamicsMod`), combusting
-  leaf + sapwood + structure with the same 0.8 cap, defoliating without individual
-  mortality. Regrowth from storage stands in for regrowth from surviving fragments.
+- **Two new fuel classes — "live moss" and "dead moss (duff)"** — growing
+  `num_fuel_classes` from 6 to 8, each with its own SAV and bulk density (new entries on
+  the `fates_litterclass` dimension). Requires touching `FatesFuelClassesMod`, the
+  length-6 parameter arrays, and the fragile CWD-index aliasing in `EDPatchDynamicsMod`
+  (burnt-litter loop assumes fuel classes 1–4 are CWD 1–4).
+- **Live routing:** live biomass of moss PFTs (`vascular==0`) goes to the live-moss class
+  instead of live grass (`UpdateLiveGrass` in `FatesPatchMod`).
+- **Dead routing:** FATES litter carries no PFT tag — `litter%leaf_fines` is dimensioned
+  by decomposability pool only (`FatesLitterMod.F90`) — so dead moss gets parallel
+  `moss_fines` / `moss_fines_in` / `moss_fines_frag` pools on the litter object, threaded
+  through allocation, init, copy, fuse, burn, and fragmentation. Moss-PFT leaf and stem
+  turnover routes there instead of `leaf_fines`; the `moss_fines` pool feeds the
+  dead-moss fuel class; fragmentation feeds the same CTSM-BGC decomposition flux as leaf
+  fines, so carbon conservation holds end to end.
+- **Moss fuel moisture is diagnostic from the fwet proxy** (§5), not the Nesterov index,
+  via moss branches in `UpdateFuelMoisture`. Initial functional form: a simple monotonic
+  mapping `moisture = a + b·fwet`, with separate coefficient pairs for the live-moss and
+  dead-moss classes (all four on the CTSM namelist, §8); refinable if a better-supported
+  form emerges.
+- **Burn response mirrors grass:** each moss class burns per its own effective moisture.
+  Moss cohorts take `leaf_burn_frac` from the live-moss class's `frac_burnt` (analogous
+  to the existing live-grass keying in `EDPatchDynamicsMod`), combusting leaf + sapwood +
+  structure with the same 0.8 cap, defoliating without individual mortality — regrowth
+  from storage stands in for regrowth from surviving fragments. The `moss_fines` litter
+  pool burns per the dead-moss class's `frac_burnt`, alongside the existing burnt-litter
+  accounting.
 
 ## 7. CTSM–FATES interface
 
-No new coupler fields are required for the initial implementation (fwet proxy inputs
-already cross in `bc_in`). New scalar controls cross via the existing
-`set_fates_ctrlparms` mechanism.
+One new coupler field: the per-patch canopy wetted fraction (CTSM's `fwet_patch`)
+enters FATES as a new `bc_in` field via the standard 4-touch recipe (declare in
+`FatesInterfaceTypesMod`, allocate in `allocate_bcin`, flush in `zero_bcs`, fill in
+`clmfates_interfaceMod`), supplying the thallus-wetness half of the fwet proxy (§5).
+Soil-moisture inputs already cross in `bc_in`. New scalar controls cross via the
+existing `set_fates_ctrlparms` mechanism.
 
 ## 8. CTSM namelist
 
@@ -162,10 +187,11 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - `moss_height_allom` (string: `'grass_powerlaw'` | `'mat_thickness'`) → selects the
   height-allometry mode applied to moss PFTs (§4).
 - Moss science scalars: at minimum, moss bulk density (mat-thickness allometry) and the
-  moss fuel-moisture coefficients `a`, `b` (§6). Any further scalars discovered during
-  implementation follow the same convention. (Live-moss SAV and bulk density are *array*
-  entries on the existing `fates_litterclass` parameter-file dimension, which must grow
-  to 7 regardless — they stay on the parameter file like other array parameters.)
+  fuel-moisture coefficient pairs for the live-moss and dead-moss classes (`a`, `b` each;
+  §6). Any further scalars discovered during implementation follow the same convention.
+  (SAV and fuel bulk density for the two new classes are *array* entries on the existing
+  `fates_litterclass` parameter-file dimension, which must grow to 8 regardless — they
+  stay on the parameter file like other array parameters.)
 
 ## 9. Diagnostics and validation
 
@@ -173,8 +199,16 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   validates bookkeeping). `FATES_CROWNAREA_PF` etc. come free (requires
   `fates_history_dimlevel(2) >= 2`) and become the emergent-cover variables under full
   competition later.
-- New history: moss fuel load, moss fuel moisture, fwet proxy, plus standard per-PFT
-  biomass/GPP variables which are automatic.
+- New history variables for debugging and evaluation, at minimum:
+  - `FATES_MOSS_FWET` — the fwet proxy (patch-level), plus its two ingredients
+    (top-soil-layer saturation and canopy wetted fraction as seen by FATES) so proxy
+    behavior can be decomposed;
+  - `FATES_MOSS_VCMAX_SCALER` — the `min(1, fwet/0.6)` wetness scalar actually applied;
+  - fuel load and fuel moisture for the live-moss and dead-moss classes
+    (fuel-class-dimensioned history variables extend automatically when the dimension
+    grows to 8);
+  - moss height and the `moss_fines` litter pool.
+- Standard per-PFT biomass/GPP/crown-area variables come automatically.
 - Validation target: observed fractional cover of two moss species at boreal sites; plus
   qualitative fuel-load and fuel-moisture behavior.
 
@@ -195,7 +229,6 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   standard 4-touch recipe).
 - Moss temperature proxy (`t_grnd`/top-soil temperature) for gas parameters, consuming
   the per-cohort gas-parameter separation pattern.
-- A distinct dead-moss/duff fuel class.
 - Full competition: revisit `nclmax`, strict-PPA demotion, `comp_excln` weighting,
   termination-floor headroom; watch `FATES_MORTALITY_CANLEVEL_*`.
 - Moss effects on ground evaporation (e.g., exporting a per-patch surface resistance),
@@ -209,7 +242,10 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Moss lumped with grass in fire wind-attenuation and tree/grass area accounting.
 - Snow > moss height fully occludes photosynthesis (real bryophytes photosynthesize under
   thin snow).
-- Moss dead material shares the dead-leaves fuel class and standard litter decomposition.
+- Interception capacity uses the standard LAI-scaled formulation, which understates
+  moss's real water-holding capacity.
+- Dead moss decomposes at standard leaf-fines rates (its fuel identity is separate via
+  `moss_fines`, but its decomposition is not moss-specific).
 - In nocomp, moss cover is prescribed, not emergent.
 
 ## 13. Harvest list from `ctsm5.4.028_nvp`
