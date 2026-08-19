@@ -284,7 +284,7 @@ end function nvp_is_present
 
 ### Task 5: Snow layer lifecycle reindex (SnowHydrologyMod part 1)
 
-Split into 5a-5c at Step 0 (originally 5a-5d; 5d was merged into 5c once 5b's review showed every routine it covered writes a snow slot and so cannot stay stock past the last stopgap): the original single task was ~1,392 lines across eight
+Split into 5a-5c at Step 0 (originally 5a-5d; that 5d was merged into 5c once 5b's review showed every routine it covered writes a snow slot and so cannot stay stock past the last stopgap). A **new** 5d was added afterwards, at the user's request, for pFUnit coverage of the 5c reindex — it is test code, not a fifth slice of the reindex: the original single task was ~1,392 lines across eight
 routines, and unlike every task before it, it **rewrites live arithmetic** rather than
 adding guarded code. `CombineSnowLayers` (424 lines) and `DivideSnowLayers` (385) are
 each larger than all of Task 4. Each sub-task below builds, tests, and commits on its
@@ -295,7 +295,7 @@ own, and gets its own two-stage review.
 - Produces: snow occupies `col%get_jtop_snow(c) : col%get_jbot_snow(c)` on all columns; geometry recursions anchored at `zi(c, col%get_jbot_snow(c))`; max snow layers `nlevsno-1` where the NVP slot exists.
 - Apply the spec §2 idiom table. Every transformation must reduce to the stock expression when `jbot_sno == 0`, which is the whole bit-for-bit argument.
 
-**Verification for every sub-task**, in addition to the standard build check and unit tests: the **`clm_short`** suite against the `ctsm5.4.028` baseline, and for 5c the full **aux_clm** suite. This is the first task that can break bit-for-bit, and neither the build nor the unit tests can detect an answer change — aux_clm at Task 4 was the first thing that ever tested it.
+**Verification for sub-tasks 5a-5c**, in addition to the standard build check and unit tests: the **`clm_short`** suite against the `ctsm5.4.028` baseline, and for 5c the full **aux_clm** suite. Task 5d is test code and needs neither. This is the first task that can break bit-for-bit, and neither the build nor the unit tests can detect an answer change — aux_clm at Task 4 was the first thing that ever tested it.
 
 > **The user runs the test suites. Never run `run_sys_tests`, `clm_short`, or `aux_clm` yourself, and never launch a suite in the background.** Finish the build check and unit tests, then **STOP** and hand the sub-task to the user for the suite run. Report the results only after the user provides them; do not predict, assume, or characterize a suite outcome that has not been reported.
 
@@ -361,7 +361,7 @@ so it cannot take a per-column bound, and with the `nlevsno-1` cap an NVP column
 
 #### Task 5c: `DivideSnowLayers` and the rest of the snow lifecycle
 
-Absorbs what was Task 5d. **Every routine in this sub-task's scope writes a snow slot and so must be reindexed together**: `ZeroEmptySnowLayers` zeroes `dz(c,0)`/`z(c,0)`/`zi(c,-1)` whenever `snl(c) == 0`, `SnowCompaction` writes `dz(c,j)` at `SnowHydrologyMod:2076`, and `PostPercolation_AdjustLayerThicknesses` at `:1760` — all looping `-nlevsno+1, 0`. Left stock, they would not merely mis-account the moss layer, they would change its thickness or erase it.
+Absorbs what was originally Task 5d, the sweep-routine group (the Task 5d that now follows is a later, unrelated addition: pFUnit coverage). **Every routine in this sub-task's scope writes a snow slot and so must be reindexed together**: `ZeroEmptySnowLayers` zeroes `dz(c,0)`/`z(c,0)`/`zi(c,-1)` whenever `snl(c) == 0`, `SnowCompaction` writes `dz(c,j)` at `SnowHydrologyMod:2076`, and `PostPercolation_AdjustLayerThicknesses` at `:1760` — all looping `-nlevsno+1, 0`. Left stock, they would not merely mis-account the moss layer, they would change its thickness or erase it.
 
 **Files:** `src/biogeophys/SnowHydrologyMod.F90` — `DivideSnowLayers`, `ZeroEmptySnowLayers`, `SnowCompaction`, `PostPercolation_AdjustLayerThicknesses`, the `swe_old` fill; `src/biogeophys/WaterStateType.F90` — `CalculateTotalH2osno`, `CheckSnowConsistency`; `src/biogeophys/TotalWaterAndHeatMod.F90` — two loop lower bounds; `src/biogeochem/ch4Mod.F90` — comment only.
 
@@ -394,6 +394,61 @@ Absorbs what was Task 5d. **Every routine in this sub-task's scope writes a snow
 
 - [ ] **Step 8: Verify.** Build check and unit tests (baseline 59/59; the `SnowHydrology` binary must report 17 tests, two of which cover the NVP path). Then **STOP**: the user runs `clm_short` **and the full `aux_clm` suite** — Task 5 as a whole is the first rewrite of live snow arithmetic, so it gets the same gate that validated Task 4 — and reports the results. Do not run either. No suite test sets `use_nvp=.true.`, so these gate the `use_nvp=.false.` bit-for-bit requirement only.
 - [ ] **Step 9: Commit** `git commit -am "Reindex the remaining snow lifecycle for the NVP slot"` → review/approval gate. MERGE_NOTES rows across 5a-5c for every divergence from their guards, especially the honest-`snl` sites.
+
+---
+
+#### Task 5d: pFUnit coverage for the Task 5c reindex
+
+Tests only, plus **one** line of model code the user has explicitly approved (see Step 1) — so
+this sub-task cannot change answers and does not need a suite run. It exists because
+`DivideSnowLayers` is the second-largest rewrite in the plan and had **zero** coverage, and
+because Tasks 6-15 will keep editing every routine 5c touched.
+
+**Files:** `src/biogeophys/SnowHydrologyMod.F90` (one `public ::` line); new
+`src/biogeophys/test/SnowHydrology_test/test_SnowHydrology_{divideSnowLayers,zeroEmptySnowLayers,postPercolation}.pf`
+plus their three lines in that directory's `CMakeLists.txt`; new
+`src/biogeophys/test/WaterState_test/` (test file + `CMakeLists.txt` + one
+`add_subdirectory` line in `src/biogeophys/test/CMakeLists.txt`); and additions to the
+existing `src/biogeophys/test/TotalWaterAndHeat_test/test_total_water_and_heat.pf`.
+
+**What the harness already gives you — do not rebuild any of it:**
+- `col%jbot_sno` is a plain array; assign it directly in the `.pf` after the subgrid setup, exactly as `test_initSnowLayers_depth1_nvp` does. **Task 16 Step 1's premise that `unittestSubgridMod` needs parameterizing is wrong** — no unit-test infrastructure change is required, and Task 16 should be corrected when it is reached.
+- `unittestWaterTypeFactory` (`src/unit_test_shr/`) builds a real `water_type`: `init` → `setup_before_subgrid(my_nlevsoi, nlevgrnd_additional, my_nlevsno)` → subgrid setup → `setup_after_subgrid(snl=, dz=)` → `create_water_type(water_inst, ...)` → `teardown`. Worked examples: `test_irrigation.pf:371`, `test_water_type.pf:53`.
+- `temperature_type` and `aerosol_type` have **no** factory, and do not need one: hand-allocate only the components the routine under test touches, following `src/dyn_subgrid/test/dynConsBiogeophys_test/test_dyn_cons_biogeophys.pf:178-190`, and deallocate in `tearDown`. `ZeroEmptySnowLayers` needs only `temperature_inst%t_soisno_col`; `DivideSnowLayers` needs that plus the eight `aerosol_inst%mss_*_col` arrays and `snw_rds_col` / `frac_sno_eff_col`.
+- `unittestFilterBuilderMod::filter_from_range` builds `num_snowc` / `filter_snowc`.
+- **Ordering trap:** the water factory's `setup_before_subgrid` sets `nlevsno` itself, so a test using the factory must not also assign `nlevsno` directly the way the current `SnowHydrology` tests do. `SnowHydrologySetControlForTesting()` is still required for anything reading `dzmin`/`dzmax_u`/`dzmax_l`, and `SnowHydrologyClean()` in `tearDown`.
+- The pFUnit preprocessor cannot parse a trailing comment on an `@assert` line. Put the comment on its own line above.
+
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As every task. Known going in: (a) confirm `waterstatebulk_type` really is reachable as a `waterstate_type` for the type-bound `CalculateTotalH2osno` call, and that `waterdiagnosticbulk_inst` satisfies `ComputeLiqIceMassNonLake`'s `class(waterdiagnostic_type)` dummy — both are assumed below from the declarations, not from a compile; (b) decide whether `ComputeHeatNonLake` joins (d) or stays out, by reading what it needs beyond `ComputeLiqIceMassNonLake`.
+
+- [ ] **Step 1 — the one model-code line ([user-approved]).** `PostPercolation_AdjustLayerThicknesses` is private and takes nothing but plain arrays, which makes it the cheapest routine in Task 5c to test and the only one blocked from being tested at all. Add it to the existing block in `SnowHydrologyMod.F90` headed `! The following are public just for the sake of unit testing:`, alongside `SnowCappingExcess` and `SnowHydrologySetControlForTesting`. **This is the entire model-code footprint of Task 5d** — the user approved it explicitly; it is not scope creep, and it has no runtime effect.
+
+- [ ] **Step 2 — `CalculateTotalH2osno` (new `WaterState_test` directory).** Cases, each with the moss slot and the true top snow layer holding *distinctive* values so an off-by-one cannot pass:
+  - `jbot_sno = 0`, `snl = -3`: total is `h2osno_no_layers` plus slots `-2..0`. Locks stock.
+  - `jbot_sno = -1`, `snl = -3`: total must **include** slot `-3` and **exclude** slot 0. This is the assertion the whole reindex exists for.
+  - `jbot_sno = -1`, `snl = 0` (snow-free NVP column with cold-start moss water): total is `h2osno_no_layers` alone.
+  - **The third case doubles as the `CheckSnowConsistency` test.** `CalculateTotalH2osno` calls it under `#ifndef NDEBUG`, and before Task 5c Step 4 it scanned to slot 0 and would `endrun` on exactly this column. Its *passing* is the evidence — but that only holds if the unit-test build is a debug build. **Verify that, do not assume it**; if `NDEBUG` is defined, say so and drop the claim rather than leaving a comment asserting coverage that does not exist.
+
+- [ ] **Step 3 — `ZeroEmptySnowLayers` (new `.pf`).** The routine 5c's Step 0 called the geometry destroyer:
+  - `snl == 0`, `jbot == -1`, moss geometry and water set: `dz(c,0)`, `z(c,0)`, `zi(c,-1)`, `h2osoi_liq/ice(c,0)` and `t_soisno(c,0)` must all **survive**, while `-nlevsno+1 .. -1` are zeroed.
+  - `snl == 0`, `jbot == 0`: everything `-nlevsno+1 .. 0` zeroed. Locks stock.
+  - `snl = -2`, `jbot = -1`: slots above the pack zeroed; snow slots and moss untouched.
+  - Full pack, `snl = -(nlevsno-1)`, `jbot = -1`: nothing zeroed, and `zi(c,-nlevsno)` specifically untouched.
+
+- [ ] **Step 4 — `DivideSnowLayers` (new `.pf`).** Highest-value test in this sub-task:
+  - **Round trip, no subdivision:** `snl = -3`, `jbot = -1`, all layers below `dzmax_u`/`dzmax_l`. Every `dz`, `h2osoi_ice/liq`, `t_soisno`, aerosol mass and `snw_rds` must come back **unchanged**, and `snl` must still be `-3`. This is the sharpest test of the staging/un-staging map pair, and it is the cheapest — the plan text for Step 1 of 5c was itself wrong about the un-staging map, so this is the site with a demonstrated authoring hazard.
+  - **Subdivision:** `snl = -1`, `jbot = -1`, bottom layer over `dzmax_l(1)`. Assert `snl == -2`, mass conserved (ice and liquid summed over the pack), `dz(c,0)` untouched, `zi(c,-1)` still `-dz_nvp`, and the recursion closing: `zi(c,j) - dz(c,j) == zi(c,j-1)` across the pack.
+  - **The cap:** `snl = -(nlevsno-1)`, `jbot = -1`, bottom layer over threshold. `snl` must **not** grow past `-(nlevsno-1)`. This is the bounds-safety invariant — without it the geometry recursion writes below the start of `zi` — so it is the single most important assertion here.
+  - A `jbot = 0` mirror of the round-trip and cap cases, locking stock.
+
+- [ ] **Step 5 — `PostPercolation_AdjustLayerThicknesses` (new `.pf`).** All-array dummies, so no factory needed at all — build the arrays directly. `snl = -3`, `jbot = -1`: a snow layer whose water exceeds its `dz` grows; **`dz(c,0)` does not change even when the moss slot's water would imply a larger thickness**. Plus a `jbot = 0` mirror.
+
+- [ ] **Step 6 — `ComputeLiqIceMassNonLake` (append to `test_total_water_and_heat.pf`).** Note that file currently tests only the pure helpers (`LiquidWaterHeat`, `AdjustDeltaHeatForDeltaLiq`) — **no `Compute*` routine in `TotalWaterAndHeatMod` has any coverage**, so this is new ground and the setup has no local precedent to copy. `snl = -3`, `jbot = -1`: the total must include **both** the top snow layer at `-3` and the moss slot at 0 (5c deliberately left the upper bound at 0 — see its Step 6). Plus a `jbot = 0` mirror.
+
+- [ ] **Step 7 — mutation-test every new assertion.** A test written against code that already works proves nothing until you have seen it fail. For each new test: revert the corresponding Task 5c change in the working tree, confirm **that specific assertion** fails and that the `jbot = 0` cases still pass, then restore. Report which assertion caught which reversion. This is how `test_initSnowLayers_depth1_nvp` was validated in Task 5a, and it is not optional — a test that passes against both the fixed and the broken code is worse than no test, because it reads as coverage.
+
+- [ ] **Step 8: Verify.** Build check and unit tests. The `SnowHydrology` binary grows from 17 tests; the new `WaterState` binary appears; total rises above 59. **No suite run is needed** — everything here is test code except one `public ::` declaration, which cannot affect answers. Say so when handing off rather than leaving the user to decide whether to re-run `aux_clm`.
+- [ ] **Step 9: Commit** `git commit -am "Unit tests for the NVP snow lifecycle reindex"` → review/approval gate. No MERGE_NOTES row is needed for the test files (their branch has no counterpart), but the `public ::` line needs one.
 
 ---
 
@@ -619,7 +674,7 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 
 - [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: these tests arrive after the code they cover. Confirm whether that ordering stands, or whether the case (a)/(b)/(c) tests should instead be written alongside Tasks 5 and 14 (superpowers:test-driven-development would put them first).
 
-- [ ] **Step 1:** Parameterize the test-subgrid snow setup over `jbot_sno` (default 0 → all existing tests unchanged). Add cases: (a) `CalculateTotalH2osno` excludes slot 0 when `jbot_sno=-1`; (b) CombineSnowLayers vanishing bottom layer on an NVP column deposits into slot 0 when `dz(c,0)>0` and passes through when `dz(c,0)=0` with `qflx_sl_top_soil` booked; (c) TotalWaterAndHeat counts moss water+heat exactly once for `snl==0` and `snl<0`.
+- [ ] **Step 1:** ~~Parameterize the test-subgrid snow setup over `jbot_sno`~~ — **not needed**: `col%jbot_sno` is a plain array, assignable directly in a `.pf`, as Tasks 5a and 5d both do. Cases (a) and (c) below were **superseded by Task 5d**, which also covers `DivideSnowLayers`, `ZeroEmptySnowLayers` and `PostPercolation_AdjustLayerThicknesses`; only (b) remains for this task. Add cases: (a) `CalculateTotalH2osno` excludes slot 0 when `jbot_sno=-1`; (b) CombineSnowLayers vanishing bottom layer on an NVP column deposits into slot 0 when `dz(c,0)>0` and passes through when `dz(c,0)=0` with `qflx_sl_top_soil` booked; (c) TotalWaterAndHeat counts moss water+heat exactly once for `snl==0` and `snl<0`.
 - [ ] **Step 2:** Run the pFUnit suites (the standard per-commit unit-test command from the Execution Process — from `src/`, `qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp`) with the new cases included.
 - [ ] **Step 3: Commit** `git commit -am "Unit tests for NVP snow indexing and conservation"` → review/approval gate.
 
