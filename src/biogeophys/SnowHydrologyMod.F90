@@ -2270,8 +2270,12 @@ contains
              end if
 
              ! Booked whatever received the water: qflx_sl_top_soil records that the
-             ! snow pack lost it at the bottom, not where it went, and h2osno_total
-             ! excludes the NVP slot, so the snow balance needs the sink either way.
+             ! snow pack lost it at the bottom, not where it went. Its only consumer
+             ! is snow_sinks in BalanceCheckMod, so the sink is owed either way.
+             ! This is not yet consistent with the other side of that balance:
+             ! CalculateTotalH2osno still indexes snl(c)+1:0, which on an NVP column
+             ! both includes the moss slot and misses the top snow layer. errh2osno
+             ! closes only once that is reindexed too.
              if (j == jbot) then
 
                 do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
@@ -2330,8 +2334,9 @@ contains
 
     end do
 
-    ! j-outer and column-inner, so the per-column snow range goes in the guard
-    ! rather than in the loop bounds.
+    ! Excluding the moss slot here is what stops the all-snow-gone branch below
+    ! from firing on dz_nvp alone: snow_depth, zwice/zwliq and h2osno_total must
+    ! all count snow only.
     do j = -nlevsno+1,0
        do fc = 1, num_snowc
           c = filter_snowc(fc)
@@ -2537,8 +2542,8 @@ contains
 
     ! Reset the node depth and the depth of layer interface
 
-    ! j-outer and column-inner, so the per-column snow range goes in the guard.
-    ! The recursion is anchored at zi(c,jbot), which NVPLayerInit already set.
+    ! Anchored at zi(c,jbot), which NVPLayerInit set to -dz_nvp; the guard keeps
+    ! the recursion off slot 0 so that anchor is never overwritten.
     do j = 0, -nlevsno+1, -1
        do fc = 1, num_snowc
           c = filter_snowc(fc)
