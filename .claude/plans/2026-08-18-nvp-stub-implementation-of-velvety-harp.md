@@ -283,7 +283,7 @@ end function nvp_is_present
 
 ### Task 5: Snow layer lifecycle reindex (SnowHydrologyMod part 1)
 
-Split into 5a-5d at Step 0: the original single task was ~1,392 lines across eight
+Split into 5a-5c at Step 0 (originally 5a-5d; 5d was merged into 5c once 5b's review showed every routine it covered writes a snow slot and so cannot stay stock past the last stopgap): the original single task was ~1,392 lines across eight
 routines, and unlike every task before it, it **rewrites live arithmetic** rather than
 adding guarded code. `CombineSnowLayers` (424 lines) and `DivideSnowLayers` (385) are
 each larger than all of Task 4. Each sub-task below builds, tests, and commits on its
@@ -294,7 +294,7 @@ own, and gets its own two-stage review.
 - Produces: snow occupies `col%get_jtop_snow(c) : col%get_jbot_snow(c)` on all columns; geometry recursions anchored at `zi(c, col%get_jbot_snow(c))`; max snow layers `nlevsno-1` where the NVP slot exists.
 - Apply the spec §2 idiom table. Every transformation must reduce to the stock expression when `jbot_sno == 0`, which is the whole bit-for-bit argument.
 
-**Verification for every sub-task**, in addition to the standard build check and unit tests: the **`clm_short`** suite against the `ctsm5.4.028` baseline, and for 5d the full **aux_clm** suite. This is the first task that can break bit-for-bit, and neither the build nor the unit tests can detect an answer change — aux_clm at Task 4 was the first thing that ever tested it.
+**Verification for every sub-task**, in addition to the standard build check and unit tests: the **`clm_short`** suite against the `ctsm5.4.028` baseline, and for 5c the full **aux_clm** suite. This is the first task that can break bit-for-bit, and neither the build nor the unit tests can detect an answer change — aux_clm at Task 4 was the first thing that ever tested it.
 
 > **The user runs the test suites. Never run `run_sys_tests`, `clm_short`, or `aux_clm` yourself, and never launch a suite in the background.** Finish the build check and unit tests, then **STOP** and hand the sub-task to the user for the suite run. Report the results only after the user provides them; do not predict, assume, or characterize a suite outcome that has not been reported.
 
@@ -358,37 +358,29 @@ so it cannot take a per-column bound, and with the `nlevsno-1` cap an NVP column
 
 ---
 
-#### Task 5c: `DivideSnowLayers`
+#### Task 5c: `DivideSnowLayers` and the rest of the snow lifecycle
 
-**Files:** `src/biogeophys/SnowHydrologyMod.F90` — `DivideSnowLayers` (stock :2510-2895; theirs :2637-3068, [harvest, adapt])
+Absorbs what was Task 5d. **Every routine that writes a snow slot must be reindexed before the last stopgap comes off**, and 5b's reviews established that all of them do: `ZeroEmptySnowLayers` zeroes `dz(c,0)`/`z(c,0)`/`zi(c,-1)` whenever `snl(c) == 0`, `SnowCompaction` writes `dz(c,j)` at `:192`, and `PostPercolation_AdjustLayerThicknesses` at `:35` — all looping `-nlevsno+1, 0`. Left stock, they would not merely mis-account the moss layer, they would change its thickness or erase it.
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As above. Known going in: (a) their version carries two unconditional debug blocks — do not port them; (b) their `msno = abs(snl)-1` bookkeeping exists only for their `snl` convention; (c) **the entry `endrun` 5a placed here must NOT simply be deleted.** `ZeroEmptySnowLayers` is still stock and is the remaining geometry destroyer: its guard `j <= snl(c) .and. snl(c) > -nlevsno` fires at `j = 0` whenever `snl(c) == 0`, zeroing `dz(c,0)`, `z(c,0)` and `zi(c,-1)` — the moss geometry and the very anchor 5b's recursion depends on. It is reachable: `filter_snowc` is built before combining, so a column whose last layer just vanished still enters with `snl == 0`, and `HydrologyNoDrainageMod` calls it immediately after `CombineSnowLayers`/`DivideSnowLayers`. Settle in Step 0 whether to (i) move the guard again, to `ZeroEmptySnowLayers`, with 5d removing it — the pattern used at Task 3 and 5a; or (ii) pull `ZeroEmptySnowLayers` forward out of 5d into this sub-task, so the snow lifecycle becomes coherent in one step. Either way `use_nvp=.true.` does not become runnable until every routine that touches slot 0 is reindexed. The `use_nvp` import at `SnowHydrologyMod:26` exists solely for this guard and goes with it.
+**Files:** `src/biogeophys/SnowHydrologyMod.F90` — `DivideSnowLayers`, `ZeroEmptySnowLayers`, `SnowCompaction`, `PostPercolation_AdjustLayerThicknesses`, the `swe_old` fill; `src/biogeophys/WaterStateType.F90` — `CalculateTotalH2osno`, `CheckSnowConsistency`; `src/biogeochem/ch4Mod.F90` — comment only.
 
-- [ ] **Step 1 — the staging map.** `dzsno(c,k) = frac_sno * dz(c, k + snl(c) + jbot)`: the stock map shifted by `jbot`. `msno = abs(snl(c))` — honest, with no `-1` adjustment. Un-staging then never writes slot 0 on an NVP column structurally, because the map itself is shifted; no per-site guard is needed or wanted.
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As above. Known going in: (a) their `DivideSnowLayers` carries two unconditional debug blocks — do not port them; (b) their `msno = abs(snl)-1` bookkeeping exists only for their `snl` convention; (c) this sub-task removes the **last** stopgap, so `use_nvp=.true.` becomes runnable when it lands — everything below must be complete and consistent first.
 
-- [ ] **Step 2 — the subdivision cap.** `k < nlevsno - merge(1, 0, col%nvp_layer_exists(c))` (theirs :2815, keep). This is what enforces the `nlevsno-1` invariant that `get_jtop_snow`'s doc comment relies on.
+- [ ] **Step 1 — `DivideSnowLayers` (stock :2510-2895; theirs :2637-3068, [harvest, adapt]).** Staging map `dzsno(c,k) = frac_sno * dz(c, k + snl(c) + jbot)` — the stock map shifted by `jbot`; `msno = abs(snl(c))`, honest, with no `-1` adjustment. Un-staging then never writes slot 0 structurally, because the map itself is shifted — no per-site guard is wanted. Subdivision cap `k < nlevsno - merge(1, 0, col%nvp_layer_exists(c))` (theirs :2815, keep): this is what enforces the `nlevsno-1` invariant, and 5a's review established that invariant is **load-bearing for bounds safety**, not just design — without it an NVP column at full pack writes one element below the start of `dz`, `z` and `zi`. `snl = -msno`, stock. Geometry re-anchored at `zi(c,jbot)`; check whether that recursion is `j`-outer like `CombineSnowLayers`' — if so change the guard, not the bounds.
 
-- [ ] **Step 3 — `snl` and geometry.** `snl = -msno`, stock. Geometry re-anchored at `zi(c,jbot)`; check whether that recursion is `j`-outer like `CombineSnowLayers`' — if so, change the guard, not the bounds.
+- [ ] **Step 2 — the loop-bound sweep.** In `SnowCompaction`, `ZeroEmptySnowLayers` and `PostPercolation_AdjustLayerThicknesses`: loop ends `0 → col%get_jbot_snow(c)` and guards `j >= snl(c)+1 → j >= col%get_jtop_snow(c)`. With those bounds their `cycle`-at-`j==0` guards are unnecessary — the loops never reach slot 0 on an NVP column. Structural exclusion beats per-site opt-out: a missed site then fails loudly with a wrong range rather than silently treating moss as snow (spec §1.2).
+  **`ZeroEmptySnowLayers` is the one routine here that takes `col` as a dummy argument** (`:2908`), which is why Task 2 made the queries type-bound — `col%get_jbot_snow(c)` binds to the dummy, and a module-level function reading the global `col` would not be conforming (F2018 15.5.2.13). Its guard `j <= snl(c) .and. snl(c) > -nlevsno` fires at `j = 0` when `snl(c) == 0`; that is the geometry destroyer, and it is reachable because `filter_snowc` is built before combining, so a column whose last layer just vanished still enters with `snl == 0`.
 
-- [ ] **Step 4: Verify.** Build check and unit tests. Then **STOP**: the user runs `clm_short` and reports the result. Do not run it.
-- [ ] **Step 5: Commit** `git commit -am "Reindex DivideSnowLayers for the NVP slot"` → review/approval gate.
+- [ ] **Step 3 — `swe_old` ([fix]).** Their branch left this bare loop including the moss slot while `AerosolMod` excludes it — an inconsistency feeding SNICAR/aerosol scaling (spec §5). Exclude it here.
 
----
+- [ ] **Step 4 — pull two loop bounds forward from Task 14.** `CalculateTotalH2osno` (`WaterStateType.F90:913`) still runs `do j = col%snl(c)+1, 0`, which on an NVP column with `snl = -3` sums `-2..0`: it includes the moss slot **and misses a real snow layer**. `CheckSnowConsistency` (`:958`) scans `-nlevsno+1 : snl(c)`, which likewise covers real snow layers and would abort debug builds. Reindex both to the `get_jtop_snow`/`get_jbot_snow` range. Without this, `errh2osno` cannot close once the stopgap is gone — 5b books `qflx_sl_top_soil` correctly, but the other side of the balance would be wrong — and the armed `endrun` in `BalanceCheckMod` would abort every `use_nvp=.true.` run, including the golden zero-thickness case. Task 14 keeps the rest of its scope.
 
-#### Task 5d: Loop-bound sweep, `swe_old`, and the ch4Mod comment
+- [ ] **Step 5 — the ch4Mod comment (spec §2).** One comment at `ch4Mod`'s `j == 0` sites stating that index 0 there is an **atmosphere pseudo-layer**, not the NVP slot, and must not be transformed by the §2 idiom table. Nothing else in that file changes.
 
-**Files:** `src/biogeophys/SnowHydrologyMod.F90` — `SnowCompaction`, `ZeroEmptySnowLayers`, `PostPercolation_AdjustLayerThicknesses`, the `swe_old` fill; plus `src/biogeochem/ch4Mod.F90` (comment only)
+- [ ] **Step 6 — remove the last stopgap.** Delete the entry `endrun` 5a placed in `DivideSnowLayers`, and the `use_nvp` import at `SnowHydrologyMod:26` that exists solely for it. After this, `use_nvp=.true.` is a runnable configuration for the first time.
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As above. Known going in: (a) `ZeroEmptySnowLayers` is the one routine here that takes `col` as a dummy argument (`:2908`), which is exactly why Task 2 made the queries type-bound — `col%get_jbot_snow(c)` binds to the dummy, and a module-level function reading the global `col` would not be conforming; (b) add a MERGE_NOTES line for a signed-zero nuance 5a's review surfaced: `Bulk_InitializeSnowPack` now writes `z(c,jbot) = zi(c,jbot) - 0.5_r8*dz(c,jbot)` where stock had the literal `-0.5_r8*dz(c,0)`, and their branch kept the literal. The two differ only if `dz` is exactly zero, which `snow_dzmin_1 = 0.010` prevents — but `snow_dzmin_1` has no `valid_values` and no positivity assertion, so a pathological namelist could admit it. Not reachable by any test, and `cprnc` scores ±0 as no difference; worth recording rather than guarding.
-
-- [ ] **Step 1 — the sweep.** In each routine, loop ends `0 → col%get_jbot_snow(c)` and guards `j >= snl(c)+1 → j >= col%get_jtop_snow(c)`. With those bounds, their `cycle`-at-`j==0` guards are unnecessary: the loops simply never reach slot 0 on an NVP column. Structural exclusion beats a per-site opt-out — a missed site then fails loudly with a wrong range rather than silently treating moss as snow (spec §1.2).
-
-- [ ] **Step 2 — `swe_old` ([fix]).** Their branch left this bare loop including the moss slot, while `AerosolMod` excludes it — an inconsistency that feeds SNICAR/aerosol scaling (spec §5). Exclude it here.
-
-- [ ] **Step 3 — the ch4Mod comment (spec §2).** Add one clarifying comment at `ch4Mod`'s `j == 0` sites stating that index 0 there is an **atmosphere pseudo-layer**, not the NVP slot, and must not be transformed by the §2 idiom table. Nothing else in that file changes. This is the one item the plan's Self-Review claimed was already assigned to a step and was not.
-
-- [ ] **Step 4: Verify.** Build check and unit tests. Then **STOP**: the user runs `clm_short` **and the full `aux_clm` suite** — Task 5 as a whole is the first rewrite of live snow arithmetic, so it gets the same gate that validated Task 4 — and reports the results. Do not run either.
-- [ ] **Step 5: Commit** `git commit -am "Sweep remaining snow loop bounds around the NVP slot"` → review/approval gate. MERGE_NOTES rows across 5a-5d for every divergence from their guards, especially the honest-`snl` sites.
+- [ ] **Step 7: Verify.** Build check and unit tests (baseline 59/59; the `SnowHydrology` binary must report 17 tests, two of which cover the NVP path). Then **STOP**: the user runs `clm_short` **and the full `aux_clm` suite** — Task 5 as a whole is the first rewrite of live snow arithmetic, so it gets the same gate that validated Task 4 — and reports the results. Do not run either.
+- [ ] **Step 8: Commit** `git commit -am "Reindex the remaining snow lifecycle for the NVP slot"` → review/approval gate. MERGE_NOTES rows across 5a-5c for every divergence from their guards, especially the honest-`snl` sites.
 
 ---
 
@@ -575,7 +567,7 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 - [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer. Known going in: Step 3 offers two ways to avoid the `select type` downcast (move the flux to the generic `waterflux_type`, or correct in a bulk-only wrapper) — pick one here.
 
 - [ ] **Step 1:** snow loops in `TotalWaterAndHeatMod` → `get_jtop_snow..jbot_sno` bounds; add the moss terms unconditionally on `nvp_layer_exists` columns (zero when empty): water mass `h2osoi_liq/ice(c,0)`; heat: `AccumulateLiquidWaterHeat(t_soisno(c,0), h2osoi_liq(c,0))` + ice `TempToHeat(cv=h2osoi_ice(c,0)*cpice)` + solid `TempToHeat(cv=csol_nvp*(1-watsat_nvp)*dz(c,0))` — **both** mass and heat, **both** with the same single predicate (their §2b bug: heat side missing when `snl==0`).
-- [ ] **Step 2:** `CalculateTotalH2osno` excludes slot 0 via the loop bound; `CheckSnowConsistency` range shifts likewise. Layerless-snow heat temperature source: `t_soisno(c, merge(0, 1, nvp_is_present(c)))` at their :688 counterpart (consistent with Task 7 Step 4).
+- [ ] **Step 2:** ~~`CalculateTotalH2osno` excludes slot 0 via the loop bound; `CheckSnowConsistency` range shifts likewise.~~ **Both were pulled forward into Task 5c Step 4** — without them `errh2osno` cannot close once Task 5's stopgap is removed, so `use_nvp=.true.` would abort in the armed balance check on every run. Verify here that they are present and correct rather than re-doing them. Layerless-snow heat temperature source: `t_soisno(c, merge(0, 1, nvp_is_present(c)))` at their :688 counterpart (consistent with Task 7 Step 4).
 - [ ] **Step 3 [fix]:** `BalanceCheckMod`: add `qflx_nvp_to_snow_col` to `snow_sources` WITHOUT `select type` — route it via the generic `waterflux_type` (add the member there rather than the bulk type; check how `qflx_snow_drain` is declared — same home) or compute the correction in a bulk-only wrapper before the generic check. `qflx_sl_top_soil` now set correctly by Task 5, so no other snow-balance change. All `endrun`s untouched (armed).
 - [ ] **Step 4: Run build check. Step 5: Commit** `git commit -am "NVP conservation accounting in totals and balance checks"` → review/approval gate.
 
