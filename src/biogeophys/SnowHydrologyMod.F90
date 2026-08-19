@@ -2117,6 +2117,8 @@ contains
     integer :: i,k                              ! loop indices
     integer :: j,l                              ! node indices
     integer :: wi                               ! index of water tracer or bulk
+    integer :: jbot                             ! index of the bottom snow layer (0, or -1 with NVP)
+    integer :: jrcv                             ! index of the layer receiving a vanishing layer's water
     integer :: msn_old(bounds%begc:bounds%endc) ! number of top snow layer
     integer :: mssi(bounds%begc:bounds%endc)    ! node index
     integer :: neibor                           ! adjacent node selected for combination
@@ -2172,19 +2174,6 @@ contains
          z                => col%z                                 & ! Output: [real(r8) (:,:) ] layer thickness (m)
     )
 
-    ! This routine still assumes the pack ends at slot 0, so on a column that
-    ! carries the NVP slot it would combine the NVP layer as if it were snow.
-    ! Remove this guard when CombineSnowLayers is reindexed.
-    if (use_nvp) then
-       do fc = 1, num_snowc
-          c = filter_snowc(fc)
-          if (col%nvp_layer_exists(c)) then
-             call endrun(msg='ERROR: CombineSnowLayers is not yet reindexed for the NVP '// &
-                  'slot, so snow on an NVP column cannot be combined. '//errMsg(sourcefile, __LINE__))
-          end if
-       end do
-    end if
-
     ! Determine model time step
 
     dtime = get_step_size_real()
@@ -2224,30 +2213,44 @@ contains
     do fc = 1, num_snowc
        c = filter_snowc(fc)
        l = col%landunit(c)
-       do j = msn_old(c)+1,0
+       jbot = col%get_jbot_snow(c)
+       do j = msn_old(c)+1+jbot, jbot
           ! use 0.01 to avoid runaway ice buildup
           if (h2osoi_ice_bulk(c,j) <= .01_r8) then
-             if (j < 0 .or. (ltype(l) == istsoil .or. urbpoi(l) .or. ltype(l) == istcrop)) then
+             ! j < jbot means the layer below is still snow.
+             if (j < jbot .or. (ltype(l) == istsoil .or. urbpoi(l) .or. ltype(l) == istcrop)) then
                 ! Note that, for landunits other than soil, crop and urban, the above
                 ! conditional prevents us from trying to transfer the bottom snow layer's
                 ! water content to the soil, since there is no soil to receive ti.
 
+                ! The layer below receives the water, except at the bottom of a pack
+                ! whose NVP slot is empty: a zero-thickness layer can store nothing, so
+                ! the water passes through to soil layer 1 in the same timestep.
+                if (j == jbot .and. col%nvp_is_empty(c)) then
+                   jrcv = 1
+                else
+                   jrcv = j + 1
+                end if
+
                 do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                    associate(w => water_inst%bulk_and_tracers(wi))
 
-                   w%waterstate_inst%h2osoi_liq_col(c,j+1) = &
-                        w%waterstate_inst%h2osoi_liq_col(c,j+1) + &
+                   w%waterstate_inst%h2osoi_liq_col(c,jrcv) = &
+                        w%waterstate_inst%h2osoi_liq_col(c,jrcv) + &
                         w%waterstate_inst%h2osoi_liq_col(c,j)
 
-                   w%waterstate_inst%h2osoi_ice_col(c,j+1) = &
-                        w%waterstate_inst%h2osoi_ice_col(c,j+1) + &
+                   w%waterstate_inst%h2osoi_ice_col(c,jrcv) = &
+                        w%waterstate_inst%h2osoi_ice_col(c,jrcv) + &
                         w%waterstate_inst%h2osoi_ice_col(c,j)
 
                    end associate
                 end do
              end if
 
-             if (j < 0) then
+             ! Stopping at the bottom of the pack keeps both the dz merge and the
+             ! aerosol merges out of the NVP slot; the aerosols are dropped there,
+             ! exactly as stock drops them when the whole pack disappears.
+             if (j < jbot) then
                 dz(c,j+1) = dz(c,j+1) + dz(c,j)
 
                 mss_bcphi(c,j+1) = mss_bcphi(c,j+1)  + mss_bcphi(c,j)
@@ -2266,7 +2269,10 @@ contains
                 ! would be more thorough to do so.
              end if
 
-             if (j == 0) then
+             ! Booked whatever received the water: qflx_sl_top_soil records that the
+             ! snow pack lost it at the bottom, not where it went, and h2osno_total
+             ! excludes the NVP slot, so the snow balance needs the sink either way.
+             if (j == jbot) then
 
                 do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                    associate(w => water_inst%bulk_and_tracers(wi))
@@ -2279,8 +2285,8 @@ contains
              end if
 
              ! shift all elements above this down one.
-             if (j > snl(c)+1 .and. snl(c) < -1) then
-                do i = j, snl(c)+2, -1
+             if (j > snl(c)+1+jbot .and. snl(c) < -1) then
+                do i = j, snl(c)+2+jbot, -1
                    do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                       associate(w => water_inst%bulk_and_tracers(wi))
 
@@ -2324,10 +2330,12 @@ contains
 
     end do
 
+    ! j-outer and column-inner, so the per-column snow range goes in the guard
+    ! rather than in the loop bounds.
     do j = -nlevsno+1,0
        do fc = 1, num_snowc
           c = filter_snowc(fc)
-          if (j >= snl(c)+1) then
+          if (j >= col%get_jtop_snow(c) .and. j <= col%get_jbot_snow(c)) then
              do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                 associate(w => water_inst%bulk_and_tracers(wi))
 
@@ -2361,6 +2369,14 @@ contains
                ((ltype(l) /= istdlak) .and. ((frac_sno_eff(c)*snow_depth(c) < dzmin(1))  &
                .or. (h2osno_total(c)/(frac_sno_eff(c)*snow_depth(c)) < 50._r8)))) then
 
+             ! The liquid ponds in the NVP layer where NVP is physically there; an
+             ! empty slot can store nothing, so it goes to soil layer 1 as in stock.
+             ! The ice stays as layerless snow, which sits on top of the NVP layer.
+             if (col%nvp_is_present(c)) then
+                jrcv = 0
+             else
+                jrcv = 1
+             end if
 
              do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                 associate(w => water_inst%bulk_and_tracers(wi))
@@ -2371,8 +2387,8 @@ contains
 
                 w%waterstate_inst%h2osno_no_layers_col(c) = zwice(wi,c)
                 if (ltype(l) == istsoil .or. urbpoi(l) .or. ltype(l) == istcrop) then
-                   w%waterstate_inst%h2osoi_liq_col(c,1) = &
-                        w%waterstate_inst%h2osoi_liq_col(c,1) + zwliq(wi,c)
+                   w%waterstate_inst%h2osoi_liq_col(c,jrcv) = &
+                        w%waterstate_inst%h2osoi_liq_col(c,jrcv) + zwliq(wi,c)
                 end if
 
                 end associate
@@ -2409,6 +2425,7 @@ contains
 
     do fc = 1, num_snowc
        c = filter_snowc(fc)
+       jbot = col%get_jbot_snow(c)
 
        ! Two or more layers
 
@@ -2417,13 +2434,13 @@ contains
           msn_old(c) = snl(c)
           mssi(c) = 1
 
-          do i = msn_old(c)+1,0
+          do i = msn_old(c)+1+jbot, jbot
              if ((frac_sno_eff(c)*dz(c,i) < dzminloc(mssi(c))) .or. &
                   ((h2osoi_ice_bulk(c,i) + h2osoi_liq_bulk(c,i))/(frac_sno_eff(c)*dz(c,i)) < 50._r8)) then
-                if (i == snl(c)+1) then
+                if (i == snl(c)+1+jbot) then
                    ! If top node is removed, combine with bottom neighbor.
                    neibor = i + 1
-                else if (i == 0) then
+                else if (i == jbot) then
                    ! If the bottom neighbor is not snow, combine with the top neighbor.
                    neibor = i - 1
                 else
@@ -2474,9 +2491,9 @@ contains
                 end do
 
                 ! Now shift all elements above this down one.
-                if (j-1 > snl(c)+1) then
+                if (j-1 > snl(c)+1+jbot) then
 
-                   do k = j-1, snl(c)+2, -1
+                   do k = j-1, snl(c)+2+jbot, -1
                       do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
                          associate(w => water_inst%bulk_and_tracers(wi))
 
@@ -2520,10 +2537,12 @@ contains
 
     ! Reset the node depth and the depth of layer interface
 
+    ! j-outer and column-inner, so the per-column snow range goes in the guard.
+    ! The recursion is anchored at zi(c,jbot), which NVPLayerInit already set.
     do j = 0, -nlevsno+1, -1
        do fc = 1, num_snowc
           c = filter_snowc(fc)
-          if (j >= snl(c) + 1) then
+          if (j >= col%get_jtop_snow(c) .and. j <= col%get_jbot_snow(c)) then
              z(c,j) = zi(c,j) - 0.5_r8*dz(c,j)
              zi(c,j-1) = zi(c,j) - dz(c,j)
           end if
