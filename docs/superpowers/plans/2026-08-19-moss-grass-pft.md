@@ -39,8 +39,8 @@ The main session is the **orchestrator**. For each task, in order:
    conservation). Address all reviewer findings — re-dispatching the implementer as
    needed — before committing.
 4. **Commit** only after reviewer comments are accounted for (see Git choreography).
-5. **Present the commit to Sam for review**, including the prepared system-test
-   commands and expected outcomes. **Running those CTSM-FATES tests is part of Sam's
+5. **Present the commit to Sam for review**, including which system tests are relevant
+   and the expected outcome of each. **Running those CTSM-FATES tests is part of Sam's
    review** — Sam may run them or skip them. Do not start the next task until Sam
    approves.
 
@@ -59,9 +59,11 @@ of labor:**
   CTSM-FATES — the ALP2 baseline b4b comparisons, the moss smoke + exact-restart tests,
   and science-sanity runs. **These happen as part of Sam's post-commit review (loop
   step 5), not as a pre-commit gate.** Wherever a task's verification step names such
-  a test, read it as: Claude prepares the commands and expected outcomes and presents
-  them with the commit; Sam decides whether to run them during review, and approval
-  proceeds on Sam's say-so either way.
+  a test, read it as: Claude names which tests are relevant and states what outcome to
+  expect from each, and presents that with the commit; Sam decides whether to run them
+  during review, and approval proceeds on Sam's say-so either way. Claude does **not**
+  write `run_sys_tests` invocations, `--generate`/`--compare` flags, or baseline tags —
+  Sam owns how the tests are launched and how baselines are named.
 - The b4b intent stands throughout: `use_moss` off must remain bit-for-bit; the ALP2
   baselines (Task 0) are the instrument whenever Sam chooses to run them.
 
@@ -95,15 +97,24 @@ carry a FATES pointer bump) + at most one FATES commit.
   foreclose full-competition mode. (Spec §2.)
 - Fortran code follows surrounding CTSM/FATES style (naming, `_r8` literals, `endrun`
   with `fates_log()`/`iulog` messages).
+- **Commits contain no unnecessary churn.** Touch only lines the change requires: no
+  whitespace-only edits, no reflowing or re-indenting untouched code, no reformatting
+  neighboring lines. In particular, do **not** re-align a block's `=`, `::`, or trailing
+  comments just because a new line is longer or shorter — Sam does not care about
+  preserving column alignment, and a realigned block buries the real change in the diff.
+  Prefer adding a line that fits the existing alignment loosely over adjusting others.
 - New moss history variables follow the existing conditional-registration patterns in
   `main/FatesHistoryInterfaceMod.F90` (register only when `hlm_use_moss==itrue`;
   patch→site averaging per existing helpers). The first task to add one (Task 6)
   establishes the pattern; later tasks follow it. **Every task that adds a
   moss-specific history variable also adds it to the output list (`hist_fincl`) in the
   `FatesNvp` testmod's `user_nl_clm`, in that same task.**
-- Reference implementations to harvest are on `ctsm5.4.028_nvp` (worktree at
-  `.worktrees/nvp`) and FATES commit `33640d372` (available in `src/fates`'s object
-  store; view files with `git -C src/fates show 33640d372:<path>`).
+- Reference implementations to harvest are on `ctsm5.4.028_nvp` — a branch on the
+  **`huitang-earth`** remote (`https://github.com/huitang-earth/CTSM.git`), *not* on
+  `origin`; worktree at `.worktrees/nvp`, created 2026-08-19 at branch tip `997cb054a`.
+  `git fetch huitang-earth ctsm5.4.028_nvp` also brings FATES commit `33640d372` into
+  `src/fates`'s object store (it is not there beforehand); view files with
+  `git -C src/fates show 33640d372:<path>`.
 
 ---
 
@@ -115,6 +126,7 @@ carry a FATES pointer bump) + at most one FATES commit.
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2BareGrass/user_nl_clm` (+ ditto)
 - Modify: `cime_config/testdefs/testlist_clm.xml`
 - Modify: `.gitmodules` + submodule pointers for `ccs_config` and `cdeps`
+- Modify: `.gitignore` (add `.worktrees/` under "REMOVE BEFORE MERGE")
 
 **Interfaces:**
 - Consumes: nothing (pure test infrastructure at the base code).
@@ -132,33 +144,59 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
 `ccs_config` (`samsrabin/ccs_config_cesm.git` @ `b6387972b`) and `cdeps`
 (@ `42f9a6b06`) fork pointers.
 
-- [ ] **Step 0 (orchestrator):** Diff the two testmod dirs and the relevant testlist
-  entries out of the NVP worktree. Confirm with Sam: (a) point `ccs_config`/`cdeps` at
-  the same fork commits as the NVP branch (needed for `1x1_ALP2`; note the standing
-  caveat that fork pointers must be reverted/upstreamed before any merge to CTSM
-  master); (b) which testlist categories to use on our branch (the NVP entries use
-  `fates` plus NVP-specific categories — suggest a new `fates_moss` category so the
-  suite is one `run_sys_tests` invocation); (c) confirm the fsurdat/paramfile testdata
-  paths above are already populated on the target machine's `$DIN_LOC_ROOT`; (d) which
-  machine runs the suite (the NVP entries are defined on derecho intel/gnu — confirm).
-  Forward check: the `FatesNvp`/`FatesNvpOff` testmods do not exist on this branch
-  yet — they arrive (adapted) in Task 5, which also brings the remaining NVP-branch
-  tests. Task 0's two baseline tests reference only `FatesColdSatPhen` +
-  `FatesALP2Bare{,Grass}`.
-- [ ] **Step 1: copy the two testmod dirs** from the NVP worktree verbatim (they contain
-  only `fsurdat` and `fates_paramfile` settings — keep the paramfile line pointing at
-  the existing testdata JSON for now; Task 5 adds moss variants).
-- [ ] **Step 2: update submodules.** Edit `.gitmodules` (`ccs_config`, `cdeps`: url +
-  fxtag per Step 0) and check out the corresponding submodule commits.
+- [x] **Step 0 (orchestrator) — COMPLETE (2026-08-19).** NVP worktree created at
+  `.worktrees/nvp` (branch `ctsm5.4.028_nvp`, tip `997cb054a`); testmod dirs and the
+  `1x1_ALP2` testlist block (NVP lines 4905–5090) inspected. Resolutions from Sam:
+  - **Submodules.** Point `ccs_config` at
+    `https://github.com/samsrabin/ccs_config_cesm.git` @
+    `b6387972bba85d25b0e81ebc03035864e283823c`, matching the NVP branch. For `cdeps`,
+    bump `fxtag` to `42f9a6b064ca8d1843a7849c58cc733b3994f94e` but leave **both** `url`
+    and `fxDONOTUSEurl` at upstream `https://github.com/ESCOMP/CDEPS.git` — that commit
+    is reachable in upstream CDEPS (verified by fetch), and the NVP branch has these two
+    fields swapped (fork URL parked in `fxDONOTUSEurl`). Standing caveat: the
+    `ccs_config` fork pointer must be reverted or upstreamed before any merge to master.
+  - **Categories.** Use the NVP branch's scheme verbatim — `fates` plus `fates_nvp`,
+    `fates_nvp_short`, `fates_nvp_long`, `fates_nvp_nonvp`, `fates_nvp_short_nonvp`,
+    `fates_nvp_long_nonvp`. No new `fates_moss` category. Short = `Ld5`, long = `Ly2`;
+    the `*_nonvp` categories hold the `FatesNvpOff` tests, which arrive in Task 5.
+  - **Testmod names.** Keep the NVP branch's names verbatim (`FatesNvp`, `FatesNvpOff`,
+    `FatesALP2*`); do **not** rename to `FatesMoss*`.
+  - **Testdata.** Verified present on derecho's `$DIN_LOC_ROOT`
+    (`/glade/campaign/cesm/cesmdata/cseg/inputdata`): all `fsurdat`
+    `surfdata_ALP2_hist_2000_16pfts_c260427*.nc` variants and the default/moss paramfile
+    JSONs under `lnd/clm2/testdata/moss/`.
+  - **Machines/compilers.** As the NVP entries do: derecho intel, derecho gnu, and izumi
+    nag. (Note the NVP branch omits izumi from the `*_nonvp` categories — mirror that.)
+  - **`use_bedrock`.** Set `use_bedrock = .true.` in **all** `FatesALP2*` testmods — it
+    matters for running at this site — and **not** in `FatesNvp`. Task 5 must drop the
+    `use_bedrock` line when it ports `FatesNvp`.
+  - **`.gitignore`.** Add `.worktrees/` (done, under "REMOVE BEFORE MERGE").
+  - **Finding for later tasks.** CIME keys baselines by full test name *including
+    testmods*, so Task 5's `FatesNvpOff` tests cannot compare against Task 0's
+    baselines — they need baselines of their own, generated at Task 5. Task 0's two
+    plain tests carry no `FatesNvp*` testmod, so `use_moss` takes its `.false.`
+    default: those are the b4b sentinel for Tasks 1–4.
+  - Forward check: `FatesNvp`/`FatesNvpOff` do not exist on this branch yet — they
+    arrive (adapted) in Task 5 along with the remaining NVP-branch tests. Task 0's two
+    baseline tests reference only `FatesColdSatPhen` + `FatesALP2Bare{,Grass}`.
+- [ ] **Step 1: copy the two testmod dirs** from the NVP worktree (each is a two-line
+  `user_nl_clm` with only `fsurdat` and `fates_paramfile`, no `include_user_mods`) — keep
+  the paramfile line pointing at the existing testdata JSON for now (Task 5 adds moss
+  variants), and add `use_bedrock = .true.` to each per Step 0.
+- [ ] **Step 2: update submodules.** Edit `.gitmodules` (`ccs_config`: url + fxtag;
+  `cdeps`: fxtag only — see Step 0) and check out the corresponding submodule commits.
 - [ ] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
   compset `I2000Clm60FatesSpRsGs`, testmods `clm/FatesColdSatPhen--clm/FatesALP2Bare`
-  and `...BareGrass`), machines/compilers/categories per Step 0.
-- [ ] **Step 4: prepare the baseline-generation commands.** Claude writes out the exact
-  `run_sys_tests ... --generate <baseline-tag>` invocations and expected outcomes
-  (both tests PASS at base code) to present with the commit.
-- [ ] **Step 5: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
-  and tests"). During post-commit review, Sam (optionally) runs the tests and generates
-  the baselines; the recorded baseline tag is what later tasks' b4b comparisons use.
+  and `...BareGrass`), machines/compilers/categories per Step 0. These are new
+  constructions, not ports: every ALP2 entry on the NVP branch composes `FatesNvp` or
+  `FatesNvpOff`, so there is no no-moss ALP2 test there to copy. Model the `<machines>`
+  and `<options>` blocks on the NVP branch's `FatesNvp--FatesALP2Bare{,Grass}` entries
+  (NVP lines 4972, 4989), minus the `FatesNvp` testmod.
+- [ ] **Step 4: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
+  and tests"). During post-commit review, Sam (optionally) runs the two tests and
+  generates baselines from them; expected outcome is that both PASS at base code. Sam
+  owns the baseline tag and its naming convention — Claude does not write the
+  `run_sys_tests` invocations and does not need to know the tag.
 
 ### Task 1: `use_moss` and moss scalar namelist plumbing
 
@@ -455,14 +493,18 @@ NVP-branch moss param JSONs).
 - [ ] **Step 0 (orchestrator):** Inspect the four NVP-branch testmods and the full
   NVP-branch `testlist_clm.xml` block at `1x1_ALP2` (including entries beyond the four
   Task 0 brought in — identify the ones exercising nocomp fixed-biogeography, per the
-  NVP test comments). Adaptation decisions to confirm with Sam: (a) `FatesNvp` on our
-  branch sets `use_moss=.true.` (the `use_nvp*`/`nvp_rad_model_ground` settings don't
-  exist here) — keep `use_bedrock=.true.`?; (b) `FatesNvpOff` correspondingly
-  overrides `use_moss=.false.`; (c) the two ALP2 moss testmods keep their fsurdat
-  paths but point `fates_paramfile` at the committed Task 2 JSON (the NVP-branch
-  JSONs lack the 8-entry litterclass dimension); (d) which NVP-branch test entries to
-  bring in, and under which categories. Forward check: Tasks 6–11 hand these tests to
-  Sam and Tasks 6–10 append history variables to `FatesNvp/user_nl_clm`.
+  NVP test comments). Already resolved in Task 0's Step 0, do not re-ask: (a) `FatesNvp`
+  on our branch contains **only** `use_moss = .true.` — the `use_nvp*` /
+  `nvp_rad_model_ground` settings don't exist here, and `use_bedrock = .true.` lives in
+  the `FatesALP2*` testmods instead (so drop that line when porting `FatesNvp`);
+  (b) `FatesNvpOff` correspondingly includes `../FatesNvp` and overrides
+  `use_moss = .false.`; (c) the two new ALP2 moss testmods keep their NVP fsurdat paths
+  and also carry `use_bedrock = .true.`, but point `fates_paramfile` at the committed
+  Task 2 JSON (the NVP-branch JSONs lack the 8-entry litterclass dimension);
+  (d) categories are the NVP branch's `fates_nvp*` scheme, machines derecho intel/gnu +
+  izumi nag. Still to confirm with Sam: which NVP-branch test entries to bring in beyond
+  the nocomp-fixedbiogeo and `FatesNvpOff` sets. Forward check: Tasks 6–11 hand these
+  tests to Sam and Tasks 6–10 append history variables to `FatesNvp/user_nl_clm`.
 - [ ] **Step 1: port the four testmods**, adapted per Step 0.
 - [ ] **Step 2: testlist.** Add the remaining NVP-branch tests (adapted testmod
   compositions), covering: SP-mode moss (`FatesColdSatPhen--FatesNvp--FatesALP2*Moss`
@@ -470,13 +512,16 @@ NVP-branch moss param JSONs).
   the nocomp fixed-biogeography moss tests identified in Step 0; include an `ERS_D`
   exact-restart variant.
 - [ ] **Step 3: build check.** `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` passes.
-- [ ] **Step 4: prepare the system-test hand-off.** Claude writes out the new tests'
-  invocations and expected outcomes for Sam's review: PASS with moss as an inert
-  grass-like PFT, exact restart, fatal conservation checks clean; the abort case
-  (`use_moss=.true.` with the default 6-class JSON) aborts cleanly with the Task 3/4
-  messages; `FatesNvpOff` tests compare b4b against the Task 0 baselines; optionally
-  `--generate` moss baselines so later tasks can see exactly what each change does to
-  moss behavior.
+- [ ] **Step 4: state the expected outcomes** for Sam's review, naming each new test:
+  PASS with moss as an inert grass-like PFT, exact restart, fatal conservation checks
+  clean; the abort case (`use_moss=.true.` with the default 6-class JSON) aborts cleanly
+  with the Task 3/4 messages. Flag to Sam that the `FatesNvpOff` tests cannot be compared
+  against the Task 0 baselines — CIME keys baselines by full test name including
+  testmods, and these carry `--clm-FatesNvpOff--` — so they need baselines generated here
+  if they are to serve, from Task 6 on, as the moss-off b4b sentinel alongside Task 0's
+  plain tests. Moss baselines generated at this task would likewise let later tasks see
+  exactly what each change does to moss behavior. Whether and how to generate any of
+  these is Sam's call.
 - [ ] **Step 5: reviews, then commit.** Sam's post-commit review optionally runs the
   hand-off.
 
