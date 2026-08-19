@@ -304,11 +304,24 @@ own, and gets its own two-stage review.
 
 **Files:** `src/biogeophys/SnowHydrologyMod.F90` — `InitSnowLayers`, `Bulk_InitializeSnowPack`, `UpdateState_InitializeSnowPack`
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this sub-task against the spec and the code. **STOP** and put questions to the user; write resolutions here before dispatching. Known going in: this sub-task **removes two Task 3 stopgaps** — the `endrun` on `jbot < 0 .and. snow_depth(c) >= dzmin(1)`, and the minimal `jbot`-bounded guard on the `spval`/zeroing assignments, both of which exist only because cold-start snow placement was not yet reindexed. Confirm both are gone and that nothing else depended on them.
+- [x] **Step 0: Plan review — DONE.** Resolutions folded into the steps below. Facts established against the code, so the implementer does not have to rediscover them:
+  - **`InitSnowLayers`' geometry loop is inside the column loop** (`do j = 0, snl(c)+1, -1`), so unlike `CombineSnowLayers` in 5b it **can** take a per-column bound: `do j = jbot, snl(c)+1+jbot, -1`. The two routines need opposite treatments; do not generalize one to the other.
+  - The `zi(c,0) = 0._r8` in the too-little-snow branch **stays**. The slice above it stops at `jbot-1`, correctly leaving `zi(-1)` as the moss top (which must not be zeroed) and `zi(0)` as the soil-surface datum.
+  - Neither `InitializeSnowPack` routine takes `col` as a dummy argument, so the module `col` is in scope and the type-bound queries are unproblematic here.
+  - Capping at `nlevsno-1` gives a deep-snow NVP column a **thicker bottom layer** than stock, since the same depth spreads over one fewer layer. Inherent to reserving the slot (spec §1.1) — expected, not a defect.
 
-- [ ] **Step 1 — `InitSnowLayers` (stock :2955-3145; [fix], their branch left it unmodified).** Cold-start snow placement runs `dz(c,jbot)` down to `dz(c,jbot-k)`. Layer-count logic is unchanged but capped at `nlevsno-1` where `col%nvp_layer_exists(c)`. The geometry loop is anchored at `zi(c,jbot)`, which `NVPLayerInit` already set to `-dz_nvp` — **do not reset it here.** The lake short-circuit and no-snow branches zero only slots `<= jbot`, never slot 0 on an NVP column, because that is moss geometry.
+- [ ] **Step 0a: Move the Task 3 stopgap, do not just delete it (user decision).** Task 3 added an `endrun` in `InitSnowLayers` on `jbot < 0 .and. snow_depth(c) >= dzmin(1)`, plus a minimal `jbot`-bounded guard on the `spval` and zeroing assignments. Both exist only because placement was not yet reindexed, and both are superseded here — delete them. But after this sub-task `CombineSnowLayers` and `DivideSnowLayers` still assume snow ends at slot 0, so `use_nvp=.true.` would stop refusing to run and instead run wrong at the first combine or divide. Add an entry `endrun` to **both** routines firing on `col%nvp_layer_exists(c) .and. col%snl(c) < 0`, each removed by the sub-task that reindexes it (5b, 5c). No test sets `use_nvp=.true.`, so `clm_short` and `aux_clm` are unaffected.
 
-- [ ] **Step 2 — `Bulk_InitializeSnowPack` / `UpdateState_InitializeSnowPack` (stock :955-1012, :919-952; theirs :944-1029, [harvest, adapt]).** First layer is created at index `jbot` with `snl = -1` (honest `snl`, not their `-2`); `zi(c,jbot-1) = zi(c,jbot) - dz(c,jbot)`; the `t_soisno` / `h2osoi_*` / `frac_iceold` writes land at `(c,jbot)`.
+- [ ] **Step 1 — `InitSnowLayers` (stock :2955-3145; [fix], their branch left it unmodified).** Every snow slot index gains `jbot`, which is 0 off NVP columns so each expression is the stock expression there:
+  - single-layer case: `dz(c,0) = snow_depth(c)` → `dz(c,jbot)`
+  - the all-but-bottom-two loop: `dz(c,j+snl(c)) = dzmax_u(j)` → `dz(c,j+snl(c)+jbot)`
+  - the hardcoded bottom pair: `dz(c,-1)`/`dz(c,0)` → `dz(c,jbot-1)`/`dz(c,jbot)`
+  - layer-count search: cap at `nlevsno - merge(1, 0, col%nvp_layer_exists(c))` instead of `nlevsno`
+  - geometry loop: `do j = 0, snl(c)+1, -1` → `do j = jbot, snl(c)+1+jbot, -1`, anchored at `zi(c,jbot)`, which `NVPLayerInit` already set to `-dz_nvp` — **do not reset it here**
+
+  The lake short-circuit and no-snow branches zero only slots `<= jbot`, never slot 0 on an NVP column, because that is moss geometry.
+
+- [ ] **Step 2 — `Bulk_InitializeSnowPack` / `UpdateState_InitializeSnowPack` (stock :955-1012, :919-952; theirs :944-1029, [harvest, adapt]).** First layer is created at index `jbot` with `snl = -1` (honest `snl`, not their `-2`); `zi(c,jbot-1) = zi(c,jbot) - dz(c,jbot)`; the `t_soisno` / `h2osoi_*` / `frac_iceold` writes land at `(c,jbot)`. In `UpdateState_InitializeSnowPack` that is the pair `h2osoi_ice(c,0) = h2osno_no_layers(c)` and `h2osoi_liq(c,0) = 0._r8` (:947-948) — both move to `(c,jbot)`. Its `h2osoi_*` dummies are declared `(bounds%begc:, -nlevsno+1:)`, so index `jbot = -1` is in bounds.
 
 - [ ] **Step 3: Verify.** Build check and unit tests (baseline 59/59). Then **STOP**: the user runs `clm_short` against the `ctsm5.4.028` baseline and reports the result. Do not run it.
 - [ ] **Step 4: Commit** `git commit -am "Reindex snow pack creation and cold-start placement for the NVP slot"` → review/approval gate.
@@ -319,7 +332,7 @@ own, and gets its own two-stage review.
 
 **Files:** `src/biogeophys/SnowHydrologyMod.F90` — `CombineSnowLayers` (stock :2083-2507; theirs :2171-2634, [harvest+fix])
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As above. Known going in: this is the `[fix]`-heaviest routine in the plan — four separate corrections to their branch — and the one where their single-layer combination bug lived.
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As above. Known going in: (a) this is the `[fix]`-heaviest routine in the plan — four separate corrections to their branch — and the one where their single-layer combination bug lived; (b) **this sub-task removes the entry `endrun` that 5a placed here** (`col%nvp_layer_exists(c) .and. col%snl(c) < 0`). It exists only while this routine still assumes snow ends at slot 0.
 
 - [ ] **Step 1 — loop bounds and the landunit guard.** The vanishing-thin-layer loop becomes `do j = msn_old(c)+1+jbot, jbot` (equivalently `col%get_jtop_snow(c), col%get_jbot_snow(c)`, since `msn_old(c) = snl(c)`). The landunit guard `if (j < 0 .or. (ltype(l) == istsoil .or. urbpoi(l) .or. ltype(l) == istcrop))` becomes `j < jbot`: it means "not the bottom layer, or the landunit has something beneath to receive the water".
 
@@ -349,7 +362,7 @@ so it cannot take a per-column bound, and with the `nlevsno-1` cap an NVP column
 
 **Files:** `src/biogeophys/SnowHydrologyMod.F90` — `DivideSnowLayers` (stock :2510-2895; theirs :2637-3068, [harvest, adapt])
 
-- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As above. Known going in: their version carries two unconditional debug blocks — do not port them; and their `msno = abs(snl)-1` bookkeeping exists only for their `snl` convention.
+- [ ] **Step 0: Plan review (orchestrator; do not delegate).** As above. Known going in: (a) their version carries two unconditional debug blocks — do not port them; (b) their `msno = abs(snl)-1` bookkeeping exists only for their `snl` convention; (c) **this sub-task removes the entry `endrun` that 5a placed here** (`col%nvp_layer_exists(c) .and. col%snl(c) < 0`). With 5c landed, no stopgap remains and `use_nvp=.true.` becomes a runnable configuration for the first time — the snow lifecycle is then fully reindexed.
 
 - [ ] **Step 1 — the staging map.** `dzsno(c,k) = frac_sno * dz(c, k + snl(c) + jbot)`: the stock map shifted by `jbot`. `msno = abs(snl(c))` — honest, with no `-1` adjustment. Un-staging then never writes slot 0 on an NVP column structurally, because the map itself is shifted; no per-site guard is needed or wanted.
 
