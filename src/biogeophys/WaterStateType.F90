@@ -13,7 +13,7 @@ module WaterStateType
   use abortutils     , only : endrun
   use decompMod      , only : bounds_type
   use decompMod      , only : subgrid_level_patch, subgrid_level_column, subgrid_level_landunit, subgrid_level_gridcell
-  use clm_varctl     , only : use_bedrock, use_excess_ice, iulog
+  use clm_varctl     , only : use_bedrock, use_excess_ice, iulog, use_nvp
   use spmdMod        , only : masterproc
   use clm_varctl     , only : use_fates, use_hillslope
   use clm_varpar     , only : nlevgrnd, nlevsoi, nlevurb, nlevmaxurbgrnd, nlevsno   
@@ -40,6 +40,7 @@ module WaterStateType
      real(r8), pointer :: h2osoi_vol_col         (:,:) ! col volumetric soil water (0<=h2osoi_vol<=watsat) [m3/m3]  (nlevgrnd)
      real(r8), pointer :: h2osoi_vol_prs_grc     (:,:) ! grc volumetric soil water prescribed (0<=h2osoi_vol<=watsat) [m3/m3]  (nlevgrnd)
      real(r8), pointer :: h2osfc_col             (:)   ! col surface water (mm H2O)
+     real(r8), pointer :: h2onvp_col             (:)   ! col nvp (moss/lichen) water content (mm H2O)
      real(r8), pointer :: snocan_patch           (:)   ! patch canopy snow water (mm H2O)
      real(r8), pointer :: liqcan_patch           (:)   ! patch canopy liquid water (mm H2O)
 
@@ -149,6 +150,9 @@ contains
          container = tracer_vars, &
          bounds = bounds, subgrid_level = subgrid_level_patch)
     call AllocateVar1d(var = this%h2osfc_col, name = 'h2osfc_col', &
+         container = tracer_vars, &
+         bounds = bounds, subgrid_level = subgrid_level_column)
+    call AllocateVar1d(var = this%h2onvp_col, name = 'h2onvp_col', &
          container = tracer_vars, &
          bounds = bounds, subgrid_level = subgrid_level_column)
     call AllocateVar1d(var = this%wa_col, name = 'wa_col', &
@@ -317,6 +321,15 @@ contains
     !                  can be provided through FATES specific history diagnostics
     !                  if need be.
 
+    if (use_nvp) then
+       this%h2onvp_col(begc:endc) = spval
+       call hist_addfld1d ( &
+            fname=this%info%fname('H2ONVP'), &
+            units='mm', &
+            avgflag='A', &
+            long_name=this%info%lname('nvp (moss/lichen) water content'), &
+            ptr_col=this%h2onvp_col, default='active')
+    end if
 
   end subroutine InitHistory
 
@@ -360,6 +373,7 @@ contains
     associate(snl => col%snl) 
 
       this%h2osfc_col(bounds%begc:bounds%endc) = 0._r8
+      this%h2onvp_col(bounds%begc:bounds%endc) = 0._r8
       this%snocan_patch(bounds%begp:bounds%endp) = 0._r8
       this%liqcan_patch(bounds%begp:bounds%endp) = 0._r8
       this%stream_water_volume_lun(bounds%begl:bounds%endl) = 0._r8
@@ -849,6 +863,14 @@ contains
        end if
 
     endif   ! end if if-read flag
+
+    if (use_nvp) then
+       call restartvar(ncid=ncid, flag=flag, varname=this%info%fname('H2ONVP'), &
+            xtype=ncd_double, dim1name='column', &
+            long_name=this%info%lname('nvp (moss/lichen) water content'), &
+            units='mm', &
+            interpinic_flag='interp', readvar=readvar, data=this%h2onvp_col)
+    end if
 
   end subroutine Restart
 

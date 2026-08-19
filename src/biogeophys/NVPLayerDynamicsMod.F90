@@ -29,6 +29,7 @@ module NVPLayerDynamicsMod
   use clm_varctl      , only : use_nvp, iulog
   use TemperatureType , only : temperature_type
   use WaterStateType  , only : waterstate_type
+  use WaterDiagnosticBulkType, only : waterdiagnosticbulk_type
   use NVPParamsMod    , only : dz_nvp, frac_nvp, watsat_nvp, nvp_coldstart_saturation
   !
   implicit none
@@ -213,7 +214,7 @@ contains
   end subroutine NVPLayerRestart
 
   !-----------------------------------------------------------------------
-  subroutine NVPColdStart(bounds, temperature_inst, waterstate_inst)
+  subroutine NVPColdStart(bounds, temperature_inst, waterstate_inst, waterdiagnosticbulk_inst)
     !
     ! !DESCRIPTION:
     ! Fill the NVP pore space at cold start. The generic WaterStateType cold
@@ -234,10 +235,18 @@ contains
     ! keeps spval; giving it mass without a temperature would hand the first
     ! energy calculation ~4 kg m-2 of ice at 1.e36 K.
     !
+    ! fwet_nvp_col is set here too, because it is a lagged state, not a
+    ! derived diagnostic: surface fluxes read it to get the evaporation
+    ! resistance, and the moss water balance writes it, but BareGroundFluxes
+    ! and CanopyFluxes run before HydrologyNoDrainage in every timestep. So the
+    ! resistance always uses the wetness hydrology wrote on the previous step,
+    ! and the first step needs an initial value or it reads spval.
+    !
     ! !ARGUMENTS:
     type(bounds_type)      , intent(in)    :: bounds
     type(temperature_type) , intent(inout) :: temperature_inst
     class(waterstate_type) , intent(inout) :: waterstate_inst
+    type(waterdiagnosticbulk_type), intent(inout) :: waterdiagnosticbulk_inst
     !
     ! !LOCAL VARIABLES:
     integer  :: c            ! column index
@@ -248,6 +257,9 @@ contains
 
     associate(                                       &
          t_soisno   => temperature_inst%t_soisno_col , & ! In/out: [real(r8) (:,:)] soil temperature (K)
+         t_nvp      => temperature_inst%t_nvp_col    , & ! Output: [real(r8) (:)  ] NVP layer temperature (K)
+         h2onvp     => waterstate_inst%h2onvp_col    , & ! Output: [real(r8) (:)  ] NVP layer water (kg m-2)
+         fwet_nvp   => waterdiagnosticbulk_inst%fwet_nvp_col, & ! Output: [real(r8) (:)] NVP wetness fraction (-)
          h2osoi_liq => waterstate_inst%h2osoi_liq_col, & ! Output: [real(r8) (:,:)] liquid water (kg m-2)
          h2osoi_ice => waterstate_inst%h2osoi_ice_col  & ! Output: [real(r8) (:,:)] ice lens (kg m-2)
          )
@@ -269,9 +281,24 @@ contains
           h2osoi_ice(c,0) = 0._r8
        end if
        ! Every slot-bearing column, with moss or without: slot 0 must not be
-       ! left at spval once anything downstream reads it as a layer.
+       ! left at spval once anything downstream reads it as a layer, and the
+       ! NVP mirrors must agree with the state built above. TemperatureType and
+       ! WaterStateType give t_nvp_col and h2onvp_col blanket cold-start values
+       ! before this runs; those cannot know the layer is all ice at 272 K, and
+       ! the surface-flux blends read the mirrors before Phasechange re-syncs
+       ! them, so a disagreement here is visible in the first timestep.
        if (col%nvp_layer_exists(c)) then
           t_soisno(c,0) = t_soisno(c,1)
+          t_nvp(c)      = t_soisno(c,0)
+          h2onvp(c)     = h2osoi_liq(c,0) + h2osoi_ice(c,0)
+          ! The pore space was just filled to this saturation, so this is the
+          ! wetness the first timestep's evaporation resistance should see. An
+          ! empty slot is dry, which is what its zero thickness implies.
+          if (col%nvp_is_present(c)) then
+             fwet_nvp(c) = nvp_coldstart_saturation
+          else
+             fwet_nvp(c) = 0._r8
+          end if
        end if
     end do
 

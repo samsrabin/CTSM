@@ -16,7 +16,7 @@ module WaterDiagnosticBulkType
   use shr_log_mod    , only : errMsg => shr_log_errMsg
   use decompMod      , only : bounds_type
   use abortutils     , only : endrun
-  use clm_varctl     , only : use_cn, iulog, use_luna, use_hillslope
+  use clm_varctl     , only : use_cn, iulog, use_luna, use_hillslope, use_nvp
   use clm_varpar     , only : nlevgrnd, nlevsno, nlevcan, nlevsoi
   use clm_varcon     , only : spval
   use LandunitType   , only : lun                
@@ -76,6 +76,8 @@ module WaterDiagnosticBulkType
      real(r8), pointer :: wf_col                 (:)   ! col soil water as frac. of whc for top 0.05 m (0-1) 
      real(r8), pointer :: wf2_col                (:)   ! col soil water as frac. of whc for top 0.17 m (0-1) 
      real(r8), pointer :: fwet_patch             (:)   ! patch canopy fraction that is wet (0 to 1)
+     real(r8), pointer :: fwet_nvp_col           (:)   ! col nvp (moss/lichen) wet fraction (0 to 1)
+     real(r8), pointer :: vwc_nvp_col            (:)   ! col nvp (moss/lichen) volumetric liquid water content (m3 m-3)
      real(r8), pointer :: fcansno_patch          (:)   ! patch canopy fraction that is snow covered (0 to 1)
      real(r8), pointer :: fdry_patch             (:)   ! patch canopy fraction of foliage that is green and dry [-] (new)
 
@@ -230,6 +232,8 @@ contains
     allocate(this%wf_col                 (begc:endc))                     ; this%wf_col                 (:)   = nan
     allocate(this%wf2_col                (begc:endc))                     ; this%wf2_col                (:)   = nan
     allocate(this%fwet_patch             (begp:endp))                     ; this%fwet_patch             (:)   = nan
+    allocate(this%fwet_nvp_col           (begc:endc))                     ; this%fwet_nvp_col           (:)   = nan
+    allocate(this%vwc_nvp_col            (begc:endc))                     ; this%vwc_nvp_col            (:)   = nan
     allocate(this%fcansno_patch          (begp:endp))                     ; this%fcansno_patch          (:)   = nan
     allocate(this%fdry_patch             (begp:endp))                     ; this%fdry_patch             (:)   = nan
     allocate(this%qflx_prec_intr_patch   (begp:endp))                     ; this%qflx_prec_intr_patch   (:)   = nan
@@ -373,6 +377,24 @@ contains
             long_name=this%info%lname('10 day running mean of fractional humidity of canopy air'), &
             ptr_patch=this%rh10_af_patch, set_spec=spval, default='inactive')
     endif
+
+    if (use_nvp) then
+       this%fwet_nvp_col(begc:endc) = spval
+       call hist_addfld1d ( &
+            fname=this%info%fname('FWET_NVP'), &
+            units='proportion', &
+            avgflag='A', &
+            long_name=this%info%lname('nvp (moss/lichen) wet fraction'), &
+            ptr_col=this%fwet_nvp_col, default='active')
+
+       this%vwc_nvp_col(begc:endc) = spval
+       call hist_addfld1d ( &
+            fname=this%info%fname('VWC_NVP'), &
+            units='m3 m-3', &
+            avgflag='A', &
+            long_name=this%info%lname('nvp (moss/lichen) volumetric liquid water content'), &
+            ptr_col=this%vwc_nvp_col, default='active')
+    end if
 
     ! Fractions
 
@@ -988,6 +1010,14 @@ contains
           end if
        end if
     endif
+
+    if (use_nvp) then
+       call restartvar(ncid=ncid, flag=flag, varname=this%info%fname('FWET_NVP'), &
+            xtype=ncd_double, dim1name='column', &
+            long_name=this%info%lname('nvp (moss/lichen) wet fraction'), &
+            units='proportion', &
+            interpinic_flag='interp', readvar=readvar, data=this%fwet_nvp_col)
+    end if
 
   end subroutine RestartBulk
 

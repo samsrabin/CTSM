@@ -89,6 +89,7 @@ module WaterFluxType
      real(r8), pointer :: qflx_snofrz_lyr_col      (:,:) ! col snow freezing rate (positive definite) (col,lyr) [kg m-2 s-1]
      real(r8), pointer :: qflx_snofrz_col          (:)   ! col column-integrated snow freezing rate (positive definite) (col) [kg m-2 s-1]
      real(r8), pointer :: qflx_snow_drain_col      (:)   ! col drainage from snow pack
+     real(r8), pointer :: qflx_nvp_to_snow_col     (:)   ! col excess nvp (moss/lichen) ice pushed into bottom snow layer (mm H2O/s)
      real(r8), pointer :: qflx_ice_runoff_snwcp_col(:)   ! col solid runoff from snow capping (mm H2O /s)
      real(r8), pointer :: qflx_ice_runoff_xs_col   (:)   ! col solid runoff from excess ice in soil (mm H2O /s)
 
@@ -310,6 +311,12 @@ contains
     call AllocateVar1d(var = this%qflx_snow_drain_col, name = 'qflx_snow_drain_col', &
          container = tracer_vars, &
          bounds = bounds, subgrid_level = subgrid_level_column)
+    ! Zero-initialized because it is set only on nvp columns; a nan here would
+    ! propagate into every water-tracer consistency comparison.
+    call AllocateVar1d(var = this%qflx_nvp_to_snow_col, name = 'qflx_nvp_to_snow_col', &
+         container = tracer_vars, &
+         bounds = bounds, subgrid_level = subgrid_level_column, &
+         ival = 0.0_r8)
     call AllocateVar1d(var = this%qflx_ice_runoff_snwcp_col, name = 'qflx_ice_runoff_snwcp_col', &
          container = tracer_vars, &
          bounds = bounds, subgrid_level = subgrid_level_column)
@@ -402,7 +409,7 @@ contains
     !
     ! !USES:
     use histFileMod , only : hist_addfld1d, hist_addfld2d, no_snow_normal
-    use clm_varctl  , only : use_hillslope, use_hillslope_routing
+    use clm_varctl  , only : use_hillslope, use_hillslope_routing, use_nvp
 
     !
     ! !ARGUMENTS:
@@ -651,6 +658,16 @@ contains
          long_name=this%info%lname('drainage from snow pack melt (ice landunits only)'), &
          ptr_col=this%qflx_snow_drain_col, c2l_scale_type='urbanf', l2g_scale_type='ice')
 
+    if (use_nvp) then
+       this%qflx_nvp_to_snow_col(begc:endc) = spval
+       call hist_addfld1d ( &
+            fname=this%info%fname('QFLX_NVP_TO_SNOW'), &
+            units='mm/s', &
+            avgflag='A', &
+            long_name=this%info%lname('excess nvp (moss/lichen) ice pushed into bottom snow layer'), &
+            ptr_col=this%qflx_nvp_to_snow_col, c2l_scale_type='urbanf', default='inactive')
+    end if
+
     this%qflx_evap_soi_patch(begp:endp) = spval
     call hist_addfld1d ( &
          fname=this%info%fname('QSOIL'), &
@@ -891,6 +908,11 @@ contains
     this%qflx_liqdew_to_top_layer_col(bounds%begc:bounds%endc)    = 0.0_r8
     this%qflx_soliddew_to_top_layer_col (bounds%begc:bounds%endc) = 0.0_r8
     this%qflx_snow_drain_col(bounds%begc:bounds%endc)  = 0._r8
+
+    ! Set only on the nvp ice-overflow path, but summed into snow_sources for
+    ! every column in the hydrology filter, so it must be zero elsewhere.
+    ! InitCold runs after InitHistory, which fills it with spval.
+    this%qflx_nvp_to_snow_col(bounds%begc:bounds%endc) = 0._r8
 
     ! This variable only gets set in the hydrology filter; need to initialize it to 0 for
     ! the sake of columns outside this filter

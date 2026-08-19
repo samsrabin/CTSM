@@ -553,7 +553,8 @@ contains
     ! not resolved until the block above, so this cannot move up next to
     ! NVPLayerInit. No-op unless use_nvp.
     if (is_cold_start) then
-       call NVPColdStart(bounds_proc, temperature_inst, water_inst%waterstatebulk_inst)
+       call NVPColdStart(bounds_proc, temperature_inst, water_inst%waterstatebulk_inst, &
+            water_inst%waterdiagnosticbulk_inst)
     end if
 
     ! If appropriate, create interpolated initial conditions
