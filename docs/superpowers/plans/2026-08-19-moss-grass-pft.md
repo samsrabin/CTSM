@@ -180,9 +180,19 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
     arrive (adapted) in Task 5 along with the remaining NVP-branch tests. Task 0's two
     baseline tests reference only `FatesColdSatPhen` + `FatesALP2Bare{,Grass}`.
 - [ ] **Step 1: copy the two testmod dirs** from the NVP worktree (each is a two-line
-  `user_nl_clm` with only `fsurdat` and `fates_paramfile`, no `include_user_mods`) — keep
-  the paramfile line pointing at the existing testdata JSON for now (Task 5 adds moss
-  variants), and add `use_bedrock = .true.` to each per Step 0.
+  `user_nl_clm` with only `fsurdat` and `fates_paramfile`, no `include_user_mods`), and
+  add `use_bedrock = .true.` to each per Step 0. **Do NOT carry over the
+  `fates_paramfile` line.** Every `fates_params_default.c*.json` under
+  `$DIN_LOC_ROOT/lnd/clm2/testdata/moss/fates_paramfile/` is, despite the name, a
+  15-PFT NVP-flavoured file whose 15th PFT sets
+  `fates_allom_fnrt_prof_mode = 4` ("no roots (NVP)") — a mode that exists only in
+  NVP-branch FATES. Our FATES pin implements modes 1–3 only, and `btran_ed` loops
+  `do ft = 1,numpft` over **every** PFT on the parameter file regardless of what the
+  surface dataset contains, so any vegetated patch aborts in `set_root_fraction`
+  ("An undefined root profile type was specified"). Omitting the line lets the CTSM
+  namelist default apply — the in-repo `src/fates/parameter_files/fates_params_default.json`
+  (14 PFTs, all mode 3), which is version-locked to the FATES pin and is what every
+  other FATES test uses. This is also what a no-moss baseline test *should* use.
 - [ ] **Step 2: update submodules.** Edit `.gitmodules` (`ccs_config`: url + fxtag;
   `cdeps`: fxtag only — see Step 0) and check out the corresponding submodule commits.
 - [ ] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
@@ -500,7 +510,12 @@ NVP-branch moss param JSONs).
   (b) `FatesNvpOff` correspondingly includes `../FatesNvp` and overrides
   `use_moss = .false.`; (c) the two new ALP2 moss testmods keep their NVP fsurdat paths
   and also carry `use_bedrock = .true.`, but point `fates_paramfile` at the committed
-  Task 2 JSON (the NVP-branch JSONs lack the 8-entry litterclass dimension);
+  Task 2 JSON — never at a `$DIN_LOC_ROOT` testdata JSON, which both lack the 8-entry
+  litterclass dimension AND set the NVP-only `fates_allom_fnrt_prof_mode = 4` on their
+  moss PFT (see Task 0 Step 1: that mode does not exist in our FATES pin and aborts any
+  vegetated patch in `set_root_fraction`). Task 2's moss column must therefore use a
+  rooting mode our FATES supports (1–3), consistent with spec §3's "shallow grass-style
+  roots, NOT the NVP branch's no-root profile mode 4";
   (d) categories are the NVP branch's `fates_nvp*` scheme, machines derecho intel/gnu +
   izumi nag. Still to confirm with Sam: which NVP-branch test entries to bring in beyond
   the nocomp-fixedbiogeo and `FatesNvpOff` sets. Forward check: Tasks 6–11 hand these
