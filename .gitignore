@@ -121,6 +121,10 @@ _build*/
 _publish*/
 doc/.coverage
 
+# ESMF log files, written wherever a test binary is run directly
+PET?.ESMF_LogFile
+PET??.ESMF_LogFile
+
 # DELETE THESE BEFORE MERGING
 test-bld
 .worktrees
