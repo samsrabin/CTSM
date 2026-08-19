@@ -42,6 +42,21 @@ The main session is the **orchestrator**. For each task, in order:
 5. **Present the commit to Sam for review. Do not start the next task until Sam
    approves.**
 
+### Standing verification rule (every task)
+
+Testing and diagnostics land WITH the capability they verify, not at the end:
+
+- **Every task that touches Fortran** ends by re-running the Task 0 ALP2 baseline tests
+  with baseline comparison — `use_moss` off must stay bit-for-bit throughout
+  development, not just at the finish.
+- **From Task 5 onward** (the first runnable moss configuration), every task also
+  re-runs the moss ALP2 smoke + exact-restart tests (conservation checks are fatal, so
+  every task proves conservation as it lands) and checks the task-specific expectations
+  listed in its verification step — usually via history variables added in that same
+  task.
+- FATES functional tests (`fuel`, `allometry`, unit tests) run whenever the task touches
+  code they cover.
+
 ### Git choreography
 
 Work spans two repositories:
@@ -72,13 +87,17 @@ carry a FATES pointer bump) + at most one FATES commit.
   foreclose full-competition mode. (Spec §2.)
 - Fortran code follows surrounding CTSM/FATES style (naming, `_r8` literals, `endrun`
   with `fates_log()`/`iulog` messages).
+- New moss history variables follow the existing conditional-registration patterns in
+  `main/FatesHistoryInterfaceMod.F90` (register only when `hlm_use_moss==itrue`;
+  patch→site averaging per existing helpers). The first task to add one (Task 6)
+  establishes the pattern; later tasks follow it.
 - Reference implementations to harvest are on `ctsm5.4.028_nvp` (worktree at
   `.worktrees/nvp`) and FATES commit `33640d372` (available in `src/fates`'s object
   store; view files with `git -C src/fates show 33640d372:<path>`).
 
 ---
 
-### Task 0: Bring in the ALP2 baseline testmods and tests
+### Task 0: ALP2 baseline testmods, tests, and baselines
 
 **Files:**
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2Bare/user_nl_clm` (+
@@ -91,7 +110,8 @@ carry a FATES pointer bump) + at most one FATES commit.
 - Consumes: nothing (pure test infrastructure at the base code).
 - Produces: runnable baseline tests at the ALP2 site, e.g.
   `SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.clm-FatesColdSatPhen--clm-FatesALP2Bare`
-  (and the `FatesALP2BareGrass` twin). Task 12 builds its moss tests on this site.
+  (and the `FatesALP2BareGrass` twin), **plus generated baselines** that every later
+  Fortran-touching task compares against (standing verification rule).
 
 Source material is on the NVP branch (worktree `.worktrees/nvp`):
 `cime_config/testdefs/testmods_dirs/clm/FatesALP2Bare{,Grass}/` (each sets `fsurdat` to
@@ -109,20 +129,23 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   master); (b) which testlist categories to use on our branch (the NVP entries use
   `fates` plus NVP-specific categories — suggest a new `fates_moss` category so the
   suite is one `run_sys_tests` invocation); (c) confirm the fsurdat/paramfile testdata
-  paths above are already populated on the target machine's `$DIN_LOC_ROOT`. Forward
-  check: our tests must NOT reference `FatesNvp`/`FatesNvpOff` testmods (they don't
-  exist on this branch) — the NVP branch's test entries are adapted by dropping those
-  testmod components.
+  paths above are already populated on the target machine's `$DIN_LOC_ROOT`; (d) which
+  machine runs the suite (the NVP entries are defined on derecho intel/gnu — confirm).
+  Forward check: our tests must NOT reference `FatesNvp`/`FatesNvpOff` testmods (they
+  don't exist on this branch) — the NVP branch's test entries are adapted by dropping
+  those testmod components.
 - [ ] **Step 1: copy the two testmod dirs** from the NVP worktree verbatim (they contain
   only `fsurdat` and `fates_paramfile` settings — keep the paramfile line pointing at
-  the existing testdata JSON for now; Task 12 adds moss-paramfile variants).
+  the existing testdata JSON for now; Task 5 adds moss variants).
 - [ ] **Step 2: update submodules.** Edit `.gitmodules` (`ccs_config`, `cdeps`: url +
   fxtag per Step 0) and check out the corresponding submodule commits.
 - [ ] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
   compset `I2000Clm60FatesSpRsGs`, testmods `clm/FatesColdSatPhen--clm/FatesALP2Bare`
   and `...BareGrass`), machines/compilers/categories per Step 0.
-- [ ] **Step 4: verify.** On the target machine, run both tests; they must PASS at base
-  code (this is the pre-moss baseline). Record run dirs for later comparison.
+- [ ] **Step 4: run and generate baselines.** On the target machine, run both tests with
+  baseline generation (`run_sys_tests ... --generate <baseline-tag>`); they must PASS
+  at base code. Record the baseline tag — every subsequent Fortran-touching task
+  compares against it.
 - [ ] **Step 5: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
   and tests").
 
@@ -153,7 +176,7 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
 - [ ] **Step 0 (orchestrator):** Read `setup_logic_fates` and the `use_fates_sp` +
   `fates_spitfire_mode` plumbing end to end. Confirm `set_fates_ctrlparms` real-scalar
   handling (precedent: `hlm_hio_ignore_val`, `FatesInterfaceMod.F90:2210`). Forward
-  check: names above are consumed verbatim by Tasks 4, 8, 9, 10. Known open questions
+  check: names above are consumed verbatim by Tasks 4, 9, 10, 11. Known open questions
   for Sam: (a) confirm the name `use_moss` over the CTSM convention `use_fates_*`
   (Sam has specified `use_moss`; re-ask only if a build-namelist constraint forces the
   prefix); (b) default values for the four fuel-moisture coefficients (suggest
@@ -223,13 +246,11 @@ call set_fates_ctrlparms('moss_fm_live_a',rval=moss_fuel_moisture_live_a)
   `set_fates_ctrlparms`: flush each to unset in the flush block, add
   `case('use_moss')` etc. to the assignment `select case`, and add "was it set?"
   checks in the verification block (pattern: `FatesInterfaceMod.F90:1837-1840`).
-- [ ] **Step 7: verify namelist behavior.** Run:
-  `./bld/build-namelist -config <testdir>/config_cache.xml ... -use_case 2000_control`
-  style invocations via the existing tester:
-  `cd bld/unit_testers && ./build-namelist_test.pl` — expect no new failures; then
-  manually confirm (a) `use_moss=.true.` without FATES fails fatally, (b)
-  `use_moss=.true.` + `use_fates_planthydro=.true.` fails fatally, (c) defaults appear
-  in `lnd_in` when `use_moss=.true.` with FATES.
+- [ ] **Step 7: verify.** (a) `cd bld/unit_testers && ./build-namelist_test.pl` — no new
+  failures; (b) manual build-namelist checks: `use_moss=.true.` without FATES fails
+  fatally; `use_moss=.true.` + `use_fates_planthydro=.true.` fails fatally; defaults
+  appear in `lnd_in` when `use_moss=.true.` with FATES; (c) standing rule: ALP2
+  baseline tests compare b4b.
 - [ ] **Step 8: reviews, then commit** (FATES commit "Add hlm_use_moss and moss scalar
   ctrlparms"; CTSM commit "Add use_moss and moss scalar namelist plumbing" including
   `.gitmodules` update and submodule pointer bump).
@@ -260,7 +281,7 @@ call set_fates_ctrlparms('moss_fm_live_a',rval=moss_fuel_moisture_live_a)
   Check whether `tools/batch_patch_params.py` supports adding a PFT column and growing
   the `fates_litterclass` dimension; pick patch-file vs. standalone-script accordingly.
   Forward check: Task 3 reads `fates_vascular`; Task 4 requires exactly 8 litterclass
-  entries when `use_moss` is on; Task 12's testmods point `fates_paramfile` at this
+  entries when `use_moss` is on; Task 5's testmods point `fates_paramfile` at this
   committed JSON.
 - [ ] **Step 1: build the moss JSON.** Starting from `fates_params_default.json`:
   append a 15th PFT by copying the arctic C3 grass column; override moss values
@@ -310,8 +331,9 @@ print('OK')"
   (`PRTParamsFATESMod.F90:127-129`) and where post-parameter-read cross-checks live
   (e.g., `FatesInterfaceMod` parameter-derived checks). Check whether older parameter
   files lacking `fates_vascular` must still read (decide: no — default JSON gains the
-  variable in this task; document that custom param files need it). Forward check:
-  Tasks 5, 6, 9, 10 branch on `prt_params%vascular`.
+  variable in this task; document that custom param files need it; note the Task 0
+  testdata JSON on `$DIN_LOC_ROOT` must gain it too or those tests break — resolve
+  with Sam). Forward check: Tasks 6, 7, 10, 11 branch on `prt_params%vascular`.
 - [ ] **Step 1: add the parameter.** Declare `integer,allocatable :: vascular(:)` in
   `prt_params`; register `fates_vascular` with dimension `fates_pft` and receive it in
   `PRTParamsFATESMod` mirroring `fates_woody`.
@@ -332,12 +354,10 @@ end if
 
 - [ ] **Step 3: default JSON.** Add `fates_vascular` (all 1) to
   `parameter_files/fates_params_default.json` with metadata matching `fates_woody`.
-- [ ] **Step 4: verify.** Build the FATES functional-test suite
-  (`cd src/fates/testing && python run_functional_tests.py allometry`, in the FATES
-  testing conda environment from `testing/environment.yml`) to confirm the parameter
-  additions read cleanly; run the Task 2 script's output through an
-  `use_moss=.false.` + moss-file mismatch check once Task 4 lands (deferred check noted
-  there).
+- [ ] **Step 4: verify.** FATES functional suite reads the new parameter cleanly
+  (`cd src/fates/testing && python run_functional_tests.py allometry`, in the conda
+  env from `testing/environment.yml`); standing rule: ALP2 baseline tests compare b4b
+  (after resolving the testdata-JSON question from Step 0).
 - [ ] **Step 5: reviews, then commit** (FATES commit + CTSM pointer bump).
 
 ### Task 4: Runtime fuel-class count (6 ↔ 8) and moss fuel-class indices
@@ -357,7 +377,7 @@ end if
   `fuel_classes%live_moss()` → 7 and `fuel_classes%dead_moss()` → 8 (valid only when
   count is 8); `fuel_type` arrays (`loading`, `frac_loading`, `frac_burnt`,
   `effective_moisture`) allocatable, allocated to `num_fuel_classes` in `Init`. Tasks
-  5, 6, 8 depend on these names.
+  6, 7, 9 depend on these names.
 
 - [ ] **Step 0 (orchestrator):** Enumerate every use of `num_fuel_classes`
   (`grep -rn num_fuel_classes src/fates --include=*.F90`) — known: SFMainMod,
@@ -366,9 +386,10 @@ end if
   Confirm each compiles with a runtime variable (static declarations like
   `real(r8) :: x(num_fuel_classes)` in type definitions MUST become allocatable;
   local automatic arrays inside subroutines may stay). Confirm restart/history register
-  their fuel-class dimension from this symbol at runtime (if any uses it as a
-  compile-time kind/dim constant, plan the allocatable conversion there too). Forward
-  check: Task 5 writes `loading(fuel_classes%live_moss())`; Task 8 writes
+  their fuel-class dimension from this symbol at runtime. Verify the CWD-index
+  aliasing in `EDPatchDynamicsMod` (burnt-litter loop assumes fuel classes 1–4 are
+  CWD 1–4) survives appending classes 7–8 (it should — indices 1–6 are unchanged).
+  Forward check: Task 6 writes `loading(fuel_classes%live_moss())`; Task 9 writes
   `moisture(fuel_classes%live_moss())` and `(dead_moss)`.
 - [ ] **Step 1: FatesFuelClassesMod.** Change to
   `integer, protected, public :: num_fuel_classes = 6`, add
@@ -383,13 +404,57 @@ end if
   litterclass array, check `size(param_p%r_data_1d) == num_fuel_classes`; on mismatch,
   `endrun` with: "fates_litterclass dimension must be 8 when use_moss is on, 6
   otherwise".
-- [ ] **Step 4: verify b4b-off.** Build and run the FATES fuel functional test with a
-  standard 6-class file (`python run_functional_tests.py fuel`) — identical results to
-  pre-change. Run with the Task 2 moss file → clean abort unless the test driver sets
-  `hlm_use_moss` (set it where the test harness sets ctrlparms).
+- [ ] **Step 4: verify.** (a) FATES fuel functional test with a standard 6-class file
+  (`python run_functional_tests.py fuel`) — identical results to pre-change; (b) with
+  the Task 2 moss file → clean abort unless the test driver sets `hlm_use_moss` (set
+  it where the harness sets ctrlparms); (c) standing rule: ALP2 baseline tests compare
+  b4b (this task is the highest-risk one for accidental shape changes — check history
+  and restart dimensions in the baseline-compare output explicitly).
 - [ ] **Step 5: reviews, then commit.**
 
-### Task 5: Live-moss fuel routing and cohort burn keying
+### Task 5: First moss run — moss testmods and system tests
+
+**Files:**
+- Create: `cime_config/testdefs/testmods_dirs/clm/FatesMoss/user_nl_clm` (+
+  `include_user_mods`)
+- Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2BareGrassMoss/user_nl_clm`
+  (adapted from the NVP branch's dir of the same name)
+- Modify: `cime_config/testdefs/testlist_clm.xml`
+
+**Interfaces:**
+- Consumes: `use_moss` (Task 1), moss JSON (Task 2), `fates_vascular` checks (Task 3),
+  8-class runtime sizing (Task 4).
+- Produces: the **moss smoke + exact-restart tests** every subsequent task re-runs
+  (standing verification rule): an `SMS_Ld5_D` and an `ERS_D` moss test at ALP2. At
+  this point moss runs as an inert grass-like PFT (fuel classes 7–8 exist but are
+  empty; no moss physiology yet) — the tests prove the configuration runs, restarts
+  exactly, and conserves.
+
+- [ ] **Step 0 (orchestrator):** Inspect the NVP branch's `FatesALP2BareGrassMoss` and
+  `FatesALP2BareMoss` testmods (`.worktrees/nvp/cime_config/testdefs/testmods_dirs/clm/`)
+  for the fsurdat and PFT-mapping choices that put moss on the ALP2 site. Resolve the
+  compset question with Sam: the Task 0 baseline tests use the SP compset
+  (`I2000Clm60FatesSpRsGs` + `FatesColdSatPhen`), but moss must be **prognostic** —
+  the moss tests need a nocomp fixed-biogeography configuration (spec §2). Identify
+  the right compset/testmod combination (survey existing `FatesCold*` testmods for a
+  nocomp + fixed-biogeography precedent) and confirm the choice with Sam. Forward
+  check: Tasks 6–11 each re-run these tests and inspect their history output.
+- [ ] **Step 1: `FatesMoss` testmod.** `use_moss = .true.`, `fates_paramfile` pointing
+  at the committed Task 2 JSON (in-repo path), nocomp fixed-biogeography settings per
+  Step 0.
+- [ ] **Step 2: ALP2 moss testmod + testlist.** Adapt `FatesALP2BareGrassMoss` (fsurdat
+  with moss-compatible PFT weights); add `SMS_Ld5_D` and `ERS_D` tests composing
+  `FatesMoss` with the ALP2 testmods, category per Task 0's choice.
+- [ ] **Step 3: run.** Both tests PASS: run completes with the moss PFT active,
+  restarts exactly, all conservation checks (fatal) clean. Also run the abort case:
+  `use_moss=.true.` with the default 6-class JSON → clean, informative abort (Task 3/4
+  checks).
+- [ ] **Step 4: baseline the moss tests** (`--generate`) so later tasks can see exactly
+  what each change does to moss behavior (expected diffs get re-baselined task by
+  task; unexpected diffs are caught).
+- [ ] **Step 5: reviews, then commit.**
+
+### Task 6: Live-moss fuel routing, cohort burn keying, and live-moss history
 
 **Files:**
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (`UpdateLiveGrass`, ~lines 814–842;
@@ -397,17 +462,21 @@ end if
 - Modify (FATES): `fire/SFMainMod.F90` (`UpdateFuelCharacteristics`, ~lines 164–186)
 - Modify (FATES): `biogeochem/EDPatchDynamicsMod.F90` (cohort burn keying, ~lines
   1096–1103)
+- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_LIVEMOSS_FUEL`)
 
 **Interfaces:**
 - Consumes: `prt_params%vascular` (Task 3), `fuel_classes%live_moss()` (Task 4).
 - Produces: `currentPatch%livemoss` (r8, kgC m-2), filled alongside `livegrass`;
-  `loading(fuel_classes%live_moss()) = currentPatch%livemoss`. Task 11 reads
-  `livemoss` for history.
+  `loading(fuel_classes%live_moss()) = currentPatch%livemoss`; history variable
+  `FATES_LIVEMOSS_FUEL` (site-level kgC m-2, registered only when `hlm_use_moss` —
+  this task establishes the conditional-registration pattern later tasks follow).
 
 - [ ] **Step 0 (orchestrator):** Re-read `UpdateLiveGrass` and the burn-keying block;
   confirm `UpdateTreeGrassArea` (accepted: moss stays lumped as "grass" for wind
-  attenuation, spec §12) needs no change. Forward check: Task 6 must NOT double-count
-  moss in `livegrass`; Task 11 wants `livemoss`.
+  attenuation, spec §12) needs no change. Identify the conditional-registration
+  precedent in `FatesHistoryInterfaceMod` (e.g., hydro-only variables) for the history
+  step. Forward check: Task 7 must NOT double-count moss in `livegrass`; the history
+  pattern here is reused by Tasks 7, 8, 10.
 - [ ] **Step 1: split live pools.** In `UpdateLiveGrass`, for non-woody cohorts branch
   on `prt_params%vascular(pft)`:
 
@@ -429,13 +498,16 @@ end if
 - [ ] **Step 3: cohort burn keying.** In `EDPatchDynamicsMod` where non-woody cohorts
   take `leaf_burn_frac = frac_burnt(fuel_classes%live_grass())`, moss cohorts
   (`vascular==ifalse`) instead take `frac_burnt(fuel_classes%live_moss())`.
-- [ ] **Step 4: verify.** Extend the fuel functional test (or its driver data) with a
-  moss live pool and assert `loading(7)` equals the input moss biomass and that
-  `SumLoading` includes it; run `python run_functional_tests.py fuel`. Also rerun with
-  6-class file to confirm b4b-off.
-- [ ] **Step 5: reviews, then commit.**
+- [ ] **Step 4: history.** Register and fill `FATES_LIVEMOSS_FUEL` (patch `livemoss`
+  area-weighted to site), guarded by `hlm_use_moss`.
+- [ ] **Step 5: verify.** (a) Fuel functional test: with a moss live pool in the driver
+  data, `loading(7)` equals the input moss biomass and `SumLoading` includes it; 6-class
+  run unchanged; (b) moss ALP2 tests: PASS, and `FATES_LIVEMOSS_FUEL` in the history
+  file is nonzero and equals what previously appeared in the live-grass fuel class for
+  the moss patch (loading moved classes, total conserved); (c) ALP2 baselines b4b.
+- [ ] **Step 6: reviews, then commit.**
 
-### Task 6: `moss_fines` litter pool — dead-moss biomass, decomposition, burning
+### Task 7: `moss_fines` litter pool — dead-moss biomass, decomposition, burning, history
 
 **Files:**
 - Modify (FATES): `biogeochem/FatesLitterMod.F90` (type members, `InitAllocate`,
@@ -448,13 +520,14 @@ end if
 - Modify (FATES): mass-accounting sites that sum litter (e.g. `SiteMassStock` /
   patch litter totals in `EDTypesMod.F90` / `FatesUtilsMod` — Step 0 enumerates)
 - Modify (FATES): `fire/SFMainMod.F90` (`loading(dead_moss) = sum(litt%moss_fines(:))`)
+- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_FINES`)
 
 **Interfaces:**
 - Consumes: `prt_params%vascular` (Task 3), `fuel_classes%dead_moss()` (Task 4).
 - Produces: on `litter_type`: `moss_fines(ndcmpy)`, `moss_fines_in(ndcmpy)`,
   `moss_fines_frag(ndcmpy)` (all r8, kg m-2 and kg m-2 day-1), behaving exactly as the
-  `leaf_fines` triplet. Task 8 needs `dead_moss` loading populated; Task 11 reads
-  `moss_fines` for history.
+  `leaf_fines` triplet; `loading(dead_moss)` populated; history `FATES_MOSS_FINES`
+  (site-level kg m-2). Task 9 needs `dead_moss` loading populated.
 
 - [ ] **Step 0 (orchestrator):** Enumerate ALL touch points of `leaf_fines` (`grep -rn
   leaf_fines src/fates --include=*.F90`) — every site must be evaluated for a
@@ -464,7 +537,8 @@ end if
   `flux_diags`). Missing any conservation-accounting site is a mass-balance error —
   this enumeration is the core of the task. Confirm with Sam: moss fine-ROOT litter
   stays in ordinary `root_fines` (roots are a plumbing fiction; suggested: yes).
-  Forward check: Task 8 moisture for `dead_moss`; Task 12 conservation tests.
+  Forward check: Task 9 moisture for `dead_moss`; the moss ALP2 ERS test is the
+  conservation proof.
 - [ ] **Step 1: type + threading.** Add the three members mirroring the `leaf_fines`
   triplet at every site enumerated in Step 0 (allocation `ndcmpy`, zeroing, fuse with
   the same weighting arithmetic, copy, restart registration mirroring the existing
@@ -481,13 +555,17 @@ end if
   `EDPatchDynamicsMod` burnt-litter block, burn `moss_fines` by
   `frac_burnt(fuel_classes%dead_moss())` with the same bookkeeping
   (`burned_mass` accounting) as `leaf_fines`.
-- [ ] **Step 4: verify.** Fuel functional test: with nonzero `moss_fines`, assert
-  `loading(8)` matches. Full-model conservation is exercised in Task 12; here, run any
-  existing FATES litter/patch functional or unit tests (`python run_unit_tests.py`,
-  `python run_functional_tests.py patch`).
-- [ ] **Step 5: reviews, then commit.**
+- [ ] **Step 4: history.** Register and fill `FATES_MOSS_FINES` per the Task 6 pattern.
+- [ ] **Step 5: verify.** (a) Fuel functional test: nonzero `moss_fines` →
+  `loading(8)` matches; (b) FATES unit/patch tests (`python run_unit_tests.py`,
+  `python run_functional_tests.py patch`); (c) moss ALP2 SMS + **ERS** tests PASS —
+  the exact-restart test now covers the restarted `moss_fines` pools, and fatal
+  balance checks prove the routing conserves; `FATES_MOSS_FINES` accumulates over the
+  run and dead-leaves fuel drops correspondingly for the moss patch; (d) ALP2
+  baselines b4b.
+- [ ] **Step 6: reviews, then commit.**
 
-### Task 7: fwet proxy — canopy wetted fraction `bc_in` field + patch `fwet_moss`
+### Task 8: fwet proxy — canopy wetted fraction `bc_in` field, patch `fwet_moss`, and fwet history
 
 **Files:**
 - Modify (FATES): `main/FatesInterfaceTypesMod.F90` (declare `fwet_veg_pa` in
@@ -495,10 +573,12 @@ end if
   with `maxpatch_total`, `zero_bcs`)
 - Modify: `src/utils/clmfates_interfaceMod.F90` (fill from
   `waterdiagnosticbulk_inst%fwet_patch`; wire the instance into the wrapper that
-  runs before fire/photosynthesis — `wrap_btran` or `dynamics` call, per Step 0)
+  runs before fire/photosynthesis — per Step 0)
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (add `fwet_moss` patch member) and the
   site-level update loop (`EDMainMod` daily driver or `SFMainMod` entry — Step 0 picks
   the single update point)
+- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_FWET`,
+  `FATES_MOSS_FWET_SOIL`, `FATES_MOSS_FWET_CANOPY`)
 
 **Interfaces:**
 - Consumes: `bc_in%h2o_liqvol_sl(:)`, `bc_in%watsat_sl(:)` (existing;
@@ -506,27 +586,30 @@ end if
   (`WaterDiagnosticBulkType.F90:78`).
 - Produces: `bc_in(s)%fwet_veg_pa(ifp)` (r8, 0–1) and
   `currentPatch%fwet_moss = max(min(h2o_liqvol_sl(1)/watsat_sl(1), 1._r8),
-  bc_in%fwet_veg_pa(ifp))`, updated once per day before fire. Tasks 8 and 9 read
-  `currentPatch%fwet_moss`; Task 11 histories it and its two ingredients.
+  bc_in%fwet_veg_pa(ifp))`, updated once per day before fire; history variables for
+  the proxy and both ingredients. Tasks 9 and 10 read `currentPatch%fwet_moss`.
 
 - [ ] **Step 0 (orchestrator):** Choose the fill site in `clmfates_interfaceMod`: it
   must run before `wrap_spitfire` each FATES dynamics step — inspect where
   `precip24_pa`-style fire weather inputs are filled and co-locate. Confirm
-  `waterdiagnosticbulk_inst` is reachable there (it is passed into several wrappers;
-  otherwise add it to the call signature from `clm_driver.F90`). Confirm top soil
-  layer index 1 is correct for `h2o_liqvol_sl`. Ask Sam: should the soil half use
-  liquid only (suggested: yes — frozen layer-1 water should read as "dry" fuel-wise)?
-  Forward check: Tasks 8, 9, 11 read `fwet_moss` by that exact name.
+  `waterdiagnosticbulk_inst` is reachable there (otherwise add it to the call
+  signature from `clm_driver.F90`). Confirm top soil layer index 1 is correct for
+  `h2o_liqvol_sl`. Ask Sam: should the soil half use liquid only (suggested: yes —
+  frozen layer-1 water should read as "dry" fuel-wise)? Forward check: Tasks 9, 10
+  read `fwet_moss` by that exact name.
 - [ ] **Step 1: 4-touch `bc_in` field.** Declare, allocate (`maxpatch_total`), zero, and
   fill `fwet_veg_pa` from `fwet_patch(p)` for exposed-veg patches.
 - [ ] **Step 2: patch member + update.** Add `fwet_moss` to `fates_patch_type` (init
   0), compute it at the chosen daily update point, guarded by `hlm_use_moss`.
-- [ ] **Step 3: verify.** Compile; add a temporary check in the fuel functional-test
-  driver or run a debug-mode single-point case in Task 12. Confirm zero diffs with
-  `use_moss` off (field allocated but unread).
-- [ ] **Step 4: reviews, then commit.**
+- [ ] **Step 3: history.** Register and fill `FATES_MOSS_FWET` (the max),
+  `FATES_MOSS_FWET_SOIL` (soil ingredient), `FATES_MOSS_FWET_CANOPY` (canopy wetted
+  fraction as received) per the Task 6 pattern.
+- [ ] **Step 4: verify.** Moss ALP2 tests PASS; in the history, `FATES_MOSS_FWET`
+  tracks rain events (canopy ingredient spikes with precipitation and decays;
+  soil ingredient varies smoothly; the max is always ≥ both); ALP2 baselines b4b.
+- [ ] **Step 5: reviews, then commit.**
 
-### Task 8: Moss fuel moisture
+### Task 9: Moss fuel moisture
 
 **Files:**
 - Modify (FATES): `fire/FatesFuelMod.F90` (`UpdateFuelMoisture`, lines 189–236)
@@ -535,11 +618,13 @@ end if
   checker) — moss moisture cases
 
 **Interfaces:**
-- Consumes: `currentPatch%fwet_moss` (Task 7), `fuel_classes%live_moss()/dead_moss()`
+- Consumes: `currentPatch%fwet_moss` (Task 8), `fuel_classes%live_moss()/dead_moss()`
   (Task 4), `hlm_moss_fm_live_a/b`, `hlm_moss_fm_dead_a/b` (Task 1).
 - Produces: `fuel%moisture(live_moss) = hlm_moss_fm_live_a + hlm_moss_fm_live_b*fwet`
-  (clamped to [0, 1] … [0, large]); analogous for `dead_moss`. Effective moisture and
-  `frac_burnt` for the moss classes then flow through existing code untouched.
+  (floored at 0); analogous for `dead_moss`. Effective moisture and `frac_burnt` for
+  the moss classes then flow through existing code untouched. Fuel-class-dimensioned
+  history (moisture, loading) already extends to 8 via Task 4 — this task's run
+  verifies those outputs are sensible.
 
 - [ ] **Step 0 (orchestrator):** Re-read `UpdateFuelMoisture` + `CalculateFuelBurnt`
   (max_grass_frac cap at `FatesFuelMod.F90:400,426-429`) — decide whether the 0.8 cap
@@ -549,9 +634,8 @@ end if
   tuning moss SAV (Task 2 file) is the only MEF lever, per spec's accepted design.
   Forward check: none downstream.
 - [ ] **Step 1: signature.** Extend `UpdateFuelMoisture(this, sav_fuel, drying_ratio,
-  fireWeatherClass)` with `fwet_moss` (r8, intent(in), optional or always-passed —
-  match FATES style: always passed, ignored when `hlm_use_moss==ifalse`). Update the
-  SFMainMod call site.
+  fireWeatherClass)` with `fwet_moss` (r8, intent(in); always passed, ignored when
+  `hlm_use_moss==ifalse` — match FATES style). Update the SFMainMod call site.
 - [ ] **Step 2: moss branches.** After the existing per-class Nesterov loop:
 
 ```fortran
@@ -569,9 +653,12 @@ end if
   fwet_moss ∈ {0, 0.5, 1}, assert `moisture(7)` and `moisture(8)` equal the linear
   form; assert grass/leaf classes unchanged vs. the 6-class baseline run. Run
   `python run_functional_tests.py fuel`.
-- [ ] **Step 4: reviews, then commit.**
+- [ ] **Step 4: verify in-model.** Moss ALP2 tests PASS; fuel-class-dimensioned
+  moisture history for classes 7–8 tracks `FATES_MOSS_FWET` (linear map) while classes
+  1–6 keep tracking the Nesterov index; ALP2 baselines b4b.
+- [ ] **Step 5: reviews, then commit.**
 
-### Task 9: Moss physiology — no stomatal solve, wetness-limited vcmax
+### Task 10: Moss physiology — no stomatal solve, wetness-limited vcmax, scaler history
 
 **Files:**
 - Modify (FATES): `biogeophys/LeafBiophysicsMod.F90` (`CiFunc` ~lines 901–1079,
@@ -579,10 +666,11 @@ end if
 - Modify (FATES): `biogeophys/FatesPlantRespPhotosynthMod.F90` (thread
   `currentPatch%fwet_moss` down; moss branch selection)
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (add `moss_vcmax_scaler` patch member,
-  init 0, beside `fwet_moss` from Task 7)
+  init 0, beside `fwet_moss` from Task 8)
+- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_VCMAX_SCALER`)
 
 **Interfaces:**
-- Consumes: `prt_params%vascular` (Task 3), `currentPatch%fwet_moss` (Task 7).
+- Consumes: `prt_params%vascular` (Task 3), `currentPatch%fwet_moss` (Task 8).
 - Produces: for moss cohorts only — (a) `vcmax_z` scaled by
   `min(1._r8, fwet_moss/0.6_r8)`; (b) Ci solved with no stomatal conductance: CO₂
   through the boundary layer with water-film factor, harvested from the NVP branch
@@ -590,7 +678,7 @@ end if
   `nvp_model=3` branch at ~lines 1075–1099):
   `fval = ci - (can_co2_ppress - anet*can_press*1.4/(gb_mol*max(max(1-fwet,0.1)**12, 1.e-6)))`,
   with `gs` reported as the existing minimum (`gs0`). Vascular PFTs bit-for-bit
-  unchanged.
+  unchanged. History `FATES_MOSS_VCMAX_SCALER`.
 
 - [ ] **Step 0 (orchestrator):** Read the NVP branch's `nvp_model=3` `CiFunc` branch and
   the current `CiFunc`/`CiBisection` call chain; map exactly which optional arguments
@@ -601,7 +689,7 @@ end if
   rooting profile from Task 2 produces sane `btran_ft`. Ask Sam: apply the
   vcmax-wetness scaler to leaf maintenance respiration too, or photosynthetic capacity
   only (suggested: capacity only, matching Porada; NVP branch precedent — check)?
-  Forward check: Task 11 histories the applied scaler.
+  Forward check: none downstream.
 - [ ] **Step 1: thread fwet.** Add `fwet_moss` (r8) as an optional argument through
   `LeafLayerPhotosynthesis` and into `CiFunc`/`CiBisection`, following the NVP
   branch's threading (same routine names at `33640d372`).
@@ -609,18 +697,21 @@ end if
   present/true, replace the stomatal-model residual with the boundary-layer-only form
   above; set the returned `gs` to the existing floor (`gs0`) so downstream CTSM
   `rssun/rssha` stay finite.
-- [ ] **Step 3: vcmax scaling.** In `LeafLayerBiophysicalRates` (or at its call site
-  where `vcmax_z` emerges — follow NVP branch placement at
+- [ ] **Step 3: vcmax scaling + history.** In `LeafLayerBiophysicalRates` (or at its
+  call site where `vcmax_z` emerges — follow NVP branch placement at
   `FatesPlantRespPhotosynthMod.F90:~806`), for moss cohorts multiply `vcmax_z` by
-  `min(1._r8, fwet_moss/0.6_r8)`; store the applied scaler on the cohort or a patch
-  diagnostic for Task 11 (`currentPatch%moss_vcmax_scaler` is acceptable given
-  one moss PFT per patch in nocomp; note full-comp refinement in code comment).
-- [ ] **Step 4: verify.** Build; vascular b4b: run the fuel + allometry functional tests
-  and (if available on the target machine) a short no-moss smoke test against
-  baseline. Moss behavior verified in Task 12's site run (GPP responds to fwet).
+  `min(1._r8, fwet_moss/0.6_r8)`; store the applied scaler in
+  `currentPatch%moss_vcmax_scaler` (acceptable given one moss PFT per patch in nocomp;
+  note full-comp refinement in a code comment) and register/fill
+  `FATES_MOSS_VCMAX_SCALER` per the Task 6 pattern.
+- [ ] **Step 4: verify.** Moss ALP2 tests PASS; in history, moss-PFT GPP
+  (`FATES_GPP_PF`) is nonzero and covaries with `FATES_MOSS_FWET`;
+  `FATES_MOSS_VCMAX_SCALER` equals `min(1, fwet/0.6)`; vascular-PFT GPP in the
+  BareGrass baseline is b4b (ALP2 baseline compare); fuel + allometry functional
+  tests green.
 - [ ] **Step 5: reviews, then commit.**
 
-### Task 10: Mat-thickness height allometry (namelist-selectable)
+### Task 11: Mat-thickness height allometry (namelist-selectable)
 
 **Files:**
 - Modify (FATES): `biogeochem/FatesAllometryMod.F90` (`h_allom` ~lines 336–369,
@@ -630,13 +721,13 @@ end if
 **Interfaces:**
 - Consumes: `hlm_moss_height_allom`, `hlm_moss_bulk_density` (Task 1),
   `prt_params%vascular` (Task 3).
-- Produces: `h_allom` case(6) "mat thickness": for moss PFTs when
+- Produces: `h_allom` case "mat thickness": for moss PFTs when
   `hlm_moss_height_allom==2`,
   `h = (blmax(d) * c2b) / (c_area_nom(d) * hlm_moss_bulk_density)` where
   `c_area_nom(d)` is the crown area at nominal spread (the `carea_2pwr` form with
   spread-max coefficient), i.e. mat thickness = leaf dry mass per crown area / bulk
-  density; `h2d_allom` case(6) inverts by bisection on d ∈ [1e-6, d(maxheight)].
-  `ForceDBH` and recruitment then work unmodified.
+  density; `h2d_allom` inverts by bisection on d ∈ [1e-6, d(maxheight)]. `ForceDBH`
+  and recruitment then work unmodified.
 
 - [ ] **Step 0 (orchestrator):** Read `h_allom`/`h2d_allom` dispatch and `carea_2pwr`
   (`FatesAllometryMod.F90:2606-2661`) to fix the exact nominal-spread expression
@@ -646,8 +737,7 @@ end if
   mat-thickness; else fall through to the PFT's `allom_hmode` (grass power law for
   moss when ==1). This keeps the namelist in control per spec §4/§8 — confirm with
   Sam. Check monotonicity of h(d) under the 3pwr-grass `blmax` saturation so bisection
-  is safe over the full d range. Forward check: none downstream (Tasks 11–12 don't
-  depend on mode).
+  is safe over the full d range. Forward check: none downstream.
 - [ ] **Step 1: implement `h_allom` mat-thickness branch** (with `dhdd` by the same
   analytic differentiation pattern used by neighboring cases, or centered finite
   difference if the saturation term resists closed form — match file conventions).
@@ -657,70 +747,37 @@ end if
   the moss PFT under both modes; assert round-trip `h2d(h_allom(d)) ≈ d` to 1e-6 and
   that thickness is linear in `blmax/c_area`. Run
   `python run_functional_tests.py allometry`.
-- [ ] **Step 4: reviews, then commit.**
+- [ ] **Step 4: verify in-model.** Run the moss ALP2 SMS test once per
+  `moss_height_allom` mode (a user_nl override run for `mat_thickness`); both PASS;
+  moss height history differs between modes as expected; ALP2 baselines b4b.
+- [ ] **Step 5: reviews, then commit.**
 
-### Task 11: History variables
-
-**Files:**
-- Modify (FATES): `main/FatesHistoryInterfaceMod.F90`
-
-**Interfaces:**
-- Consumes: `currentPatch%fwet_moss`, its two ingredients (Task 7),
-  `currentPatch%moss_vcmax_scaler` (Task 9), `currentPatch%livemoss` (Task 5),
-  `litt%moss_fines` (Task 6).
-- Produces (site-level, following existing `site_r8` patterns; registered only when
-  `hlm_use_moss==itrue`): `FATES_MOSS_FWET`, `FATES_MOSS_FWET_SOIL`,
-  `FATES_MOSS_FWET_CANOPY`, `FATES_MOSS_VCMAX_SCALER`, `FATES_LIVEMOSS_FUEL`
-  (kgC m-2), `FATES_MOSS_FINES` (kg m-2). Fuel-class-dimensioned variables
-  (`FATES_FUEL_AMOUNT_*`, moisture) extend automatically via Task 4's runtime
-  dimension.
-
-- [ ] **Step 0 (orchestrator):** Confirm the registration pattern for
-  conditionally-registered history variables (precedent: SP-mode or hydro-only
-  variables) and the patch→site averaging helpers. Confirm fuel-class-dimensioned
-  history really did pick up size 8 (check output from a Task 12 trial run or the fuel
-  functional test netCDF). Ask Sam: any additional variables wanted while in here?
-- [ ] **Step 1: register + fill** the six variables, area-weighting patch values to
-  site level per existing patterns; guard registration on `hlm_use_moss`.
-- [ ] **Step 2: verify.** Compile; variables appear (and are filled, not spval) in the
-  Task 12 site run's history file; absent when `use_moss=.false.`.
-- [ ] **Step 3: reviews, then commit.**
-
-### Task 12: Testmods, system tests, integration verification
+### Task 12: Final integration, science sanity, and test-suite consolidation
 
 **Files:**
-- Create: `cime_config/testdefs/testmods_dirs/clm/FatesMoss/user_nl_clm`,
-  `.../FatesMoss/include_user_mods`
-- Modify: `cime_config/testdefs/testlist_clm.xml` (moss tests at the ALP2 site from
-  Task 0)
+- Modify: `cime_config/testdefs/testlist_clm.xml` (fill any gaps: one test per
+  `moss_height_allom` mode if not added in Task 11; the full `fates_moss` category)
 - Modify: `cime_config/testdefs/ExpectedTestFails.xml` (only if genuinely needed)
 
 **Interfaces:**
-- Consumes: everything; in particular the ALP2 testmods/tests (Task 0) and the
-  committed moss JSON (Task 2, referenced by its in-repo path via `fates_paramfile`).
-- Produces: a runnable configuration demonstrating the spec's §10 test matrix.
+- Consumes: everything.
+- Produces: the complete spec §10 test matrix, green.
 
-- [ ] **Step 0 (orchestrator):** Ask Sam: (a) which machine runs the suite (the ALP2
-  tests from Task 0 are defined on derecho intel/gnu — confirm); (b) desired moss test
-  list (suggest: moss twins of the Task 0 Bare/BareGrass tests plus a
-  nocomp-fixedbiogeo moss test, exact-restart `ERS_D` variant included, one test per
-  `moss_height_allom` mode if cheap). Check the NVP branch's `FatesNvp` testmods as
-  structural precedent. Confirm compatibility: nothing in Tasks 1–11 left
-  `use_moss=off` paths conditional on moss data.
-- [ ] **Step 1: testmods.** `FatesMoss` testmod: FATES + nocomp fixed-biogeography +
-  SPITFIRE + `use_moss=.true.` + `fates_paramfile` pointing at the Task 2 JSON +
-  `moss_height_allom` exercised; testlist entries composing it with the Task 0 ALP2
-  testmods.
-- [ ] **Step 2: run the §10 matrix** on the chosen machine:
-  (a) `use_moss=.false.` bit-for-bit vs. baseline (`SMS_D` + baseline compare);
-  (b) moss smoke + exact restart (`ERS_D`) with conservation checks fatal;
-  (c) `use_moss=.true.` with a 6-class/no-moss-PFT parameter file → clean abort
-  (manual one-off run);
-  (d) FATES functional suites green: `python run_functional_tests.py fuel allometry`.
+- [ ] **Step 0 (orchestrator):** Review accumulated test coverage from Tasks 0, 5–11
+  against spec §10; list gaps. Ask Sam: any additional history variables or tests
+  wanted before calling the implementation complete?
+- [ ] **Step 1: consolidate the suite.** Ensure the `fates_moss` category contains: the
+  ALP2 baselines (Task 0), the moss SMS + ERS tests (Task 5), and a mat-thickness-mode
+  test; run the full category on the target machine — all PASS with fatal conservation
+  checks.
+- [ ] **Step 2: b4b-off final sweep.** Re-run the Task 0 baseline compare and (if the
+  machine has an aux_clm baseline) a broader no-moss FATES test against baseline —
+  bit-for-bit.
 - [ ] **Step 3: science sanity.** In the moss run's history: moss GPP > 0 and responds
   to `FATES_MOSS_FWET`; `FATES_LIVEMOSS_FUEL` and `FATES_MOSS_FINES` nonzero and
   seasonal; fire behavior responds to moss moisture (compare two short runs with
-  perturbed `moss_fuel_moisture_*` coefficients).
+  perturbed `moss_fuel_moisture_*` coefficients); `FATES_NOCOMP_PATCHAREA_PF` reports
+  the prescribed moss cover.
 - [ ] **Step 4: reviews, then commit** (including any ExpectedTestFails hygiene, with
   each entry justified).
 
@@ -728,10 +785,11 @@ end if
 
 ## Self-review checklist (run after writing; completed 2026-08-19)
 
-1. **Spec coverage:** §3→Tasks 2–3; §4→Task 10; §5→Tasks 7, 9; §6→Tasks 4–6, 8;
-   §7→Task 7; §8→Task 1; §9→Task 11; §10→Tasks 0, 12 (Task 0 supplies the ALP2
-   baseline site infrastructure). §11/§12 are non-goals/limitations — no tasks
-   required.
+1. **Spec coverage:** §3→Tasks 2–3; §4→Task 11; §5→Tasks 8, 10; §6→Tasks 4, 6, 7, 9;
+   §7→Task 8; §8→Task 1; §9→history distributed into Tasks 6–10 (variables land with
+   their quantities) plus Task 12 review; §10→Tasks 0, 5, and the standing
+   verification rule, consolidated in Task 12. §11/§12 are non-goals/limitations — no
+   tasks required.
 2. **Placeholder scan:** none of the banned patterns; open decisions are assigned to a
    specific Step 0 with a suggested answer.
 3. **Type consistency:** `prt_params%vascular`, `fuel_classes%live_moss()/dead_moss()`,
