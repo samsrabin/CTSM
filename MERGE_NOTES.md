@@ -104,37 +104,42 @@ records which side wins at merge time.
 | `src/biogeophys/SnowHydrologyMod.F90` | `Bulk_InitializeSnowPack` / `UpdateState_InitializeSnowPack` create the first snow layer at `jbot` with honest `snl = -1`; theirs places the layer at `(c,-1)` exactly as ours does (their :948-954 for `h2osoi_ice`/`h2osoi_liq`, :1005-1024 for `dz`/`z`/`zi`). The sole divergence is `snl(c) = -2` (their :1006), carrying the `-(N_snow+1)` convention (spec §1.2). Their branch anchor: :944-1029. | Ours — honest `snl` is the design. |
 | `src/biogeophys/SnowHydrologyMod.F90` | `InitSnowLayers` caps the layer count at `nlevsno - merge(1,0,col%nvp_layer_exists(c))` and anchors its geometry loop at `zi(c,jbot)` via `do j = jbot, snl(c)+1+jbot, -1`. Their branch leaves the routine entirely unmodified. The cap is load-bearing for bounds safety, not just design: without it a full NVP pack writes one element below the start of `dz`, `z` and `zi`. | Ours. |
 | `src/biogeophys/SnowHydrologyMod.F90` | `CombineSnowLayers` carries four `[fix]`es over theirs (:2171-2634): the `nvp_is_empty` hand-off passes through to soil layer 1 rather than into a zero-thickness slot; `qflx_sl_top_soil` is booked for the bottom-layer dissolution in all cases (theirs never sets it under NVP, leaving a systematic `errh2osno` residual — audit §1b); aerosol masses are dropped rather than merged into slot 0 (their guard covers `dz` only, so the mass strands — spec §4d); and the whole-pack liquid hand-off targets moss where `nvp_is_present`. Their `snl == -1 -> 0` fixups are deliberately not ported — they patch the `-(N_snow+1)` convention and would be a bug under honest `snl` (spec §1.2). Both `j`-outer loops take guard changes, not per-column bounds; theirs uses a `cycle`-at-`j==0` in the whole-pack accumulation (their :2399) and leaves the geometry recursion (their :2598-2606) entirely stock. Theirs also carries a four-line `[NVP DBG snow]` block (their :2608-2630) — `use_nvp`-guarded but per-column over `filter_snowc` and not rate-limited; not ported. | Ours. |
-| `src/biogeochem/ch4Mod.F90` | Two comments in `ch4_tran`: index 0 in its `j = 0,nlevsoi` loops is the atmosphere pseudo-layer, not the NVP slot, and is exempt from the spec §2 idiom table; and the `-nlevsno+1,0` snow-resistance loop is a genuine snow loop that still owes the transformation (unowned — see "Unassigned snow-index sites"). Their branch does not touch the file. | Ours — comment only. |
+| `src/biogeochem/ch4Mod.F90` | Two comments in `ch4_tran`: index 0 in its `j = 0,nlevsoi` loops is the atmosphere pseudo-layer, not the NVP slot, and is exempt from the spec §2 idiom table; and the `-nlevsno+1,0` snow-resistance loop is a genuine snow loop that still owes the transformation (see "Snow-index sites found by sweep, not by audit" — assigned to Task 6). Their branch does not touch the file. | Ours — comment only. |
 | `cime_config/testdefs/ExpectedTestFails.xml` | Five CTSM issue #3798 entries had their testid suffix stripped so they classify in any run, not only the one they were recorded from (`6ad7df015`). Unrelated to NVP, but their branch also edits this file, so it may conflict. | Either — the change is upstream-appropriate and belongs in a CTSM PR of its own. |
 
-## Unassigned snow-index sites
+## Snow-index sites found by sweep, not by audit
 
-Expressions that index a snow slot and still need the spec §2 transformation, but
-that **no task explicitly claims** — either the file/routine is named by no task at
-all, or it falls outside the line ranges the owning task cites. Found by a tree-wide sweep at Task 5c, not by
-the audit: the per-task file lists were derived from `ctsm5.4.028_nvp`'s diff, so
-anywhere their branch missed, this plan has no entry either. Assign each before
-the task that would naturally cover it closes.
+Expressions that index a snow slot and need the spec §2 transformation, found by a
+tree-wide sweep at Task 5c rather than by the audit of `ctsm5.4.028_nvp`. They were
+missing as a group for one reason: **the plan's per-task file lists were derived
+from their branch's diff, so anywhere their branch missed, this plan had no entry
+either.** Their branch does not transform any of these, so each is also a place
+where our diff and theirs will differ at merge time.
 
-| Site | What it does | Consequence on an NVP column |
-|---|---|---|
-| `SnowHydrologyMod.F90` `BulkDiag_NewSnowDiagnostics` | new snow depth added to `dz(c,snl(c)+1)` | **Fixed in Task 5c** — was writing the moss thickness at `snl == -1` |
-| `SnowHydrologyMod.F90` `UpdateState_AddNewSnow` | new snow mass added to `h2osoi_ice(c,snl(c)+1)` | **Fixed in Task 5c** — was booking snowfall into the moss slot, giving `errh2osno = -qflx_snow_grnd*dtime` and an abort |
-| `SnowHydrologyMod.F90:1237` `UpdateState_TopLayerFluxes` | `lev_top(c) = snl(c)+1` | top-layer sublimation/condensation applied to the moss slot at `snl == -1`. Called from `SnowWater` (:1080), which Task 6 does name, so this one may be picked up there incidentally |
-| `clm_driver.F90:1637-1638` `clm_drv_init` | `frac_iceold(c,j)` over `j >= snl(c)+1` | **divide by zero** in the golden `dz_nvp = 0` case: `h2osoi_ice(c,0)/(h2osoi_liq(c,0)+h2osoi_ice(c,0))` with both terms zero. Reached on every timestep the column carries resolved snow (`snl <= -1`); not on snow-free columns. Task 6's still-stock percolation can later deposit liquid into slot 0, which would mask it on subsequent timesteps |
-| `ch4Mod.F90:3787-3835` `ch4_tran` snow resistance | `do j = -nlevsno+1,0` / `j >= snl(c)+1`, and `dz(c,j)` in a denominator | counts moss as snow, misses the top snow layer, and **divides by `dz(c,0)`** in the golden case. Reached whenever `use_lch4` and the column carries resolved snow, so every BGC compset |
-| `AerosolMod.F90:788-796` `AerosolFluxes` | BC/OC/dust deposited into `mss_*(c,snl(c)+1)` | aerosol deposition into the moss slot; Task 6 names only `AerosolMasses` |
-| `AerosolMod.F90:621-624` `AerosolMasses` | `h2osno_top` / `mss_*_top` from `snl(c)+1` | outside Task 6's cited `:570-580` range |
-| `HydrologyNoDrainageMod.F90:704` | `h2osno_top(c)` from `snl(c)+1` | outside Task 10's cited `:555-570` / `:442-499` ranges |
-| `WaterDiagnosticBulkType.F90:789-790` | `snw_rds_col(c,snl(c)+1:0)` and `(c,-nlevsno+1:snl(c))` — array **slices**, not loops | grain radius written across the moss slot at cold start |
-| `TemperatureType.F90:736` `InitCold` | `do j = snl(c)+1, 0` fills snow-layer temperatures with 250 K after a blanket `spval` at :732 | writes 250 K into the moss slot and leaves the **top snow layer holding `spval`** at cold start, which then propagates into `SoilThermProp`/`Phasechange` on the first timestep. Strictly worse than the `:837` row below |
-| `SoilTemperatureMod.F90:474` `SoilTemperature` | `if (j >= snl(c)+1)` in the non-urban `fn1` branch | outside Task 8's cited `:396-434` range, though inside a routine Task 8 names |
-| `TemperatureType.F90:837` | `t_grnd_col(c) = t_soisno_col(c,snl(c)+1)` | ground temperature read from the moss slot at `snl == -1` |
-| `BiogeophysPreFluxCalcsMod.F90:354` | `h2osoi_liq/ice(c,snl(c)+1)` test | outside Task 10's cited `:334-341` range |
+Now assigned. Two lake-landunit categories are deliberately excluded — `LakeHydrologyMod`,
+`LakeTemperatureMod`, `LakeFluxesMod` — because NVP columns are istsoil/istcrop only,
+so `jbot_sno` is 0 there and every stock expression is already correct.
 
-Lake-landunit sites (`LakeHydrologyMod`, `LakeTemperatureMod`, `LakeFluxesMod`)
-are deliberately excluded: NVP columns are istsoil/istcrop only, so `jbot_sno` is
-0 there and every stock expression is already correct.
+| Site | What it does | Consequence on an NVP column | Assigned |
+|---|---|---|---|
+| `SnowHydrologyMod.F90` `BulkDiag_NewSnowDiagnostics` | new snow depth added to `dz(c,snl(c)+1)` | was writing the moss thickness at `snl == -1` | **Done, Task 5c** |
+| `SnowHydrologyMod.F90` `UpdateState_AddNewSnow` | new snow mass added to `h2osoi_ice(c,snl(c)+1)` | was booking snowfall into the moss slot, giving `errh2osno = -qflx_snow_grnd*dtime` and an abort | **Done, Task 5c** |
+| `SnowHydrologyMod.F90:1237` `UpdateState_TopLayerFluxes` | `lev_top(c) = snl(c)+1` | top-layer sublimation/condensation applied to the moss slot at `snl == -1` | Task 6 (called from `SnowWater`) |
+| `clm_driver.F90:1637-1638` `clm_drv_init` | `frac_iceold(c,j)` over `j >= snl(c)+1` | **divide by zero** in the golden `dz_nvp = 0` case: `h2osoi_ice(c,0)/(h2osoi_liq(c,0)+h2osoi_ice(c,0))`, both terms zero. Every timestep the column carries resolved snow | Task 6 — **do this one first** |
+| `ch4Mod.F90:3793-3841` `ch4_tran` snow resistance | `do j = -nlevsno+1,0` / `j >= snl(c)+1`, and `dz(c,j)` in a denominator | counts moss as snow, misses the top snow layer, and **divides by `dz(c,0)`** in the golden case. Whenever `use_lch4` and the column has resolved snow, so every BGC compset | Task 6 (by domain; no task owns `ch4Mod`) |
+| `AerosolMod.F90:788-796` `AerosolFluxes` | BC/OC/dust deposited into `mss_*(c,snl(c)+1)` | aerosol deposition into the moss slot | Task 6 (routine not previously named) |
+| `AerosolMod.F90:621-624` `AerosolMasses` | `h2osno_top` / `mss_*_top` from `snl(c)+1` | SNICAR top-layer inputs read from moss | Task 6 (outside its cited `:570-580`) |
+| `HydrologyNoDrainageMod.F90:704` | `h2osno_top(c)` from `snl(c)+1` | same SNICAR input as `AerosolMod:621` | Task 6 **by domain**, though Task 10 owns the file — cross-referenced in both |
+| `WaterDiagnosticBulkType.F90:789-790` `InitBulkCold` | `snw_rds_col(c,snl(c)+1:0)` and `(c,-nlevsno+1:snl(c))` — array **slices**, not loops | cold-start grain radius written across the moss slot | Task 6 |
+| `TemperatureType.F90:736` `InitCold` | `do j = snl(c)+1, 0` fills snow temperatures with 250 K after a blanket `spval` at `:732` | writes 250 K into the moss slot and leaves the **top snow layer at `spval`**, which reaches `SoilThermProp` on the first timestep | Task 7 — routine shared with Task 10 |
+| `TemperatureType.F90:837` `InitCold` | `t_grnd_col(c) = t_soisno_col(c,snl(c)+1)` | cold-start ground temperature read from the moss slot | Task 10 — routine shared with Task 7 |
+| `SoilTemperatureMod.F90:474` `SoilTemperature` | `if (j >= snl(c)+1)` in the non-urban `fn1` branch | outside Task 8's cited `:396-434`, inside a routine it names | Task 8 |
+| `BiogeophysPreFluxCalcsMod.F90:354` | `h2osoi_liq/ice(c,snl(c)+1)` test | outside Task 10's cited `:334-341` | Task 10 |
+
+**Lesson for the remaining tasks:** the line ranges each task cites are where their
+branch made changes, not a complete inventory of that routine's snow-index
+expressions. Sweep the whole routine — and grep for array *slices* (`(c, snl(c)+1:0)`),
+which carry no loop keyword and are the easiest kind to miss.
 
 ## Deferred items
 
