@@ -36,6 +36,7 @@ git worktree add --detach .worktrees/ctsm5.4.028_nvp 103082a17
   - Init-time only, or otherwise one-shot. Nothing inside a timestep loop.
 - Every code comment states a constraint, not a narration. New/changed comments in harvested code must be re-checked against OUR conventions (their stale comments caused bugs — spec §3).
 - Fortran style: match surrounding code (2-space indent, `_r8` literals, `associate` blocks, `SHR_ASSERT_ALL_FL` for bounds).
+- **The user runs the system test suites — never run them yourself.** `run_sys_tests`, `clm_short`, and `aux_clm` are the user's to launch, foreground or background. Your verification stops at the build check and unit tests; then hand off and wait. Never report or characterize a suite result the user has not given you.
 - **Never change a line only for whitespace.** No re-aligning an existing declaration or `use` block to accommodate a longer new name, no stripping trailing whitespace on lines you did not otherwise need to touch, no reindenting untouched code. Let a new line be wider than its neighbors rather than moving them. Whitespace-only edits inflate the diff, land in `git blame`, and manufacture merge conflicts against `ctsm5.4.028_nvp` for no benefit. Check before finishing: `git diff --numstat` and `git diff -w --numstat` must report the same counts for every file.
 
 ## Execution Process (user-mandated — applies to every task)
@@ -293,7 +294,9 @@ own, and gets its own two-stage review.
 - Produces: snow occupies `col%get_jtop_snow(c) : col%get_jbot_snow(c)` on all columns; geometry recursions anchored at `zi(c, col%get_jbot_snow(c))`; max snow layers `nlevsno-1` where the NVP slot exists.
 - Apply the spec §2 idiom table. Every transformation must reduce to the stock expression when `jbot_sno == 0`, which is the whole bit-for-bit argument.
 
-**Verification for every sub-task**, in addition to the standard build check and unit tests: the **`clm_short`** suite via `run_sys_tests`, compared against the `ctsm5.4.028` baseline. This is the first task that can break bit-for-bit, and neither the build nor the unit tests can detect an answer change — aux_clm at Task 4 was the first thing that ever tested it. Task 5d additionally runs the full **aux_clm** suite.
+**Verification for every sub-task**, in addition to the standard build check and unit tests: the **`clm_short`** suite against the `ctsm5.4.028` baseline, and for 5d the full **aux_clm** suite. This is the first task that can break bit-for-bit, and neither the build nor the unit tests can detect an answer change — aux_clm at Task 4 was the first thing that ever tested it.
+
+> **The user runs the test suites. Never run `run_sys_tests`, `clm_short`, or `aux_clm` yourself, and never launch a suite in the background.** Finish the build check and unit tests, then **STOP** and hand the sub-task to the user for the suite run. Report the results only after the user provides them; do not predict, assume, or characterize a suite outcome that has not been reported.
 
 ---
 
@@ -307,7 +310,7 @@ own, and gets its own two-stage review.
 
 - [ ] **Step 2 — `Bulk_InitializeSnowPack` / `UpdateState_InitializeSnowPack` (stock :955-1012, :919-952; theirs :944-1029, [harvest, adapt]).** First layer is created at index `jbot` with `snl = -1` (honest `snl`, not their `-2`); `zi(c,jbot-1) = zi(c,jbot) - dz(c,jbot)`; the `t_soisno` / `h2osoi_*` / `frac_iceold` writes land at `(c,jbot)`.
 
-- [ ] **Step 3: Verify.** Build check, unit tests (baseline 59/59), and `clm_short` vs the `ctsm5.4.028` baseline.
+- [ ] **Step 3: Verify.** Build check and unit tests (baseline 59/59). Then **STOP**: the user runs `clm_short` against the `ctsm5.4.028` baseline and reports the result. Do not run it.
 - [ ] **Step 4: Commit** `git commit -am "Reindex snow pack creation and cold-start placement for the NVP slot"` → review/approval gate.
 
 ---
@@ -337,7 +340,7 @@ so it cannot take a per-column bound, and with the `nlevsno-1` cap an NVP column
 
 - [ ] **Step 6 — do NOT port their `snl` fixups.** The stock entry guard `snl(c) < -1` and the `EXIT` at `snl(c) >= -1` are **already correct** under honest `snl`: `snl == -1` is a legal one-layer state. Their `snl == -1 → 0` fixups exist only to patch their `snl = −(N_snow+1)` convention and would be a bug here (spec §1.2).
 
-- [ ] **Step 7: Verify.** Build check, unit tests, `clm_short` vs baseline.
+- [ ] **Step 7: Verify.** Build check and unit tests. Then **STOP**: the user runs `clm_short` and reports the result. Do not run it.
 - [ ] **Step 8: Commit** `git commit -am "Reindex CombineSnowLayers for the NVP slot"` → review/approval gate.
 
 ---
@@ -354,7 +357,7 @@ so it cannot take a per-column bound, and with the `nlevsno-1` cap an NVP column
 
 - [ ] **Step 3 — `snl` and geometry.** `snl = -msno`, stock. Geometry re-anchored at `zi(c,jbot)`; check whether that recursion is `j`-outer like `CombineSnowLayers`' — if so, change the guard, not the bounds.
 
-- [ ] **Step 4: Verify.** Build check, unit tests, `clm_short` vs baseline.
+- [ ] **Step 4: Verify.** Build check and unit tests. Then **STOP**: the user runs `clm_short` and reports the result. Do not run it.
 - [ ] **Step 5: Commit** `git commit -am "Reindex DivideSnowLayers for the NVP slot"` → review/approval gate.
 
 ---
@@ -371,7 +374,7 @@ so it cannot take a per-column bound, and with the `nlevsno-1` cap an NVP column
 
 - [ ] **Step 3 — the ch4Mod comment (spec §2).** Add one clarifying comment at `ch4Mod`'s `j == 0` sites stating that index 0 there is an **atmosphere pseudo-layer**, not the NVP slot, and must not be transformed by the §2 idiom table. Nothing else in that file changes. This is the one item the plan's Self-Review claimed was already assigned to a step and was not.
 
-- [ ] **Step 4: Verify.** Build check, unit tests, `clm_short` vs baseline, **and the full `aux_clm` suite** — Task 5 as a whole is the first rewrite of live snow arithmetic, so it gets the same gate that validated Task 4.
+- [ ] **Step 4: Verify.** Build check and unit tests. Then **STOP**: the user runs `clm_short` **and the full `aux_clm` suite** — Task 5 as a whole is the first rewrite of live snow arithmetic, so it gets the same gate that validated Task 4 — and reports the results. Do not run either.
 - [ ] **Step 5: Commit** `git commit -am "Sweep remaining snow loop bounds around the NVP slot"` → review/approval gate. MERGE_NOTES rows across 5a-5d for every divergence from their guards, especially the honest-`snl` sites.
 
 ---
