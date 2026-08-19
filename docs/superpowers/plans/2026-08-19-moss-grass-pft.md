@@ -50,7 +50,7 @@ Testing and diagnostics land WITH the capability they verify, not at the end. **
 of labor:**
 
 - **Claude (required, every Fortran-touching task):** (a) verify CTSM-FATES **builds**:
-  from the top of the checkout, `cd test-bld && qcmd -- ./case.build` (the `test-bld/`
+  from the top of the checkout, `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` (the `test-bld-adrianna-moss-grass-pft/`
   case will exist on the implementation machine; if it is missing, ask Sam rather than
   creating one); (b) run the FATES functional/unit tests covering the touched code
   (`python run_functional_tests.py fuel|allometry`, `python run_unit_tests.py`).
@@ -469,7 +469,7 @@ NVP-branch moss param JSONs).
   patterns), the `FatesNvpOff` twins (moss code present but off — b4b sentinels), and
   the nocomp fixed-biogeography moss tests identified in Step 0; include an `ERS_D`
   exact-restart variant.
-- [ ] **Step 3: build check.** `cd test-bld && qcmd -- ./case.build` passes.
+- [ ] **Step 3: build check.** `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` passes.
 - [ ] **Step 4: prepare the system-test hand-off.** Claude writes out the new tests'
   invocations and expected outcomes for Sam's review: PASS with moss as an inert
   grass-like PFT, exact restart, fatal conservation checks clean; the abort case
