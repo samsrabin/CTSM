@@ -170,8 +170,9 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 ## 9. Diagnostics and validation
 
 - `FATES_NOCOMP_PATCHAREA_PF`: true per-PFT fractional cover in nocomp (prescribed;
-  validates bookkeeping). `FATES_CROWNAREA_PF` etc. come free (`fates_history_dimlevel(2)
-  >= 2`) and become the emergent-cover variables under full competition later.
+  validates bookkeeping). `FATES_CROWNAREA_PF` etc. come free (requires
+  `fates_history_dimlevel(2) >= 2`) and become the emergent-cover variables under full
+  competition later.
 - New history: moss fuel load, moss fuel moisture, fwet proxy, plus standard per-PFT
   biomass/GPP variables which are automatic.
 - Validation target: observed fractional cover of two moss species at boreal sites; plus
