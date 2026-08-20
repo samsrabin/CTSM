@@ -119,6 +119,10 @@ carry a FATES pointer bump) + at most one FATES commit.
 ---
 
 ### Task 0: ALP2 baseline testmods, tests, and baselines
+**Status: COMPLETE (2026-08-20).** Commits `2438f5ecb` (testmods, testlist, submodule
+pointers) and `dedbfdf4c` (drop `fates_paramfile` — see Step 1). Sam confirmed both ALP2
+tests pass on derecho intel/gnu and izumi/nag. Baseline generation is Sam's (Step 4).
+
 
 **Files:**
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2Bare/user_nl_clm` (+
@@ -179,7 +183,7 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   - Forward check: `FatesNvp`/`FatesNvpOff` do not exist on this branch yet — they
     arrive (adapted) in Task 5 along with the remaining NVP-branch tests. Task 0's two
     baseline tests reference only `FatesColdSatPhen` + `FatesALP2Bare{,Grass}`.
-- [ ] **Step 1: copy the two testmod dirs** from the NVP worktree (each is a two-line
+- [x] **Step 1: copy the two testmod dirs** from the NVP worktree (each is a two-line
   `user_nl_clm` with only `fsurdat` and `fates_paramfile`, no `include_user_mods`), and
   add `use_bedrock = .true.` to each per Step 0. **Do NOT carry over the
   `fates_paramfile` line.** Every `fates_params_default.c*.json` under
@@ -193,22 +197,25 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   namelist default apply — the in-repo `src/fates/parameter_files/fates_params_default.json`
   (14 PFTs, all mode 3), which is version-locked to the FATES pin and is what every
   other FATES test uses. This is also what a no-moss baseline test *should* use.
-- [ ] **Step 2: update submodules.** Edit `.gitmodules` (`ccs_config`: url + fxtag;
+- [x] **Step 2: update submodules.** Edit `.gitmodules` (`ccs_config`: url + fxtag;
   `cdeps`: fxtag only — see Step 0) and check out the corresponding submodule commits.
-- [ ] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
+- [x] **Step 3: testlist entries.** Add the Bare and BareGrass tests (grid `1x1_ALP2`,
   compset `I2000Clm60FatesSpRsGs`, testmods `clm/FatesColdSatPhen--clm/FatesALP2Bare`
   and `...BareGrass`), machines/compilers/categories per Step 0. These are new
   constructions, not ports: every ALP2 entry on the NVP branch composes `FatesNvp` or
   `FatesNvpOff`, so there is no no-moss ALP2 test there to copy. Model the `<machines>`
   and `<options>` blocks on the NVP branch's `FatesNvp--FatesALP2Bare{,Grass}` entries
   (NVP lines 4972, 4989), minus the `FatesNvp` testmod.
-- [ ] **Step 4: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
+- [x] **Step 4: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
   and tests"). During post-commit review, Sam (optionally) runs the two tests and
   generates baselines from them; expected outcome is that both PASS at base code. Sam
   owns the baseline tag and its naming convention — Claude does not write the
   `run_sys_tests` invocations and does not need to know the tag.
 
 ### Task 0b: Fix NaN `rootr_patch` below bedrock in the FATES interface
+**Status: COMPLETE (2026-08-19).** Commit `cd5783c3c`. Sam confirmed the derecho intel
+`FatesALP2BareGrass` test passes.
+
 
 Not in the original plan. Added 2026-08-19 after Task 0's `FatesALP2BareGrass` test
 failed on derecho/intel with `forrtl (65): floating invalid` at
@@ -245,7 +252,7 @@ coverage to gnu-only for every later task, on the very compiler that hides NaN.
     propagating into `rootr_col` and `qflx_rootsoi_col`.
   - Sam's decisions: fix the root cause (not `ExpectedTestFails`), and do not investigate
     whether gnu has historically been writing NaN into history output.
-- [ ] **Step 1: zero the sub-bedrock layers.** In `wrap_btran`, after the
+- [x] **Step 1: zero the sub-bedrock layers.** In `wrap_btran`, after the
   `do j = 1,nlevsoil` fill loop, set `rootr(p, nlevsoil+1 : nlevgrnd) = 0._r8` for each
   active patch. Zero to `nlevgrnd`, not `nlevsoi`: `rootr_patch` is allocated to
   `nlevgrnd` and `ch4Mod` / `SoilMoistStressMod` also read it. Physically this states
@@ -257,10 +264,10 @@ coverage to gnu-only for every later task, on the very compiler that hides NaN.
   out-of-bounds slice: a Fortran array section whose lower bound exceeds its upper bound
   is zero-sized and legal. Do not repeat that incorrect rationale anywhere.
   Follow the surrounding style; no churn.
-- [ ] **Step 2: verify (Claude).** Fortran-touching, so the standing rule applies:
+- [x] **Step 2: verify (Claude).** Fortran-touching, so the standing rule applies:
   `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` must succeed. No FATES
   functional test covers this interface path, so there is nothing to add there.
-- [ ] **Step 3: reviews, then commit.** Expected outcomes to state for Sam: the intel
+- [x] **Step 3: reviews, then commit.** Expected outcomes to state for Sam: the intel
   `FatesALP2BareGrass` test now runs to completion; the gnu twin still passes. Answer
   changes are confined to values that were previously NaN, so any configuration that was
   producing valid numbers is unaffected — worth saying explicitly since this lands before
@@ -268,6 +275,9 @@ coverage to gnu-only for every later task, on the very compiler that hides NaN.
   PR, since it fixes a bug unrelated to moss.
 
 ### Task 0c: Fix unconditional `associate` of uninitialised BGC pointers (nag)
+**Status: COMPLETE (2026-08-20).** Commit `8c2ab55a7`. Sam confirmed the izumi/nag ALP2
+tests and the new `1x1_brazil` nag FATES-SP test pass.
+
 
 Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed with
 `Reference to undefined POINTER` at `clmfates_interfaceMod.F90:3098` in
@@ -302,7 +312,7 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   - Sam's decisions: fix it (not `ExpectedTestFails`); use **option (a)**, dropping the
     three names from the `associate` rather than nesting a second `associate`; include the
     bounded sweep; and add permanent izumi/nag FATES-SP coverage.
-- [ ] **Step 1: drop the three BGC bindings.** Remove `hr`, `totsomc` and `totlitc` from
+- [x] **Step 1: drop the three BGC bindings.** Remove `hr`, `totsomc` and `totlitc` from
   the `associate` at `:3098`, leaving the five always-initialised biophysics fields
   (`eflx_lh_tot`, `eflx_sh_tot`, `fsa_patch`, `eflx_lwrad_net`, `t_ref2m`). In the guarded
   branch, reference the components directly:
@@ -316,7 +326,7 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   A component reference inside a branch that does not execute is never evaluated, so this
   is safe under `no_soil_decomp`. Zero answer changes on any compiler — this only changes
   whether a name is bound, never a computed value. Keep the `else` branch untouched.
-- [ ] **Step 2: bounded sweep — deliberately scoped, do not widen.** In
+- [x] **Step 2: bounded sweep — deliberately scoped, do not widen.** In
   `clmfates_interfaceMod.F90` **only**, inspect every other `associate` block for the same
   defect: a binding to a component of an instance that is only conditionally initialised
   (the `decomp_method /= no_soil_decomp` gate at `clm_instMod.F90:404` is the one known
@@ -324,7 +334,7 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   way). Report each block checked and the verdict, even when clean. Fix any found by the
   same Step 1 pattern. This is NOT a general audit of the file and NOT a sweep of other
   files — anything outside `clmfates_interfaceMod.F90` gets reported, not changed.
-- [ ] **Step 3: permanent izumi/nag FATES-SP coverage.** Add ONE new short, mpi-serial
+- [x] **Step 3: permanent izumi/nag FATES-SP coverage.** Add ONE new short, mpi-serial
   FATES-SP test on izumi/nag, cloned from the existing derecho-only entry
   `SMS_D` / `1x1_brazil` / `I2000Clm60FatesSpCruRsGs` / `clm/FatesColdSatPhen` (whose own
   comment notes "FatesSp has the largest difference in CTSM code for any FATES mode"):
@@ -336,12 +346,12 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   existing izumi/nag `Mmpi-serial` tests). Rationale for the comment text: this test
   exists so nag checks the FATES-SP (`no_soil_decomp`) path in the regular suite, which is
   what would have caught this bug.
-- [ ] **Step 4: verify (Claude).** Fortran-touching, so the standing rule applies:
+- [x] **Step 4: verify (Claude).** Fortran-touching, so the standing rule applies:
   `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` must succeed. Also confirm
   `testlist_clm.xml` still parses and that `./cime/scripts/query_testlists` finds the new
   test under izumi/nag. **If the build fails for any git-related reason, STOP and ask Sam
   — never modify git state to make a build work.**
-- [ ] **Step 5: reviews, then commit.** Expected outcomes to state for Sam: the two
+- [x] **Step 5: reviews, then commit.** Expected outcomes to state for Sam: the two
   izumi/nag ALP2 tests now run instead of aborting at `wrap_update_hifrq_hist`; intel and
   gnu results are bit-for-bit unchanged (no value is altered by this fix); the new
   `1x1_brazil` nag test passes. Flag as a standalone upstream CTSM PR candidate — smaller
@@ -349,6 +359,9 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   numerical effect at all.
 
 ### Task 1: `use_fates_moss` and moss scalar namelist plumbing
+**Status: COMPLETE (2026-08-20).** FATES `030e41a1` + `d9b28108`; CTSM `66266d8eb`,
+`13a5caed3`, `9cf3be6f9`. Nothing pushed.
+
 
 **Files:**
 - Modify: `bld/namelist_files/namelist_definition_ctsm.xml` (near `use_fates_sp`, ~line 771)
@@ -373,7 +386,7 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   `hlm_moss_fuel_moisture_dead_intercept`, `hlm_moss_fuel_moisture_dead_slope`, `hlm_moss_max_burn_frac` (r8). All later
   FATES tasks read these.
 
-- [ ] **Step 0 (orchestrator):** Read `setup_logic_fates` and the `use_fates_sp` +
+- [x] **Step 0 (orchestrator):** Read `setup_logic_fates` and the `use_fates_sp` +
   `fates_spitfire_mode` plumbing end to end. Confirm `set_fates_ctrlparms` real-scalar
   handling (precedent: `hlm_hio_ignore_val`, `FatesInterfaceMod.F90:2210`). Forward
   check: names above are consumed verbatim by Tasks 4, 9, 10, 11. Known open questions
@@ -382,10 +395,10 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   prefix); (b) default values for the four fuel-moisture coefficients (suggest
   live a=0.3, b=0.7; dead a=0.05, b=0.75 as placeholder defaults pending tuning —
   confirm Sam is OK with placeholders that will be tuned in Task 12).
-- [ ] **Step 1: FATES branch setup.** In `src/fates/`:
+- [x] **Step 1: FATES branch setup.** In `src/fates/`:
   `git checkout -b adrianna-moss-grass-pft e027a4030d2a0f09039fb337ad67ced7461dd4f0`,
   and add/verify the SSH push remote `git@github.com:samsrabin/fates.git`.
-- [ ] **Step 2: XML definitions.** Add to `namelist_definition_ctsm.xml` (group
+- [x] **Step 2: XML definitions.** Add to `namelist_definition_ctsm.xml` (group
   `clm_inparm`), following the `use_fates_sp` entry format:
 
 ```xml
@@ -421,15 +434,15 @@ Maximum fraction of live moss fuel that can burn in a fire
   Add defaults to `namelist_defaults_ctsm.xml`: `fates_moss_height_allom = 'grass_powerlaw'`,
   `fates_moss_bulk_density = 10.`, the four fuel-moisture coefficients (Step 0 values), and
   `fates_moss_max_burn_frac = 1.0` (see Task 9 Step 2 for why 1.0, not grass's 0.8).
-- [ ] **Step 3: build-namelist logic.** In `setup_logic_fates`, add the eight names to
+- [x] **Step 3: build-namelist logic.** In `setup_logic_fates`, add the eight names to
   the `add_default` list and add fatal checks: `use_fates_moss` requires `use_fates`;
   `use_fates_moss` + `use_fates_planthydro` is fatal (message: "use_fates_moss is incompatible with
   use_fates_planthydro").
-- [ ] **Step 4: clm_varctl + controlMod.** Declare the eight variables in the FATES
+- [x] **Step 4: clm_varctl + controlMod.** Declare the eight variables in the FATES
   block of `clm_varctl.F90` with the same defaults as the XML; add to the `clm_inparm`
   namelist read, the `use_fates` consistency-check block (error if `use_fates_moss` and
   `.not. use_fates`), and the `mpi_bcast` block in `controlMod.F90`.
-- [ ] **Step 5: pass to FATES.** In `clmfates_interfaceMod.F90` `CLMFatesGlobals2`,
+- [x] **Step 5: pass to FATES.** In `clmfates_interfaceMod.F90` `CLMFatesGlobals2`,
   mirror the `use_sp` pattern:
 
 ```fortran
@@ -450,17 +463,17 @@ call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fue
 ```
 
   ...and the remaining three coefficients likewise.
-- [ ] **Step 6: FATES side.** In `FatesInterfaceTypesMod.F90` declare the eight
+- [x] **Step 6: FATES side.** In `FatesInterfaceTypesMod.F90` declare the eight
   `hlm_*` variables (integer/real, public). In `FatesInterfaceMod.F90`
   `set_fates_ctrlparms`: flush each to unset in the flush block, add
   `case('use_moss')` etc. to the assignment `select case`, and add "was it set?"
   checks in the verification block (pattern: `FatesInterfaceMod.F90:1837-1840`).
-- [ ] **Step 7: verify.** (a) `cd bld/unit_testers && ./build-namelist_test.pl` — no new
+- [x] **Step 7: verify.** (a) `cd bld/unit_testers && ./build-namelist_test.pl` — no new
   failures; (b) manual build-namelist checks: `use_fates_moss=.true.` without FATES fails
   fatally; `use_fates_moss=.true.` + `use_fates_planthydro=.true.` fails fatally; defaults
   appear in `lnd_in` when `use_fates_moss=.true.` with FATES; (c) standing rule: ALP2
   baseline tests compare b4b.
-- [ ] **Step 8: reviews, then commit** (FATES commit "Add hlm_use_moss and moss scalar
+- [x] **Step 8: reviews, then commit** (FATES commit "Add hlm_use_moss and moss scalar
   ctrlparms"; CTSM commit "Add use_fates_moss and moss scalar namelist plumbing" including
   `.gitmodules` update and submodule pointer bump).
 
