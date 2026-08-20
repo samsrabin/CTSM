@@ -2272,9 +2272,11 @@ contains
                 ! would be more thorough to do so.
              end if
 
-             ! Booked whatever received the water: qflx_sl_top_soil records that the
-             ! snow pack lost it at the bottom, not where it went. Its only consumer
-             ! is snow_sinks in BalanceCheckMod, so the sink is owed either way.
+             ! Add to qflx_sl_top_soil whichever layer received the water. It measures
+             ! what the snow pack lost at its bottom, not where that water went, and
+             ! snow_sinks in BalanceCheckMod is its only consumer. Stock reaches here
+             ! only when the receiver is soil layer 1; under NVP it may be the moss
+             ! slot instead, and the snow balance is owed the sink just the same.
              if (j == jbot) then
 
                 do wi = water_inst%bulk_and_tracers_beg, water_inst%bulk_and_tracers_end
