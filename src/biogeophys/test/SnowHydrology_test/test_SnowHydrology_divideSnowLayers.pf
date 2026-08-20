@@ -14,11 +14,10 @@ module test_SnowHydrology_divideSnowLayers
   ! snow, jtop .. jbot, short for col%get_jtop_snow(c) .. col%get_jbot_snow(c). On an NVP
   ! column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot", which is
   ! not snow and which snow code must never touch; on a stock column (jbot_sno == 0) the
-  ! pack is snl+1 .. 0 and there is no moss slot. The "anchor" is zi(c,jbot), the
-  ! interface at the bottom of the pack: the interface recursion at the end of the
-  ! routine reads it and works upward from it, and must never write it. That is the soil
-  ! surface zi(c,0) = 0 on a stock column and the top of the moss, zi(c,-1), on an NVP
-  ! one.
+  ! pack is snl+1 .. 0 and there is no moss slot. The "snowpack base" is zi(c,jbot), the
+  ! interface the pack rests on: the interface recursion at the end of the routine reads
+  ! it and works upward from it, and must never write it. That is the soil surface
+  ! zi(c,0) = 0 on a stock column and the top of the moss, zi(c,-1), on an NVP one.
   !
   ! The NVP changes are:
   ! 1. The staging map, its inverse, and the interface recursion key off jtop/jbot instead
@@ -280,7 +279,7 @@ contains
 
     ! zi(c,0) is the soil surface datum on every column. On an NVP column the moss
     ! occupies the interval [-dz_nvp, 0], so its node sits at -dz_nvp/2 and the interface
-    ! at its top, zi(c,-1), is the anchor described in the header: the value the
+    ! at its top, zi(c,-1), is the snowpack base described in the header: the value the
     ! interface recursion starts from and must leave alone.
     col%zi(c,0) = 0._r8
     if (jbot_sno == -1) then
@@ -375,7 +374,8 @@ contains
 
   subroutine assertMossUntouched(this)
     ! Assert that the moss slot came through the call intact: its geometry (thickness,
-    ! node depth, and the interfaces at its top and bottom, the top one being the anchor)
+    ! node depth, and the interfaces at its top and bottom, the top one being the
+    ! snowpack base)
     ! and every staged quantity in slot 0. Any bound that treated slot 0 as snow -- a
     ! staging offset short by one, a write-back that ran past jbot, or an interface
     ! recursion that stepped down to j = 0 -- fails one of these.
@@ -465,11 +465,11 @@ contains
     ! nothing into the lower and the pack settles at -2..-1.
     !
     ! The new layer has to appear above the old one. If the pack grew downward instead it
-    ! would land on the moss, so the assertions pin dz(c,0) and the zi(c,-1) anchor as
-    ! well as conservation of ice and liquid. The final loop walks the interface
+    ! would land on the moss, so the assertions pin dz(c,0) and the zi(c,-1) snowpack
+    ! base as well as conservation of ice and liquid. The final loop walks the interface
     ! recursion the routine rebuilt, checking that each interface and node depth follows
-    ! from the one below it, which only holds if the recursion started at the anchor
-    ! rather than at zi(c,0).
+    ! from the one below it, which only holds if the recursion started at the snowpack
+    ! base rather than at zi(c,0).
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(1) = [0.08_r8]
     real(r8) :: ice_before, liq_before
