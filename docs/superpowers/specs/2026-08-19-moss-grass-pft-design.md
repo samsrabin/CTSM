@@ -155,13 +155,21 @@ All in FATES `fire/` plus the biomass routing points:
   mapping `moisture = a + b·fwet`, with separate coefficient pairs for the live-moss and
   dead-moss classes (all four on the CTSM namelist, §8); refinable if a better-supported
   form emerges.
-- **Burn response mirrors grass:** each moss class burns per its own effective moisture.
-  Moss cohorts take `leaf_burn_frac` from the live-moss class's `frac_burnt` (analogous
-  to the existing live-grass keying in `EDPatchDynamicsMod`), combusting leaf + sapwood +
-  structure with the same 0.8 cap, defoliating without individual mortality — regrowth
-  from storage stands in for regrowth from surviving fragments. The `moss_fines` litter
-  pool burns per the dead-moss class's `frac_burnt`, alongside the existing burnt-litter
-  accounting.
+- **Burn response mirrors grass, except for the burn-fraction cap:** each moss class
+  burns per its own effective moisture. Moss cohorts take `leaf_burn_frac` from the
+  live-moss class's `frac_burnt` (analogous to the existing live-grass keying in
+  `EDPatchDynamicsMod`), combusting leaf + sapwood + structure, defoliating without
+  individual mortality — regrowth from storage stands in for regrowth from surviving
+  fragments. The `moss_fines` litter pool burns per the dead-moss class's `frac_burnt`,
+  alongside the existing burnt-litter accounting.
+- **Moss does NOT inherit grass's 0.8 maximum burn fraction.** Grass is capped by a
+  hardcoded `max_grass_frac = 0.8` applied to the live-grass fuel class only, encoding
+  surviving tillers and meristems; moss has no equivalent, and a moss mat can burn off
+  completely. Live moss instead gets its own cap on the CTSM namelist (§8), defaulting to
+  1.0 — i.e. no cap by default, with the knob present so it can be tightened during
+  tuning without a code change. Grass's cap is untouched. Because moss cohort
+  `leaf_burn_frac` is keyed off the live-moss class's `frac_burnt`, the cohort-level
+  combustion inherits this limit automatically.
 
 ## 7. CTSM–FATES interface
 
@@ -186,9 +194,10 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   `use_fates_planthydro`.
 - `moss_height_allom` (string: `'grass_powerlaw'` | `'mat_thickness'`) → selects the
   height-allometry mode applied to moss PFTs (§4).
-- Moss science scalars: at minimum, moss bulk density (mat-thickness allometry) and the
+- Moss science scalars: at minimum, moss bulk density (mat-thickness allometry), the
   fuel-moisture coefficient pairs for the live-moss and dead-moss classes (`a`, `b` each;
-  §6). Any further scalars discovered during implementation follow the same convention.
+  §6), and the live-moss maximum burn fraction (§6; default 1.0).
+  Any further scalars discovered during implementation follow the same convention.
   (SAV and fuel bulk density for the two new classes are *array* entries on the existing
   `fates_litterclass` parameter-file dimension, which must grow to 8 regardless — they
   stay on the parameter file like other array parameters.)

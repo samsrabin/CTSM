@@ -812,7 +812,7 @@ end if
   rest).
 
   **Max burn fraction: moss gets its own namelist value, NOT grass's cap.** This
-  supersedes spec §6's "with the same 0.8 cap" wording. The existing cap is a hardcoded
+  implements spec §6's moss-specific cap. The existing grass cap is a hardcoded
   `real(r8), parameter :: max_grass_frac = 0.8_r8` at `FatesFuelMod.F90:400`, applied in
   `CalculateFuelBurnt` only when `i == fuel_classes%live_grass()`
   (`FatesFuelMod.F90:426-429`, comment "we can't ever kill all of the grass"). Grass keeps
