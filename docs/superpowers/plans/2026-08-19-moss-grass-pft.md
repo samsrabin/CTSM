@@ -64,7 +64,7 @@ of labor:**
   during review, and approval proceeds on Sam's say-so either way. Claude does **not**
   write `run_sys_tests` invocations, `--generate`/`--compare` flags, or baseline tags —
   Sam owns how the tests are launched and how baselines are named.
-- The b4b intent stands throughout: `use_moss` off must remain bit-for-bit; the ALP2
+- The b4b intent stands throughout: `use_fates_moss` off must remain bit-for-bit; the ALP2
   baselines (Task 0) are the instrument whenever Sam chooses to run them.
 
 ### Git choreography
@@ -88,11 +88,11 @@ carry a FATES pointer bump) + at most one FATES commit.
 - **All new scalar settings — switches and science constants — go on the CTSM namelist**
   (`clm_inparm` → `set_fates_ctrlparms` `hlm_*`), never the FATES parameter file. Only
   array parameters (per-PFT, per-litterclass) go on the FATES parameter file. (Spec §8.)
-- **`use_moss = .false.` must be bit-for-bit with baseline**, including unchanged restart
+- **`use_fates_moss = .false.` must be bit-for-bit with baseline**, including unchanged restart
   and history file shapes with a standard 6-litterclass parameter file. (Spec §10.)
 - **All existing CTSM/FATES conservation (balance) checks remain fatal** and must pass
-  with `use_moss` on and off. (Spec §5, §10.)
-- `use_moss` + `use_fates_planthydro` is a fatal namelist error. (Spec §5.)
+  with `use_fates_moss` on and off. (Spec §5, §10.)
+- `use_fates_moss` + `use_fates_planthydro` is a fatal namelist error. (Spec §5.)
 - Target configuration: nocomp fixed-biogeography, SPITFIRE on. Choices must not
   foreclose full-competition mode. (Spec §2.)
 - Fortran code follows surrounding CTSM/FATES style (naming, `_r8` literals, `endrun`
@@ -174,7 +174,7 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   - **Finding for later tasks.** CIME keys baselines by full test name *including
     testmods*, so Task 5's `FatesNvpOff` tests cannot compare against Task 0's
     baselines — they need baselines of their own, generated at Task 5. Task 0's two
-    plain tests carry no `FatesNvp*` testmod, so `use_moss` takes its `.false.`
+    plain tests carry no `FatesNvp*` testmod, so `use_fates_moss` takes its `.false.`
     default: those are the b4b sentinel for Tasks 1–4.
   - Forward check: `FatesNvp`/`FatesNvpOff` do not exist on this branch yet — they
     arrive (adapted) in Task 5 along with the remaining NVP-branch tests. Task 0's two
@@ -348,7 +348,7 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   and cleaner than Task 0b's, since it fixes a language-standard violation with no
   numerical effect at all.
 
-### Task 1: `use_moss` and moss scalar namelist plumbing
+### Task 1: `use_fates_moss` and moss scalar namelist plumbing
 
 **Files:**
 - Modify: `bld/namelist_files/namelist_definition_ctsm.xml` (near `use_fates_sp`, ~line 771)
@@ -363,22 +363,22 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   new FATES branch commit)
 
 **Interfaces:**
-- Produces (CTSM): `use_moss` (logical), `moss_height_allom` (char:
-  `'grass_powerlaw'`/`'mat_thickness'`), `moss_bulk_density` (r8, kg m-3),
-  `moss_fuel_moisture_live_a`, `moss_fuel_moisture_live_b`, `moss_fuel_moisture_dead_a`,
-  `moss_fuel_moisture_dead_b`, `moss_max_burn_frac` (r8) in `clm_varctl`.
+- Produces (CTSM): `use_fates_moss` (logical), `fates_moss_height_allom` (char:
+  `'grass_powerlaw'`/`'mat_thickness'`), `fates_moss_bulk_density` (r8, kg m-3),
+  `fates_moss_fuel_moisture_live_intercept`, `fates_moss_fuel_moisture_live_slope`, `fates_moss_fuel_moisture_dead_intercept`,
+  `fates_moss_fuel_moisture_dead_slope`, `fates_moss_max_burn_frac` (r8) in `clm_varctl`.
 - Produces (FATES): public module variables in `FatesInterfaceTypesMod`:
   `hlm_use_moss` (integer 0/1), `hlm_moss_height_allom` (integer: 1=grass_powerlaw,
-  2=mat_thickness), `hlm_moss_bulk_density`, `hlm_moss_fm_live_a`, `hlm_moss_fm_live_b`,
-  `hlm_moss_fm_dead_a`, `hlm_moss_fm_dead_b`, `hlm_moss_max_burn_frac` (r8). All later
+  2=mat_thickness), `hlm_moss_bulk_density`, `hlm_moss_fuel_moisture_live_intercept`, `hlm_moss_fuel_moisture_live_slope`,
+  `hlm_moss_fuel_moisture_dead_intercept`, `hlm_moss_fuel_moisture_dead_slope`, `hlm_moss_max_burn_frac` (r8). All later
   FATES tasks read these.
 
 - [ ] **Step 0 (orchestrator):** Read `setup_logic_fates` and the `use_fates_sp` +
   `fates_spitfire_mode` plumbing end to end. Confirm `set_fates_ctrlparms` real-scalar
   handling (precedent: `hlm_hio_ignore_val`, `FatesInterfaceMod.F90:2210`). Forward
   check: names above are consumed verbatim by Tasks 4, 9, 10, 11. Known open questions
-  for Sam: (a) confirm the name `use_moss` over the CTSM convention `use_fates_*`
-  (Sam has specified `use_moss`; re-ask only if a build-namelist constraint forces the
+  for Sam: (a) confirm the name `use_fates_moss` over the CTSM convention `use_fates_*`
+  (Sam has specified `use_fates_moss`; re-ask only if a build-namelist constraint forces the
   prefix); (b) default values for the four fuel-moisture coefficients (suggest
   live a=0.3, b=0.7; dead a=0.05, b=0.75 as placeholder defaults pending tuning —
   confirm Sam is OK with placeholders that will be tuned in Task 12).
@@ -389,64 +389,64 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   `clm_inparm`), following the `use_fates_sp` entry format:
 
 ```xml
-<entry id="use_moss" type="logical" category="physics"
+<entry id="use_fates_moss" type="logical" category="physics"
        group="clm_inparm" valid_values="" value=".false.">
 Toggle to turn on the moss plant functional type in FATES
 (only relevant if FATES is being used).
 </entry>
-<entry id="moss_height_allom" type="char*32" category="physics"
+<entry id="fates_moss_height_allom" type="char*32" category="physics"
        group="clm_inparm" valid_values="grass_powerlaw,mat_thickness">
-Height allometry applied to moss PFTs (only relevant if use_moss is true).
+Height allometry applied to moss PFTs (only relevant if use_fates_moss is true).
 </entry>
-<entry id="moss_bulk_density" type="real" category="physics" group="clm_inparm">
+<entry id="fates_moss_bulk_density" type="real" category="physics" group="clm_inparm">
 Moss mat bulk density (kg m-3) used by the mat_thickness height allometry
-(only relevant if use_moss is true).
+(only relevant if use_fates_moss is true).
 </entry>
-<entry id="moss_fuel_moisture_live_a" type="real" category="physics" group="clm_inparm">
+<entry id="fates_moss_fuel_moisture_live_intercept" type="real" category="physics" group="clm_inparm">
 Intercept of live-moss fuel moisture as a function of the moss wetness proxy
-(only relevant if use_moss is true).
+(only relevant if use_fates_moss is true).
 </entry>
 ```
 
-  ...and analogous entries for `moss_fuel_moisture_live_b`, `moss_fuel_moisture_dead_a`,
-  `moss_fuel_moisture_dead_b`, plus:
+  ...and analogous entries for `fates_moss_fuel_moisture_live_slope`, `fates_moss_fuel_moisture_dead_intercept`,
+  `fates_moss_fuel_moisture_dead_slope`, plus:
 
 ```xml
-<entry id="moss_max_burn_frac" type="real" category="physics" group="clm_inparm">
+<entry id="fates_moss_max_burn_frac" type="real" category="physics" group="clm_inparm">
 Maximum fraction of live moss fuel that can burn in a fire
-(only relevant if use_moss is true).
+(only relevant if use_fates_moss is true).
 </entry>
 ```
 
-  Add defaults to `namelist_defaults_ctsm.xml`: `moss_height_allom = 'grass_powerlaw'`,
-  `moss_bulk_density = 10.`, the four fuel-moisture coefficients (Step 0 values), and
-  `moss_max_burn_frac = 1.0` (see Task 9 Step 2 for why 1.0, not grass's 0.8).
+  Add defaults to `namelist_defaults_ctsm.xml`: `fates_moss_height_allom = 'grass_powerlaw'`,
+  `fates_moss_bulk_density = 10.`, the four fuel-moisture coefficients (Step 0 values), and
+  `fates_moss_max_burn_frac = 1.0` (see Task 9 Step 2 for why 1.0, not grass's 0.8).
 - [ ] **Step 3: build-namelist logic.** In `setup_logic_fates`, add the eight names to
-  the `add_default` list and add fatal checks: `use_moss` requires `use_fates`;
-  `use_moss` + `use_fates_planthydro` is fatal (message: "use_moss is incompatible with
+  the `add_default` list and add fatal checks: `use_fates_moss` requires `use_fates`;
+  `use_fates_moss` + `use_fates_planthydro` is fatal (message: "use_fates_moss is incompatible with
   use_fates_planthydro").
 - [ ] **Step 4: clm_varctl + controlMod.** Declare the eight variables in the FATES
   block of `clm_varctl.F90` with the same defaults as the XML; add to the `clm_inparm`
-  namelist read, the `use_fates` consistency-check block (error if `use_moss` and
+  namelist read, the `use_fates` consistency-check block (error if `use_fates_moss` and
   `.not. use_fates`), and the `mpi_bcast` block in `controlMod.F90`.
 - [ ] **Step 5: pass to FATES.** In `clmfates_interfaceMod.F90` `CLMFatesGlobals2`,
   mirror the `use_sp` pattern:
 
 ```fortran
-if(use_moss) then
+if(use_fates_moss) then
    pass_use_moss = 1
 else
    pass_use_moss = 0
 end if
 call set_fates_ctrlparms('use_moss',ival=pass_use_moss)
-select case (trim(moss_height_allom))
+select case (trim(fates_moss_height_allom))
 case ('grass_powerlaw')
    call set_fates_ctrlparms('moss_height_allom',ival=1)
 case ('mat_thickness')
    call set_fates_ctrlparms('moss_height_allom',ival=2)
 end select
-call set_fates_ctrlparms('moss_bulk_density',rval=moss_bulk_density)
-call set_fates_ctrlparms('moss_fm_live_a',rval=moss_fuel_moisture_live_a)
+call set_fates_ctrlparms('moss_bulk_density',rval=fates_moss_bulk_density)
+call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fuel_moisture_live_intercept)
 ```
 
   ...and the remaining three coefficients likewise.
@@ -456,12 +456,12 @@ call set_fates_ctrlparms('moss_fm_live_a',rval=moss_fuel_moisture_live_a)
   `case('use_moss')` etc. to the assignment `select case`, and add "was it set?"
   checks in the verification block (pattern: `FatesInterfaceMod.F90:1837-1840`).
 - [ ] **Step 7: verify.** (a) `cd bld/unit_testers && ./build-namelist_test.pl` — no new
-  failures; (b) manual build-namelist checks: `use_moss=.true.` without FATES fails
-  fatally; `use_moss=.true.` + `use_fates_planthydro=.true.` fails fatally; defaults
-  appear in `lnd_in` when `use_moss=.true.` with FATES; (c) standing rule: ALP2
+  failures; (b) manual build-namelist checks: `use_fates_moss=.true.` without FATES fails
+  fatally; `use_fates_moss=.true.` + `use_fates_planthydro=.true.` fails fatally; defaults
+  appear in `lnd_in` when `use_fates_moss=.true.` with FATES; (c) standing rule: ALP2
   baseline tests compare b4b.
 - [ ] **Step 8: reviews, then commit** (FATES commit "Add hlm_use_moss and moss scalar
-  ctrlparms"; CTSM commit "Add use_moss and moss scalar namelist plumbing" including
+  ctrlparms"; CTSM commit "Add use_fates_moss and moss scalar namelist plumbing" including
   `.gitmodules` update and submodule pointer bump).
 
 ### Task 2: Moss parameter file (JSON)
@@ -490,7 +490,7 @@ call set_fates_ctrlparms('moss_fm_live_a',rval=moss_fuel_moisture_live_a)
   Check whether `tools/batch_patch_params.py` supports adding a PFT column and growing
   the `fates_litterclass` dimension; pick patch-file vs. standalone-script accordingly.
   Forward check: Task 3 reads `fates_vascular`; Task 4 requires exactly 8 litterclass
-  entries when `use_moss` is on; Task 5's testmods point `fates_paramfile` at this
+  entries when `use_fates_moss` is on; Task 5's testmods point `fates_paramfile` at this
   committed JSON.
 - [ ] **Step 1: build the moss JSON.** Starting from `fates_params_default.json`:
   append a 15th PFT by copying the arctic C3 grass column; override moss values
@@ -556,7 +556,7 @@ do ft = 1,numpft
    end if
 end do
 if (hlm_use_moss == itrue .neqv. any(prt_params%vascular(1:numpft) == ifalse)) then
-   write(fates_log(),*) 'use_moss and the presence of a fates_vascular==0 PFT must agree'
+   write(fates_log(),*) 'use_fates_moss and the presence of a fates_vascular==0 PFT must agree'
    call endrun(msg=errMsg(sourcefile, __LINE__))
 end if
 ```
@@ -611,7 +611,7 @@ end if
   `SF_val_*` arrays become allocatable; allocate in `fuel_type%Init` and
   `SpitFireParamsInit` respectively. In `TransferParamsSpitFire`, after receiving each
   litterclass array, check `size(param_p%r_data_1d) == num_fuel_classes`; on mismatch,
-  `endrun` with: "fates_litterclass dimension must be 8 when use_moss is on, 6
+  `endrun` with: "fates_litterclass dimension must be 8 when use_fates_moss is on, 6
   otherwise".
 - [ ] **Step 4: verify.** (a) FATES fuel functional test with a standard 6-class file
   (`python run_functional_tests.py fuel`) — identical results to pre-change; (b) with
@@ -634,7 +634,7 @@ end if
 - Modify: `cime_config/testdefs/testlist_clm.xml`
 
 **Interfaces:**
-- Consumes: `use_moss` (Task 1), moss JSON (Task 2), `fates_vascular` checks (Task 3),
+- Consumes: `use_fates_moss` (Task 1), moss JSON (Task 2), `fates_vascular` checks (Task 3),
   8-class runtime sizing (Task 4).
 - Produces: the moss test set every subsequent task hands to Sam (standing
   verification rule): smoke (`SMS_Ld5_D`) and exact-restart (`ERS_D`) moss tests at
@@ -654,11 +654,11 @@ NVP-branch moss param JSONs).
   NVP-branch `testlist_clm.xml` block at `1x1_ALP2` (including entries beyond the four
   Task 0 brought in — identify the ones exercising nocomp fixed-biogeography, per the
   NVP test comments). Already resolved in Task 0's Step 0, do not re-ask: (a) `FatesNvp`
-  on our branch contains **only** `use_moss = .true.` — the `use_nvp*` /
+  on our branch contains **only** `use_fates_moss = .true.` — the `use_nvp*` /
   `nvp_rad_model_ground` settings don't exist here, and `use_bedrock = .true.` lives in
   the `FatesALP2*` testmods instead (so drop that line when porting `FatesNvp`);
   (b) `FatesNvpOff` correspondingly includes `../FatesNvp` and overrides
-  `use_moss = .false.`; (c) the two new ALP2 moss testmods keep their NVP fsurdat paths
+  `use_fates_moss = .false.`; (c) the two new ALP2 moss testmods keep their NVP fsurdat paths
   and also carry `use_bedrock = .true.`, but point `fates_paramfile` at the committed
   Task 2 JSON — never at a `$DIN_LOC_ROOT` testdata JSON, which both lack the 8-entry
   litterclass dimension AND set the NVP-only `fates_allom_fnrt_prof_mode = 4` on their
@@ -679,7 +679,7 @@ NVP-branch moss param JSONs).
 - [ ] **Step 3: build check.** `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` passes.
 - [ ] **Step 4: state the expected outcomes** for Sam's review, naming each new test:
   PASS with moss as an inert grass-like PFT, exact restart, fatal conservation checks
-  clean; the abort case (`use_moss=.true.` with the default 6-class JSON) aborts cleanly
+  clean; the abort case (`use_fates_moss=.true.` with the default 6-class JSON) aborts cleanly
   with the Task 3/4 messages. Flag to Sam that the `FatesNvpOff` tests cannot be compared
   against the Task 0 baselines — CIME keys baselines by full test name including
   testmods, and these carry `--clm-FatesNvpOff--` — so they need baselines generated here
@@ -861,9 +861,9 @@ end if
 
 **Interfaces:**
 - Consumes: `currentPatch%fwet_moss` (Task 8), `fuel_classes%live_moss()/dead_moss()`
-  (Task 4), `hlm_moss_fm_live_a/b`, `hlm_moss_fm_dead_a/b`, `hlm_moss_max_burn_frac`
+  (Task 4), `hlm_moss_fuel_moisture_live_intercept/slope`, `hlm_moss_fuel_moisture_dead_intercept/slope`, `hlm_moss_max_burn_frac`
   (Task 1).
-- Produces: `fuel%moisture(live_moss) = hlm_moss_fm_live_a + hlm_moss_fm_live_b*fwet`
+- Produces: `fuel%moisture(live_moss) = hlm_moss_fuel_moisture_live_intercept + hlm_moss_fuel_moisture_live_slope*fwet`
   (floored at 0); analogous for `dead_moss`. Effective moisture and `frac_burnt` for
   the moss classes then flow through existing code untouched. Fuel-class-dimensioned
   history (moisture, loading) already extends to 8 via Task 4 — this task's run
@@ -883,9 +883,9 @@ end if
 ```fortran
 if (hlm_use_moss == itrue) then
    this%moisture(fuel_classes%live_moss()) = max(0._r8, &
-        hlm_moss_fm_live_a + hlm_moss_fm_live_b*fwet_moss)
+        hlm_moss_fuel_moisture_live_intercept + hlm_moss_fuel_moisture_live_slope*fwet_moss)
    this%moisture(fuel_classes%dead_moss()) = max(0._r8, &
-        hlm_moss_fm_dead_a + hlm_moss_fm_dead_b*fwet_moss)
+        hlm_moss_fuel_moisture_dead_intercept + hlm_moss_fuel_moisture_dead_slope*fwet_moss)
 end if
 ```
 
@@ -1017,7 +1017,7 @@ end if
   that thickness is linear in `blmax/c_area`. Run
   `python run_functional_tests.py allometry`.
 - [ ] **Step 4: verify in-model.** Run the moss ALP2 SMS test once per
-  `moss_height_allom` mode (a user_nl override run for `mat_thickness`); both PASS;
+  `fates_moss_height_allom` mode (a user_nl override run for `mat_thickness`); both PASS;
   moss height history differs between modes as expected; ALP2 baselines b4b.
 - [ ] **Step 5: reviews, then commit.**
 
@@ -1025,7 +1025,7 @@ end if
 
 **Files:**
 - Modify: `cime_config/testdefs/testlist_clm.xml` (fill any gaps: one test per
-  `moss_height_allom` mode if not added in Task 11; the full `fates_moss` category)
+  `fates_moss_height_allom` mode if not added in Task 11; the full `fates_moss` category)
 - Modify: `cime_config/testdefs/ExpectedTestFails.xml` (only if genuinely needed)
 
 **Interfaces:**
@@ -1045,7 +1045,7 @@ end if
 - [ ] **Step 3: science sanity.** In the moss run's history: moss GPP > 0 and responds
   to `FATES_MOSS_FWET`; `FATES_LIVEMOSS_FUEL` and `FATES_MOSS_FINES` nonzero and
   seasonal; fire behavior responds to moss moisture (compare two short runs with
-  perturbed `moss_fuel_moisture_*` coefficients); `FATES_NOCOMP_PATCHAREA_PF` reports
+  perturbed `fates_moss_fuel_moisture_*` coefficients); `FATES_NOCOMP_PATCHAREA_PF` reports
   the prescribed moss cover.
 - [ ] **Step 4: reviews, then commit** (including any ExpectedTestFails hygiene, with
   each entry justified).

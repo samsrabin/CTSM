@@ -33,9 +33,18 @@ defined almost entirely on the FATES parameter file, piggybacking on grass code 
 demography, competition, litter, and fuel, with targeted FATES-side changes for
 physiology and fire. CTSM changes are limited to namelist plumbing.
 
-Initial target configuration: **nocomp fixed-biogeography** at boreal sites, SPITFIRE on,
-no plant hydraulics, no satellite phenology. Full competition mode is a later phase, but
-parameter and code choices must not foreclose it (see §11).
+Primary target configuration: **nocomp fixed-biogeography** at boreal sites, SPITFIRE on,
+no plant hydraulics. Full competition mode is a later phase, but parameter and code
+choices must not foreclose it (see §11).
+
+**Satellite phenology (FATES-SP) is also supported.** Moss must run in both nocomp
+fixed-biogeography and SP mode. SP is not where the science lives — LAI is prescribed
+there, and CTSM's build-namelist makes `fates_spitfire_mode > 0` a fatal error whenever
+`use_fates_sp` is true, so **no SP configuration can exercise the fire pathway at all**.
+Its value is as a cheap, fast smoke test that the moss PFT initializes, allocates, and
+conserves. Consequence for testing: every fuel and fire behaviour in §6 must be verified
+in the non-SP nocomp fixed-biogeography configuration, which is the only one where
+SPITFIRE can be on.
 
 Why nocomp first: full-competition FATES is numerically and parametrically hostile to a
 centimeter-scale PFT (strict-PPA shortest-first demotion, termination past
@@ -125,7 +134,7 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
   pattern if a ground-temperature proxy is added later (§11).
 - **btran** comes through the standard shallow-root pathway (§3); no override needed.
 - Plant hydraulics is unsupported for moss (pre-existing FATES divide-by-zero for PFTs
-  under ~10 cm); `use_moss` + `use_fates_planthydro` is a fatal namelist error.
+  under ~10 cm); `use_fates_moss` + `use_fates_planthydro` is a fatal namelist error.
 
 Conservation: moss C/N flows through standard PARTEH pools and litter fluxes; moss water
 through the standard root-uptake/transpiration pathway. fwet only scales vcmax, the CO₂
@@ -188,11 +197,11 @@ only at upstream-FATES merge time.) Standard seven-step plumbing (XML definition
 defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast,
 `clmfates_interfaceMod` `set_fates_ctrlparms`, FATES-side `case` + is-set check):
 
-- `use_moss` (logical, default `.false.`) → `hlm_use_moss`. Gates the moss fuel class,
-  moss physiology dispatch, and moss allometry mode. Fatal errors: `use_moss` true with
-  no `vascular==0` PFT on the parameter file (and vice versa); `use_moss` with
+- `use_fates_moss` (logical, default `.false.`) → `hlm_use_moss`. Gates the moss fuel class,
+  moss physiology dispatch, and moss allometry mode. Fatal errors: `use_fates_moss` true with
+  no `vascular==0` PFT on the parameter file (and vice versa); `use_fates_moss` with
   `use_fates_planthydro`.
-- `moss_height_allom` (string: `'grass_powerlaw'` | `'mat_thickness'`) → selects the
+- `fates_moss_height_allom` (string: `'grass_powerlaw'` | `'mat_thickness'`) → selects the
   height-allometry mode applied to moss PFTs (§4).
 - Moss science scalars: at minimum, moss bulk density (mat-thickness allometry), the
   fuel-moisture coefficient pairs for the live-moss and dead-moss classes (`a`, `b` each;
@@ -223,10 +232,10 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 
 ## 10. Testing
 
-- Existing balance checks (C/N/water/energy) remain fatal and must pass with `use_moss`
+- Existing balance checks (C/N/water/energy) remain fatal and must pass with `use_fates_moss`
   on and off.
-- `use_moss = .false.` must be bit-for-bit with baseline (all changes gated).
-- `use_moss = .true.` with a parameter file lacking a moss PFT must abort cleanly.
+- `use_fates_moss = .false.` must be bit-for-bit with baseline (all changes gated).
+- `use_fates_moss = .true.` with a parameter file lacking a moss PFT must abort cleanly.
 - Site-level smoke/exact-restart tests in nocomp-fixedbiogeo with a moss parameter file;
   new testmods dir + ExpectedTestFails hygiene.
 - Unit-testable pieces (mat-thickness allometry and its inverse, moss fuel-moisture
