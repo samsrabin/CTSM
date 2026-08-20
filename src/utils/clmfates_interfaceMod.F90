@@ -3096,9 +3096,6 @@ module CLMFatesInterfaceMod
     call t_startf('fates_wrap_update_hifrq_hist')
 
     associate(&
-        hr            => soilbiogeochem_carbonflux_inst%hr_col,       & ! (gC/m2/s) total heterotrophic respiration
-        totsomc       => soilbiogeochem_carbonstate_inst%totsomc_col, & ! (gC/m2) total soil organic matter carbon
-        totlitc       => soilbiogeochem_carbonstate_inst%totlitc_col, & ! (gC/m2) total litter carbon in BGC pools
         eflx_lh_tot   => energyflux_inst%eflx_lh_tot_patch, &    ! (W/m2) latent heat flux
         eflx_sh_tot   => energyflux_inst%eflx_sh_tot_patch, &    ! (W/m2) sensible heat flux
         fsa_patch     => solarabs_inst%fsa_patch, &              ! (W/m2) absorbed solar flux
@@ -3111,9 +3108,9 @@ module CLMFatesInterfaceMod
          ! Summarize Net Fluxes
          do s = 1, this%fates(nc)%nsites
             c = this%f2hmap(nc)%fcolumn(s)
-            this%fates(nc)%bc_in(s)%tot_het_resp = hr(c)
-            this%fates(nc)%bc_in(s)%tot_somc     = totsomc(c)
-            this%fates(nc)%bc_in(s)%tot_litc     = totlitc(c)
+            this%fates(nc)%bc_in(s)%tot_het_resp = soilbiogeochem_carbonflux_inst%hr_col(c)
+            this%fates(nc)%bc_in(s)%tot_somc     = soilbiogeochem_carbonstate_inst%totsomc_col(c)
+            this%fates(nc)%bc_in(s)%tot_litc     = soilbiogeochem_carbonstate_inst%totlitc_col(c)
          end do
       else
          ! Summarize Net Fluxes
