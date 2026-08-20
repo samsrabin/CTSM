@@ -122,20 +122,28 @@ contains
   pure function aerosol_value(j, species) result(val)
     ! The same idea as slot_value in two dimensions, because the staging carries the
     ! eight aerosol species in eight separate arrays and reindexes each one separately.
-    ! Varying the value with species as well as slot makes a species-to-species mix-up
-    ! as visible as a slot-to-slot one. The 1e-9 factor puts the markers in the range
-    ! aerosol masses actually occupy.
+    ! The 1e-9 factor puts the markers in the range aerosol masses actually occupy.
     !
-    ! These products are deliberately not all distinct -- 6e-9 is species 1 in slot 0,
-    ! species 2 in slot -3 and species 3 in slot -4. That is harmless here: the staging
-    ! shifts slots uniformly across all eight arrays and never permutes species, so for
-    ! a fixed species the five slot values differ and for a fixed slot the eight species
-    ! values differ, which covers both mix-ups the code can produce.
+    ! The encoding is positional rather than a product: the species index occupies the
+    ! units digit and the slot multiplier from slot_value everything above it, so every
+    ! (slot, species) pair carries its own value -- distinct in both dimensions at once,
+    ! not merely within a fixed species or a fixed slot. Only the species field is
+    ! bounded, by species_base, so the property holds for any nlevsno: a larger nlevsno
+    ! only widens the slot field, which never reaches the units digit. The smallest
+    ! marker is 21e-9, so no marker can be mistaken for a slot the routine zeroed.
+    !
+    ! Being distinct in both dimensions at once is what makes this a regression test
+    ! rather than a description of today's code. A product is symmetric in its two
+    ! indices, so a later reindex that transposed slot against species would land on
+    ! markers the fixture already expects and pass unnoticed.
     integer, intent(in) :: j
     integer, intent(in) :: species
     real(r8) :: val
 
-    val = 1.e-9_r8 * real(species, r8) * real(j + nlevsno + 1, r8)
+    ! Must exceed the largest species index for the two fields to stay separable.
+    integer, parameter :: species_base = 10
+
+    val = 1.e-9_r8 * real(species_base * (j + nlevsno + 1) + species, r8)
   end function aerosol_value
 
   subroutine setUp(this)
