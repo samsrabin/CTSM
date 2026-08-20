@@ -68,7 +68,7 @@ Filled by Task 18. One row per spec §10 gate.
 
 | Gate | Configuration | Result |
 |---|---|---|
-| Bit-for-bit vs `ctsm5.4.028` | `use_nvp=.false.` | **`clm_short` reported good at `8160b8c52` (through Task 5c)** by the user; full `aux_clm` at that commit not yet run. Earlier: **interim pass at `23a59c7a9` (through Task 4).** aux_clm on derecho: **285 BASELINE PASS**, 3 BASELINE FAIL — two flagged EXPECTED FAIL, one (`SSPMATRIXCN_Ly5...ciso_monthly`) a stale baseline whose files are dated 2027-12 against our 2016-12, so cprnc compared nothing. Re-run at Task 18. |
+| Bit-for-bit vs `ctsm5.4.028` | `use_nvp=.false.` | **`clm_short` reported good at `1db676ea9` (through Task 5c)** by the user; full `aux_clm` at that commit not yet run. Earlier: **interim pass at `23a59c7a9` (through Task 4).** aux_clm on derecho: **285 BASELINE PASS**, 3 BASELINE FAIL — two flagged EXPECTED FAIL, one (`SSPMATRIXCN_Ly5...ciso_monthly`) a stale baseline whose files are dated 2027-12 against our 2016-12, so cprnc compared nothing. Re-run at Task 18. |
 | Golden zero-thickness | `use_nvp=T, dz_nvp=0, frac_nvp=0` vs `use_nvp=F` | |
 | Partial-cover closure | `frac_nvp=0.3`, `0.7`, winter-crossing | |
 | Exact restart | `ERS`, `use_nvp=T, dz_nvp>0` | |
