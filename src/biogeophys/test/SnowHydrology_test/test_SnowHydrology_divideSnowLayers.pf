@@ -456,7 +456,7 @@ contains
   subroutine divide_subdivides_nvp(this)
     ! An NVP column's only snow layer, thicker than a bottom layer is allowed to be, must
     ! split into two that grow upward away from the moss, conserving ice and liquid and
-    ! leaving the moss thickness and the interface the pack hangs from untouched.
+    ! leaving the moss thickness and the interface the pack sits on untouched.
     !
     ! One snow layer of dz 0.08 m on an NVP column, staging at 0.04, so the pack is the
     ! single slot -1 and the moss is at 0. As the bottom layer it is measured against
