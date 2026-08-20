@@ -106,28 +106,38 @@ contains
 
   @Test
   subroutine totalH2osno_stock(this)
+    ! On a stock column, CalculateTotalH2osno must total the ice and liquid of every snow
+    ! layer down to the one resting on the soil surface, over a pack whose empty slots
+    ! above hold nothing for the consistency check to object to.
+    !
     ! A stock column with three snow layers, so the pack runs -2..0 and the bottom snow
     ! layer is index 0, whose water belongs in the total. Slots -4 and -3 are left at
     ! zero, which is both what the total requires and what CheckSnowConsistency demands
     ! of slots above the pack.
     class(TestCalcTotalH2osno), intent(inout) :: this
+    ! The layer count the column carries; the routine only reads it.
+    integer, parameter :: snl = -3
+    ! jbot_sno is 0 on a stock column, so the sum's lower bound is snl+1 and
+    ! get_jbot_snow puts the pack's bottom slot at the soil surface.
+    integer, parameter :: jtop = snl + 1
+    integer, parameter :: jbot = 0
     integer :: num_c, c
     integer, allocatable :: filter_c(:)
     real(r8) :: h2osno_total(1)
     real(r8) :: expected
 
     expected = ice_top + liq_top + ice_mid + liq_mid + ice_btm + liq_btm
-    call this%setupColumn(snl = -3, jbot_sno = 0)
+    call this%setupColumn(snl = snl, jbot_sno = 0)
     call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
     c = bounds%begc
 
     associate(ws => this%water_inst%waterstatebulk_inst)
-    ws%h2osoi_ice_col(c,-2) = ice_top
-    ws%h2osoi_liq_col(c,-2) = liq_top
-    ws%h2osoi_ice_col(c,-1) = ice_mid
-    ws%h2osoi_liq_col(c,-1) = liq_mid
-    ws%h2osoi_ice_col(c, 0) = ice_btm
-    ws%h2osoi_liq_col(c, 0) = liq_btm
+    ws%h2osoi_ice_col(c,jtop) = ice_top
+    ws%h2osoi_liq_col(c,jtop) = liq_top
+    ws%h2osoi_ice_col(c,jtop+1) = ice_mid
+    ws%h2osoi_liq_col(c,jtop+1) = liq_mid
+    ws%h2osoi_ice_col(c,jbot) = ice_btm
+    ws%h2osoi_liq_col(c,jbot) = liq_btm
 
     call ws%CalculateTotalH2osno(bounds, num_c, filter_c, 'test', h2osno_total)
     end associate
@@ -137,6 +147,10 @@ contains
 
   @Test
   subroutine totalH2osno_nvp(this)
+    ! On an NVP column, CalculateTotalH2osno must total the ice and liquid of the snow
+    ! pack alone, reaching the top snow layer while leaving out the water the moss slot
+    ! holds below the pack.
+    !
     ! The same three layers on an NVP column, where the pack runs -3..-1 and the moss
     ! slot at 0 carries water of its own. The expected total is the same as in the stock
     ! case, so the two tests bracket the range from both sides: the sum must reach the
@@ -145,25 +159,33 @@ contains
     ! Either error moves the total, and the moss water is large enough that the second
     ! one cannot be mistaken for roundoff.
     class(TestCalcTotalH2osno), intent(inout) :: this
+    ! The layer count the column carries; the routine only reads it.
+    integer, parameter :: snl = -3
+    ! jtop = snl+1+jbot_sno, and jbot_sno is -1 on an NVP column, so the sum's lower
+    ! bound is snl itself. get_jbot_snow is jbot_sno, so the pack ends at -1 and the
+    ! moss slot sits just below it at 0, outside the sum.
+    integer, parameter :: jtop = snl
+    integer, parameter :: jbot = -1
+    integer, parameter :: j_moss = 0
     integer :: num_c, c
     integer, allocatable :: filter_c(:)
     real(r8) :: h2osno_total(1)
     real(r8) :: expected
 
     expected = ice_top + liq_top + ice_mid + liq_mid + ice_btm + liq_btm
-    call this%setupColumn(snl = -3, jbot_sno = -1)
+    call this%setupColumn(snl = snl, jbot_sno = -1)
     call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
     c = bounds%begc
 
     associate(ws => this%water_inst%waterstatebulk_inst)
-    ws%h2osoi_ice_col(c,-3) = ice_top
-    ws%h2osoi_liq_col(c,-3) = liq_top
-    ws%h2osoi_ice_col(c,-2) = ice_mid
-    ws%h2osoi_liq_col(c,-2) = liq_mid
-    ws%h2osoi_ice_col(c,-1) = ice_btm
-    ws%h2osoi_liq_col(c,-1) = liq_btm
-    ws%h2osoi_ice_col(c, 0) = ice_nvp
-    ws%h2osoi_liq_col(c, 0) = liq_nvp
+    ws%h2osoi_ice_col(c,jtop) = ice_top
+    ws%h2osoi_liq_col(c,jtop) = liq_top
+    ws%h2osoi_ice_col(c,jtop+1) = ice_mid
+    ws%h2osoi_liq_col(c,jtop+1) = liq_mid
+    ws%h2osoi_ice_col(c,jbot) = ice_btm
+    ws%h2osoi_liq_col(c,jbot) = liq_btm
+    ws%h2osoi_ice_col(c,j_moss) = ice_nvp
+    ws%h2osoi_liq_col(c,j_moss) = liq_nvp
 
     call ws%CalculateTotalH2osno(bounds, num_c, filter_c, 'test', h2osno_total)
     end associate
@@ -173,8 +195,12 @@ contains
 
   @Test
   subroutine totalH2osno_nvpNoSnowLayers(this)
-    ! A snow-free NVP column: snl = 0 makes jtop 0 and jbot -1, so the sum loop runs over
-    ! nothing and the total is the layerless snow alone.
+    ! On a snow-free NVP column, CalculateTotalH2osno must return the layerless snow
+    ! alone and must complete without its consistency check mistaking the water in the
+    ! moss slot for snow stranded above the pack.
+    !
+    ! snl = 0 makes jtop 0 and jbot -1, so the sum loop runs over nothing and the total
+    ! is the layerless snow alone.
     !
     ! The total by itself discriminates nothing here, because at snl == 0 the stock sum
     ! loop is empty too. What this case tests is that the call completes at all.
@@ -184,19 +210,25 @@ contains
     ! is why the moss water is set here even though it contributes nothing to the
     ! expected value.
     class(TestCalcTotalH2osno), intent(inout) :: this
+    ! A bare column: no snow layers at all. jtop = snl+1+jbot_sno is then 0 on an NVP
+    ! column, so the pack's top slot coincides with the moss slot, the sum loop runs
+    ! over nothing, and CheckSnowConsistency's scan of -nlevsno+1 .. jtop-1 stops just
+    ! above the moss.
+    integer, parameter :: snl = 0
+    integer, parameter :: j_moss = 0
     integer :: num_c, c
     integer, allocatable :: filter_c(:)
     real(r8) :: h2osno_total(1)
     real(r8), parameter :: h2osno_no_layers = 33._r8
 
-    call this%setupColumn(snl = 0, jbot_sno = -1)
+    call this%setupColumn(snl = snl, jbot_sno = -1)
     call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
     c = bounds%begc
 
     associate(ws => this%water_inst%waterstatebulk_inst)
     ws%h2osno_no_layers_col(c) = h2osno_no_layers
-    ws%h2osoi_ice_col(c, 0) = ice_nvp
-    ws%h2osoi_liq_col(c, 0) = liq_nvp
+    ws%h2osoi_ice_col(c,j_moss) = ice_nvp
+    ws%h2osoi_liq_col(c,j_moss) = liq_nvp
 
     call ws%CalculateTotalH2osno(bounds, num_c, filter_c, 'test', h2osno_total)
     end associate

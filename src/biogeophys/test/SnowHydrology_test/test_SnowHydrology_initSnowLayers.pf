@@ -75,21 +75,34 @@ contains
 
   @Test
   subroutine test_initSnowLayers_depth1_geometry(this)
-    ! Geometry, not just the layer count: dz/z/zi must satisfy the layering
-    ! invariants. Asserted as invariants rather than literal thicknesses:
-    ! SnowHydrologySetControlForTesting does pin the dzmax_u schedule those
+    ! On a stock column given snow deep enough to fill every snow level, InitSnowLayers
+    ! must lay down a pack whose thicknesses sum to the snow depth and whose node depths
+    ! and interfaces close on one another all the way up from the soil surface.
+    !
+    ! Geometry, not just the layer count. Asserted as invariants rather than literal
+    ! thicknesses: SnowHydrologySetControlForTesting does pin the dzmax_u schedule those
     ! thicknesses come from, but restating it here would only re-derive the
     ! schedule instead of the property the layering has to satisfy.
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)
+    integer, parameter :: my_nlevsno = 5
+    ! Deep enough that InitSnowLayers fills every snow level.
+    real(r8), parameter :: total_snow_depth = 1._r8
+    ! With every level filled the column ends up nlevsno layers deep. On a stock column
+    ! jbot_sno is 0, so the pack's top slot is snl+1 and get_jbot_snow puts its bottom
+    ! slot at the soil surface.
+    integer, parameter :: snl_after = -my_nlevsno
+    integer, parameter :: jtop = snl_after + 1
+    integer, parameter :: jbot = 0
+    real(r8), parameter :: tol = 1.e-13_r8
     integer :: c, j
 
     ! Setup
-    nlevsno = 5
+    nlevsno = my_nlevsno
     call SnowHydrologySetControlForTesting()
     call setup_single_veg_patch(pft_type = 1)
     allocate(snow_depth(bounds%begc:bounds%endc))
-    snow_depth(:) = 1._r8
+    snow_depth(:) = total_snow_depth
     col%zi(bounds%begc:bounds%endc,0) = 0._r8 ! Normally initialized elsewhere (initVerticalMod)
 
     ! Exercise
@@ -97,69 +110,85 @@ contains
 
     ! Verify
     c = bounds%begc
-    @assertEqual(-5, col%snl(c))
+    @assertEqual(snl_after, col%snl(c))
     ! Soil surface datum untouched
     @assertEqual(0._r8, col%zi(c,0))
     ! Thickness conserved
-    @assertEqual(1._r8, sum(col%dz(c,-4:0)), tolerance=1.e-13_r8)
-    ! Pack bottom at -snow_depth
-    @assertEqual(-1._r8, col%zi(c,-5), tolerance=1.e-13_r8)
+    @assertEqual(total_snow_depth, sum(col%dz(c,jtop:jbot)), tolerance=tol)
+    ! Top of the pack a full snow depth above the soil surface
+    @assertEqual(-total_snow_depth, col%zi(c,jtop-1), tolerance=tol)
     ! Node at layer midpoint, and the interface recursion closes
-    do j = -4, 0
+    do j = jtop, jbot
        @assertGreaterThan(col%dz(c,j), 0._r8)
-       @assertEqual(col%zi(c,j) - 0.5_r8*col%dz(c,j), col%z(c,j), tolerance=1.e-13_r8)
-       @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=1.e-13_r8)
+       @assertEqual(col%zi(c,j) - 0.5_r8*col%dz(c,j), col%z(c,j), tolerance=tol)
+       @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=tol)
     end do
 
   end subroutine test_initSnowLayers_depth1_geometry
 
   @Test
   subroutine test_initSnowLayers_depth1_nvp(this)
-    ! The NVP case: with the index-0 slot claimed, snow occupies -4:-1, the
-    ! layer count is capped at nlevsno-1, and the moss geometry at slot 0
-    ! survives untouched. This is the case that distinguishes anchoring the
-    ! recursion at zi(c,jbot) from the stock literal -0.5*dz: at jbot == 0 the
-    ! two are identical, so only jbot == -1 can catch a swallowed moss
-    ! thickness.
+    ! On an NVP column given snow deep enough to overfill the pack, InitSnowLayers must
+    ! cap the layer count at what the moss slot leaves free, rest the pack on top of the
+    ! moss rather than on the soil surface, and leave the moss geometry untouched.
+    !
+    ! With the index-0 slot claimed, snow occupies -4:-1, the layer count is
+    ! capped at nlevsno-1, and the moss geometry at slot 0 survives untouched.
+    ! This is the case that distinguishes resting the interface recursion on
+    ! the snowpack base zi(c,jbot) from the stock literal -0.5*dz: at
+    ! jbot == 0 the two are identical, so only jbot == -1 can catch a
+    ! swallowed moss thickness.
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)
     real(r8), parameter :: dz_nvp = 0.02_r8
+    integer, parameter :: my_nlevsno = 5
+    ! Deep enough to fill every snow level had the moss not claimed one, which is what
+    ! makes the cap the thing under test here.
+    real(r8), parameter :: total_snow_depth = 1._r8
+    ! The most layers an NVP column may hold, the moss having claimed one of the nlevsno
+    ! slots. On an NVP column jbot_sno is -1, so jtop is snl itself and get_jbot_snow
+    ! puts the pack's bottom slot at -1, with the moss just below it at 0.
+    integer, parameter :: snl_full = -(my_nlevsno-1)
+    integer, parameter :: jtop = snl_full
+    integer, parameter :: jbot = -1
+    integer, parameter :: j_moss = 0
+    real(r8), parameter :: tol = 1.e-13_r8
     integer :: c, j
 
     ! Setup
-    nlevsno = 5
+    nlevsno = my_nlevsno
     call SnowHydrologySetControlForTesting()
     call setup_single_veg_patch(pft_type = 1)
     allocate(snow_depth(bounds%begc:bounds%endc))
-    snow_depth(:) = 1._r8
+    snow_depth(:) = total_snow_depth
     c = bounds%begc
     col%zi(c,0) = 0._r8      ! Normally initialized elsewhere (initVerticalMod)
     ! Stand in for NVPLayerInit, which is what claims the slot in a real run
     col%jbot_sno(c) = -1
-    col%dz(c,0)     = dz_nvp
-    col%z(c,0)      = -0.5_r8 * dz_nvp
-    col%zi(c,-1)    = -dz_nvp
+    col%dz(c,j_moss) = dz_nvp
+    col%z(c,j_moss) = -0.5_r8 * dz_nvp
+    col%zi(c,jbot) = -dz_nvp
 
     ! Exercise
     call InitSnowLayers(bounds, snow_depth)
 
     ! Verify
     ! capped at nlevsno-1
-    @assertEqual(-4, col%snl(c))
+    @assertEqual(snl_full, col%snl(c))
     ! moss geometry survived
-    @assertEqual(dz_nvp, col%dz(c,0))
-    @assertEqual(-0.5_r8*dz_nvp, col%z(c,0))
-    @assertEqual(-dz_nvp, col%zi(c,-1))
+    @assertEqual(dz_nvp, col%dz(c,j_moss))
+    @assertEqual(-0.5_r8*dz_nvp, col%z(c,j_moss))
+    @assertEqual(-dz_nvp, col%zi(c,jbot))
     @assertEqual(0._r8, col%zi(c,0))
     ! snow thickness conserved
-    @assertEqual(1._r8, sum(col%dz(c,-4:-1)), tolerance=1.e-13_r8)
-    ! Pack bottom sits below the moss, not at -snow_depth: this is the
-    ! assertion that fails if the snowpack base drops dz_nvp.
-    @assertEqual(-(dz_nvp + 1._r8), col%zi(c,-5), tolerance=1.e-13_r8)
-    do j = -4, -1
+    @assertEqual(total_snow_depth, sum(col%dz(c,jtop:jbot)), tolerance=tol)
+    ! Top of the pack sits a full snow depth above the moss, not above the soil
+    ! surface: this is the assertion that fails if the snowpack base drops dz_nvp.
+    @assertEqual(-(dz_nvp + total_snow_depth), col%zi(c,jtop-1), tolerance=tol)
+    do j = jtop, jbot
        @assertGreaterThan(col%dz(c,j), 0._r8)
-       @assertEqual(col%zi(c,j) - 0.5_r8*col%dz(c,j), col%z(c,j), tolerance=1.e-13_r8)
-       @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=1.e-13_r8)
+       @assertEqual(col%zi(c,j) - 0.5_r8*col%dz(c,j), col%z(c,j), tolerance=tol)
+       @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=tol)
     end do
 
   end subroutine test_initSnowLayers_depth1_nvp
