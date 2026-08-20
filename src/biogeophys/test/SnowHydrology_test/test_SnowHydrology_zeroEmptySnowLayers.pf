@@ -2,6 +2,26 @@ module test_SnowHydrology_zeroEmptySnowLayers
 
   ! Tests of SnowHydrologyMod: ZeroEmptySnowLayers
 
+  ! ZeroEmptySnowLayers clears the slots above the snow pack -- thickness, node depth,
+  ! bounding interface, temperature, ice and liquid -- so that unused snow levels never
+  ! carry stale values forward.
+  !
+  ! Terms used below. A "slot" is one index of the column arrays in -nlevsno+1 .. 0,
+  ! whether or not a snow layer occupies it. The "pack" is the run of slots that do hold
+  ! snow, jtop .. jbot, short for col%get_jtop_snow(c) .. col%get_jbot_snow(c). On an NVP
+  ! column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot", which is
+  ! not snow and must survive; on a stock column (jbot_sno == 0) the pack is snl+1 .. 0
+  ! and there is no moss slot.
+  !
+  ! The NVP change is that the routine zeroes j < jtop instead of j < snl+1. Because jtop
+  ! is snl on an NVP column, that keeps the moss slot out of the zeroed range even when
+  ! snl == 0 and the pack is empty. Under stock bounds a snow-free NVP column would have
+  ! slot 0 wiped, taking the moss state and the interface at its top with it.
+  !
+  ! Note the pairing the routine uses, which the tests follow: zeroing slot j clears
+  ! zi(c,j-1), the interface at the top of slot j, not zi(c,j). So the interface that
+  ! survives along with the moss slot is zi(c,-1).
+
   use funit
   use SnowHydrologyMod, only : ZeroEmptySnowLayers
   use shr_kind_mod, only : r8 => shr_kind_r8
@@ -31,6 +51,8 @@ module test_SnowHydrology_zeroEmptySnowLayers
      procedure :: assertSlotSurvives
   end type TestZeroEmpty
 
+  ! Column shape handed to the water type factory. nlevsno = 5 gives four slots above a
+  ! bare NVP column's moss slot, enough room for a partly filled pack.
   integer, parameter :: my_nlevsoi = 3
   integer, parameter :: nlevgrnd_additional = 1
   integer, parameter :: my_nlevsno = 5
@@ -38,7 +60,9 @@ module test_SnowHydrology_zeroEmptySnowLayers
   real(r8), parameter :: tol = 1.e-13_r8
 
   ! Scales giving each slot a distinct nonzero value in each quantity, so that a slot
-  ! that must survive cannot pass the test by already holding zero.
+  ! that must survive cannot pass the test by already holding zero. The z and zi scales
+  ! are negative because those are depths above the soil surface; nothing here depends on
+  ! the six quantities being mutually consistent, only on their being nonzero.
   real(r8), parameter :: dz_scale = 0.01_r8
   real(r8), parameter :: z_scale = -0.1_r8
   real(r8), parameter :: zi_scale = -0.2_r8
@@ -49,7 +73,9 @@ module test_SnowHydrology_zeroEmptySnowLayers
 contains
 
   pure function slot_value(j, scale) result(val)
-    ! Distinct and nonzero for every j in -nlevsno+1 .. 0.
+    ! Per-slot marker value: scale*2 in the topmost slot rising to scale*(nlevsno+1) in
+    ! slot 0, so it is distinct and nonzero for every j in -nlevsno+1 .. 0. Distinctness
+    ! means a surviving slot cannot pass by holding a neighbour's value.
     integer, intent(in) :: j
     real(r8), intent(in) :: scale
     real(r8) :: val
@@ -58,6 +84,9 @@ contains
   end function slot_value
 
   subroutine setUp(this)
+    ! Runs before every test: fixes the vertical grid the water type factory will build
+    ! on. The subgrid and the temperature array are left to setupColumn, since each test
+    ! picks its own snl and jbot_sno. tearDown undoes all of it.
     class(TestZeroEmpty), intent(inout) :: this
 
     ! t_soisno_col is a pointer with no default initialization, so its association
@@ -73,6 +102,8 @@ contains
   end subroutine setUp
 
   subroutine tearDown(this)
+    ! Runs after every test, including one that failed before setupColumn allocated
+    ! t_soisno_col, hence the associated() guard.
     class(TestZeroEmpty), intent(inout) :: this
 
     if (associated(this%temperature_inst%t_soisno_col)) then
@@ -83,6 +114,10 @@ contains
   end subroutine tearDown
 
   subroutine setupColumn(this, snl, jbot_sno)
+    ! Build the single column every test works on and fill every slot in -nlevsno+1 .. 0
+    ! with a distinct nonzero value in each of the six quantities the routine touches, so
+    ! that "was zeroed" and "was left alone" are always distinguishable. jbot_sno = -1
+    ! makes it an NVP column and 0 a stock one; nothing else differs between the two.
     class(TestZeroEmpty), intent(inout) :: this
     integer, intent(in) :: snl
     integer, intent(in) :: jbot_sno
@@ -109,6 +144,8 @@ contains
   end subroutine setupColumn
 
   subroutine assertSlotZeroed(this, j)
+    ! Assert that slot j was emptied: all six quantities the routine writes, including
+    ! zi(c,j-1), the interface at the top of slot j.
     class(TestZeroEmpty), intent(in) :: this
     integer, intent(in) :: j
 
@@ -129,6 +166,8 @@ contains
   end subroutine assertSlotZeroed
 
   subroutine assertSlotSurvives(this, j)
+    ! The converse of assertSlotZeroed: slot j still holds exactly the marker values
+    ! setupColumn gave it, zi(c,j-1) included.
     class(TestZeroEmpty), intent(in) :: this
     integer, intent(in) :: j
 
@@ -150,8 +189,13 @@ contains
 
   @Test
   subroutine zeroEmpty_noSnow_nvp(this)
-    ! A snow-free NVP column: every slot above the moss is emptied, and slot 0 keeps the
-    ! values it came in with. zi(c,-1) is the interface below slot 0, so it survives too.
+    ! A snow-free NVP column. snl = 0 puts jtop at 0, so the zeroed range j < jtop covers
+    ! -4..-1 and stops there: every slot above the moss is emptied and slot 0 keeps what
+    ! it came in with, along with zi(c,-1), the interface at its top.
+    !
+    ! This is the case stock bounds get wrong. With j < snl+1 the range would run through
+    ! slot 0, so the moss thickness, depth, temperature and water would all be set to
+    ! zero on any NVP column that happened to be bare.
     class(TestZeroEmpty), intent(inout) :: this
     integer :: j
 
@@ -168,8 +212,9 @@ contains
 
   @Test
   subroutine zeroEmpty_noSnow_stock(this)
-    ! Without the NVP slot, a snow-free column has nothing to keep: slot 0 is emptied
-    ! along with everything above it.
+    ! The same snow-free column without the NVP slot, where jtop is snl+1 = 1. There is
+    ! nothing to keep, so slot 0 is emptied along with everything above it. This is the
+    ! guard that the reindexed bound still reduces to the stock one.
     class(TestZeroEmpty), intent(inout) :: this
     integer :: j
 
@@ -185,8 +230,10 @@ contains
 
   @Test
   subroutine zeroEmpty_partialPack_nvp(this)
-    ! With a pack occupying snl .. -1, only the slots above it are emptied; the pack and
-    ! the moss slot are left alone.
+    ! Two snow layers on an NVP column, so the pack is -2..-1 with the moss at 0 and two
+    ! free slots above. Only -4 and -3 may be emptied; the pack and the moss are left
+    ! alone. A bound one slot too low would eat the top snow layer at -2, one slot too
+    ! high would leave stale values sitting at -3.
     class(TestZeroEmpty), intent(inout) :: this
     integer :: j
 
@@ -205,8 +252,9 @@ contains
 
   @Test
   subroutine zeroEmpty_fullPack_nvp(this)
-    ! At the NVP capacity of nlevsno-1 snow layers there is nothing above the pack, so
-    ! nothing may be zeroed.
+    ! An NVP pack at its capacity of nlevsno-1 = 4 layers, running -4..-1 with the moss
+    ! at 0. jtop is -nlevsno+1, the top of the column arrays, so there is no slot above
+    ! the pack and nothing at all may be zeroed. Every slot must survive.
     class(TestZeroEmpty), intent(inout) :: this
     integer :: j
 

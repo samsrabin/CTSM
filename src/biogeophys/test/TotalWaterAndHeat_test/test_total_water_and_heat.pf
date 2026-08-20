@@ -29,16 +29,20 @@ module test_total_water_and_heat
   real(r8), parameter :: tol = 1.e-13_r8
   real(r8), parameter :: irrelevant_temp = tfrz + 9999._r8
 
+  ! Column shape handed to the water type factory, used by the ComputeLiqIceMassNonLake
+  ! tests at the bottom of this file.
   integer, parameter :: my_nlevsoi = 3
   integer, parameter :: nlevgrnd_additional = 1
   integer, parameter :: my_nlevsno = 5
 
-  ! Water put in the top snow layer and in the slot at index 0, distinct so that either
-  ! bound of the snow-and-NVP sum can be pinned separately.
+  ! Water put in the top snow layer and in the slot at index 0. Distinct values, so a sum
+  ! that started one slot too low or stopped one slot too soon changes by a recognizable
+  ! amount rather than by nothing.
   real(r8), parameter :: ice_top = 100._r8, liq_top = 1._r8
   real(r8), parameter :: ice_zero = 400._r8, liq_zero = 4._r8
 
-  ! Water put in a slot above the pack, which no bound may reach.
+  ! Water put in the slot immediately above the top snow layer, which the sum must not
+  ! reach. Larger than either of the above so that including it would be unmistakable.
   real(r8), parameter :: ice_above = 999._r8, liq_above = 9._r8
 
 contains
@@ -62,7 +66,9 @@ contains
 
   subroutine setupColumn(this, snl, jbot_sno)
     ! Build a single column with the given snow layer count and bottom snow index, and
-    ! empty every snow-range slot so that a later assignment is the only water there.
+    ! empty every snow-range slot so that whatever a test assigns afterwards is the only
+    ! water in that range. jbot_sno = -1 makes it an NVP column and 0 a stock one. Used
+    ! only by the ComputeLiqIceMassNonLake tests at the bottom of this file.
     class(TestTWAH), intent(inout) :: this
     integer, intent(in) :: snl
     integer, intent(in) :: jbot_sno
@@ -234,11 +240,33 @@ contains
   ! Tests of ComputeLiqIceMassNonLake
   ! ------------------------------------------------------------------------
 
+  ! ComputeLiqIceMassNonLake totals a column's water for the water balance check. Over
+  ! the snow range it sums col%get_jtop_snow(c) .. 0 -- note the fixed upper bound of 0,
+  ! unlike the snow routines, which stop at col%get_jbot_snow(c).
+  !
+  ! Terms used below. A "slot" is one index of the column arrays in -nlevsno+1 .. 0,
+  ! whether or not a snow layer occupies it. The "pack" is the run of slots that hold
+  ! snow, snl .. -1 on an NVP column (jbot_sno == -1, slot 0 being the moss slot) and
+  ! snl+1 .. 0 on a stock one (jbot_sno == 0, no moss slot).
+  !
+  ! The NVP change is only to the lower bound: get_jtop_snow(c) rather than snl(c)+1, so
+  ! that the sum still starts at the top snow layer once the moss takes index 0. The
+  ! upper bound deliberately stays at 0 and so keeps the moss slot inside the column
+  ! total, because snow handing water to the moss is a transfer within the column and
+  ! must not read as a sink in errh2o.
+  !
+  ! Both tests below call the routine twice: once before any water is placed, to get a
+  ! baseline covering the soil water and everything else the routine adds, and once
+  ! after. Only the difference is asserted, which isolates the snow-range contribution
+  ! without having to predict the rest of the column total.
+
   @Test
   subroutine ComputeLiqIceMass_nvp(this)
-    ! The column total spans get_jtop_snow(c) .. 0, so on an NVP column it must reach the
-    ! top snow layer at snl and must still include the moss slot at 0: snow handing water
-    ! to the moss is an internal transfer, not a sink.
+    ! An NVP column with three snow layers, so the pack is -3..-1 and the moss is at 0.
+    ! Water goes into the top snow layer at -3, into the moss slot at 0, and into slot -4
+    ! just above the pack. The difference must pick up the first two and not the third:
+    ! stock bounds would start at -2 and so miss the top snow layer, while a sum that
+    ! stopped at jbot would drop the moss.
     class(TestTWAH), intent(inout) :: this
     integer :: num_c, c
     integer, allocatable :: filter_c(:)
@@ -278,8 +306,11 @@ contains
 
   @Test
   subroutine ComputeLiqIceMass_stock(this)
-    ! Without the NVP slot the top snow layer is snl+1, one slot lower, and index 0 is
-    ! ordinary bottom snow.
+    ! The same three layers on a stock column, where the pack is -2..0: the top snow
+    ! layer is at -2, the slot just above it is -3, and index 0 is ordinary bottom snow
+    ! rather than moss. Everything shifts down one slot and the expected difference is
+    ! unchanged, which is the guard that the reindexed lower bound still reduces to the
+    ! stock snl+1.
     class(TestTWAH), intent(inout) :: this
     integer :: num_c, c
     integer, allocatable :: filter_c(:)

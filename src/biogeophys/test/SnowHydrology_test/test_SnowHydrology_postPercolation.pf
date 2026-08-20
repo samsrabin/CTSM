@@ -2,6 +2,24 @@ module test_SnowHydrology_postPercolation
 
   ! Tests of SnowHydrologyMod: PostPercolation_AdjustLayerThicknesses
 
+  ! PostPercolation_AdjustLayerThicknesses grows any snow layer whose water content
+  ! implies more thickness than the layer has: for each slot in the pack it sets
+  ! dz = max(dz, h2osoi_liq/denh2o + h2osoi_ice/denice). Slots outside the pack are not
+  ! visited at all.
+  !
+  ! Terms used below. A "slot" is one index of the column arrays in -nlevsno+1 .. 0,
+  ! whether or not a snow layer occupies it. The "pack" is the run of slots that do hold
+  ! snow, jtop .. jbot, short for col%get_jtop_snow(c) .. col%get_jbot_snow(c). On an NVP
+  ! column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot", which is
+  ! not snow; on a stock column (jbot_sno == 0) the pack is snl+1 .. 0 and index 0 is
+  ! ordinary bottom snow.
+  !
+  ! The NVP change is just that loop range: jtop .. jbot instead of snl+1 .. 0. The two
+  ! tests below use identical dz and h2osoi_liq arrays and identical snl, and differ only
+  ! in jbot_sno, so the pack shifts down by one slot between them. That makes the pair
+  ! pin both ends of the range at once: a slot excluded in one test is included in the
+  ! other.
+
   use funit
   use SnowHydrologyMod, only : PostPercolation_AdjustLayerThicknesses
   use shr_kind_mod, only : r8 => shr_kind_r8
@@ -25,29 +43,39 @@ module test_SnowHydrology_postPercolation
 
   real(r8), parameter :: tol = 1.e-13_r8
 
-  ! A thin layer whose liquid implies more thickness than it has, so the routine must
-  ! grow it wherever it is snow.
+  ! A thin layer paired with liquid that implies more thickness than it has:
+  ! liq_over/denh2o = 20/1000 = 0.02 m against dz_thin = 0.01 m. Inside the pack the
+  ! max() must double it to 0.02; outside the pack it must stay at 0.01.
   real(r8), parameter :: dz_thin = 0.01_r8
   real(r8), parameter :: liq_over = 20._r8
 
-  ! A layer whose liquid implies less thickness than it has, so it must be left alone.
+  ! A layer whose liquid implies less thickness than it has: liq_under/denh2o = 0.01 m
+  ! against dz_thick = 0.05 m. The max() leaves this one at 0.05 even inside the pack,
+  ! which is what distinguishes "was skipped" from "was visited and left alone".
   real(r8), parameter :: dz_thick = 0.05_r8
   real(r8), parameter :: liq_under = 10._r8
 
-  ! Moss thickness, and moss liquid well in excess of it: index 0 is not snow on an NVP
-  ! column, so no amount of water there may change dz.
+  ! Moss thickness paired with moss liquid far in excess of it: liq_nvp/denh2o = 0.1 m is
+  ! five times dz_nvp = 0.02 m. On an NVP column index 0 is outside the pack and must
+  ! keep 0.02 however much water sits there, while on a stock column the same slot is
+  ! bottom snow and must grow to 0.1. The gap between the two answers is what lets the
+  ! two tests tell each other apart.
   real(r8), parameter :: dz_nvp = 0.02_r8
   real(r8), parameter :: liq_nvp = 100._r8
 
 contains
 
   subroutine setUp(this)
+    ! The routine under test takes its arrays as arguments rather than reaching into a
+    ! water type, so no water factory is needed here; only nlevsno has to agree with the
+    ! bounds the tests declare on their local arrays.
     class(TestPostPercolation), intent(inout) :: this
 
     nlevsno = my_nlevsno
   end subroutine setUp
 
   subroutine tearDown(this)
+    ! Each test builds its own subgrid, so each one has to be torn down.
     class(TestPostPercolation), intent(inout) :: this
 
     call unittest_subgrid_teardown()
@@ -55,9 +83,16 @@ contains
 
   @Test
   subroutine postPercolation_nvp(this)
-    ! The pack runs snl .. -1: layers inside it grow to hold their water, while the slot
-    ! above the pack and the moss slot keep the thickness they came in with, however
-    ! much water sits in them.
+    ! An NVP column with snl = -3, so the pack runs -3..-1 and slot 0 is moss. The five
+    ! slots are laid out so that every distinction is exercised at once: -4 is a
+    ! thin/over pair above the pack, -3 and -1 are thin/over pairs inside it, -2 is a
+    ! thick/under pair inside it, and 0 is the moss with far more water than thickness.
+    ! Ice is zero throughout, so only the liquid term of the max() is in play.
+    !
+    ! Expected: -3 and -1 grow to liq_over/denh2o = 0.02; -2 stays at 0.05 because its
+    ! own thickness already covers its water; -4 and 0 keep what they came in with
+    ! because the routine never visits them. Stock bounds would run -2..0 instead, which
+    ! would leave -3 unadjusted and inflate the moss thickness to 0.1.
     class(TestPostPercolation), intent(inout) :: this
     integer :: num_snowc
     integer, allocatable :: filter_snowc(:)
@@ -70,6 +105,8 @@ contains
     col%snl(bounds%begc:bounds%endc) = -3
     col%jbot_sno(bounds%begc:bounds%endc) = -1
 
+    ! Array constructors fill the second dimension from its lower bound, so the elements
+    ! below are slots -4, -3, -2, -1, 0 in that order.
     h2osoi_ice(:,:) = 0._r8
     dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
     h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
@@ -86,8 +123,11 @@ contains
 
   @Test
   subroutine postPercolation_stock(this)
-    ! Without the NVP slot the pack runs snl+1 .. 0: index 0 is ordinary bottom snow and
-    ! grows, and one more slot above the pack is excluded instead.
+    ! The same arrays and the same snl on a stock column, where jbot_sno = 0 puts the
+    ! pack at -2..0, one slot deeper. Now -3 is the slot above the pack and keeps 0.01,
+    ! while index 0 is ordinary bottom snow and grows to liq_nvp/denh2o = 0.1. The
+    ! excluded and included slots swap relative to the NVP case, so between the two tests
+    ! each end of the range is pinned from both sides.
     class(TestPostPercolation), intent(inout) :: this
     integer :: num_snowc
     integer, allocatable :: filter_snowc(:)
@@ -100,6 +140,7 @@ contains
     col%snl(bounds%begc:bounds%endc) = -3
     col%jbot_sno(bounds%begc:bounds%endc) = 0
 
+    ! Identical to the NVP case: slots -4, -3, -2, -1, 0 in that order.
     h2osoi_ice(:,:) = 0._r8
     dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
     h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
