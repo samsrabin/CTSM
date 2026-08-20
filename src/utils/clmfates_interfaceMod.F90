@@ -93,6 +93,7 @@ module CLMFatesInterfaceMod
    use clm_varpar        , only : nlevdecomp
    use clm_varpar        , only : nlevdecomp_full
    use clm_varpar        , only : nlevsoi
+   use clm_varpar        , only : nlevgrnd
    use PhotosynthesisMod , only : photosyns_type
    use atm2lndType       , only : atm2lnd_type
    use SurfaceAlbedoType , only : surfalb_type
@@ -2598,6 +2599,14 @@ module CLMFatesInterfaceMod
                  btran(p)    = this%fates(nc)%bc_out(s)%btran_pa(ifp)
 
               end do
+
+              ! rootr_patch is allocated to nlevgrnd and NaN-initialized, but we only
+              ! fill 1:nlevsoil, which stops at bedrock. There is no root water uptake
+              ! below bedrock, so zero the rest rather than leave it NaN.
+              if (nlevsoil < nlevgrnd) then
+                 rootr(p, nlevsoil+1:nlevgrnd) = 0._r8
+              end if
+
            end do
         end do
       end associate

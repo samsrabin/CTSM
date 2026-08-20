@@ -250,8 +250,13 @@ coverage to gnu-only for every later task, on the very compiler that hides NaN.
   active patch. Zero to `nlevgrnd`, not `nlevsoi`: `rootr_patch` is allocated to
   `nlevgrnd` and `ch4Mod` / `SoilMoistStressMod` also read it. Physically this states
   that there is no root water uptake below bedrock, which is what FATES already means by
-  truncating its column there. Guard against `nlevsoil >= nlevgrnd` so the assignment is
-  a no-op rather than an out-of-bounds slice. Follow the surrounding style; no churn.
+  truncating its column there. Wrap the assignment in `if (nlevsoil < nlevgrnd)` as
+  defensive code — but note the guard can never actually be false, since `nlevsoil` is
+  `col%nbedrock ∈ [3, nlevsoi]` (`initVerticalMod.F90:469-487`) and `nlevsoi < nlevgrnd`
+  is enforced (`clm_varpar.F90:265-268`). It is **not** protecting against an
+  out-of-bounds slice: a Fortran array section whose lower bound exceeds its upper bound
+  is zero-sized and legal. Do not repeat that incorrect rationale anywhere.
+  Follow the surrounding style; no churn.
 - [ ] **Step 2: verify (Claude).** Fortran-touching, so the standing rule applies:
   `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` must succeed. No FATES
   functional test covers this interface path, so there is nothing to add there.
