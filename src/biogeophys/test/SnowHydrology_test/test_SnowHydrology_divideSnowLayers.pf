@@ -33,7 +33,12 @@ module test_SnowHydrology_divideSnowLayers
   ! A bottom layer thicker than dzmax_l(k) is halved into two; a layer with something
   ! beneath it that is thicker than dzmax_u(k) sheds the excess into the layer below.
   ! Both comparisons are a strict ">", so a thickness exactly equal to a threshold does
-  ! nothing. The dz_layers values in each test below are chosen against this table.
+  ! nothing. What the thresholds are compared against is not dz itself: for snow layers
+  ! dz is the thickness within the snow-covered fraction, and the staging map multiplies
+  ! it by frac_sno_eff to get the grid-cell-average thickness the table is stated in
+  ! (SnowHydrologyMod.F90:1357). These tests pin frac_sno_eff = 0.5, so every dz_layers
+  ! value below stages at half its value, and it is those halves that each test's
+  ! dz_layers are chosen against.
 
   use funit
   use SnowHydrologyMod, only : DivideSnowLayers, InitSnowLayers
@@ -77,11 +82,20 @@ module test_SnowHydrology_divideSnowLayers
 
   real(r8), parameter :: tol = 1.e-13_r8
 
-  ! Moss thickness, larger than both dzmax_l(1) = 0.03 and dzmax_u(1) = 0.02. If a wrong
-  ! staging offset ever pulled the moss slot into the pack, the moss would be halved or
-  ! made to shed thickness, which the dz assertions catch; a moss thickness under both
-  ! thresholds would only be shuffled between slots and could go unnoticed.
-  real(r8), parameter :: dz_nvp = 0.06_r8
+  ! Snow cover fraction. Held below one so that the staging map's multiply by
+  ! frac_sno_eff and the write-back's divide by it are not both the identity: at one,
+  ! dropping either leg would leave every test here passing. A power of two, so halving
+  ! is exact: each staged thickness is bit-identical to the dz the tests used before
+  ! frac_sno_eff was pinned, which is what makes doubling every dz_layers value
+  ! behaviour-preserving rather than merely close.
+  real(r8), parameter :: frac_sno_eff = 0.5_r8
+
+  ! Moss thickness, which would stage at frac_sno_eff*dz_nvp = 0.06, and must stay above
+  ! both dzmax_l(1) = 0.03 and dzmax_u(1) = 0.02. If a wrong staging offset ever pulled
+  ! the moss slot into the pack, the moss would be halved or made to shed thickness,
+  ! which the dz assertions catch; a staged moss thickness under both thresholds would
+  ! only be shuffled between slots and could go unnoticed.
+  real(r8), parameter :: dz_nvp = 0.12_r8
 
   ! One scale per staged quantity; see slot_value below for how they are used and what
   ! values they produce.
@@ -244,10 +258,8 @@ contains
          wd => this%water_inst%waterdiagnosticbulk_inst)
 
     ! The staging map multiplies dz by frac_sno_eff and the write-back divides by it, so
-    ! it has to be nonzero. Setting it to one makes that round trip exact and keeps the
-    ! staged thicknesses equal to the dz_layers values, so the thresholds can be compared
-    ! against those values as written.
-    wd%frac_sno_eff_col(c) = 1._r8
+    ! it has to be nonzero; see the parameter for why it is not one.
+    wd%frac_sno_eff_col(c) = frac_sno_eff
 
     do j = -nlevsno+1, 0
        this%temperature_inst%t_soisno_col(c,j) = t_base + slot_value(j, 1._r8)
@@ -382,17 +394,17 @@ contains
   @Test
   subroutine divide_roundTrip_nvp(this)
     ! Three snow layers on an NVP column, so the pack runs -3..-1 and slot 0 is moss.
-    ! Nothing is over threshold: staging slot 1 holds 0.01 < dzmax_u(1) = 0.02, slot 2
-    ! holds 0.03 < dzmax_u(2) = 0.05, and the bottom slot 3 holds 0.1 < dzmax_l(3) =
-    ! 0.18. So the routine must copy the pack out to the staging arrays and write it back
-    ! with every value returning to the slot it came from, and must never stage the moss
-    ! slot at all.
+    ! Nothing is over threshold: dz 0.02 stages in staging slot 1 as 0.01 < dzmax_u(1) =
+    ! 0.02, dz 0.06 stages in slot 2 as 0.03 < dzmax_u(2) = 0.05, and the bottom dz 0.2
+    ! stages in slot 3 as 0.1 < dzmax_l(3) = 0.18. So the routine must copy the pack out to the
+    ! staging arrays and write it back with every value returning to the slot it came
+    ! from, and must never stage the moss slot at all.
     !
     ! A staging offset that was off by one would show up here as a slot holding its
     ! neighbour's marker value, or as moss values appearing in the pack -- the marker
     ! values exist so that this is not a no-op test.
     class(TestDivide), intent(inout) :: this
-    real(r8), parameter :: dz_layers(3) = [0.01_r8, 0.03_r8, 0.1_r8]
+    real(r8), parameter :: dz_layers(3) = [0.02_r8, 0.06_r8, 0.2_r8]
     integer :: j
 
     call this%setupColumn(snl = -3, jbot_sno = -1, dz_layers = dz_layers)
@@ -416,7 +428,7 @@ contains
     ! divides. This is the guard that the reindexed staging map still reduces to the
     ! stock one where there is no moss slot.
     class(TestDivide), intent(inout) :: this
-    real(r8), parameter :: dz_layers(3) = [0.01_r8, 0.03_r8, 0.1_r8]
+    real(r8), parameter :: dz_layers(3) = [0.02_r8, 0.06_r8, 0.2_r8]
     integer :: j
 
     call this%setupColumn(snl = -3, jbot_sno = 0, dz_layers = dz_layers)
@@ -433,11 +445,11 @@ contains
 
   @Test
   subroutine divide_subdivides_nvp(this)
-    ! One snow layer of 0.04 m on an NVP column, so the pack is the single slot -1 and
-    ! the moss is at 0. As the bottom layer it is measured against dzmax_l(1) = 0.03 and
-    ! exceeds it, so it is halved into two layers of 0.02 m; 0.02 is not greater than
-    ! dzmax_u(1) = 0.02, so the upper half then sheds nothing into the lower and the pack
-    ! settles at -2..-1.
+    ! One snow layer of dz 0.08 m on an NVP column, staging at 0.04, so the pack is the
+    ! single slot -1 and the moss is at 0. As the bottom layer it is measured against
+    ! dzmax_l(1) = 0.03 and exceeds it, so it is halved into two layers staging at 0.02,
+    ! dz 0.04; 0.02 is not greater than dzmax_u(1) = 0.02, so the upper half then sheds
+    ! nothing into the lower and the pack settles at -2..-1.
     !
     ! The new layer has to appear above the old one. If the pack grew downward instead it
     ! would land on the moss, so the assertions pin dz(c,0) and the zi(c,-1) anchor as
@@ -446,7 +458,7 @@ contains
     ! from the one below it, which only holds if the recursion started at the anchor
     ! rather than at zi(c,0).
     class(TestDivide), intent(inout) :: this
-    real(r8), parameter :: dz_layers(1) = [0.04_r8]
+    real(r8), parameter :: dz_layers(1) = [0.08_r8]
     real(r8) :: ice_before, liq_before
     integer :: c, j
 
@@ -472,10 +484,11 @@ contains
   @Test
   subroutine divide_capsAtNlevsnoMinusOne_nvp(this)
     ! An NVP pack already at its capacity: nlevsno-1 = 4 layers running -4..-1, with the
-    ! moss at 0. The 1 m bottom layer is far over dzmax_l(4) = 0.41 and would divide if
-    ! the routine let it, but the loop over staging positions stops at k < nlevsno-1 on
-    ! an NVP column, so it never reaches that layer. Nothing divides: snl, the moss slot,
-    ! and every staged quantity in all four pack slots come back as they went in.
+    ! moss at 0. The dz 2 m bottom layer stages at 1 m, far over dzmax_l(4) = 0.41, and
+    ! would divide if the routine let it, but the loop over staging positions stops at
+    ! k < nlevsno-1 on an NVP column, so it never reaches that layer. Nothing divides:
+    ! snl, the moss slot, and every staged quantity in all four pack slots come back as
+    ! they went in.
     !
     ! Growing to nlevsno layers here would be worse than merely wrong bookkeeping. The
     ! pack would then start at snl+1+jbot_sno = -nlevsno, one slot below the -nlevsno+1
@@ -483,7 +496,7 @@ contains
     ! the top staging slot and that layer's thickness, ice, liquid and temperature would
     ! be dropped without a trace.
     class(TestDivide), intent(inout) :: this
-    real(r8), parameter :: dz_layers(4) = [0.01_r8, 0.03_r8, 0.1_r8, 1._r8]
+    real(r8), parameter :: dz_layers(4) = [0.02_r8, 0.06_r8, 0.2_r8, 2._r8]
     real(r8) :: ice_before, liq_before
     integer :: c, j
 
@@ -509,16 +522,17 @@ contains
   subroutine divide_growsToNlevsnoMinusOne_nvp(this)
     ! The complement of the previous test: the NVP cap is nlevsno-1 and no tighter, so a
     ! pack one layer short of it must still be allowed to divide. Three layers on an NVP
-    ! column, pack -3..-1, with a 0.5 m bottom layer over dzmax_l(3) = 0.18. It halves to
-    ! 0.25 and 0.25; the upper half is then over dzmax_u(3) = 0.11 and sheds the excess
-    ! 0.14 into the layer below it, so the pack ends as 0.01, 0.03, 0.11, 0.39 over
-    ! -4..-1 -- four layers, at the cap, with the total 0.54 m preserved.
+    ! column, pack -3..-1, with a dz 1 m bottom layer staging at 0.5, over
+    ! dzmax_l(3) = 0.18. It halves to 0.25 and 0.25; the upper half is then over
+    ! dzmax_u(3) = 0.11 and sheds the excess 0.14 into the layer below it, so the pack
+    ! ends staged as 0.01, 0.03, 0.11, 0.39 over -4..-1 -- dz 0.02, 0.06, 0.22, 0.78 --
+    ! four layers, at the cap, with the staged total 0.54 m preserved.
     !
     ! The pack grows upward into the free slot at -4. A cap that was one layer too tight
     ! would leave snl at -3, and growth downward instead of upward would disturb the moss
     ! slot.
     class(TestDivide), intent(inout) :: this
-    real(r8), parameter :: dz_layers(3) = [0.01_r8, 0.03_r8, 0.5_r8]
+    real(r8), parameter :: dz_layers(3) = [0.02_r8, 0.06_r8, 1._r8]
     real(r8) :: ice_before, liq_before
     integer :: c
 
@@ -540,13 +554,13 @@ contains
   subroutine divide_capsAtNlevsno_stock(this)
     ! The same four layers as divide_capsAtNlevsnoMinusOne_nvp, but on a stock column,
     ! where they sit at -3..0 and the cap is the stock nlevsno = 5. Here the loop does
-    ! reach the bottom layer: 1 m is over dzmax_l(4) = 0.41 and halves to 0.5, the upper
-    ! half is then over dzmax_u(4) = 0.23 and sheds 0.27 into the lower, and the pack
-    ! fills all five slots at -4..0 with its 1.14 m total preserved. This is the guard
-    ! against applying the nlevsno-1 cap unconditionally instead of only where the moss
-    ! slot exists.
+    ! reach the bottom layer: the dz 2 m layer stages at 1 m, over dzmax_l(4) = 0.41, and
+    ! halves to 0.5, the upper half is then over dzmax_u(4) = 0.23 and sheds 0.27 into
+    ! the lower, and the pack fills all five slots at -4..0 with its staged 1.14 m total
+    ! preserved. This is the guard against applying the nlevsno-1 cap unconditionally
+    ! instead of only where the moss slot exists.
     class(TestDivide), intent(inout) :: this
-    real(r8), parameter :: dz_layers(4) = [0.01_r8, 0.03_r8, 0.1_r8, 1._r8]
+    real(r8), parameter :: dz_layers(4) = [0.02_r8, 0.06_r8, 0.2_r8, 2._r8]
     integer, parameter :: snl_before = -(my_nlevsno-1)
     real(r8) :: ice_before, liq_before
     integer :: c
