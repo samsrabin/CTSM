@@ -73,6 +73,14 @@ module CLMFatesInterfaceMod
    use clm_varctl        , only : use_fates_luh
    use clm_varctl        , only : use_fates_lupft
    use clm_varctl        , only : use_fates_potentialveg
+   use clm_varctl        , only : use_fates_moss
+   use clm_varctl        , only : fates_moss_height_allom
+   use clm_varctl        , only : fates_moss_bulk_density
+   use clm_varctl        , only : fates_moss_fuel_moisture_live_intercept
+   use clm_varctl        , only : fates_moss_fuel_moisture_live_slope
+   use clm_varctl        , only : fates_moss_fuel_moisture_dead_intercept
+   use clm_varctl        , only : fates_moss_fuel_moisture_dead_slope
+   use clm_varctl        , only : fates_moss_max_burn_frac
    use clm_varctl        , only : flandusepftdat
    use clm_varctl        , only : fates_seeddisp_cadence
    use clm_varctl        , only : fates_inventory_ctrl_filename
@@ -429,6 +437,8 @@ module CLMFatesInterfaceMod
      integer                                        :: pass_radiation_model
      integer                                        :: pass_electron_transport_model
      integer                                        :: pass_managed_fire
+     integer                                        :: pass_use_moss
+     integer                                        :: pass_moss_height_allom = -999
 
      call t_startf('fates_globals2')
 
@@ -655,6 +665,29 @@ module CLMFatesInterfaceMod
 
         call set_fates_ctrlparms('inventory_ctrl_file',cval=fates_inventory_ctrl_filename)
 
+        if(use_fates_moss) then
+           pass_use_moss = 1
+        else
+           pass_use_moss = 0
+        end if
+        call set_fates_ctrlparms('use_moss',ival=pass_use_moss)
+
+        if (trim(fates_moss_height_allom) == 'grass_powerlaw') then
+           pass_moss_height_allom = 1
+        else if (trim(fates_moss_height_allom) == 'mat_thickness') then
+           pass_moss_height_allom = 2
+        else
+           call endrun(msg=' ERROR: unrecognized fates_moss_height_allom: '//&
+                trim(fates_moss_height_allom)//errMsg(sourcefile, __LINE__))
+        end if
+        call set_fates_ctrlparms('moss_height_allom',ival=pass_moss_height_allom)
+
+        call set_fates_ctrlparms('moss_bulk_density',rval=fates_moss_bulk_density)
+        call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fuel_moisture_live_intercept)
+        call set_fates_ctrlparms('moss_fuel_moisture_live_slope',rval=fates_moss_fuel_moisture_live_slope)
+        call set_fates_ctrlparms('moss_fuel_moisture_dead_intercept',rval=fates_moss_fuel_moisture_dead_intercept)
+        call set_fates_ctrlparms('moss_fuel_moisture_dead_slope',rval=fates_moss_fuel_moisture_dead_slope)
+        call set_fates_ctrlparms('moss_max_burn_frac',rval=fates_moss_max_burn_frac)
 
         ! Check through FATES parameters to see if all have been set
         call set_fates_ctrlparms('check_allset')

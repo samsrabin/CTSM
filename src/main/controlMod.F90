@@ -259,7 +259,15 @@ contains
           use_fates_daylength_factor,                   &
           fates_photosynth_acclimation,                 &
           fates_history_dimlevel,                       &
-          use_fates_managed_fire
+          use_fates_managed_fire,                       &
+          use_fates_moss,                               &
+          fates_moss_height_allom,                      &
+          fates_moss_bulk_density,                      &
+          fates_moss_fuel_moisture_live_intercept,      &
+          fates_moss_fuel_moisture_live_slope,          &
+          fates_moss_fuel_moisture_dead_intercept,      &
+          fates_moss_fuel_moisture_dead_slope,          &
+          fates_moss_max_burn_frac
 
     ! Ozone vegetation stress method
     namelist / clm_inparm / o3_veg_stress_method
@@ -542,7 +550,12 @@ contains
           ! are false when fates is false
           use_fates_sp  = .false.
           use_fates_bgc = .false.
-          
+
+          if (use_fates_moss) then
+             call endrun(msg=' ERROR: use_fates_moss requires use_fates to be set to true.'//&
+                  errMsg(sourcefile, __LINE__))
+          end if
+
        end if
 
        ! Check compatibility with use_lai_streams
@@ -847,6 +860,14 @@ contains
     call mpi_bcast (fluh_timeseries, len(fluh_timeseries) , MPI_CHARACTER, 0, mpicom, ier)
     call mpi_bcast (flandusepftdat, len(flandusepftdat) , MPI_CHARACTER, 0, mpicom, ier)
     call mpi_bcast (use_fates_managed_fire, 1, MPI_LOGICAL, 0, mpicom, ier)
+    call mpi_bcast (use_fates_moss, 1, MPI_LOGICAL, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_height_allom, len(fates_moss_height_allom), MPI_CHARACTER, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_bulk_density, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_fuel_moisture_live_intercept, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_fuel_moisture_live_slope, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_fuel_moisture_dead_intercept, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_fuel_moisture_dead_slope, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_max_burn_frac, 1, MPI_REAL8, 0, mpicom, ier)
 
     call mpi_bcast (fates_parteh_mode, 1, MPI_INTEGER, 0, mpicom, ier)
     call mpi_bcast (fates_seeddisp_cadence, 1, MPI_INTEGER, 0, mpicom, ier)
@@ -1265,6 +1286,14 @@ contains
        write(iulog, *) '    fates_seeddisp_cadence: 0, 1, 2, 3 => off, daily, monthly, or yearly dispersal'
        write(iulog, *) '    fates_inventory_ctrl_filename = ', trim(fates_inventory_ctrl_filename)
        write(iulog, *) '    use_fates_managed_fire= ', use_fates_managed_fire
+       write(iulog, *) '    use_fates_moss = ', use_fates_moss
+       write(iulog, *) '    fates_moss_height_allom = ', trim(fates_moss_height_allom)
+       write(iulog, *) '    fates_moss_bulk_density = ', fates_moss_bulk_density
+       write(iulog, *) '    fates_moss_fuel_moisture_live_intercept = ', fates_moss_fuel_moisture_live_intercept
+       write(iulog, *) '    fates_moss_fuel_moisture_live_slope = ', fates_moss_fuel_moisture_live_slope
+       write(iulog, *) '    fates_moss_fuel_moisture_dead_intercept = ', fates_moss_fuel_moisture_dead_intercept
+       write(iulog, *) '    fates_moss_fuel_moisture_dead_slope = ', fates_moss_fuel_moisture_dead_slope
+       write(iulog, *) '    fates_moss_max_burn_frac = ', fates_moss_max_burn_frac
     end if
   end subroutine control_print
 

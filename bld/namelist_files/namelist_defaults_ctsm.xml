@@ -2733,6 +2733,14 @@ lnd/clm2/surfdata_esmf/NEON/ctsm5.4.0/surfdata_1x1_NEON_TOOL_hist_2000_78pfts_c2
 <use_fates_fixed_biogeog        use_fates=".true." use_fates_lupft=".true.">.true.</use_fates_fixed_biogeog>
 <use_fates_fixed_biogeog        use_fates=".true."                         >.false.</use_fates_fixed_biogeog>
 <fates_history_dimlevel         use_fates=".true.">2,2</fates_history_dimlevel>
+<use_fates_moss use_fates=".true.">.false.</use_fates_moss>
+<fates_moss_height_allom use_fates=".true.">grass_powerlaw</fates_moss_height_allom>
+<fates_moss_bulk_density use_fates=".true.">10.</fates_moss_bulk_density>
+<fates_moss_fuel_moisture_live_intercept use_fates=".true.">0.3</fates_moss_fuel_moisture_live_intercept>
+<fates_moss_fuel_moisture_live_slope use_fates=".true.">0.7</fates_moss_fuel_moisture_live_slope>
+<fates_moss_fuel_moisture_dead_intercept use_fates=".true.">0.05</fates_moss_fuel_moisture_dead_intercept>
+<fates_moss_fuel_moisture_dead_slope use_fates=".true.">0.75</fates_moss_fuel_moisture_dead_slope>
+<fates_moss_max_burn_frac use_fates=".true.">1.0</fates_moss_max_burn_frac>
 
 
 <!-- =========================================  -->

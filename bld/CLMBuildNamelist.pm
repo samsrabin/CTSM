@@ -4887,7 +4887,11 @@ sub setup_logic_fates {
                        "use_fates_daylength_factor", "fates_photosynth_acclimation", "fates_stomatal_model",
                        "fates_stomatal_assimilation", "fates_leafresp_model", "fates_cstarvation_model",
                        "fates_regeneration_model", "fates_hydro_solver", "fates_radiation_model", "fates_electron_transport_model",
-		       "use_fates_managed_fire"
+		       "use_fates_managed_fire",
+                       "use_fates_moss", "fates_moss_height_allom", "fates_moss_bulk_density",
+                       "fates_moss_fuel_moisture_live_intercept", "fates_moss_fuel_moisture_live_slope",
+                       "fates_moss_fuel_moisture_dead_intercept", "fates_moss_fuel_moisture_dead_slope",
+                       "fates_moss_max_burn_frac"
                     );
 
         foreach my $var ( @list ) {
@@ -4971,6 +4975,13 @@ sub setup_logic_fates {
         if ( defined($nl->get_value($var))  ) {
            if ( &value_is_true($nl->get_value($var)) && &value_is_true($nl_flags->{'use_fates_sp'}) ) {
               $log->fatal_error("$var can NOT also be true with use_fates_sp true" );
+           }
+        }
+        # Moss isn't currently supported to work with fates hydro
+        my $var = "use_fates_moss";
+        if ( defined($nl->get_value($var))  ) {
+           if ( &value_is_true($nl->get_value($var)) && &value_is_true($nl->get_value('use_fates_planthydro')) ) {
+              $log->fatal_error("use_fates_moss is incompatible with use_fates_planthydro" );
            }
         }
         # check that fates landuse change mode has the necessary luh2 landuse timeseries data

@@ -773,6 +773,47 @@ Toggle to turn on no competition mode (only relevant if FATES is being used).
 Toggle to turn on FATES satellite phenology mode (only relevant if FATES is being used).
 </entry>
 
+<entry id="use_fates_moss" type="logical" category="physics"
+       group="clm_inparm" valid_values="" value=".false.">
+Toggle to turn on the moss plant functional type in FATES
+(only relevant if FATES is being used).
+</entry>
+
+<entry id="fates_moss_height_allom" type="char*32" category="physics"
+       group="clm_inparm" valid_values="grass_powerlaw,mat_thickness">
+Height allometry applied to moss PFTs (only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_bulk_density" type="real" category="physics" group="clm_inparm">
+Moss mat bulk density (kg m-3) used by the mat_thickness height allometry
+(only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_fuel_moisture_live_intercept" type="real" category="physics" group="clm_inparm">
+Intercept of live-moss fuel moisture as a function of the moss wetness proxy
+(only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_fuel_moisture_live_slope" type="real" category="physics" group="clm_inparm">
+Slope of live-moss fuel moisture as a function of the moss wetness proxy
+(only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_fuel_moisture_dead_intercept" type="real" category="physics" group="clm_inparm">
+Intercept of dead-moss fuel moisture as a function of the moss wetness proxy
+(only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_fuel_moisture_dead_slope" type="real" category="physics" group="clm_inparm">
+Slope of dead-moss fuel moisture as a function of the moss wetness proxy
+(only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_max_burn_frac" type="real" category="physics" group="clm_inparm">
+Maximum fraction of live moss fuel that can burn in a fire
+(only relevant if use_fates_moss is true).
+</entry>
+
 <entry id="fates_harvest_mode" type="char*18" category="physics"
         group="clm_inparm" valid_values="no_harvest,event_code,landuse_timeseries,luhdata_area,luhdata_mass">
 Set FATES harvesting mode by setting fates_harvest_mode to a valid string option.
