@@ -409,16 +409,20 @@ contains
     ! values exist so that this is not a no-op test.
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(3) = [0.02_r8, 0.06_r8, 0.2_r8]
+    integer, parameter :: snl_before = -3
+    ! jtop = snl+1+jbot_sno, and jbot_sno is -1 on an NVP column, so the pack's top slot
+    ! is snl itself. dz_layers(j-jtop+1) is then the thickness this test handed to slot j.
+    integer, parameter :: jtop = snl_before
     integer :: j
 
-    call this%setupColumn(snl = -3, jbot_sno = -1, dz_layers = dz_layers)
+    call this%setupColumn(snl = snl_before, jbot_sno = -1, dz_layers = dz_layers)
 
     call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
 
-    @assertEqual(-3, col%snl(bounds%begc))
-    do j = -3, -1
-       @assertEqual(dz_layers(j+4), col%dz(bounds%begc,j), tolerance=tol)
+    @assertEqual(snl_before, col%snl(bounds%begc))
+    do j = jtop, -1
+       @assertEqual(dz_layers(j-jtop+1), col%dz(bounds%begc,j), tolerance=tol)
        call this%assertSlotUnchanged(j)
     end do
     call this%assertMossUntouched()
@@ -438,16 +442,20 @@ contains
     ! stock one where there is no moss slot.
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(3) = [0.02_r8, 0.06_r8, 0.2_r8]
+    integer, parameter :: snl_before = -3
+    ! jbot_sno is 0 on a stock column, so the pack ends at slot 0 and its top slot is
+    ! snl+1 -- one lower than the same snl would give on an NVP column.
+    integer, parameter :: jtop = snl_before + 1
     integer :: j
 
-    call this%setupColumn(snl = -3, jbot_sno = 0, dz_layers = dz_layers)
+    call this%setupColumn(snl = snl_before, jbot_sno = 0, dz_layers = dz_layers)
 
     call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
 
-    @assertEqual(-3, col%snl(bounds%begc))
-    do j = -2, 0
-       @assertEqual(dz_layers(j+3), col%dz(bounds%begc,j), tolerance=tol)
+    @assertEqual(snl_before, col%snl(bounds%begc))
+    do j = jtop, 0
+       @assertEqual(dz_layers(j-jtop+1), col%dz(bounds%begc,j), tolerance=tol)
        call this%assertSlotUnchanged(j)
     end do
   end subroutine divide_roundTrip_stock
@@ -472,23 +480,27 @@ contains
     ! base rather than at zi(c,0).
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(1) = [0.08_r8]
+    integer, parameter :: snl_before = -1
+    integer, parameter :: snl_after = -2
+    ! On an NVP column jtop is snl itself, so the pack's top slot moves up with snl as
+    ! the layer divides -- which is what totalIce/totalLiq are asked to sum over.
     real(r8) :: ice_before, liq_before
     integer :: c, j
 
-    call this%setupColumn(snl = -1, jbot_sno = -1, dz_layers = dz_layers)
+    call this%setupColumn(snl = snl_before, jbot_sno = -1, dz_layers = dz_layers)
     c = bounds%begc
-    ice_before = this%totalIce(jtop = -1)
-    liq_before = this%totalLiq(jtop = -1)
+    ice_before = this%totalIce(jtop = snl_before)
+    liq_before = this%totalLiq(jtop = snl_before)
 
     call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
 
-    @assertEqual(-2, col%snl(c))
-    @assertEqual(ice_before, this%totalIce(jtop = -2), tolerance=tol)
-    @assertEqual(liq_before, this%totalLiq(jtop = -2), tolerance=tol)
+    @assertEqual(snl_after, col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = snl_after), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = snl_after), tolerance=tol)
     @assertEqual(dz_nvp, col%dz(c,0), tolerance=tol)
     @assertEqual(-dz_nvp, col%zi(c,-1), tolerance=tol)
-    do j = -1, -2, -1
+    do j = snl_before, snl_after, -1
        @assertEqual(col%zi(c,j-1), col%zi(c,j) - col%dz(c,j), tolerance=tol)
        @assertEqual(col%z(c,j), col%zi(c,j) - 0.5_r8*col%dz(c,j), tolerance=tol)
     end do
@@ -514,22 +526,27 @@ contains
     ! be dropped without a trace.
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(4) = [0.02_r8, 0.06_r8, 0.2_r8, 2._r8]
+    ! The most layers an NVP column may hold, the moss having claimed one of the nlevsno
+    ! slots. On an NVP column jtop is snl itself, so this is both the layer count the
+    ! column starts and ends with and the top slot the pack occupies.
+    integer, parameter :: snl_full = -(my_nlevsno-1)
+    integer, parameter :: jtop = snl_full
     real(r8) :: ice_before, liq_before
     integer :: c, j
 
-    call this%setupColumn(snl = -(my_nlevsno-1), jbot_sno = -1, dz_layers = dz_layers)
+    call this%setupColumn(snl = snl_full, jbot_sno = -1, dz_layers = dz_layers)
     c = bounds%begc
-    ice_before = this%totalIce(jtop = -(my_nlevsno-1))
-    liq_before = this%totalLiq(jtop = -(my_nlevsno-1))
+    ice_before = this%totalIce(jtop = jtop)
+    liq_before = this%totalLiq(jtop = jtop)
 
     call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
 
-    @assertEqual(-(my_nlevsno-1), col%snl(c))
-    @assertEqual(ice_before, this%totalIce(jtop = -(my_nlevsno-1)), tolerance=tol)
-    @assertEqual(liq_before, this%totalLiq(jtop = -(my_nlevsno-1)), tolerance=tol)
-    do j = -(my_nlevsno-1), -1
-       @assertEqual(dz_layers(j+my_nlevsno), col%dz(c,j), tolerance=tol)
+    @assertEqual(snl_full, col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = jtop), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = jtop), tolerance=tol)
+    do j = jtop, -1
+       @assertEqual(dz_layers(j-jtop+1), col%dz(c,j), tolerance=tol)
        call this%assertSlotUnchanged(j)
     end do
     call this%assertMossUntouched()
@@ -554,20 +571,24 @@ contains
     ! slot.
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(3) = [0.02_r8, 0.06_r8, 1._r8]
+    integer, parameter :: snl_before = -3
+    ! One layer short of the most an NVP column may hold, so the division below must be
+    ! allowed. On an NVP column jtop is snl itself, so both double as the pack's top slot.
+    integer, parameter :: snl_after = -(my_nlevsno-1)
     real(r8) :: ice_before, liq_before
     integer :: c
 
-    call this%setupColumn(snl = -3, jbot_sno = -1, dz_layers = dz_layers)
+    call this%setupColumn(snl = snl_before, jbot_sno = -1, dz_layers = dz_layers)
     c = bounds%begc
-    ice_before = this%totalIce(jtop = -3)
-    liq_before = this%totalLiq(jtop = -3)
+    ice_before = this%totalIce(jtop = snl_before)
+    liq_before = this%totalLiq(jtop = snl_before)
 
     call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
 
-    @assertEqual(-(my_nlevsno-1), col%snl(c))
-    @assertEqual(ice_before, this%totalIce(jtop = -(my_nlevsno-1)), tolerance=tol)
-    @assertEqual(liq_before, this%totalLiq(jtop = -(my_nlevsno-1)), tolerance=tol)
+    @assertEqual(snl_after, col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = snl_after), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = snl_after), tolerance=tol)
     call this%assertMossUntouched()
   end subroutine divide_growsToNlevsnoMinusOne_nvp
 
@@ -586,7 +607,10 @@ contains
     ! instead of only where the moss slot exists.
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(4) = [0.02_r8, 0.06_r8, 0.2_r8, 2._r8]
+    ! A stock column reserves no slot for moss, so it may fill all nlevsno of them.
+    ! jbot_sno is 0 here, so the pack's top slot is snl+1 rather than snl.
     integer, parameter :: snl_before = -(my_nlevsno-1)
+    integer, parameter :: snl_after = -my_nlevsno
     real(r8) :: ice_before, liq_before
     integer :: c
 
@@ -598,9 +622,9 @@ contains
     call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
 
-    @assertEqual(-my_nlevsno, col%snl(c))
-    @assertEqual(ice_before, this%totalIce(jtop = -my_nlevsno+1), tolerance=tol)
-    @assertEqual(liq_before, this%totalLiq(jtop = -my_nlevsno+1), tolerance=tol)
+    @assertEqual(snl_after, col%snl(c))
+    @assertEqual(ice_before, this%totalIce(jtop = snl_after+1), tolerance=tol)
+    @assertEqual(liq_before, this%totalLiq(jtop = snl_after+1), tolerance=tol)
   end subroutine divide_capsAtNlevsno_stock
 
 end module test_SnowHydrology_divideSnowLayers
