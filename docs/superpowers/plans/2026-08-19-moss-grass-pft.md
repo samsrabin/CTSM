@@ -119,10 +119,15 @@ carry a FATES pointer bump) + at most one FATES commit.
 ---
 
 ### Task 0: ALP2 baseline testmods, tests, and baselines
+
 **Status: COMPLETE (2026-08-20).** Commits `2438f5ecb` (testmods, testlist, submodule
 pointers) and `dedbfdf4c` (drop `fates_paramfile` — see Step 1). Sam confirmed both ALP2
-tests pass on derecho intel/gnu and izumi/nag. Baseline generation is Sam's (Step 4).
-
+tests pass on derecho intel/gnu and izumi/nag. **The ALP2 baselines exist** (Sam
+confirmed 2026-08-20; he owns the tag and Claude does not need to know it). So from Task 2
+onward the `use_fates_moss`-off b4b requirement is measurable, not just an argument from
+the diff: every Fortran-touching task states "ALP2 baselines compare b4b" as an expected
+outcome for Sam's review, and a b4b break is a real failure signal rather than an
+untested claim.
 
 **Files:**
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2Bare/user_nl_clm` (+
@@ -213,9 +218,9 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   `run_sys_tests` invocations and does not need to know the tag.
 
 ### Task 0b: Fix NaN `rootr_patch` below bedrock in the FATES interface
+
 **Status: COMPLETE (2026-08-19).** Commit `cd5783c3c`. Sam confirmed the derecho intel
 `FatesALP2BareGrass` test passes.
-
 
 Not in the original plan. Added 2026-08-19 after Task 0's `FatesALP2BareGrass` test
 failed on derecho/intel with `forrtl (65): floating invalid` at
@@ -275,9 +280,9 @@ coverage to gnu-only for every later task, on the very compiler that hides NaN.
   PR, since it fixes a bug unrelated to moss.
 
 ### Task 0c: Fix unconditional `associate` of uninitialised BGC pointers (nag)
+
 **Status: COMPLETE (2026-08-20).** Commit `8c2ab55a7`. Sam confirmed the izumi/nag ALP2
 tests and the new `1x1_brazil` nag FATES-SP test pass.
-
 
 Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed with
 `Reference to undefined POINTER` at `clmfates_interfaceMod.F90:3098` in
@@ -359,9 +364,9 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
   numerical effect at all.
 
 ### Task 1: `use_fates_moss` and moss scalar namelist plumbing
+
 **Status: COMPLETE (2026-08-20).** FATES `030e41a1` + `d9b28108`; CTSM `66266d8eb`,
 `13a5caed3`, `9cf3be6f9`. Nothing pushed.
-
 
 **Files:**
 - Modify: `bld/namelist_files/namelist_definition_ctsm.xml` (near `use_fates_sp`, ~line 771)
