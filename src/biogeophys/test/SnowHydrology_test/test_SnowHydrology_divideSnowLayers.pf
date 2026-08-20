@@ -393,6 +393,10 @@ contains
 
   @Test
   subroutine divide_roundTrip_nvp(this)
+    ! On an NVP column whose snow layers are all under their subdivision thresholds,
+    ! DivideSnowLayers must be the identity: every quantity returns to the slot it came
+    ! from, the layer count is unchanged, and the moss slot is never staged at all.
+    !
     ! Three snow layers on an NVP column, so the pack runs -3..-1 and slot 0 is moss.
     ! Nothing is over threshold: dz 0.02 stages in staging slot 1 as 0.01 < dzmax_u(1) =
     ! 0.02, dz 0.06 stages in slot 2 as 0.03 < dzmax_u(2) = 0.05, and the bottom dz 0.2
@@ -422,6 +426,11 @@ contains
 
   @Test
   subroutine divide_roundTrip_stock(this)
+    ! On a stock column whose snow layers are all under their subdivision thresholds,
+    ! DivideSnowLayers must be the identity over a pack that ends at the soil surface,
+    ! confirming the reindexed staging map reduces to the stock one where no moss slot
+    ! exists.
+    !
     ! The same three layers and the same thicknesses on a stock column, where jbot_sno is
     ! 0 and the pack sits one slot lower, at -2..0. The thresholds are unchanged because
     ! they are indexed by staging position, not by column index, so again nothing
@@ -445,6 +454,10 @@ contains
 
   @Test
   subroutine divide_subdivides_nvp(this)
+    ! An NVP column's only snow layer, thicker than a bottom layer is allowed to be, must
+    ! split into two that grow upward away from the moss, conserving ice and liquid and
+    ! leaving the moss thickness and the interface the pack hangs from untouched.
+    !
     ! One snow layer of dz 0.08 m on an NVP column, staging at 0.04, so the pack is the
     ! single slot -1 and the moss is at 0. As the bottom layer it is measured against
     ! dzmax_l(1) = 0.03 and exceeds it, so it is halved into two layers staging at 0.02,
@@ -483,6 +496,10 @@ contains
 
   @Test
   subroutine divide_capsAtNlevsnoMinusOne_nvp(this)
+    ! An NVP pack already holding as many layers as the moss slot leaves room for must
+    ! refuse to divide even with its bottom layer far over the limit, because one more
+    ! layer would start the pack below the first index the column arrays have.
+    !
     ! An NVP pack already at its capacity: nlevsno-1 = 4 layers running -4..-1, with the
     ! moss at 0. The dz 2 m bottom layer stages at 1 m, far over dzmax_l(4) = 0.41, and
     ! would divide if the routine let it, but the loop over staging positions stops at
@@ -520,6 +537,10 @@ contains
 
   @Test
   subroutine divide_growsToNlevsnoMinusOne_nvp(this)
+    ! An NVP pack one layer short of capacity, with its bottom layer over the limit, must
+    ! be allowed to divide and grow upward into the free slot, showing that the cap which
+    ! reserves a slot for the moss is no tighter than it needs to be.
+    !
     ! The complement of the previous test: the NVP cap is nlevsno-1 and no tighter, so a
     ! pack one layer short of it must still be allowed to divide. Three layers on an NVP
     ! column, pack -3..-1, with a dz 1 m bottom layer staging at 0.5, over
@@ -552,6 +573,10 @@ contains
 
   @Test
   subroutine divide_capsAtNlevsno_stock(this)
+    ! A stock column, having no moss slot to reserve, must be allowed to divide its
+    ! over-thick bottom layer until snow fills every index the column arrays have,
+    ! guarding against the reserved-slot cap leaking onto columns that carry no moss.
+    !
     ! The same four layers as divide_capsAtNlevsnoMinusOne_nvp, but on a stock column,
     ! where they sit at -3..0 and the cap is the stock nlevsno = 5. Here the loop does
     ! reach the bottom layer: the dz 2 m layer stages at 1 m, over dzmax_l(4) = 0.41, and
