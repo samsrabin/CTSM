@@ -558,6 +558,26 @@ contains
 
        end if
 
+       ! Range checks on the FATES moss parameters. Only fates_moss_bulk_density and
+       ! fates_moss_max_burn_frac have well-defined bounds; the four fuel moisture
+       ! coefficients are not checked here because their form is
+       ! moisture = max(0, intercept + slope*fwet), so a negative intercept is a
+       ! legitimate way to express "dry until a wetness threshold" rather than an error.
+       if (use_fates_moss) then
+          if (fates_moss_bulk_density <= 0.0_r8) then
+             write(iulog,*)'ERROR: fates_moss_bulk_density = ',fates_moss_bulk_density, &
+                  ' is not supported, must be greater than 0.0.'
+             call endrun(msg=' ERROR: invalid value for fates_moss_bulk_density in CLM namelist. '//&
+                  errMsg(sourcefile, __LINE__))
+          endif
+          if (fates_moss_max_burn_frac < 0.0_r8 .or. fates_moss_max_burn_frac > 1.0_r8) then
+             write(iulog,*)'ERROR: fates_moss_max_burn_frac = ',fates_moss_max_burn_frac, &
+                  ' is not supported, must be in range 0.0-1.0.'
+             call endrun(msg=' ERROR: invalid value for fates_moss_max_burn_frac in CLM namelist. '//&
+                  errMsg(sourcefile, __LINE__))
+          endif
+       end if
+
        ! Check compatibility with use_lai_streams
        if (use_lai_streams) then
         if ((use_fates .and. .not. use_fates_sp) .or. use_cn) then 
