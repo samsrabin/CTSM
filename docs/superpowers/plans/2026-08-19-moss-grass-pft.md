@@ -285,11 +285,12 @@ coverage to gnu-only for every later task, on the very compiler that hides NaN.
 - Produces (CTSM): `use_moss` (logical), `moss_height_allom` (char:
   `'grass_powerlaw'`/`'mat_thickness'`), `moss_bulk_density` (r8, kg m-3),
   `moss_fuel_moisture_live_a`, `moss_fuel_moisture_live_b`, `moss_fuel_moisture_dead_a`,
-  `moss_fuel_moisture_dead_b` (r8) in `clm_varctl`.
+  `moss_fuel_moisture_dead_b`, `moss_max_burn_frac` (r8) in `clm_varctl`.
 - Produces (FATES): public module variables in `FatesInterfaceTypesMod`:
   `hlm_use_moss` (integer 0/1), `hlm_moss_height_allom` (integer: 1=grass_powerlaw,
   2=mat_thickness), `hlm_moss_bulk_density`, `hlm_moss_fm_live_a`, `hlm_moss_fm_live_b`,
-  `hlm_moss_fm_dead_a`, `hlm_moss_fm_dead_b` (r8). All later FATES tasks read these.
+  `hlm_moss_fm_dead_a`, `hlm_moss_fm_dead_b`, `hlm_moss_max_burn_frac` (r8). All later
+  FATES tasks read these.
 
 - [ ] **Step 0 (orchestrator):** Read `setup_logic_fates` and the `use_fates_sp` +
   `fates_spitfire_mode` plumbing end to end. Confirm `set_fates_ctrlparms` real-scalar
@@ -327,14 +328,23 @@ Intercept of live-moss fuel moisture as a function of the moss wetness proxy
 ```
 
   ...and analogous entries for `moss_fuel_moisture_live_b`, `moss_fuel_moisture_dead_a`,
-  `moss_fuel_moisture_dead_b`. Add defaults to `namelist_defaults_ctsm.xml`:
-  `moss_height_allom = 'grass_powerlaw'`, `moss_bulk_density = 10.`, and the four
-  coefficients (Step 0 values).
-- [ ] **Step 3: build-namelist logic.** In `setup_logic_fates`, add the seven names to
+  `moss_fuel_moisture_dead_b`, plus:
+
+```xml
+<entry id="moss_max_burn_frac" type="real" category="physics" group="clm_inparm">
+Maximum fraction of live moss fuel that can burn in a fire
+(only relevant if use_moss is true).
+</entry>
+```
+
+  Add defaults to `namelist_defaults_ctsm.xml`: `moss_height_allom = 'grass_powerlaw'`,
+  `moss_bulk_density = 10.`, the four fuel-moisture coefficients (Step 0 values), and
+  `moss_max_burn_frac = 1.0` (see Task 9 Step 2 for why 1.0, not grass's 0.8).
+- [ ] **Step 3: build-namelist logic.** In `setup_logic_fates`, add the eight names to
   the `add_default` list and add fatal checks: `use_moss` requires `use_fates`;
   `use_moss` + `use_fates_planthydro` is fatal (message: "use_moss is incompatible with
   use_fates_planthydro").
-- [ ] **Step 4: clm_varctl + controlMod.** Declare the seven variables in the FATES
+- [ ] **Step 4: clm_varctl + controlMod.** Declare the eight variables in the FATES
   block of `clm_varctl.F90` with the same defaults as the XML; add to the `clm_inparm`
   namelist read, the `use_fates` consistency-check block (error if `use_moss` and
   `.not. use_fates`), and the `mpi_bcast` block in `controlMod.F90`.
@@ -359,7 +369,7 @@ call set_fates_ctrlparms('moss_fm_live_a',rval=moss_fuel_moisture_live_a)
 ```
 
   ...and the remaining three coefficients likewise.
-- [ ] **Step 6: FATES side.** In `FatesInterfaceTypesMod.F90` declare the seven
+- [ ] **Step 6: FATES side.** In `FatesInterfaceTypesMod.F90` declare the eight
   `hlm_*` variables (integer/real, public). In `FatesInterfaceMod.F90`
   `set_fates_ctrlparms`: flush each to unset in the flush block, add
   `case('use_moss')` etc. to the assignment `select case`, and add "was it set?"
@@ -770,17 +780,17 @@ end if
 
 **Interfaces:**
 - Consumes: `currentPatch%fwet_moss` (Task 8), `fuel_classes%live_moss()/dead_moss()`
-  (Task 4), `hlm_moss_fm_live_a/b`, `hlm_moss_fm_dead_a/b` (Task 1).
+  (Task 4), `hlm_moss_fm_live_a/b`, `hlm_moss_fm_dead_a/b`, `hlm_moss_max_burn_frac`
+  (Task 1).
 - Produces: `fuel%moisture(live_moss) = hlm_moss_fm_live_a + hlm_moss_fm_live_b*fwet`
   (floored at 0); analogous for `dead_moss`. Effective moisture and `frac_burnt` for
   the moss classes then flow through existing code untouched. Fuel-class-dimensioned
   history (moisture, loading) already extends to 8 via Task 4 — this task's run
   verifies those outputs are sensible.
 
-- [ ] **Step 0 (orchestrator):** Re-read `UpdateFuelMoisture` + `CalculateFuelBurnt`
-  (max_grass_frac cap at `FatesFuelMod.F90:400,426-429`) — decide whether the 0.8 cap
-  applies to the live-moss class (spec §6 says yes, mirror grass; confirm the cap is
-  keyed by class index and extend to `live_moss`). Note MEF is computed from SAV
+- [ ] **Step 0 (orchestrator):** Re-read `UpdateFuelMoisture` + `CalculateFuelBurnt`.
+  **The max-burn-fraction question is already decided — do not re-ask.** Moss does NOT
+  reuse grass's cap: see Step 2. Note MEF is computed from SAV
   (`FatesFuelMod.F90:271-313`) — moss MEF therefore follows moss SAV; flag to Sam that
   tuning moss SAV (Task 2 file) is the only MEF lever, per spec's accepted design.
   Forward check: none downstream.
@@ -799,7 +809,32 @@ end if
 ```
 
   (before `effective_moisture` is computed so moss classes get MEF-normalized like the
-  rest). Extend the `max_grass_frac` cap to the live-moss class.
+  rest).
+
+  **Max burn fraction: moss gets its own namelist value, NOT grass's cap.** This
+  supersedes spec §6's "with the same 0.8 cap" wording. The existing cap is a hardcoded
+  `real(r8), parameter :: max_grass_frac = 0.8_r8` at `FatesFuelMod.F90:400`, applied in
+  `CalculateFuelBurnt` only when `i == fuel_classes%live_grass()`
+  (`FatesFuelMod.F90:426-429`, comment "we can't ever kill all of the grass"). Grass keeps
+  that untouched. Add a parallel branch for the live-moss class that caps with
+  `hlm_moss_max_burn_frac` (Task 1) instead:
+
+```fortran
+        ! we can't ever kill all of the grass
+        if (i == fuel_classes%live_grass()) then
+          this%frac_burnt(i) = min(max_grass_frac, this%frac_burnt(i))
+        else if (hlm_use_moss == itrue .and. i == fuel_classes%live_moss()) then
+          this%frac_burnt(i) = min(hlm_moss_max_burn_frac, this%frac_burnt(i))
+        end if
+```
+
+  Rationale for the 1.0 default: grass's 0.8 encodes surviving tillers/meristems, which
+  moss has no equivalent of — a moss mat can burn off completely. At the default the
+  `min` is a no-op (`frac_burnt` is already ≤ 1), so the default imposes no cap at all;
+  the namelist exists so the cap can be tightened during tuning (Task 12) without a code
+  change. Note this is the fuel-class consumption cap; it is what Task 6's cohort burn
+  keying reads through `frac_burnt(fuel_classes%live_moss())`, so moss cohort
+  `leaf_burn_frac` inherits the same limit automatically — no separate change there.
 - [ ] **Step 3: functional test.** Add moss cases to the fuel functional test: given
   fwet_moss ∈ {0, 0.5, 1}, assert `moisture(7)` and `moisture(8)` equal the linear
   form; assert grass/leaf classes unchanged vs. the 6-class baseline run. Run
