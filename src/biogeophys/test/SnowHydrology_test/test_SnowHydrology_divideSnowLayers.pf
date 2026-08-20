@@ -474,8 +474,8 @@ contains
     ! An NVP pack already at its capacity: nlevsno-1 = 4 layers running -4..-1, with the
     ! moss at 0. The 1 m bottom layer is far over dzmax_l(4) = 0.41 and would divide if
     ! the routine let it, but the loop over staging positions stops at k < nlevsno-1 on
-    ! an NVP column, so it never reaches that layer. Nothing divides: snl, every dz and
-    ! the moss slot all come back as they went in.
+    ! an NVP column, so it never reaches that layer. Nothing divides: snl, the moss slot,
+    ! and every staged quantity in all four pack slots come back as they went in.
     !
     ! Growing to nlevsno layers here would be worse than merely wrong bookkeeping. The
     ! pack would then start at snl+1+jbot_sno = -nlevsno, one slot below the -nlevsno+1
@@ -500,6 +500,7 @@ contains
     @assertEqual(liq_before, this%totalLiq(jtop = -(my_nlevsno-1)), tolerance=tol)
     do j = -(my_nlevsno-1), -1
        @assertEqual(dz_layers(j+my_nlevsno), col%dz(c,j), tolerance=tol)
+       call this%assertSlotUnchanged(j)
     end do
     call this%assertMossUntouched()
   end subroutine divide_capsAtNlevsnoMinusOne_nvp
