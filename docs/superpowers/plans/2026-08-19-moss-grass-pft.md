@@ -267,6 +267,87 @@ coverage to gnu-only for every later task, on the very compiler that hides NaN.
   baselines are generated. Flag the commit as a candidate for a standalone upstream CTSM
   PR, since it fixes a bug unrelated to moss.
 
+### Task 0c: Fix unconditional `associate` of uninitialised BGC pointers (nag)
+
+Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed with
+`Reference to undefined POINTER` at `clmfates_interfaceMod.F90:3098` in
+`wrap_update_hifrq_hist`. Pre-existing CTSM bug, unrelated to moss and to Task 0b.
+
+**Files:**
+- Modify: `src/utils/clmfates_interfaceMod.F90` (`wrap_update_hifrq_hist` `associate`
+  block, ~lines 3098–3125; plus the bounded sweep below)
+- Modify: `cime_config/testdefs/testlist_clm.xml` (one new izumi/nag FATES-SP test)
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: no new symbols. `wrap_update_hifrq_hist` stops binding
+  `soilbiogeochem_*_inst` components when `decomp_method == no_soil_decomp`.
+
+- [x] **Step 0 (orchestrator) — COMPLETE (2026-08-20).** Root cause established:
+  - `clm_instMod.F90:404` `if_decomp: if (decomp_method /= no_soil_decomp) then` gates the
+    `Init` of `soilbiogeochem_carbonstate_inst` (`:425`) and
+    `soilbiogeochem_carbonflux_inst` (`:435`). Those `Init`s are where `hr_col`,
+    `totsomc_col` and `totlitc_col` are allocated
+    (`SoilBiogeochemCarbonFluxType.F90:175`, `SoilBiogeochemCarbonStateType.F90:171-172`),
+    so under `no_soil_decomp` all three are **undefined pointers**.
+  - `clmfates_interfaceMod.F90:3098-3106` binds all three in an `associate` **before** the
+    `if (decomp_method /= no_soil_decomp)` guard at `:3110`. An `associate` binds at block
+    entry regardless of control flow, so the binding is illegal even though the names are
+    read only inside the guarded branch (`:3114-3116`); the `else` branch (`:3121-3123`)
+    writes literal zeros and touches none of them. nag's runtime pointer checking traps
+    it; intel and gnu do not.
+  - Dormant until now because no other izumi/nag test runs FATES-SP: the nag FATES
+    compsets are `I2000Clm50FatesRs`, `I2000Clm60FatesRs`, `I2000Clm60FatesCrujraRs`,
+    `I2000Clm60Fates`, `I1PtClm60Fates` — all full-BGC, none with `Sp`.
+  - Sam's decisions: fix it (not `ExpectedTestFails`); use **option (a)**, dropping the
+    three names from the `associate` rather than nesting a second `associate`; include the
+    bounded sweep; and add permanent izumi/nag FATES-SP coverage.
+- [ ] **Step 1: drop the three BGC bindings.** Remove `hr`, `totsomc` and `totlitc` from
+  the `associate` at `:3098`, leaving the five always-initialised biophysics fields
+  (`eflx_lh_tot`, `eflx_sh_tot`, `fsa_patch`, `eflx_lwrad_net`, `t_ref2m`). In the guarded
+  branch, reference the components directly:
+
+```fortran
+            this%fates(nc)%bc_in(s)%tot_het_resp = soilbiogeochem_carbonflux_inst%hr_col(c)
+            this%fates(nc)%bc_in(s)%tot_somc     = soilbiogeochem_carbonstate_inst%totsomc_col(c)
+            this%fates(nc)%bc_in(s)%tot_litc     = soilbiogeochem_carbonstate_inst%totlitc_col(c)
+```
+
+  A component reference inside a branch that does not execute is never evaluated, so this
+  is safe under `no_soil_decomp`. Zero answer changes on any compiler — this only changes
+  whether a name is bound, never a computed value. Keep the `else` branch untouched.
+- [ ] **Step 2: bounded sweep — deliberately scoped, do not widen.** In
+  `clmfates_interfaceMod.F90` **only**, inspect every other `associate` block for the same
+  defect: a binding to a component of an instance that is only conditionally initialised
+  (the `decomp_method /= no_soil_decomp` gate at `clm_instMod.F90:404` is the one known
+  such gate; also check `use_cn`/`use_fates_bgc`-style gates if any instance is bound that
+  way). Report each block checked and the verdict, even when clean. Fix any found by the
+  same Step 1 pattern. This is NOT a general audit of the file and NOT a sweep of other
+  files — anything outside `clmfates_interfaceMod.F90` gets reported, not changed.
+- [ ] **Step 3: permanent izumi/nag FATES-SP coverage.** Add ONE new short, mpi-serial
+  FATES-SP test on izumi/nag, cloned from the existing derecho-only entry
+  `SMS_D` / `1x1_brazil` / `I2000Clm60FatesSpCruRsGs` / `clm/FatesColdSatPhen` (whose own
+  comment notes "FatesSp has the largest difference in CTSM code for any FATES mode"):
+  a new `SMS_D_Mmpi-serial` entry, same grid/compset/testmods, `<machine name="izumi"
+  compiler="nag" category="fates"/>`, wallclock copied from the existing entry. Add it as
+  a separate `<test>` element rather than appending izumi to the existing entry's machine
+  list, so the derecho tests are untouched and the new one gets mpi-serial. Both the grid
+  and mpi-serial are already proven on izumi (5 existing izumi `1x1_brazil` tests, 15
+  existing izumi/nag `Mmpi-serial` tests). Rationale for the comment text: this test
+  exists so nag checks the FATES-SP (`no_soil_decomp`) path in the regular suite, which is
+  what would have caught this bug.
+- [ ] **Step 4: verify (Claude).** Fortran-touching, so the standing rule applies:
+  `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` must succeed. Also confirm
+  `testlist_clm.xml` still parses and that `./cime/scripts/query_testlists` finds the new
+  test under izumi/nag. **If the build fails for any git-related reason, STOP and ask Sam
+  — never modify git state to make a build work.**
+- [ ] **Step 5: reviews, then commit.** Expected outcomes to state for Sam: the two
+  izumi/nag ALP2 tests now run instead of aborting at `wrap_update_hifrq_hist`; intel and
+  gnu results are bit-for-bit unchanged (no value is altered by this fix); the new
+  `1x1_brazil` nag test passes. Flag as a standalone upstream CTSM PR candidate — smaller
+  and cleaner than Task 0b's, since it fixes a language-standard violation with no
+  numerical effect at all.
+
 ### Task 1: `use_moss` and moss scalar namelist plumbing
 
 **Files:**
