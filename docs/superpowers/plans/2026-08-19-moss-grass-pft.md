@@ -484,58 +484,135 @@ call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fue
 
 ### Task 2: Moss parameter file (JSON)
 
+**Status: Step 0 COMPLETE (2026-08-20).** Steps 1-3 pending.
+
 **Files:**
 - Create (FATES): `parameter_files/fates_params_moss.json` (committed — the default
   JSON is in-repo and read directly at runtime, so the moss file is too)
-- Create (FATES): the generator — either a patch file consumed by the existing
-  `tools/batch_patch_params.py` (precedent: `parameter_files/patch_default_bciopt224.json`)
-  or, if the patch tool cannot add a PFT column / grow a dimension, a small
-  `tools/make_moss_params.py` using only the `json` stdlib module
+- Create (FATES): `tools/make_moss_params.py` — a standalone generator using only the
+  `json` stdlib module. **Not** a `batch_patch_params.py` patch file: see Step 0.
+- Modify (FATES): `parameter_files/fates_params_default.json` — add `fates_vascular`
+  (all 1). Moved here from Task 3 Step 3; see Step 0.
 
 **Interfaces:**
-- Produces: a FATES parameter **JSON** with (a) a 15th PFT column `moss`; (b) new
-  per-PFT variable `fates_vascular` (1 for PFTs 1–14, 0 for moss); (c)
+- Produces: a FATES parameter **JSON** with (a) a 15th PFT column `non_vascular_phototroph`;
+  (b) new per-PFT variable `fates_vascular` (1 for PFTs 1–14, 0 for moss); (c)
   `fates_litterclass` dimension grown 6 → 8, with entries 7 (live moss) and 8 (dead
-  moss) added to every litterclass-dimensioned variable (`fates_fire_SAV`,
-  `fates_fire_FBD`, `fates_fire_min_moisture`, `fates_fire_mid_moisture`,
+  moss) added to **all ten** litterclass-dimensioned variables: `fates_litterclass_name`,
+  `fates_fire_SAV`, `fates_fire_FBD`, `fates_fire_min_moisture`, `fates_fire_mid_moisture`,
   `fates_fire_low_moisture_Coeff/Slope`, `fates_fire_mid_moisture_Coeff/Slope`,
-  `fates_frag_maxdecomp`). Consumed by every subsequent task's testing via the
-  `fates_paramfile` namelist setting.
+  `fates_frag_maxdecomp`.
+- **This file is NOT usable by a model run until Task 4 lands.** `num_fuel_classes = 6` is
+  a compile-time `parameter` and the `SF_val_*` arrays are fixed length-6, filled by
+  `SF_val_SAV(:) = param_p%r_data_1d(:)` (`fire/SFParamsMod.F90:217`) — a non-conforming
+  array assignment for an 8-entry file, which traps in a bounds-checked build and is
+  silently wrong otherwise. So Tasks 2 and 3 must NOT point any test at it; the first
+  consumer is Task 5, after Task 4 makes the count runtime.
 
-- [ ] **Step 0 (orchestrator):** Inspect the NVP branch's moss parameter file
-  (`git -C src/fates show 8382939b9:parameter_files/fates_params_default_moss.json`)
-  and the default JSON's structure (dimensions section, per-variable dim lists).
-  Check whether `tools/batch_patch_params.py` supports adding a PFT column and growing
-  the `fates_litterclass` dimension; pick patch-file vs. standalone-script accordingly.
-  Forward check: Task 3 reads `fates_vascular`; Task 4 requires exactly 8 litterclass
-  entries when `use_fates_moss` is on; Task 5's testmods point `fates_paramfile` at this
-  committed JSON.
-- [ ] **Step 1: build the moss JSON.** Starting from `fates_params_default.json`:
-  append a 15th PFT by copying the arctic C3 grass column; override moss values
-  harvested from the NVP branch's moss column (vcmax25top=30.0, slatop=0.027,
-  `fates_woody=0`, plus the spec §3 corrections: `fates_recruit_seed_alloc=0.1`,
-  `fates_recruit_seed_dbh_repro_threshold=0.001`, `fates_allom_dbh_maxheight=0.1`,
-  realistic `fates_recruit_height_min=0.02`, layer-1-concentrated rooting profile e.g.
-  `fates_allom_fnrt_prof_a=30`); add `fates_vascular` (dims: `fates_pft`; 1 everywhere,
-  0 for moss); extend `fates_litterclass` to 8, copying dead-leaves values (SAV=66.0,
-  FBD=4.0, etc.) into slots 7–8 as starting values; update `fates_hlm_pft_map` so moss
-  maps to the arctic C3 grass HLM index (following the NVP branch's mapping). Keep the
-  generation reproducible (patch file or script committed alongside).
-- [ ] **Step 2: generate and inspect.** Verify with a python check, e.g.:
+- [x] **Step 0 (orchestrator) — COMPLETE (2026-08-20).** Inspected
+  `8382939b9:parameter_files/fates_params_default_moss.json`, its
+  `..._mossMapsBrEvTrTree.json` sibling, our in-repo default, all five ALP2 fsurdats, and
+  `tools/batch_patch_params.py` + `pft_index_swapper.py`. Findings and Sam's resolutions:
+  - **Schema.** Top level is `{attributes, dimensions, parameters}`; each entry is
+    `{dtype, dims, long_name, units, data}`. The key is `parameters`, **not** `variables`
+    — Step 2's original snippet was wrong and is corrected below. In 2-D parameters
+    `fates_pft` is the LAST (innermost) JSON dimension.
+  - **Generator: standalone script.** `batch_patch_params.py` *can* add the PFT column —
+    `pft_index_swapper.py` uses numpy fancy indexing, so a duplicate index in
+    `pft_trim_list` (`1..14,12`) makes column 15 a copy of `arctic_c3_grass` and resets
+    `dimensions.fates_pft`. But it cannot (i) change `dimensions.fates_litterclass` 6→8,
+    nor (ii) create a parameter absent from the base file. Hence a standalone script.
+  - **ONE moss paramfile, moss on HLM PFT 4** (Sam's decision). Change
+    `fates_hlm_pft_map` row 4 from `fates_pft 1 (broadleaf_evergreen_tropical_tree) = 1.0`
+    to `fates_pft 15 = 1.0`. `arctic_c3_grass` KEEPS its HLM 12 mapping;
+    `broadleaf_evergreen_tropical_tree` becomes orphaned. `fates_hlm_pftno` stays 14 —
+    moss can never get its own HLM index, because the fsurdat `natpft` dim is 15
+    (index 0 = bare + 14 natural), so it must displace an existing one.
+    We deliberately do **not** port NVP's second, HLM-12 variant: Sam considers that
+    two-file split messy.
+    Why HLM 4 is also safer than NVP's HLM 12: because `arctic_c3_grass` keeps HLM 12,
+    `_grass.nc` stays a *grass* run under both the default and the moss paramfile. Under
+    NVP's choice it would silently have become a moss run, on top of the grass b4b baseline.
+  - **`fates_vascular` moves into this task.** Task 2 needs it on the moss file, but Task 3
+    Step 3 was what added it to the default — and a generator can only override what the
+    base file already has. Verified safe to add before any code reads it:
+    `FatesInterfaceMod:827` loads the whole file into `pstruct`, logs every entry, and
+    `FatesTransferParameters` claims BY NAME; the only fatal direction is
+    code-asks-for-missing (`JSONFindTagPos`, `JSONParameterUtilsMod.F90:798`). An
+    unclaimed extra parameter is harmless. Task 3 Step 3 becomes a verification.
+  - **NVP moss column is a near-copy of `arctic_c3_grass`** — only 14 `fates_pft` params
+    differ. Two must NOT be copied: `fates_allom_fnrt_prof_mode = 4` (NVP-only mode; spec
+    §3 explicitly rejects it, and it is the exact value that broke Task 0's tests) and
+    `fates_rad_leaf_clumping_index = 10.0` (grass is 0.75; a clumping index is normally
+    ≤ 1 — treat as an NVP artifact, keep the grass value).
+  - **`fates_frag_maxdecomp`** is read only for indices 1–4 (CWD) and 5
+    (`fuel_classes%dead_leaves()`) — `EDPhysiologyMod.F90:3281-3302`. Index 6 (live grass)
+    is never read, so its `999.0` is a never-read placeholder. Therefore: slot 7 (live
+    moss) `= 999.0` mirroring live grass, slot 8 (dead moss) `= 1.0` like dead leaves,
+    which Task 7 WILL read. (`SpitFireCheckParams` only requires `>= 0`, so 999.0 passes.)
+  - **`fates_litterclass_name`** slots 7–8 are `'live moss'` and `'dead moss'`, matching
+    the existing lowercase-with-space style.
+  - **Not double-booked:** the namelist `fates_moss_bulk_density` is for mat-thickness
+    allometry (§4); fire SAV/FBD for the new classes are paramfile arrays (spec §8).
+  - **Forward check.** Task 3 reads `fates_vascular` (now already present). Task 4 requires
+    exactly 8 litterclass entries when `use_fates_moss` is on. Task 5 points
+    `fates_paramfile` at this committed JSON — and needs a path CIME can resolve to an
+    in-repo file, which is NOT yet resolved; see Task 5.
+- [ ] **Step 1: build the moss JSON.** Write `tools/make_moss_params.py`, then run it to
+  produce `parameter_files/fates_params_moss.json` from `fates_params_default.json`:
+  - Append a 15th PFT by copying the `arctic_c3_grass` column (index 12); name it
+    `non_vascular_phototroph` (NVP's name — keep it verbatim).
+  - Harvest from NVP's moss column: `fates_leaf_vcmax25top = 30.0` (dims
+    `['fates_leafage_class','fates_pft']`), `fates_leaf_slatop = 0.027`, `fates_woody = 0`,
+    `fates_leaf_stomatal_intercept = 0`, `fates_leaf_stomatal_slope_ballberry = 0`,
+    `fates_leaf_stomatal_slope_medlyn = 0`, `fates_leaf_agross_btran_model = 0`,
+    `fates_phen_leaf_habit = 1`, `fates_rad_leaf_taunir/tauvis = 0.01`,
+    `fates_rad_stem_taunir/tauvis = 0.01`, `fates_rad_leaf_xl = 0.0`.
+    Do NOT harvest `fnrt_prof_mode = 4` or `rad_leaf_clumping_index = 10.0` (Step 0).
+  - Apply the spec §3 corrections: `fates_recruit_seed_alloc = 0.1`,
+    `fates_recruit_seed_dbh_repro_threshold = 0.001`, `fates_allom_dbh_maxheight = 0.1`,
+    `fates_recruit_height_min = 0.02`, and a layer-1-concentrated rooting profile
+    (`fates_allom_fnrt_prof_a = 30`, keeping `fnrt_prof_mode = 3`).
+  - Add `fates_vascular` (dims `['fates_pft']`, dtype integer, metadata mirroring
+    `fates_woody`): all 1, 0 for moss. Add it to `fates_params_default.json` too (all 1).
+  - Grow `dimensions.fates_litterclass` 6 → 8 and extend all ten litterclass-dimensioned
+    parameters. Slots 7–8 copy the dead-leaves (index 5) values as starting points —
+    `SAV = 66.0`, `FBD = 4.0`, etc. — EXCEPT `fates_frag_maxdecomp` (999.0 / 1.0 per
+    Step 0) and `fates_litterclass_name` (`'live moss'` / `'dead moss'`).
+  - Set `fates_hlm_pft_map` row 4 to moss per Step 0.
+  - Record in the file's `attributes` that this file is only sensible where HLM PFT 4
+    carries no real area: at a tropical site it silently turns broadleaf evergreen
+    tropical tree into moss.
+- [ ] **Step 2: generate and inspect.** Verify against the real schema:
 
 ```bash
 python -c "
 import json; p = json.load(open('parameter_files/fates_params_moss.json'))
+P = p['parameters']
 assert p['dimensions']['fates_pft'] == 15
 assert p['dimensions']['fates_litterclass'] == 8
-v = p['variables']['fates_vascular']['data']; assert v[-1] == 0 and all(x==1 for x in v[:-1])
-assert p['variables']['fates_woody']['data'][-1] == 0
+assert P['fates_pftname']['data'][-1] == 'non_vascular_phototroph'
+v = P['fates_vascular']['data']; assert v[-1] == 0 and all(x == 1 for x in v[:-1])
+assert P['fates_woody']['data'][-1] == 0
+assert P['fates_allom_fnrt_prof_mode']['data'][-1] == 3   # NOT NVP mode 4
+assert P['fates_litterclass_name']['data'][6:] == ['live moss', 'dead moss']
+assert P['fates_frag_maxdecomp']['data'][6:] == [999.0, 1.0]
+# every litterclass-dimensioned parameter grew to 8
+for k, e in P.items():
+    if 'fates_litterclass' in e['dims']:
+        assert len(e['data']) == 8, k
+# moss owns HLM row 4; arctic_c3_grass keeps row 12
+m = P['fates_hlm_pft_map']['data']
+assert m[3][14] == 1.0 and m[3][0] == 0.0
+assert m[11][11] == 1.0
 print('OK')"
 ```
 
-  (adjust key paths to the actual JSON schema found in Step 0).
-- [ ] **Step 3: reviews, then commit** (FATES commit: moss JSON + generator; CTSM
-  pointer bump).
+  Also confirm `fates_params_default.json` still reads with 14 PFTs / 6 litterclasses and
+  now carries `fates_vascular` (all 1).
+- [ ] **Step 3: reviews, then commit** (FATES commit: moss JSON + generator + the
+  `fates_vascular` addition to the default file; CTSM pointer bump). No CTSM test points
+  at the moss file yet — see the Interfaces note.
 
 ### Task 3: `fates_vascular` in FATES + moss identification
 
@@ -579,8 +656,12 @@ if (hlm_use_moss == itrue .neqv. any(prt_params%vascular(1:numpft) == ifalse)) t
 end if
 ```
 
-- [ ] **Step 3: default JSON.** Add `fates_vascular` (all 1) to
-  `parameter_files/fates_params_default.json` with metadata matching `fates_woody`.
+- [ ] **Step 3: default JSON — VERIFY ONLY.** Task 2 already added `fates_vascular`
+  (all 1) to `parameter_files/fates_params_default.json`, because its generator could only
+  override parameters the base file already had (Task 2 Step 0). Confirm it is present with
+  metadata matching `fates_woody`, and that every other parameter file in
+  `parameter_files/` also carries it — from this task on, the Fortran READS it, so a file
+  missing it becomes fatal via `JSONFindTagPos`.
 - [ ] **Step 4: verify.** FATES functional suite reads the new parameter cleanly
   (`cd src/fates/testing && python run_functional_tests.py allometry`, in the conda
   env from `testing/environment.yml`); standing rule: ALP2 baseline tests compare b4b
@@ -667,6 +748,29 @@ NVP-branch source material (adapt, keeping the testmod names): `FatesNvp` (sets
 `FatesNvpOff` (includes `FatesNvp`, overrides `use_nvp=.false.`), `FatesALP2BareMoss`
 and `FatesALP2BareGrassMoss` (moss fsurdat variants `_moss`/`_grassmoss` +
 NVP-branch moss param JSONs).
+
+**Blocking prerequisite — a new fsurdat that only Sam can create (from Task 2 Step 0).**
+Because we commit ONE moss paramfile with moss on HLM PFT 4, the existing
+`..._moss.nc` fsurdat — whose 94.25% sits on natpft 12 — produces a *grass* run under it,
+not a moss run. `FatesALP2BareMoss` therefore needs a moss-at-index-4 counterpart.
+`FatesALP2BareGrassMoss` needs nothing: `..._grassmoss.nc` already has its moss on index 4.
+
+A tested generator for that file is written and handed to Sam:
+`make_moss_pft4_fsurdat.py` (netCDF4 + numpy + stdlib, for the `ctsm_pylib` env). It moves
+`PCT_NAT_PFT` *and* all four `MONTHLY_*` columns from index 12 to 4 — moving the area alone
+would give moss the stock tropical-tree canopy (`MONTHLY_HEIGHT_TOP` 29.35 m vs the
+hand-tuned 0.034 m at index 12), which matters because FATES-SP prescribes LAI/SAI/height
+from those arrays. **Claude has no write access to `$DIN_LOC_ROOT`**; Sam runs the script
+and chooses the filename, datestamp and location. Task 5 cannot start its moss tests until
+that file exists.
+
+Two observations about the existing fsurdats, recorded but NOT acted on:
+- `..._grassmoss.nc` looks buggy at its moss index: `MONTHLY_HEIGHT_BOT` is 0.839 m
+  (the original tropical-tree value) while its `MONTHLY_HEIGHT_TOP` is 0.034 m — bottom
+  above top. Three of the four columns were moved, not four. Check before relying on it.
+- `..._grass.nc` is also hand-tuned: its index 12 `MONTHLY_HEIGHT_TOP` is 0.043 m, not the
+  stock 0.50 m the plain and `_bare` files carry. So Task 0's grass baseline is a 4 cm
+  canopy — fine, but the baselines are specific to these edited files.
 
 - [ ] **Step 0 (orchestrator):** Inspect the four NVP-branch testmods and the full
   NVP-branch `testlist_clm.xml` block at `1x1_ALP2` (including entries beyond the four

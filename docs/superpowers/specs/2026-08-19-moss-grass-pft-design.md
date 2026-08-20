@@ -265,6 +265,14 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Dead moss decomposes at standard leaf-fines rates (its fuel identity is separate via
   `moss_fines`, but its decomposition is not moss-specific).
 - In nocomp, moss cover is prescribed, not emergent.
+- **Moss displaces an existing HLM PFT rather than adding one.** The host's `natpft`
+  dimension is bare ground plus 14 natural PFTs, and `fates_hlm_pftno` stays 14, so there
+  is no free HLM index to give moss. `fates_params_moss.json` therefore hands HLM PFT 4
+  (broadleaf evergreen tropical tree) to moss, leaving that FATES column orphaned. The
+  file is only sensible where HLM 4 carries no real area — true at the arctic ALP2 site,
+  but at a tropical site it would silently convert broadleaf evergreen tropical tree into
+  moss. HLM 4 is chosen over the NVP branch's HLM 12 so that `arctic_c3_grass` keeps its
+  mapping and a grass-only surface dataset stays a grass run under either parameter file.
 
 ## 13. Harvest list from `ctsm5.4.028_nvp`
 
