@@ -293,14 +293,31 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Dead moss decomposes at standard leaf-fines rates (its fuel identity is separate via
   `moss_fines`, but its decomposition is not moss-specific).
 - In nocomp, moss cover is prescribed, not emergent.
-- **The moss parameter file can never be run with `use_fates_moss = .false.`** The Task 3
-  consistency check makes the switch and the presence of a `fates_vascular == 0` PFT a
-  biconditional, so a 15-PFT moss parameter file with moss off aborts at initialization, as
-  does the default file with moss on. This is deliberate (§8), and it does not weaken the
-  bit-for-bit constraint, which is scoped to a standard 6-litterclass file. But it does
-  foreclose a standard debugging move — isolating a dimension change from a physics change by
-  running the moss parameter file with the moss switch off. Anyone chasing a moss-related
-  answer change should know the abort is intended, not a bug.
+- **The moss parameter file cannot be run with `use_fates_moss = .false.`, nor the default
+  file with it on.** Both abort at initialization, deliberately (§8). Neither weakens the
+  bit-for-bit constraint, which is scoped to a standard 6-litterclass file.
+
+  Two independent mechanisms produce that abort, and it is worth knowing which does the work:
+  - **The litterclass size check** (§6, the runtime fuel-class count) is what actually stops
+    the real files. The fuel-class count is set to 6 when moss is off and 8 when it is on, and
+    every `fates_litterclass`-dimensioned array is checked against it, so the 8-class moss file
+    with moss off fails 8 ≠ 6, and the 6-class default file with moss on fails 6 ≠ 8. The error
+    names the dimension.
+  - **The `fates_vascular` biconditional** (§3) covers the case the size check cannot see: a
+    file whose litterclass count agrees but whose PFT content does not — e.g. a hand-built
+    8-class file with `use_fates_moss = .true.` that omits the moss column. Without it, FATES
+    would run "with moss" while no moss PFT exists.
+
+  So the biconditional does **not**, on its own, foreclose isolating a dimension change from a
+  physics change: the size check forecloses that for any real moss parameter file regardless.
+  The only file the biconditional uniquely rejects is a 15-PFT-but-6-litterclass one, which
+  this project does not produce.
+
+  Timing caveat: before the fuel-class count becomes a runtime value, an 8-class file is not
+  safely fatal at all. The `SF_val_*` arrays are fixed length-6 and are filled by whole-array
+  assignment, so an 8-entry array is a non-conforming assignment — it traps in a bounds-checked
+  build and is silently wrong otherwise. Making the count runtime is what converts that into a
+  clean, explained error.
 - **Moss height is effectively unbounded under the `grass_powerlaw` height allometry.**
   Moss inherits grass's `fates_allom_dbh_maxheight` of 20 cm, and that parameter is the
   only ceiling in that mode: `d2h_2pwr` computes `h = p1*min(d,dbh_maxh)**p2`, so moss
