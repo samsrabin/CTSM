@@ -42,6 +42,7 @@ module test_SnowHydrology_divideSnowLayers
   use funit
   use SnowHydrologyMod, only : DivideSnowLayers, InitSnowLayers
   use SnowHydrologyMod, only : SnowHydrologySetControlForTesting, SnowHydrologyClean
+  use SnowHydrologyMod, only : dzmax_u
   use shr_kind_mod, only : r8 => shr_kind_r8
   use unittestSubgridMod
   use unittestSimpleSubgridSetupsMod, only : setup_single_veg_patch
@@ -349,18 +350,31 @@ contains
     end do
   end function totalLiq
 
-  subroutine assertSlotUnchanged(this, j)
-    ! Assert that slot j still holds exactly what setupColumn put there, in every
-    ! quantity the staging arrays carry: ice, liquid, temperature, snow grain radius and
-    ! all eight aerosol species. Checking the whole set matters because the staging map
-    ! reindexes each of them separately, so one of them can be offset while the rest are
-    ! right.
+  subroutine assertSlotUnchanged(this, j, from)
+    ! Assert that slot j still holds exactly what setupColumn put into slot `from`, in
+    ! every quantity the staging arrays carry: ice, liquid, temperature, snow grain
+    ! radius and all eight aerosol species. Checking the whole set matters because the
+    ! staging map reindexes each of them separately, so one of them can be offset while
+    ! the rest are right.
+    !
+    ! `from` says which slot's markers the layer now in slot j is expected to carry, and
+    ! defaults to j, the case where the pack did not move. The markers travel with their
+    ! layers, so where the pack grew or shrank a layer arrives in a slot other than the
+    ! one it was laid down in and the caller has to name the slot it came from; without
+    ! that, this would compare against a neighbour's markers and fail on correct code.
     class(TestDivide), intent(in) :: this
     integer, intent(in) :: j
+    integer, intent(in), optional :: from
 
-    integer :: c
+    integer :: c, j_marker
     real(r8) :: ice, liq, t, rds
     real(r8) :: aerosols(8)
+
+    if (present(from)) then
+       j_marker = from
+    else
+       j_marker = j
+    end if
 
     c = bounds%begc
     ice = this%water_inst%waterstatebulk_inst%h2osoi_ice_col(c,j)
@@ -376,18 +390,18 @@ contains
     aerosols(7) = this%aerosol_inst%mss_dst3_col(c,j)
     aerosols(8) = this%aerosol_inst%mss_dst4_col(c,j)
 
-    @assertEqual(slot_value(j, ice_scale), ice, tolerance=tol)
-    @assertEqual(slot_value(j, liq_scale), liq, tolerance=tol)
-    @assertEqual(t_base + slot_value(j, 1._r8), t, tolerance=tol)
-    @assertEqual(slot_value(j, rds_scale), rds, tolerance=tol)
-    @assertEqual(aerosol_value(j, 1), aerosols(1))
-    @assertEqual(aerosol_value(j, 2), aerosols(2))
-    @assertEqual(aerosol_value(j, 3), aerosols(3))
-    @assertEqual(aerosol_value(j, 4), aerosols(4))
-    @assertEqual(aerosol_value(j, 5), aerosols(5))
-    @assertEqual(aerosol_value(j, 6), aerosols(6))
-    @assertEqual(aerosol_value(j, 7), aerosols(7))
-    @assertEqual(aerosol_value(j, 8), aerosols(8))
+    @assertEqual(slot_value(j_marker, ice_scale), ice, tolerance=tol)
+    @assertEqual(slot_value(j_marker, liq_scale), liq, tolerance=tol)
+    @assertEqual(t_base + slot_value(j_marker, 1._r8), t, tolerance=tol)
+    @assertEqual(slot_value(j_marker, rds_scale), rds, tolerance=tol)
+    @assertEqual(aerosol_value(j_marker, 1), aerosols(1))
+    @assertEqual(aerosol_value(j_marker, 2), aerosols(2))
+    @assertEqual(aerosol_value(j_marker, 3), aerosols(3))
+    @assertEqual(aerosol_value(j_marker, 4), aerosols(4))
+    @assertEqual(aerosol_value(j_marker, 5), aerosols(5))
+    @assertEqual(aerosol_value(j_marker, 6), aerosols(6))
+    @assertEqual(aerosol_value(j_marker, 7), aerosols(7))
+    @assertEqual(aerosol_value(j_marker, 8), aerosols(8))
   end subroutine assertSlotUnchanged
 
   subroutine assertMossUntouched(this)
@@ -576,10 +590,10 @@ contains
     !
     ! The assertions cannot be made to match, and deliberately are not. This pack starts
     ! at its limit and so comes back exactly as it went in, which lets dz_layers and the
-    ! marker values be checked slot by slot and the moss slot be checked untouched. The
-    ! stock pack divides, so dz_layers no longer describes what it holds afterwards, and
-    ! that test pins only its layer count and its conserved mass -- a choice about what
-    ! it asserts rather than a limit on what it could, as set out over there.
+    ! marker values be checked slot by slot against the slots they were laid down in, and
+    ! the moss slot be checked untouched. The stock pack divides and grows upward, so
+    ! over there the same slot-by-slot check has to be read one slot across, and the two
+    ! slots the divided layer became carry no one slot's markers at all.
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(4) = [0.02_r8, 0.06_r8, 0.2_r8, 2._r8]
     ! The pack limit this test is named for: the most layers this column may hold. The
@@ -682,15 +696,13 @@ contains
     ! jtop is snl+1 here against snl there.
     !
     ! The assertions cannot be made to match, and deliberately are not. The NVP pack
-    ! starts at its limit and comes back exactly as it went in, which lets dz_layers and
-    ! the marker values be checked slot by slot over there and the moss slot be checked
-    ! untouched. This pack divides, so dz_layers no longer describes what it holds
-    ! afterwards -- but the post-division state is fully determined, and the paragraph
-    ! above walks it out. Asserting only the layer count and the summed mass is
-    ! therefore a choice about what this test pins, not a limit on what could be pinned,
-    ! and it leaves a gap: a write-back that permuted two in-range slots would still
-    ! pass. Closing it means asserting the post-division thicknesses and marker values
-    ! slot by slot, which is left to a later commit.
+    ! starts at its limit and comes back exactly as it went in, so over there every slot
+    ! is checked against the markers it was laid down with. This pack divides and grows
+    ! upward by one slot, so the same slot-by-slot check has to be read one slot across:
+    ! the layers that merely move keep their thicknesses and their markers but arrive one
+    ! slot higher, which is what the from argument to assertSlotUnchanged says. Only the
+    ! two slots the divided layer became are left unpinned in their markers, for the
+    ! reason given at those assertions; their thicknesses are pinned.
     class(TestDivide), intent(inout) :: this
     real(r8), parameter :: dz_layers(4) = [0.02_r8, 0.06_r8, 0.2_r8, 2._r8]
     ! The pack limit this test is named for: the most layers this column may hold. A
@@ -709,13 +721,38 @@ contains
     ! shows up as mass gone missing above jtop_after.
     integer, parameter :: jtop = snl_before + 1
     integer, parameter :: jtop_after = snl_after + 1
+    ! The pack's bottom slot, which is jbot_sno itself: 0 on a stock column, so the pack
+    ! reaches the soil surface and there is no slot below it.
+    integer, parameter :: jbot = 0
+    ! How many layers merely move rather than divide: all of them but the bottom one,
+    ! which is the only one over its threshold.
+    integer, parameter :: n_shifted = size(dz_layers) - 1
+    ! How far the pack grew, which is how far the layers that merely moved were carried.
+    integer, parameter :: n_grown = snl_before - snl_after
+    ! The two slots the bottom layer becomes. Naming them makes the loop below and the
+    ! assertions after it partition the pack by construction: the loop stops one short of
+    ! j_split_upper, so no slot can fall between the two ranges unchecked.
+    integer, parameter :: j_split_upper = jbot - 1
+    integer, parameter :: j_split_lower = jbot
+    ! The thicknesses of the two slots the bottom layer becomes. The upper one is capped
+    ! at the most a layer with something beneath it may be, at the staging position it
+    ! ends up in -- next to bottom in a pack of my_nlevsno layers -- converted out of the
+    ! staged units the threshold table is stated in. The lower one takes everything left
+    ! over, since the routine conserves total thickness and the layers above keep theirs.
+    ! Both read dzmax_u at runtime rather than restating it as a literal, so that a
+    ! change to the threshold table moves the expected values with it; that is also why
+    ! they cannot be parameters.
+    real(r8) :: dz_split_upper, dz_split_lower
     real(r8) :: ice_before, liq_before
-    integer :: c
+    real(r8) :: rds_split_upper
+    integer :: c, j
 
     call this%setupColumn(snl = snl_before, jbot_sno = 0, dz_layers = dz_layers)
     c = bounds%begc
     ice_before = this%totalIce(jtop = jtop)
     liq_before = this%totalLiq(jtop = jtop)
+    dz_split_upper = dzmax_u(my_nlevsno-1) / frac_sno_eff
+    dz_split_lower = sum(dz_layers) - sum(dz_layers(1:n_shifted)) - dz_split_upper
 
     call DivideSnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          this%aerosol_inst, this%temperature_inst, this%water_inst, is_lake = .false.)
@@ -723,6 +760,34 @@ contains
     @assertEqual(snl_after, col%snl(c))
     @assertEqual(ice_before, this%totalIce(jtop = jtop_after), tolerance=tol)
     @assertEqual(liq_before, this%totalLiq(jtop = jtop_after), tolerance=tol)
+    ! The pack grew upward by one slot, so slot j now holds what slot j+1 held, markers
+    ! included. Without the per-slot check below, a write-back that permuted two in-range
+    ! slots would keep both the layer count and the summed mass right and pass unnoticed.
+    ! Every pair of slots is now caught this way except the two the bottom layer split
+    ! into, whose contents are still interchangeable -- see below.
+    do j = jtop_after, j_split_upper - 1
+       @assertEqual(dz_layers(j-jtop_after+1), col%dz(c,j), tolerance=tol)
+       call this%assertSlotUnchanged(j, from = j + n_grown)
+    end do
+    ! The two slots the bottom layer became. Ice, liquid and the aerosol masses are
+    ! genuinely divided between the two pieces, and temperature is genuinely recombined,
+    ! so neither slot carries any one slot's marker in those and assertSlotUnchanged
+    ! cannot speak for them. Grain radius is the exception: the routine only ever writes
+    ! rds into the deeper of the two pieces, never the shallower, so the upper slot comes
+    ! back holding the bottom layer's marker untouched, and it is pinned below.
+    !
+    ! Still open, and needing a helper that knows how each quantity divides: the divided
+    ! ice, liquid, temperature and aerosols. So a redistribution between these two slots
+    ! alone still passes, since the sums are invariant under it and the thicknesses are
+    ! checked separately. The lower slot's grain radius is left alone deliberately -- it
+    ! passes through MassWeightedSnowRadius, which clamps against a parameter the unit
+    ! test binary never initializes, so its value is not dependable here.
+    associate(wdb => this%water_inst%waterdiagnosticbulk_inst)
+    rds_split_upper = wdb%snw_rds_col(c,j_split_upper)
+    end associate
+    @assertEqual(dz_split_upper, col%dz(c,j_split_upper), tolerance=tol)
+    @assertEqual(dz_split_lower, col%dz(c,j_split_lower), tolerance=tol)
+    @assertEqual(slot_value(jbot, rds_scale), rds_split_upper, tolerance=tol)
   end subroutine divide_packLimit_stock
 
 end module test_SnowHydrology_divideSnowLayers
