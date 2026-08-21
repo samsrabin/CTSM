@@ -672,13 +672,44 @@ print('OK')"
   Consistency guarantees for later tasks: `vascular==0` implies `woody==0`; when
   `hlm_use_moss==0` no `vascular==0` PFT exists (fatal otherwise) and vice versa.
 
-- [ ] **Step 0 (orchestrator):** Confirm how `fates_woody` is registered
-  (`PRTParamsFATESMod.F90:127-129`) and where post-parameter-read cross-checks live
-  (e.g., `FatesInterfaceMod` parameter-derived checks). Check whether older parameter
-  files lacking `fates_vascular` must still read (decide: no — default JSON gains the
-  variable in this task; document that custom param files need it; note the Task 0
-  testdata JSON on `$DIN_LOC_ROOT` must gain it too or those tests break — resolve
-  with Sam). Forward check: Tasks 6, 7, 10, 11 branch on `prt_params%vascular`.
+- [x] **Step 0 (orchestrator) — COMPLETE (2026-08-21).** No open questions; the one item
+  flagged for Sam resolved on evidence.
+  - **Registration pattern.** `fates_woody` is a 3-line block at
+    `parteh/PRTParamsFATESMod.F90:127-129` (`GetParamFromName` → `allocate(num_pft)` →
+    `i_data_1d`), declared at `parteh/PRTParametersMod.F90:121` as
+    `integer, allocatable :: woody(:)`. Mirror both exactly.
+  - **Both checks go in `EDPftvarcon.F90`'s `FatesCheckParams`.** It already imports
+    `itrue`/`ifalse` and the `hlm_use_*` family from `FatesInterfaceTypesMod` (:945, :950-952),
+    already reads `prt_params%`, and already loops `do ipft = 1,npft`. `PRTCheckParams` owns
+    `prt_params` but imports no `hlm_*`, so splitting the two checks across both routines
+    would scatter related logic for no gain — ruling: keep them together in `FatesCheckParams`.
+  - **Ordering is guaranteed.** CTSM calls `set_fates_ctrlparms('check_allset')`
+    (`clmfates_interfaceMod.F90:693`) before `SetFatesGlobalElements2` (:708), which calls
+    `FatesCheckParameters()` at `FatesInterfaceMod.F90:1112` under an explicit comment that it
+    runs "after the parameter AND after all namelist settings because they are cross
+    referenced". So `hlm_use_moss` is set before the check reads it.
+  - **The Step 2 snippet below needs renaming before use.** It says `do ft = 1,numpft` and
+    `vascular(1:numpft)`; in `FatesCheckParams` the local count is `npft` and the loop index
+    convention is `ipft`. `numpft` does exist as a public global
+    (`FatesInterfaceTypesMod.F90:384`) but importing it here would duplicate the local — use
+    `npft`/`ipft`.
+  - **All three check routines early-return on non-master** (`EDPftvarcon.F90:978`), so the
+    new checks abort on the master rank only, like every existing one. Follow the convention.
+  - **The `$DIN_LOC_ROOT` testdata-JSON worry is MOOT — nothing reads those files.** Task 0
+    removed `fates_paramfile` from the ALP2 testmods, and the namelist default
+    (`namelist_defaults_ctsm.xml:617`) is the in-repo
+    `src/fates/parameter_files/fates_params_default.json`, which gained `fates_vascular` in
+    Task 2. The only three testmods that set `fates_paramfile` — `FatesColdPRT2`,
+    `FatesColdSeedDisp`, `FatesSetupParamBuild` — each `cp` the in-repo default first and
+    then edit it, so they inherit the parameter. Repo-wide there are exactly two FULL
+    parameter files (`fates_params_default.json`, `fates_params_moss.json`) and both carry it;
+    `patch_default_bciopt224.json` and `patch_nocomp_noresm.json` are patch inputs with 2 and 1
+    entries, not files FATES reads; `parameter_files/archive/` holds historical `.cdl`, not
+    read at runtime. The FATES functional tests default to the in-repo file
+    (`testing/run_functional_tests.py:42`). So no test breaks, and Sam need not touch
+    `$DIN_LOC_ROOT`. Standing caveat for later: from this task on, any hand-rolled parameter
+    file lacking `fates_vascular` aborts via `JSONFindTagPos`.
+  - Forward check: Tasks 6, 7, 10, 11 branch on `prt_params%vascular`.
 - [ ] **Step 1: add the parameter.** Declare `integer,allocatable :: vascular(:)` in
   `prt_params`; register `fates_vascular` with dimension `fates_pft` and receive it in
   `PRTParamsFATESMod` mirroring `fates_woody`.
