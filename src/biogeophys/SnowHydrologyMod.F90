@@ -146,9 +146,13 @@ module SnowHydrologyMod
   logical  :: wind_dependent_snow_density                      ! If snow density depends on wind or not
   real(r8) :: snow_dzmin_1, snow_dzmax_l_1, snow_dzmax_u_1  ! namelist-defined top snow layer information
   real(r8) :: snow_dzmin_2, snow_dzmax_l_2, snow_dzmax_u_2  ! namelist-defined 2nd snow layer information
-  real(r8), private, allocatable :: dzmin(:)  !min snow thickness of layer
-  real(r8), private, allocatable :: dzmax_l(:)  !max snow thickness of layer when no layers beneath
-  real(r8), private, allocatable :: dzmax_u(:)  !max snow thickness of layer when layers beneath
+  ! The following are public just for the sake of unit testing: they are readable
+  ! outside this module, and `protected` keeps only this module able to set or
+  ! allocate them. A test that has to reason about the snow pack's vertical structure
+  ! (i.e., dzmin, dzmax_l and dzmax_u) should read it here rather than restate it.
+  real(r8), public, protected, allocatable :: dzmin(:)  !min snow thickness of layer
+  real(r8), public, protected, allocatable :: dzmax_l(:)  !max snow thickness of layer when no layers beneath
+  real(r8), public, protected, allocatable :: dzmax_u(:)  !max snow thickness of layer when layers beneath
 
   integer  :: overburden_compaction_method = -1
   integer  :: new_snow_density            = LoTmpDnsSlater2017 ! Snow density type

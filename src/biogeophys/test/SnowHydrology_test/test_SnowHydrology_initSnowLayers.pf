@@ -12,6 +12,21 @@ module test_SnowHydrology_initSnowLayers
 
   implicit none
   
+  ! How far past the fill-every-level threshold the overfill fixtures sit. Any factor
+  ! greater than one overfills, which is what makes the moss slot rather than the depth
+  ! the binding constraint on an NVP column's layer count.
+  !
+  ! Three rather than two, and the reason is a property of the factor rather than of the
+  ! vertical structure (i.e., dzmin, dzmax_l and dzmax_u). Once the depth is past the
+  ! point where InitSnowLayers would split the bottom two layers evenly, a stock column
+  ! that fills every level gets a bottom layer of snow_depth - sum(dzmax_u(1:nlevsno-1));
+  ! a factor of exactly two would make that residual equal the very threshold it is
+  ! measured from. A bottom layer wrongly assigned that threshold would then still
+  ! conserve total thickness, and the conservation assertion would not notice. Lowering
+  ! the factor is not free either: somewhere below one and a half it crosses back into
+  ! the even-split branch, where this reasoning stops describing what the fixture does.
+  real(r8), parameter :: overfill_factor = 3._r8
+
   @TestCase
   type, extends(TestCase) :: TestSnowHydrology
    contains
@@ -30,6 +45,49 @@ contains
     call unittest_subgrid_teardown()
     call SnowHydrologyClean()
   end subroutine tearDown
+
+  function overfill_depth() result(depth)
+    ! A snow depth that overfills the pack: deeper than any threshold InitSnowLayers can
+    ! actually clear, so the pack ends up as many layers deep as the column will hold.
+    !
+    ! InitSnowLayers grows the layer count while snow_depth exceeds
+    ! sum(dzmax_u(1:-snl)), so the deepest threshold it ever compares against is the sum
+    ! over 1:nlevsno. But dzmax_u(nlevsno) is set to huge(1._r8), which no snow depth can
+    ! exceed, so the deepest threshold a fixture can actually clear is the sum over
+    ! 1:nlevsno-1. That is the depth above which a stock column fills every snow level,
+    ! and it is why the sum below stops one short of nlevsno. An NVP column runs out of
+    ! levels one sooner, so the same depth overfills it with a level to spare.
+    ! (The loop that sets dzmax_u(nlevsno) to huge starts at level three, so this
+    ! reasoning wants nlevsno of at least three.)
+    !
+    ! Reading the vertical structure rather than restating a number is the point: the
+    ! fixture says "past the fill-every-level threshold" instead of naming a depth that
+    ! only happens to be past it today.
+    !
+    ! dzmin/dzmax_l/dzmax_u are allocated and filled inside InitSnowLayers, so calling it
+    ! is the only way to get at the vertical structure. A zero snow depth serves as a bare
+    ! allocator: it is below dzmin(1), so every column comes out with an empty pack --
+    ! lake columns through their own branch and every other column through the "too
+    ! little snow for snowpack existence" one. Either way the snow slots are zeroed, snl
+    ! is set to 0 and zi(c,0) is set to 0. That is why callers run this before assigning
+    ! any state of their own -- doing it afterwards would leave the fixture's survival
+    ! resting on where those blanket assignments happen to stop, which is the very thing
+    ! the NVP test exists to pin. The allocates are unguarded, so SnowHydrologyClean()
+    ! has to run before the caller's own InitSnowLayers call; that also leaves tearDown's
+    ! SnowHydrologyClean balanced.
+    !
+    ! Expects the caller to have set nlevsno, called SnowHydrologySetControlForTesting to
+    ! fill the namelist scalars the vertical structure is built from, and set up the
+    ! subgrid so that bounds is valid.
+    real(r8) :: depth
+    real(r8), allocatable :: no_snow(:)  ! [begc:endc]
+
+    allocate(no_snow(bounds%begc:bounds%endc))
+    no_snow(:) = 0._r8
+    call InitSnowLayers(bounds, no_snow)
+    depth = overfill_factor * sum(dzmax_u(1:nlevsno-1))
+    call SnowHydrologyClean()
+  end function overfill_depth
 
   @Test
   subroutine test_initSnowLayers_depth0_snl(this)
@@ -80,9 +138,9 @@ contains
     ! interfaces close on one another all the way up from the soil surface.
     !
     ! Geometry, not just the layer count. Asserted as invariants rather than literal
-    ! thicknesses: SnowHydrologySetControlForTesting does pin the dzmax_u schedule those
-    ! thicknesses come from, but restating it here would only re-derive the
-    ! schedule instead of the property the layering has to satisfy.
+    ! thicknesses: SnowHydrologySetControlForTesting does pin the vertical structure
+    ! those thicknesses come from, but restating it here would only re-derive that
+    ! structure instead of the property the layering has to satisfy.
     !
     ! Complementary to test_initSnowLayers_overfillPack_nvp: the same snow depth and the
     ! same nlevsno, differing only in whether the moss slot is claimed. This one pins
@@ -91,8 +149,9 @@ contains
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)  ! [begc:endc]
     integer, parameter :: my_nlevsno = 5
-    ! Deep enough that InitSnowLayers fills every snow level.
-    real(r8), parameter :: total_snow_depth = 1._r8
+    ! Deep enough that InitSnowLayers fills every snow level; see overfill_depth, which
+    ! derives the depth from the vertical structure rather than naming one.
+    real(r8) :: total_snow_depth
     ! With every level filled the column ends up nlevsno layers deep. On a stock column
     ! jbot_sno is 0, so the pack's top slot is snl+1 and get_jbot_snow puts its bottom
     ! slot at the soil surface.
@@ -106,6 +165,12 @@ contains
     nlevsno = my_nlevsno
     call SnowHydrologySetControlForTesting()
     call setup_single_veg_patch(pft_type = 1)
+    ! Before anything else this test sets up: overfill_depth makes a throwaway
+    ! InitSnowLayers call, which zeroes the snow slots and snl and sets zi(c,0) to 0.
+    ! The soil surface datum is still assigned explicitly below, deliberately: without
+    ! that line the datum assertion would only be checking that InitSnowLayers preserves
+    ! what an earlier InitSnowLayers call wrote.
+    total_snow_depth = overfill_depth()
     allocate(snow_depth(bounds%begc:bounds%endc))
     snow_depth(:) = total_snow_depth
     col%zi(bounds%begc:bounds%endc,0) = 0._r8 ! Normally initialized elsewhere (initVerticalMod)
@@ -151,8 +216,9 @@ contains
     real(r8), parameter :: dz_nvp = 0.02_r8
     integer, parameter :: my_nlevsno = 5
     ! Deep enough to fill every snow level had the moss not claimed one, which is what
-    ! makes the cap the thing under test here.
-    real(r8), parameter :: total_snow_depth = 1._r8
+    ! makes the cap the thing under test here; see overfill_depth, which derives the
+    ! depth from the vertical structure rather than naming one.
+    real(r8) :: total_snow_depth
     ! The most layers an NVP column may hold, the moss having claimed one of the nlevsno
     ! slots. On an NVP column jbot_sno is -1, so jtop is snl itself and get_jbot_snow
     ! puts the pack's bottom slot at -1, with the moss just below it at 0.
@@ -167,6 +233,12 @@ contains
     nlevsno = my_nlevsno
     call SnowHydrologySetControlForTesting()
     call setup_single_veg_patch(pft_type = 1)
+    ! Before anything else this test sets up: overfill_depth makes a throwaway
+    ! InitSnowLayers call, which zeroes the snow slots and snl and sets zi(c,0) to 0.
+    ! The soil surface datum is still assigned explicitly below, deliberately: without
+    ! that line the datum assertion would only be checking that InitSnowLayers preserves
+    ! what an earlier InitSnowLayers call wrote.
+    total_snow_depth = overfill_depth()
     allocate(snow_depth(bounds%begc:bounds%endc))
     snow_depth(:) = total_snow_depth
     c = bounds%begc
