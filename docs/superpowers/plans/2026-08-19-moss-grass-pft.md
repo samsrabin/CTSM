@@ -60,6 +60,12 @@ of labor:**
   windows, which reads as a hang; `--save-figs` then writes the figures to
   `<run-dir>/plots/<test>/` (default run-dir `_run`) where they can actually be inspected.
   `run_unit_tests.py` needs neither flag.
+  **Run them in the `ctsm_pylib` conda env** (Sam, 2026-08-21) —
+  `/glade/work/samrabin/conda-envs/ctsm_pylib/bin/python3`. FATES's
+  `testing/environment.yml` names a `fates_testing` env; ignore it. **Never create or
+  modify a conda env, and if `ctsm_pylib` fails to run the tests, STOP and tell Sam rather
+  than troubleshooting it** — no installing, no swapping interpreters, no working around a
+  missing module.
   Claude performs **no other testing** — nothing that runs CTSM-FATES.
 - **Sam (and Sam alone; may choose to skip):** all testing that actually RUNS
   CTSM-FATES — the ALP2 baseline b4b comparisons, the moss smoke + exact-restart tests,
@@ -742,8 +748,9 @@ end if
   missing it becomes fatal via `JSONFindTagPos`.
 - [ ] **Step 4: verify.** FATES functional suite reads the new parameter cleanly
   (`cd src/fates/testing && MPLBACKEND=Agg python run_functional_tests.py --save-figs allometry`,
-  in the conda
-  env from `testing/environment.yml`); standing rule: ALP2 baseline tests compare b4b
+  using the `ctsm_pylib` env — not the `fates_testing` env its `environment.yml` names, and
+  do not create one; if `ctsm_pylib` cannot run it, stop and tell Sam); standing rule: ALP2
+  baseline tests compare b4b
   (after resolving the testdata-JSON question from Step 0).
 - [ ] **Step 5: reviews, then commit** (FATES commit + CTSM pointer bump).
 
