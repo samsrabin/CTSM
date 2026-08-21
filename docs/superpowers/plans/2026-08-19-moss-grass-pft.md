@@ -797,7 +797,9 @@ not a moss run. `FatesALP2BareMoss` therefore needs a moss-at-index-4 counterpar
 `FatesALP2BareGrassMoss` needs nothing: `..._grassmoss.nc` already has its moss on index 4.
 
 A tested generator for that file is written and handed to Sam:
-`make_moss_pft4_fsurdat.py` (netCDF4 + numpy + stdlib, for the `ctsm_pylib` env). It moves
+`./make_moss_pft4_fsurdat.py` at the top of the CTSM checkout — deliberately left
+**untracked and un-run until this task** (Sam, 2026-08-21); do not commit it, gitignore
+it, or run it before then. netCDF4 + numpy + stdlib, for the `ctsm_pylib` env. It moves
 `PCT_NAT_PFT` *and* all four `MONTHLY_*` columns from index 12 to 4 — moving the area alone
 would give moss the stock tropical-tree canopy (`MONTHLY_HEIGHT_TOP` 29.35 m vs the
 hand-tuned 0.034 m at index 12), which matters because FATES-SP prescribes LAI/SAI/height
