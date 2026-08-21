@@ -66,15 +66,37 @@ etc.), with these deliberate settings:
   (currently unread there) as the flag that marks moss/NVP PFTs. Grass = `woody==0 &&
   vascular==1`; moss = `woody==0 && vascular==0`. Per-PFT parameters necessarily live on
   the parameter file.
-- **Reproduction fixed (moss column only):** grass defaults give `seed_alloc = 0` below
-  a 3 cm dbh reproduction threshold that moss (dbh ~0.03 cm) never crosses — moss would
-  go extinct. For the moss column, set `fates_recruit_seed_alloc > 0` and drop the dbh
-  threshold to ~0; these are per-PFT (`fates_pft`-dimensioned) parameters, and all other
-  PFTs keep their defaults. ("Seed" is a mass pool with first-order germination;
-  representationally fine for spores/fragments.)
-- `fates_allom_dbh_maxheight < 15 cm` (moss column only) so germination takes the simple
-  non-tree path, skipping the tree-recruitment-scheme machinery. Grasses keep their
-  defaults (20–30 cm, which the tree-recruitment gate happens to classify as trees).
+- **Reproduction fixed (moss column only):** reproductive allocation is `seed_alloc`
+  below the dbh reproduction threshold and `seed_alloc + seed_alloc_mature` above it
+  (`PRTAllometricCarbonMod.F90:1074-1078`). Grass survives its `seed_alloc = 0` because it
+  clears its 3 cm threshold and then collects `seed_alloc_mature = 0.25`; moss
+  (dbh ~0.03 cm) never crosses 3 cm, so it would sit on the immature branch at zero
+  forever and go extinct. **The fix is to drop the dbh threshold to ~0 — that alone is
+  sufficient**, because it puts moss on the mature branch where the inherited
+  `seed_alloc_mature = 0.25` applies. `fates_recruit_seed_alloc` is deliberately left at
+  the grass/NVP value of 0: there is no positivity requirement on it (the only constraint
+  is `seed_alloc + seed_alloc_mature <= 1`, `PRTParamsFATESMod.F90:722`), and the one
+  other consumer — the Tree Recruitment Scheme branch — is unreachable for moss, being
+  gated on `allom_dbh_maxheight > 15 cm`. Raising it would be a pure tuning increase, so
+  it stays aligned with the NVP branch. Both `seed_alloc` and `seed_alloc_mature` are
+  therefore inherited and must not be "tidied" out of the moss column. These are per-PFT
+  (`fates_pft`-dimensioned) parameters, and all other PFTs keep their defaults. ("Seed" is
+  a mass pool with first-order germination; representationally fine for spores/fragments.)
+
+  *(Amended 2026-08-21. The original text said to "set `fates_recruit_seed_alloc > 0` and
+  drop the dbh threshold to ~0". That rested on an incomplete premise — it treated
+  `seed_alloc` as the operative lever and did not account for `seed_alloc_mature` carrying
+  the mature branch.)*
+- `fates_allom_dbh_maxheight` is **inherited from grass (20 cm), not made moss-specific.**
+  An earlier version of this spec set it below 15 cm so germination would take the simple
+  non-tree path rather than the tree-recruitment-scheme (TRS) machinery. That reason does
+  not apply: every TRS gate is conjoined with a `hlm_regeneration_model` test, and
+  `fates_regeneration_model` defaults to `default`, so with TRS off the parameter has no
+  recruitment effect at all — and this project will not run TRS while it remains
+  experimental. The parameter's other job is real but is accepted as a limitation: it is
+  the diameter at which height and max-leaf-biomass saturate, entering `d2h_*` and
+  `d2blmax_*` only as `min(d, dbh_maxh)`, so inheriting 20 cm leaves moss height
+  effectively unbounded under the `grass_powerlaw` allometry (§4, §12).
 - Recruit height (`hgt_min`): a **realistic** moss height — a taller recruit inflates
   the allometric per-plant target biomass. Raise it only as a fallback if cohort
   termination floors (`store_c` and number-density minima, which apply in all modes, not
@@ -251,6 +273,12 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   termination-floor headroom; watch `FATES_MORTALITY_CANLEVEL_*`.
 - Moss effects on ground evaporation (e.g., exporting a per-patch surface resistance),
   soil insulation, albedo — the NVP-layer branch's territory.
+- A height/leaf-biomass ceiling for moss that does not collide with the TRS tree test.
+  Today `fates_allom_dbh_maxheight` is both the saturation diameter and the TRS
+  tree/non-tree discriminator, so moss cannot be given a mat-scale ceiling without also
+  being classified a non-tree, or inherit grass's classification without also inheriting
+  grass's 1.2 m ceiling (§12). Upstream, splitting the tree test onto `woody` or its own
+  parameter would decouple these; see the upstream-observations note in the plan.
 
 ## 12. Accepted fictions and limitations
 
@@ -265,6 +293,18 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Dead moss decomposes at standard leaf-fines rates (its fuel identity is separate via
   `moss_fines`, but its decomposition is not moss-specific).
 - In nocomp, moss cover is prescribed, not emergent.
+- **Moss height is effectively unbounded under the `grass_powerlaw` height allometry.**
+  Moss inherits grass's `fates_allom_dbh_maxheight` of 20 cm, and that parameter is the
+  only ceiling in that mode: `d2h_2pwr` computes `h = p1*min(d,dbh_maxh)**p2`, so moss
+  saturates only at ~1.23 m, versus ~4.2 cm had a moss-specific 0.1 cm been kept. Moss
+  recruits at 2 cm height (dbh ~0.032 cm), so nothing stops it growing well past mat-like
+  dimensions if it accumulates leaf carbon; `dh2blmax_3pwr_grass` caps target leaf biomass
+  at the same diameter, so that is unbounded in practice too. The `mat_thickness` mode (§4)
+  is the principled fix, and the `grass_powerlaw` mode should be read as a
+  conservation-correct but dimensionally unconstrained baseline. Watch diagnosed moss
+  height in any `grass_powerlaw` run. A second consequence: with 20 cm, moss sits above
+  `min_max_dbh_for_trees` (15 cm), so if TRS is ever enabled moss would be classified a
+  tree and routed through the tree-recruitment path.
 - **Moss displaces an existing HLM PFT rather than adding one.** The host's `natpft`
   dimension is bare ground plus 14 natural PFTs, and `fates_hlm_pftno` stays 14, so there
   is no free HLM index to give moss. `fates_params_moss.json` therefore hands HLM PFT 4

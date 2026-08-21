@@ -83,6 +83,34 @@ the submodule pointer bump and, in the first FATES-touching task, the `.gitmodul
 `url`/`fxtag` update to `samsrabin/fates`). One logical task = one CTSM commit (which may
 carry a FATES pointer bump) + at most one FATES commit.
 
+## Upstream FATES observations (report when this work goes upstream)
+
+Not defects in our work; things noticed while implementing that upstream may want to know.
+
+- **The Tree Recruitment Scheme's tree test misclassifies 8 of 14 default PFTs.** Every TRS
+  gate (`PRTAllometricCarbonMod.F90:1069`, `PRTAllometricCNPMod.F90:1500/2354/2490`,
+  `EDPhysiologyMod.F90:2175/2278/2290/2404/2657`) discriminates trees with
+  `allom_dbh_maxheight > min_max_dbh_for_trees` (15 cm) rather than with `woody`, even though
+  `prt_params%woody(` is used 54 times elsewhere in FATES and appears nowhere in either
+  PARTEH allocation module. Against `woody` that proxy is wrong in both directions: the five
+  shrubs are `woody = 1` but `dbh_maxheight` 1.9–3.0, so they are excluded; the three grasses
+  are `woody = 0` but `dbh_maxheight` 20–30, so they are included. Only the six trees are
+  classified correctly. Excluding shrubs may well be deliberate — a 2 cm-max-dbh shrub may
+  not suit a tree recruitment scheme regardless of woodiness — but including grasses looks
+  accidental, since a grass's `dbh` is a fiction derived from leaf carbon and nobody reading
+  "grass reaches max height at 20 cm dbh" would infer "this makes grass a tree". Latent in
+  practice: `fates_regeneration_model` defaults to `default`, and every gate is conjoined
+  with a regeneration-model test, so nothing fires unless TRS is explicitly enabled.
+- **`fates_allom_dbh_maxheight` carries two unrelated jobs.** It is the diameter at which
+  height and max-leaf-biomass saturate (entering `d2h_*` and `d2blmax_*` purely as
+  `min(d, dbh_maxh)`), and it is separately the TRS tree test above. A PFT cannot tune its
+  height/leaf-biomass ceiling without also moving itself across that classification, or vice
+  versa. Splitting the tree test onto its own parameter (or onto `woody`) would decouple them.
+  This bit us concretely: moss wants a mat-scale ceiling — a moss-specific 0.1 cm caps height
+  at ~4.2 cm — but we inherit grass's 20 cm to stay aligned and to avoid asserting a TRS
+  classification, which leaves moss height saturating only at ~1.23 m under `grass_powerlaw`.
+  Accepted as a limitation in spec §12, with the intended fix in §11.
+
 ## Global Constraints
 
 - **All new scalar settings — switches and science constants — go on the CTSM namelist**
@@ -484,7 +512,9 @@ call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fue
 
 ### Task 2: Moss parameter file (JSON)
 
-**Status: Step 0 COMPLETE (2026-08-20).** Steps 1-3 pending.
+**Status: COMPLETE (2026-08-21).** FATES `18f22ed0`; CTSM pointer bump below.
+Three fix rounds; scoped re-review returned all findings addressed. The file is NOT
+readable by the model until Task 4, so there is no test to run for it — see Interfaces.
 
 **Files:**
 - Create (FATES): `parameter_files/fates_params_moss.json` (committed — the default
@@ -541,10 +571,15 @@ call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fue
     code-asks-for-missing (`JSONFindTagPos`, `JSONParameterUtilsMod.F90:798`). An
     unclaimed extra parameter is harmless. Task 3 Step 3 becomes a verification.
   - **NVP moss column is a near-copy of `arctic_c3_grass`** — only 14 `fates_pft` params
-    differ. Two must NOT be copied: `fates_allom_fnrt_prof_mode = 4` (NVP-only mode; spec
-    §3 explicitly rejects it, and it is the exact value that broke Task 0's tests) and
-    `fates_rad_leaf_clumping_index = 10.0` (grass is 0.75; a clumping index is normally
-    ≤ 1 — treat as an NVP artifact, keep the grass value).
+    differ. Exactly one must NOT be copied: `fates_allom_fnrt_prof_mode = 4` (NVP-only
+    mode; spec §3 explicitly rejects it, and it is the exact value that broke Task 0's
+    tests). Everything else is harvested as-is, **including
+    `fates_rad_leaf_clumping_index = 10.0`** — Sam's ruling (2026-08-21), reversing an
+    earlier decision of mine to keep grass's 0.75 on the grounds that a clumping index is
+    normally ≤ 1: "I don't care — it's what the other in-progress NVP branch had, so it's
+    what we're going to use." Staying aligned with the NVP branch outweighs the
+    plausibility argument, and the value is a tuning input rather than a conservation
+    constraint. Do not reintroduce that objection in code comments or commit messages.
   - **`fates_frag_maxdecomp`** is read only for indices 1–4 (CWD) and 5
     (`fuel_classes%dead_leaves()`) — `EDPhysiologyMod.F90:3281-3302`. Index 6 (live grass)
     is never read, so its `999.0` is a never-read placeholder. Therefore: slot 7 (live
@@ -558,7 +593,7 @@ call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fue
     exactly 8 litterclass entries when `use_fates_moss` is on. Task 5 points
     `fates_paramfile` at this committed JSON — and needs a path CIME can resolve to an
     in-repo file, which is NOT yet resolved; see Task 5.
-- [ ] **Step 1: build the moss JSON.** Write `tools/make_moss_params.py`, then run it to
+- [x] **Step 1: build the moss JSON.** Write `tools/make_moss_params.py`, then run it to
   produce `parameter_files/fates_params_moss.json` from `fates_params_default.json`:
   - Append a 15th PFT by copying the `arctic_c3_grass` column (index 12); name it
     `non_vascular_phototroph` (NVP's name — keep it verbatim).
@@ -568,11 +603,17 @@ call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fue
     `fates_leaf_stomatal_slope_medlyn = 0`, `fates_leaf_agross_btran_model = 0`,
     `fates_phen_leaf_habit = 1`, `fates_rad_leaf_taunir/tauvis = 0.01`,
     `fates_rad_stem_taunir/tauvis = 0.01`, `fates_rad_leaf_xl = 0.0`.
-    Do NOT harvest `fnrt_prof_mode = 4` or `rad_leaf_clumping_index = 10.0` (Step 0).
-  - Apply the spec §3 corrections: `fates_recruit_seed_alloc = 0.1`,
-    `fates_recruit_seed_dbh_repro_threshold = 0.001`, `fates_allom_dbh_maxheight = 0.1`,
+    plus `fates_rad_leaf_clumping_index = 10.0`.
+    Do NOT harvest `fnrt_prof_mode = 4` — that one alone is rejected (Step 0).
+  - Apply the spec §3 corrections: `fates_recruit_seed_dbh_repro_threshold = 0.001`,
     `fates_recruit_height_min = 0.02`, and a layer-1-concentrated rooting profile
     (`fates_allom_fnrt_prof_a = 30`, keeping `fnrt_prof_mode = 3`).
+    **Note (now folded into spec §3):** the threshold drop is the *whole* reproduction
+    fix. It puts moss on the mature branch, where the inherited `seed_alloc_mature = 0.25`
+    applies. `fates_recruit_seed_alloc` stays at the grass/NVP value of 0 —
+    Sam's ruling (2026-08-21), reverting an earlier 0.1 of mine that only raised
+    allocation to 0.35 and had no correctness justification. Both `seed_alloc` and
+    `seed_alloc_mature` are inherited and must not be removed from the moss column.
   - Add `fates_vascular` (dims `['fates_pft']`, dtype integer, metadata mirroring
     `fates_woody`): all 1, 0 for moss. Add it to `fates_params_default.json` too (all 1).
   - Grow `dimensions.fates_litterclass` 6 → 8 and extend all ten litterclass-dimensioned
@@ -583,7 +624,7 @@ call set_fates_ctrlparms('moss_fuel_moisture_live_intercept',rval=fates_moss_fue
   - Record in the file's `attributes` that this file is only sensible where HLM PFT 4
     carries no real area: at a tropical site it silently turns broadleaf evergreen
     tropical tree into moss.
-- [ ] **Step 2: generate and inspect.** Verify against the real schema:
+- [x] **Step 2: generate and inspect.** Verify against the real schema:
 
 ```bash
 python -c "
@@ -610,7 +651,7 @@ print('OK')"
 
   Also confirm `fates_params_default.json` still reads with 14 PFTs / 6 litterclasses and
   now carries `fates_vascular` (all 1).
-- [ ] **Step 3: reviews, then commit** (FATES commit: moss JSON + generator + the
+- [x] **Step 3: reviews, then commit** (FATES commit: moss JSON + generator + the
   `fates_vascular` addition to the default file; CTSM pointer bump). No CTSM test points
   at the moss file yet — see the Interfaces note.
 
