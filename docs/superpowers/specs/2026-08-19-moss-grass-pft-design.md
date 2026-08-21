@@ -293,6 +293,14 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Dead moss decomposes at standard leaf-fines rates (its fuel identity is separate via
   `moss_fines`, but its decomposition is not moss-specific).
 - In nocomp, moss cover is prescribed, not emergent.
+- **The moss parameter file can never be run with `use_fates_moss = .false.`** The Task 3
+  consistency check makes the switch and the presence of a `fates_vascular == 0` PFT a
+  biconditional, so a 15-PFT moss parameter file with moss off aborts at initialization, as
+  does the default file with moss on. This is deliberate (§8), and it does not weaken the
+  bit-for-bit constraint, which is scoped to a standard 6-litterclass file. But it does
+  foreclose a standard debugging move — isolating a dimension change from a physics change by
+  running the moss parameter file with the moss switch off. Anyone chasing a moss-related
+  answer change should know the abort is intended, not a bug.
 - **Moss height is effectively unbounded under the `grass_powerlaw` height allometry.**
   Moss inherits grass's `fates_allom_dbh_maxheight` of 20 cm, and that parameter is the
   only ceiling in that mode: `d2h_2pwr` computes `h = p1*min(d,dbh_maxh)**p2`, so moss

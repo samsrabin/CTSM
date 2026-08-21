@@ -115,6 +115,13 @@ Not defects in our work; things noticed while implementing that upstream may wan
   "grass reaches max height at 20 cm dbh" would infer "this makes grass a tree". Latent in
   practice: `fates_regeneration_model` defaults to `default`, and every gate is conjoined
   with a regeneration-model test, so nothing fires unless TRS is explicitly enabled.
+- **`npft` is computed before the non-master early return in `FatesCheckParams`.**
+  `EDPftvarcon.F90:977` does `npft = size(EDPftvarcon_inst%freezetol,1)` two lines above the
+  `if(.not.is_master) return` at `:979`. With `use_fates = .false.` CTSM still calls
+  `SetFatesGlobalElements2` (`clmfates_interfaceMod.F90:705-708`), so that `size()` is
+  evaluated on an unallocated allocatable — undefined behaviour. Pre-existing and harmless
+  today only because every use of `npft` sits below the return. Anyone moving code above that
+  return, upstream or here, will trip it.
 - **`fates_allom_dbh_maxheight` carries two unrelated jobs.** It is the diameter at which
   height and max-leaf-biomass saturate (entering `d2h_*` and `d2blmax_*` purely as
   `min(d, dbh_maxh)`), and it is separately the TRS tree test above. A PFT cannot tune its
