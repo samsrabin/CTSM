@@ -114,6 +114,12 @@ contains
     ! layer is index 0, whose water belongs in the total. Slots -4 and -3 are left at
     ! zero, which is both what the total requires and what CheckSnowConsistency demands
     ! of slots above the pack.
+    !
+    ! Complementary to totalH2osno_nvp: the same three layer waters and the same snl,
+    ! differing only in whether the moss slot is claimed and so in where the pack sits.
+    ! The expected total is the same in both, so the pair brackets the sum's range from
+    ! both sides; this one pins what it must be with every slot down to the soil surface
+    ! available to snow.
     class(TestCalcTotalH2osno), intent(inout) :: this
     ! The layer count the column carries; the routine only reads it.
     integer, parameter :: snl = -3
@@ -151,13 +157,15 @@ contains
     ! pack alone, reaching the top snow layer while leaving out the water the moss slot
     ! holds below the pack.
     !
-    ! The same three layers on an NVP column, where the pack runs -3..-1 and the moss
-    ! slot at 0 carries water of its own. The expected total is the same as in the stock
-    ! case, so the two tests bracket the range from both sides: the sum must reach the
-    ! top snow layer at snl = -3, which the pre-NVP lower bound of snl+1 = -2 would miss,
-    ! and must stop at -1, whereas the pre-NVP upper bound of 0 would fold in the moss.
-    ! Either error moves the total, and the moss water is large enough that the second
-    ! one cannot be mistaken for roundoff.
+    ! Complementary to totalH2osno_stock: the same three layer waters and the same snl,
+    ! differing only in whether the moss slot is claimed and so in where the pack sits.
+    ! Here the pack runs -3..-1 and the moss slot at 0 carries water of its own. The
+    ! expected total is the same as in the stock case, so the two tests bracket the
+    ! range from both sides: the sum must reach the top snow layer at snl = -3, which
+    ! the pre-NVP lower bound of snl+1 = -2 would miss, and must stop at -1, whereas the
+    ! pre-NVP upper bound of 0 would fold in the moss. Either error moves the total, and
+    ! the moss water is large enough that the second one cannot be mistaken for
+    ! roundoff.
     class(TestCalcTotalH2osno), intent(inout) :: this
     ! The layer count the column carries; the routine only reads it.
     integer, parameter :: snl = -3

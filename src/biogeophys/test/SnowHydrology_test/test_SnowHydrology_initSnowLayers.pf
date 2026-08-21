@@ -152,11 +152,12 @@ contains
     ! Deep enough that InitSnowLayers fills every snow level; see overfill_depth, which
     ! derives the depth from the vertical structure rather than naming one.
     real(r8) :: total_snow_depth
-    ! With every level filled the column ends up nlevsno layers deep. On a stock column
-    ! jbot_sno is 0, so the pack's top slot is snl+1 and get_jbot_snow puts its bottom
-    ! slot at the soil surface.
-    integer, parameter :: snl_after = -my_nlevsno
-    integer, parameter :: jtop = snl_after + 1
+    ! The most layers a stock column may hold, which an overfilling snow depth takes it
+    ! to: no slot is reserved for moss, so snow may fill all nlevsno of them. On a stock
+    ! column jbot_sno is 0, so the pack's top slot is snl+1 and get_jbot_snow puts its
+    ! bottom slot at the soil surface.
+    integer, parameter :: snl_full = -my_nlevsno
+    integer, parameter :: jtop = snl_full + 1
     integer, parameter :: jbot = 0
     ! The soil surface datum as this test's setup left it, read back out of the array
     ! instead of being restated as a literal below. The invariant being pinned is that
@@ -178,15 +179,15 @@ contains
     total_snow_depth = overfill_depth()
     allocate(snow_depth(bounds%begc:bounds%endc))
     snow_depth(:) = total_snow_depth
-    col%zi(bounds%begc:bounds%endc,0) = 0._r8 ! Normally initialized elsewhere (initVerticalMod)
     c = bounds%begc
+    col%zi(c,0) = 0._r8 ! Normally initialized elsewhere (initVerticalMod)
     zi_soil_before = col%zi(c,0)
 
     ! Exercise
     call InitSnowLayers(bounds, snow_depth)
 
     ! Verify
-    @assertEqual(snl_after, col%snl(c))
+    @assertEqual(snl_full, col%snl(c))
     ! Soil surface datum untouched
     @assertEqual(zi_soil_before, col%zi(c,0))
     ! Thickness conserved
@@ -225,8 +226,9 @@ contains
     ! makes the cap the thing under test here; see overfill_depth, which derives the
     ! depth from the vertical structure rather than naming one.
     real(r8) :: total_snow_depth
-    ! The most layers an NVP column may hold, the moss having claimed one of the nlevsno
-    ! slots. On an NVP column jbot_sno is -1, so jtop is snl itself and get_jbot_snow
+    ! The most layers an NVP column may hold, which an overfilling snow depth takes it
+    ! to: the moss has claimed one of the nlevsno slots, so snow may fill only nlevsno-1
+    ! of them. On an NVP column jbot_sno is -1, so jtop is snl itself and get_jbot_snow
     ! puts the pack's bottom slot at -1, with the moss just below it at 0.
     integer, parameter :: snl_full = -(my_nlevsno-1)
     integer, parameter :: jtop = snl_full
@@ -254,7 +256,7 @@ contains
     allocate(snow_depth(bounds%begc:bounds%endc))
     snow_depth(:) = total_snow_depth
     c = bounds%begc
-    col%zi(c,0) = 0._r8      ! Normally initialized elsewhere (initVerticalMod)
+    col%zi(c,0) = 0._r8 ! Normally initialized elsewhere (initVerticalMod)
     ! Stand in for NVPLayerInit, which is what claims the slot in a real run
     col%jbot_sno(c) = -1
     col%dz(c,j_moss) = dz_nvp

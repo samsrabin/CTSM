@@ -200,6 +200,11 @@ contains
     ! This is the case the pre-NVP bound gets wrong. With j < snl+1 the range would run
     ! through slot 0, so the moss thickness, depth, temperature and water would all be
     ! set to zero on any NVP column that happened to be bare.
+    !
+    ! Complementary to zeroEmpty_noSnow_stock: the same snl and the same nlevsno, with
+    ! every slot given the same marker values, differing only in whether the moss slot
+    ! is claimed. This one pins that the moss survives, so that what the two tests zero
+    ! differs by exactly the moss slot and nothing else.
     class(TestZeroEmpty), intent(inout) :: this
     ! A bare column: no snow layers at all.
     integer, parameter :: snl = 0
@@ -227,9 +232,11 @@ contains
     ! ZeroEmptySnowLayers must clear the whole snow range, the slot at the soil surface
     ! included.
     !
-    ! The same snow-free column without the NVP slot, where jtop is snl+1 = 1. There is
-    ! nothing to keep, so slot 0 is emptied along with everything above it. This is the
-    ! guard that the reindexed bound still reduces to the stock one.
+    ! Complementary to zeroEmpty_noSnow_nvp: the same snl and the same nlevsno, with
+    ! every slot given the same marker values, differing only in whether the moss slot
+    ! is claimed. Here jtop is snl+1 = 1 and there is nothing to keep, so slot 0 is
+    ! emptied along with everything above it. This is the guard that the reindexed bound
+    ! still reduces to the stock one.
     class(TestZeroEmpty), intent(inout) :: this
     ! A bare column: no snow layers at all.
     integer, parameter :: snl = 0

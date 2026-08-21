@@ -272,6 +272,10 @@ contains
     ! just above the pack. The difference must pick up the first two and not the third:
     ! the pre-NVP lower bound would start at -2 and so miss the top snow layer, while a
     ! sum that stopped at jbot would drop the moss.
+    !
+    ! Complementary to ComputeLiqIceMass_stock: the same three water placements and the
+    ! same snl, differing only in whether the moss slot is claimed and so in what the
+    ! sum's fixed upper bound of 0 lands on.
     class(TestTWAH), intent(inout) :: this
     ! The layer count the column carries; the routine only reads it.
     integer, parameter :: snl = -3
@@ -279,11 +283,22 @@ contains
     ! bound is snl itself. j_above is the empty slot just above the pack, which the sum
     ! must not reach; j_moss is the slot the sum's fixed upper bound of 0 keeps inside
     ! the total even though it lies below the pack.
+    !
+    ! The twin calls that same slot jbot, and the two names are deliberately not shared.
+    ! The pair exists to show that one fixed upper bound means two different things: on
+    ! a stock column slot 0 is the pack's bottom snow layer, counted because it is snow;
+    ! here it is below the pack, counted anyway and deliberately, so that snow handed to
+    ! the moss does not read as a sink in errh2o. The role name is what carries that
+    ! distinction. Contrast postPercolation, where both tests do share the name
+    ! j_surface for slot 0: there five slots had to be lined up across two incompatible
+    ! jtop-relative schemes, so a shared positional anchor was the only way to give each
+    ! assertion a visible counterpart. Here there is one slot, indexed directly, and no
+    ! anchoring problem, so the role name is free to carry the distinction instead.
     integer, parameter :: jtop = snl
     integer, parameter :: j_above = jtop - 1
     integer, parameter :: j_moss = 0
     integer :: num_c, c
-    integer, allocatable :: filter_c(:)
+    integer, allocatable :: filter_c(:)  ! [1:num_c]
     real(r8) :: liquid_base(1), ice_base(1)
     real(r8) :: liquid_mass(1), ice_mass(1)
 
@@ -325,23 +340,37 @@ contains
     ! nothing in the empty slots above the pack, confirming the reindexed lower bound
     ! reduces to the stock one.
     !
-    ! The same three layers on a stock column, where the pack is -2..0: the top snow
-    ! layer is at -2, the slot just above it is -3, and index 0 is ordinary bottom snow
-    ! rather than moss. Everything shifts down one slot and the expected difference is
+    ! Complementary to ComputeLiqIceMass_nvp: the same three water placements and the
+    ! same snl, differing only in whether the moss slot is claimed and so in what the
+    ! sum's fixed upper bound of 0 lands on. Here the pack is -2..0: the top snow layer
+    ! is at -2, the slot just above it is -3, and index 0 is ordinary bottom snow rather
+    ! than moss. Everything shifts down one slot and the expected difference is
     ! unchanged, which is the guard that the reindexed lower bound still reduces to the
     ! stock snl+1.
     class(TestTWAH), intent(inout) :: this
     ! The layer count the column carries; the routine only reads it.
     integer, parameter :: snl = -3
-    ! jbot_sno is 0 on a stock column, so the sum's lower bound is snl+1 and
-    ! get_jbot_snow puts the pack's bottom slot at the soil surface, where the sum's
-    ! fixed upper bound of 0 already ended. j_above is the empty slot just above the
-    ! pack, which the sum must not reach.
+    ! jbot_sno is 0 on a stock column, so the sum's lower bound is snl+1. j_above is the
+    ! empty slot just above the pack, which the sum must not reach; jbot is the pack's
+    ! bottom slot, which get_jbot_snow puts at the soil surface, where the sum's fixed
+    ! upper bound of 0 already ended.
+    !
+    ! The twin calls that same slot j_moss, and the two names are deliberately not
+    ! shared. The pair exists to show that one fixed upper bound means two different
+    ! things: here slot 0 is the pack's bottom snow layer, counted because it is snow;
+    ! on an NVP column it is below the pack, counted anyway and deliberately, so that
+    ! snow handed to the moss does not read as a sink in errh2o. The role name is what
+    ! carries that distinction. Contrast postPercolation, where both tests do share the
+    ! name j_surface for slot 0: there five slots had to be lined up across two
+    ! incompatible jtop-relative schemes, so a shared positional anchor was the only way
+    ! to give each assertion a visible counterpart. Here there is one slot, indexed
+    ! directly, and no anchoring problem, so the role name is free to carry the
+    ! distinction instead.
     integer, parameter :: jtop = snl + 1
-    integer, parameter :: jbot = 0
     integer, parameter :: j_above = jtop - 1
+    integer, parameter :: jbot = 0
     integer :: num_c, c
-    integer, allocatable :: filter_c(:)
+    integer, allocatable :: filter_c(:)  ! [1:num_c]
     real(r8) :: liquid_base(1), ice_base(1)
     real(r8) :: liquid_mass(1), ice_mass(1)
 
