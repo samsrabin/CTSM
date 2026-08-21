@@ -52,8 +52,14 @@ of labor:**
 - **Claude (required, every Fortran-touching task):** (a) verify CTSM-FATES **builds**:
   from the top of the checkout, `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` (the `test-bld-adrianna-moss-grass-pft/`
   case will exist on the implementation machine; if it is missing, ask Sam rather than
-  creating one); (b) run the FATES functional/unit tests covering the touched code
-  (`python run_functional_tests.py fuel|allometry`, `python run_unit_tests.py`).
+  creating one); (b) run the FATES functional/unit tests covering the touched code.
+  **Always invoke the functional tests as
+  `MPLBACKEND=Agg python run_functional_tests.py --save-figs <suite>`.** Without
+  `MPLBACKEND=Agg` the run ends at an unconditional `plt.show()`
+  (`testing/run_functional_tests.py:264`, outside any `--save-figs` guard) and blocks on X
+  windows, which reads as a hang; `--save-figs` then writes the figures to
+  `<run-dir>/plots/<test>/` (default run-dir `_run`) where they can actually be inspected.
+  `run_unit_tests.py` needs neither flag.
   Claude performs **no other testing** — nothing that runs CTSM-FATES.
 - **Sam (and Sam alone; may choose to skip):** all testing that actually RUNS
   CTSM-FATES — the ALP2 baseline b4b comparisons, the moss smoke + exact-restart tests,
@@ -735,7 +741,8 @@ end if
   `parameter_files/` also carries it — from this task on, the Fortran READS it, so a file
   missing it becomes fatal via `JSONFindTagPos`.
 - [ ] **Step 4: verify.** FATES functional suite reads the new parameter cleanly
-  (`cd src/fates/testing && python run_functional_tests.py allometry`, in the conda
+  (`cd src/fates/testing && MPLBACKEND=Agg python run_functional_tests.py --save-figs allometry`,
+  in the conda
   env from `testing/environment.yml`); standing rule: ALP2 baseline tests compare b4b
   (after resolving the testdata-JSON question from Step 0).
 - [ ] **Step 5: reviews, then commit** (FATES commit + CTSM pointer bump).
@@ -820,7 +827,8 @@ end if
     baselines by full test name including testmods, so this is a new name and a PASS/FAIL
     test only; the b4b instrument remains the Task 0 tests.
 - [ ] **Step 4: verify.** (a) FATES fuel functional test with a standard 6-class file
-  (`python run_functional_tests.py fuel`) — identical results to pre-change; (b) with
+  (`MPLBACKEND=Agg python run_functional_tests.py --save-figs fuel`) — identical results to
+  pre-change; (b) with
   the Task 2 moss file → clean abort unless the test driver sets `hlm_use_moss` (set
   it where the harness sets ctrlparms); (c) standing rule: ALP2 baseline tests compare
   b4b (this task is the highest-risk one for accidental shape changes — check history
@@ -1029,7 +1037,8 @@ end if
 - [ ] **Step 4: history.** Register and fill `FATES_MOSS_FINES` per the Task 6 pattern.
 - [ ] **Step 5: verify.** (a) Fuel functional test: nonzero `moss_fines` →
   `loading(8)` matches; (b) FATES unit/patch tests (`python run_unit_tests.py`,
-  `python run_functional_tests.py patch`); (c) moss ALP2 SMS + **ERS** tests PASS —
+  `MPLBACKEND=Agg python run_functional_tests.py --save-figs patch`); (c) moss ALP2 SMS +
+  **ERS** tests PASS —
   the exact-restart test now covers the restarted `moss_fines` pools, and fatal
   balance checks prove the routing conserves; `FATES_MOSS_FINES` accumulates over the
   run and dead-leaves fuel drops correspondingly for the moss patch; (d) ALP2
@@ -1150,7 +1159,7 @@ end if
 - [ ] **Step 3: functional test.** Add moss cases to the fuel functional test: given
   fwet_moss ∈ {0, 0.5, 1}, assert `moisture(7)` and `moisture(8)` equal the linear
   form; assert grass/leaf classes unchanged vs. the 6-class baseline run. Run
-  `python run_functional_tests.py fuel`.
+  `MPLBACKEND=Agg python run_functional_tests.py --save-figs fuel`.
 - [ ] **Step 4: verify in-model.** Moss ALP2 tests PASS; fuel-class-dimensioned
   moisture history for classes 7–8 tracks `FATES_MOSS_FWET` (linear map) while classes
   1–6 keep tracking the Nesterov index; ALP2 baselines b4b.
@@ -1246,7 +1255,7 @@ end if
 - [ ] **Step 3: functional test.** Extend the allometry functional test config to run
   the moss PFT under both modes; assert round-trip `h2d(h_allom(d)) ≈ d` to 1e-6 and
   that thickness is linear in `blmax/c_area`. Run
-  `python run_functional_tests.py allometry`.
+  `MPLBACKEND=Agg python run_functional_tests.py --save-figs allometry`.
 - [ ] **Step 4: verify in-model.** Run the moss ALP2 SMS test once per
   `fates_moss_height_allom` mode (a user_nl override run for `mat_thickness`); both PASS;
   moss height history differs between modes as expected; ALP2 baselines b4b.
