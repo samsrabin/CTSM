@@ -749,6 +749,9 @@ end if
   `main/FatesHistoryInterfaceMod.F90` + `main/FatesRestartInterfaceMod.F90` (confirm
   fuel-class dims pick up the runtime value)
 - Modify (FATES): `testing/tests/functional/fire/fuel/FatesTestFuel.F90` if it assumes 6
+- Create (CTSM): a testmod that turns moss on and points `fates_paramfile` at the in-repo
+  moss JSON (provisional name `FatesMossParamfile`; confirm at Step 0)
+- Modify (CTSM): `cime_config/testdefs/testlist_clm.xml` (one short test, see Step 3b)
 
 **Interfaces:**
 - Consumes: `hlm_use_moss` (Task 1); 8-entry parameter file (Task 2).
@@ -769,6 +772,11 @@ end if
   their fuel-class dimension from this symbol at runtime. Verify the CWD-index
   aliasing in `EDPatchDynamicsMod` (burnt-litter loop assumes fuel classes 1–4 are
   CWD 1–4) survives appending classes 7–8 (it should — indices 1–6 are unchanged).
+  Also settle the Step 3b testmod mechanics: whether a CTSM-root-relative `fates_paramfile`
+  in `user_nl_clm` resolves (it is `input_pathname="landroot"`), or whether the
+  `FatesColdPRT2` `shell_commands`/`xmlquery SRCROOT` pattern is required. The answer also
+  settles the same open question for Task 5. Confirm the provisional testmod name with Sam if
+  it matters to him; the NVP branch has no equivalent to copy.
   Forward check: Task 6 writes `loading(fuel_classes%live_moss())`; Task 9 writes
   `moisture(fuel_classes%live_moss())` and `(dead_moss)`.
 - [ ] **Step 1: FatesFuelClassesMod.** Change to
@@ -784,6 +792,33 @@ end if
   litterclass array, check `size(param_p%r_data_1d) == num_fuel_classes`; on mismatch,
   `endrun` with: "fates_litterclass dimension must be 8 when use_fates_moss is on, 6
   otherwise".
+- [ ] **Step 3b: first CLM-level test of the 8-class parameter file.** This task is where
+  the moss JSON becomes readable at all, so it is the earliest point a CLM test can use it —
+  Task 5 is merely where the plan had concentrated the testlist work. Add one now, because
+  this task's highest risk is an accidental history or restart shape change from making the
+  fuel-class count runtime, and no FATES functional test can see CLM's history/restart files.
+  - Create a testmod setting `use_fates_moss = .true.` and pointing `fates_paramfile` at
+    `src/fates/parameter_files/fates_params_moss.json`. Two viable mechanics: `fates_paramfile`
+    is declared `input_pathname="landroot"` (`namelist_definition_ctsm.xml:1054-1055`) and its
+    default is the CTSM-root-relative `src/fates/parameter_files/fates_params_default.json`, so
+    a relative path in `user_nl_clm` may just work; the proven alternative is the
+    `shell_commands` pattern used by `FatesColdPRT2` — `xmlquery SRCROOT`, then append an
+    absolute `fates_paramfile = '...'` to `user_nl_clm`. **Step 0 must determine which form
+    works from a testmod**, since the answer also settles the same open question for Task 5.
+  - Compose it with an existing ALP2 fsurdat testmod and add one short test (`SMS_Ld5_D`,
+    mpi-serial if the grid allows). Expected outcome: PASS.
+  - **This needs no new surface dataset, and that is the point.** Our parameter file puts moss
+    on HLM PFT 4, which neither `_bare.nc` nor `_grass.nc` populates, so moss exists as a PFT
+    with zero area. Orphaned FATES columns are already normal — the shipped default file
+    leaves `fates_pft` 8 unmapped. So this test does not block on the moss fsurdat that Sam
+    generates at Task 5, and Tasks 3-4 stop being a stretch of new Fortran with no CLM-level
+    coverage.
+  - Be explicit about what it does and does not prove: it exercises the runtime fuel-class
+    sizing, the 8-entry litterclass read, the Task 3 `vascular`/`use_fates_moss` agreement
+    check, and CLM history/restart shapes under `use_fates_moss = .true.` It exercises **no
+    moss science**, because there is no moss area. It also carries no baseline — CIME keys
+    baselines by full test name including testmods, so this is a new name and a PASS/FAIL
+    test only; the b4b instrument remains the Task 0 tests.
 - [ ] **Step 4: verify.** (a) FATES fuel functional test with a standard 6-class file
   (`python run_functional_tests.py fuel`) — identical results to pre-change; (b) with
   the Task 2 moss file → clean abort unless the test driver sets `hlm_use_moss` (set
