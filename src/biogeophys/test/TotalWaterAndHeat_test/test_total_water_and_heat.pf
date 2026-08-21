@@ -270,8 +270,8 @@ contains
     ! An NVP column with three snow layers, so the pack is -3..-1 and the moss is at 0.
     ! Water goes into the top snow layer at -3, into the moss slot at 0, and into slot -4
     ! just above the pack. The difference must pick up the first two and not the third:
-    ! stock bounds would start at -2 and so miss the top snow layer, while a sum that
-    ! stopped at jbot would drop the moss.
+    ! the pre-NVP lower bound would start at -2 and so miss the top snow layer, while a
+    ! sum that stopped at jbot would drop the moss.
     class(TestTWAH), intent(inout) :: this
     ! The layer count the column carries; the routine only reads it.
     integer, parameter :: snl = -3

@@ -74,17 +74,22 @@ contains
   end subroutine test_initSnowLayers_depth1_snl
 
   @Test
-  subroutine test_initSnowLayers_depth1_geometry(this)
-    ! On a stock column given snow deep enough to fill every snow level, InitSnowLayers
-    ! must lay down a pack whose thicknesses sum to the snow depth and whose node depths
-    ! and interfaces close on one another all the way up from the soil surface.
+  subroutine test_initSnowLayers_overfillPack_stock(this)
+    ! On a stock column given snow deep enough to overfill the pack, InitSnowLayers must
+    ! lay down a pack whose thicknesses sum to the snow depth and whose node depths and
+    ! interfaces close on one another all the way up from the soil surface.
     !
     ! Geometry, not just the layer count. Asserted as invariants rather than literal
     ! thicknesses: SnowHydrologySetControlForTesting does pin the dzmax_u schedule those
     ! thicknesses come from, but restating it here would only re-derive the
     ! schedule instead of the property the layering has to satisfy.
+    !
+    ! Complementary to test_initSnowLayers_overfillPack_nvp: the same snow depth and the
+    ! same nlevsno, differing only in whether the moss slot is claimed. This one pins
+    ! what the geometry has to look like with all nlevsno slots available to snow, so
+    ! that whatever differs over there is the moss slot's doing and nothing else.
     class(TestSnowHydrology), intent(inout) :: this
-    real(r8), allocatable :: snow_depth(:)
+    real(r8), allocatable :: snow_depth(:)  ! [begc:endc]
     integer, parameter :: my_nlevsno = 5
     ! Deep enough that InitSnowLayers fills every snow level.
     real(r8), parameter :: total_snow_depth = 1._r8
@@ -124,10 +129,10 @@ contains
        @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=tol)
     end do
 
-  end subroutine test_initSnowLayers_depth1_geometry
+  end subroutine test_initSnowLayers_overfillPack_stock
 
   @Test
-  subroutine test_initSnowLayers_depth1_nvp(this)
+  subroutine test_initSnowLayers_overfillPack_nvp(this)
     ! On an NVP column given snow deep enough to overfill the pack, InitSnowLayers must
     ! cap the layer count at what the moss slot leaves free, rest the pack on top of the
     ! moss rather than on the soil surface, and leave the moss geometry untouched.
@@ -135,11 +140,14 @@ contains
     ! With the index-0 slot claimed, snow occupies -4:-1, the layer count is
     ! capped at nlevsno-1, and the moss geometry at slot 0 survives untouched.
     ! This is the case that distinguishes resting the interface recursion on
-    ! the snowpack base zi(c,jbot) from the stock literal -0.5*dz: at
+    ! the snowpack base zi(c,jbot) from the pre-NVP literal -0.5*dz: at
     ! jbot == 0 the two are identical, so only jbot == -1 can catch a
     ! swallowed moss thickness.
+    !
+    ! Complementary to test_initSnowLayers_overfillPack_stock: the same snow depth and
+    ! the same nlevsno, differing only in whether the moss slot is claimed.
     class(TestSnowHydrology), intent(inout) :: this
-    real(r8), allocatable :: snow_depth(:)
+    real(r8), allocatable :: snow_depth(:)  ! [begc:endc]
     real(r8), parameter :: dz_nvp = 0.02_r8
     integer, parameter :: my_nlevsno = 5
     ! Deep enough to fill every snow level had the moss not claimed one, which is what
@@ -191,6 +199,6 @@ contains
        @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=tol)
     end do
 
-  end subroutine test_initSnowLayers_depth1_nvp
+  end subroutine test_initSnowLayers_overfillPack_nvp
 
 end module test_SnowHydrology_initSnowLayers

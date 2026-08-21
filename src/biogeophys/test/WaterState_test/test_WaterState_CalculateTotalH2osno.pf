@@ -122,7 +122,7 @@ contains
     integer, parameter :: jtop = snl + 1
     integer, parameter :: jbot = 0
     integer :: num_c, c
-    integer, allocatable :: filter_c(:)
+    integer, allocatable :: filter_c(:)  ! [1:num_c]
     real(r8) :: h2osno_total(1)
     real(r8) :: expected
 
@@ -154,8 +154,8 @@ contains
     ! The same three layers on an NVP column, where the pack runs -3..-1 and the moss
     ! slot at 0 carries water of its own. The expected total is the same as in the stock
     ! case, so the two tests bracket the range from both sides: the sum must reach the
-    ! top snow layer at snl = -3, which the stock lower bound of snl+1 = -2 would miss,
-    ! and must stop at -1, whereas the stock upper bound of 0 would fold in the moss.
+    ! top snow layer at snl = -3, which the pre-NVP lower bound of snl+1 = -2 would miss,
+    ! and must stop at -1, whereas the pre-NVP upper bound of 0 would fold in the moss.
     ! Either error moves the total, and the moss water is large enough that the second
     ! one cannot be mistaken for roundoff.
     class(TestCalcTotalH2osno), intent(inout) :: this
@@ -168,7 +168,7 @@ contains
     integer, parameter :: jbot = -1
     integer, parameter :: j_moss = 0
     integer :: num_c, c
-    integer, allocatable :: filter_c(:)
+    integer, allocatable :: filter_c(:)  ! [1:num_c]
     real(r8) :: h2osno_total(1)
     real(r8) :: expected
 
@@ -202,10 +202,10 @@ contains
     ! snl = 0 makes jtop 0 and jbot -1, so the sum loop runs over nothing and the total
     ! is the layerless snow alone.
     !
-    ! The total by itself discriminates nothing here, because at snl == 0 the stock sum
-    ! loop is empty too. What this case tests is that the call completes at all.
+    ! The total by itself discriminates nothing here, because at snl == 0 the pre-NVP
+    ! sum loop is empty too. What this case tests is that the call completes at all.
     ! CheckSnowConsistency scans -nlevsno+1 .. jtop-1 for slots that should be empty;
-    ! under the stock bound that range ends at snl = 0 and so includes the moss slot,
+    ! under the pre-NVP bound that range ends at snl = 0 and so includes the moss slot,
     ! where ice_nvp is neither 0 nor spval, so the run would abort through endrun. That
     ! is why the moss water is set here even though it contributes nothing to the
     ! expected value.
@@ -217,7 +217,7 @@ contains
     integer, parameter :: snl = 0
     integer, parameter :: j_moss = 0
     integer :: num_c, c
-    integer, allocatable :: filter_c(:)
+    integer, allocatable :: filter_c(:)  ! [1:num_c]
     real(r8) :: h2osno_total(1)
     real(r8), parameter :: h2osno_no_layers = 33._r8
 

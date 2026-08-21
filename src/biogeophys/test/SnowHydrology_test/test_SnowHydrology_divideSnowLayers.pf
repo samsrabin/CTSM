@@ -62,7 +62,7 @@ module test_SnowHydrology_divideSnowLayers
      type(temperature_type) :: temperature_inst
      type(aerosol_type) :: aerosol_inst
      integer :: num_snowc
-     integer, allocatable :: filter_snowc(:)
+     integer, allocatable :: filter_snowc(:)  ! [1:num_snowc]
    contains
      procedure :: setUp
      procedure :: tearDown
@@ -223,7 +223,7 @@ contains
     real(r8), intent(in) :: dz_layers(:)  ! snow layer thicknesses, top layer first
 
     integer :: c, j
-    real(r8), allocatable :: no_snow(:)
+    real(r8), allocatable :: no_snow(:)  ! [begc:endc]
 
     call setup_single_veg_patch(pft_type = 1)
     col%jbot_sno(bounds%begc:bounds%endc) = jbot_sno

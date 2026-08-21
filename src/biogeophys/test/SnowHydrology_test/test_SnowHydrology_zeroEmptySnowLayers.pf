@@ -15,8 +15,8 @@ module test_SnowHydrology_zeroEmptySnowLayers
   !
   ! The NVP change is that the routine zeroes j < jtop instead of j < snl+1. Because jtop
   ! is snl on an NVP column, that keeps the moss slot out of the zeroed range even when
-  ! snl == 0 and the pack is empty. Under stock bounds a snow-free NVP column would have
-  ! slot 0 wiped, taking the moss state and the interface at its top with it.
+  ! snl == 0 and the pack is empty. Under the pre-NVP bound a snow-free NVP column would
+  ! have slot 0 wiped, taking the moss state and the interface at its top with it.
   !
   ! Note the pairing the routine uses, which the tests follow: zeroing slot j clears
   ! zi(c,j-1), the interface at the top of slot j, not zi(c,j). So the interface that
@@ -42,7 +42,7 @@ module test_SnowHydrology_zeroEmptySnowLayers
      type(water_type) :: water_inst
      type(temperature_type) :: temperature_inst
      integer :: num_snowc
-     integer, allocatable :: filter_snowc(:)
+     integer, allocatable :: filter_snowc(:)  ! [1:num_snowc]
    contains
      procedure :: setUp
      procedure :: tearDown
@@ -197,9 +197,9 @@ contains
     ! -4..-1 and stops there: every slot above the moss is emptied and slot 0 keeps what
     ! it came in with, along with zi(c,-1), the interface at its top.
     !
-    ! This is the case stock bounds get wrong. With j < snl+1 the range would run through
-    ! slot 0, so the moss thickness, depth, temperature and water would all be set to
-    ! zero on any NVP column that happened to be bare.
+    ! This is the case the pre-NVP bound gets wrong. With j < snl+1 the range would run
+    ! through slot 0, so the moss thickness, depth, temperature and water would all be
+    ! set to zero on any NVP column that happened to be bare.
     class(TestZeroEmpty), intent(inout) :: this
     ! A bare column: no snow layers at all.
     integer, parameter :: snl = 0

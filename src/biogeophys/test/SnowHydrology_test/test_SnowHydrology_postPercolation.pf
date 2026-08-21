@@ -108,7 +108,7 @@ contains
     integer, parameter :: jbot = -1
     integer, parameter :: j_moss = 0
     integer :: num_snowc
-    integer, allocatable :: filter_snowc(:)
+    integer, allocatable :: filter_snowc(:)  ! [1:num_snowc]
     real(r8) :: h2osoi_ice(1,-my_nlevsno+1:0)
     real(r8) :: h2osoi_liq(1,-my_nlevsno+1:0)
     real(r8) :: dz(1,-my_nlevsno+1:0)
@@ -155,7 +155,7 @@ contains
     integer, parameter :: jtop = snl + 1
     integer, parameter :: jbot = 0
     integer :: num_snowc
-    integer, allocatable :: filter_snowc(:)
+    integer, allocatable :: filter_snowc(:)  ! [1:num_snowc]
     real(r8) :: h2osoi_ice(1,-my_nlevsno+1:0)
     real(r8) :: h2osoi_liq(1,-my_nlevsno+1:0)
     real(r8) :: dz(1,-my_nlevsno+1:0)
