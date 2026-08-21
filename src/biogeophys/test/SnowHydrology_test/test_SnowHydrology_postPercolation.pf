@@ -112,6 +112,11 @@ contains
     real(r8) :: h2osoi_ice(1,-my_nlevsno+1:0)
     real(r8) :: h2osoi_liq(1,-my_nlevsno+1:0)
     real(r8) :: dz(1,-my_nlevsno+1:0)
+    ! The moss slot's thickness as this test's setup left it, read back out of the array
+    ! instead of being restated as a literal below. The invariant being pinned is that a
+    ! slot outside the pack keeps the thickness it came in with, not that the thickness
+    ! is any particular number, so the assertion has to follow whatever setup wrote.
+    real(r8) :: dz_moss_before
 
     call setup_single_veg_patch(pft_type = 1)
     call filter_from_range(bounds%begc, bounds%endc, num_snowc, filter_snowc)
@@ -123,6 +128,7 @@ contains
     h2osoi_ice(:,:) = 0._r8
     dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
     h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
+    dz_moss_before = dz(1,j_moss)
 
     call PostPercolation_AdjustLayerThicknesses(bounds, num_snowc, filter_snowc, &
          col%snl(bounds%begc:bounds%endc), h2osoi_ice, h2osoi_liq, dz)
@@ -131,7 +137,7 @@ contains
     @assertEqual(liq_over/denh2o, dz(1,jtop), tolerance=tol)
     @assertEqual(dz_thick, dz(1,jtop+1), tolerance=tol)
     @assertEqual(liq_over/denh2o, dz(1,jbot), tolerance=tol)
-    @assertEqual(dz_nvp, dz(1,j_moss), tolerance=tol)
+    @assertEqual(dz_moss_before, dz(1,j_moss), tolerance=tol)
   end subroutine postPercolation_nvp
 
   @Test

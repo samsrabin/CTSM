@@ -63,6 +63,16 @@ module test_SnowHydrology_divideSnowLayers
      type(aerosol_type) :: aerosol_inst
      integer :: num_snowc
      integer, allocatable :: filter_snowc(:)  ! [1:num_snowc]
+     ! The moss slot's geometry and the soil surface datum as setupColumn left them, read
+     ! back out of the arrays there instead of being restated as literals in
+     ! assertMossUntouched, which runs after the call and so needs somewhere to keep
+     ! them. The invariant being pinned is that DivideSnowLayers hands back whatever the
+     ! moss slot carried in, not that it carried any particular numbers, so the
+     ! assertions have to follow whatever setupColumn wrote.
+     real(r8) :: dz_moss_before
+     real(r8) :: z_moss_before
+     real(r8) :: zi_moss_top_before
+     real(r8) :: zi_soil_before
    contains
      procedure :: setUp
      procedure :: tearDown
@@ -288,6 +298,14 @@ contains
        col%zi(c,-1) = -dz_nvp
     end if
 
+    ! Captured after whichever branch above ran, and unconditionally: on a stock column
+    ! slot 0 holds whatever the throwaway InitSnowLayers left there, which no test reads,
+    ! and keeping the captures out of the branch means no component is ever undefined.
+    this%dz_moss_before = col%dz(c,0)
+    this%z_moss_before = col%z(c,0)
+    this%zi_moss_top_before = col%zi(c,-1)
+    this%zi_soil_before = col%zi(c,0)
+
     ! dz_layers is given top layer first, and the pack starts at jtop, which is snl on an
     ! NVP column and snl+1 on a stock one. So the same dz_layers describes the same
     ! layers in both cases, just one slot apart.
@@ -384,10 +402,15 @@ contains
     integer :: c
 
     c = bounds%begc
-    @assertEqual(dz_nvp, col%dz(c,0), tolerance=tol)
-    @assertEqual(-0.5_r8*dz_nvp, col%z(c,0), tolerance=tol)
-    @assertEqual(-dz_nvp, col%zi(c,-1), tolerance=tol)
-    @assertEqual(0._r8, col%zi(c,0), tolerance=tol)
+    ! One literal anchor, so that the fixture itself stays pinned. The captures follow
+    ! whatever setupColumn wrote, so without this a moss thickness that drifted away from
+    ! dz_nvp would quietly void the staging property the header describes and every
+    ! assertion below would still pass.
+    @assertEqual(dz_nvp, this%dz_moss_before, tolerance=tol)
+    @assertEqual(this%dz_moss_before, col%dz(c,0), tolerance=tol)
+    @assertEqual(this%z_moss_before, col%z(c,0), tolerance=tol)
+    @assertEqual(this%zi_moss_top_before, col%zi(c,-1), tolerance=tol)
+    @assertEqual(this%zi_soil_before, col%zi(c,0), tolerance=tol)
     call this%assertSlotUnchanged(0)
   end subroutine assertMossUntouched
 
@@ -498,8 +521,8 @@ contains
     @assertEqual(snl_after, col%snl(c))
     @assertEqual(ice_before, this%totalIce(jtop = snl_after), tolerance=tol)
     @assertEqual(liq_before, this%totalLiq(jtop = snl_after), tolerance=tol)
-    @assertEqual(dz_nvp, col%dz(c,0), tolerance=tol)
-    @assertEqual(-dz_nvp, col%zi(c,-1), tolerance=tol)
+    @assertEqual(this%dz_moss_before, col%dz(c,0), tolerance=tol)
+    @assertEqual(this%zi_moss_top_before, col%zi(c,-1), tolerance=tol)
     do j = snl_before, snl_after, -1
        @assertEqual(col%zi(c,j-1), col%zi(c,j) - col%dz(c,j), tolerance=tol)
        @assertEqual(col%z(c,j), col%zi(c,j) - 0.5_r8*col%dz(c,j), tolerance=tol)
