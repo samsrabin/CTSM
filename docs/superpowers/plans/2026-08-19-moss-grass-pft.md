@@ -678,6 +678,9 @@ print('OK')"
 
 ### Task 3: `fates_vascular` in FATES + moss identification
 
+**Status: COMPLETE (2026-08-21).** FATES `ba14851d`; CTSM pointer bump below.
+Three fix rounds; scoped re-review returned all findings addressed.
+
 **Files:**
 - Modify (FATES): `parteh/PRTParametersMod.F90` (add `vascular(:)` beside `woody`,
   ~line 121), `parteh/PRTParamsFATESMod.F90` (register/receive `fates_vascular`,
@@ -731,10 +734,10 @@ print('OK')"
     `$DIN_LOC_ROOT`. Standing caveat for later: from this task on, any hand-rolled parameter
     file lacking `fates_vascular` aborts via `JSONFindTagPos`.
   - Forward check: Tasks 6, 7, 10, 11 branch on `prt_params%vascular`.
-- [ ] **Step 1: add the parameter.** Declare `integer,allocatable :: vascular(:)` in
+- [x] **Step 1: add the parameter.** Declare `integer,allocatable :: vascular(:)` in
   `prt_params`; register `fates_vascular` with dimension `fates_pft` and receive it in
   `PRTParamsFATESMod` mirroring `fates_woody`.
-- [ ] **Step 2: consistency checks.** Where FATES validates parameters after read, add:
+- [x] **Step 2: consistency checks.** Where FATES validates parameters after read, add:
 
 ```fortran
 do ft = 1,numpft
@@ -749,19 +752,19 @@ if (hlm_use_moss == itrue .neqv. any(prt_params%vascular(1:numpft) == ifalse)) t
 end if
 ```
 
-- [ ] **Step 3: default JSON — VERIFY ONLY.** Task 2 already added `fates_vascular`
+- [x] **Step 3: default JSON — VERIFY ONLY.** Task 2 already added `fates_vascular`
   (all 1) to `parameter_files/fates_params_default.json`, because its generator could only
   override parameters the base file already had (Task 2 Step 0). Confirm it is present with
   metadata matching `fates_woody`, and that every other parameter file in
   `parameter_files/` also carries it — from this task on, the Fortran READS it, so a file
   missing it becomes fatal via `JSONFindTagPos`.
-- [ ] **Step 4: verify.** FATES functional suite reads the new parameter cleanly
+- [x] **Step 4: verify.** FATES functional suite reads the new parameter cleanly
   (`cd src/fates/testing && MPLBACKEND=Agg python run_functional_tests.py --save-figs -t allometry`,
   using the `ctsm_pylib` env — not the `fates_testing` env its `environment.yml` names, and
   do not create one; if `ctsm_pylib` cannot run it, stop and tell Sam); standing rule: ALP2
   baseline tests compare b4b
   (after resolving the testdata-JSON question from Step 0).
-- [ ] **Step 5: reviews, then commit** (FATES commit + CTSM pointer bump).
+- [x] **Step 5: reviews, then commit** (FATES commit + CTSM pointer bump).
 
 ### Task 4: Runtime fuel-class count (6 ↔ 8) and moss fuel-class indices
 
