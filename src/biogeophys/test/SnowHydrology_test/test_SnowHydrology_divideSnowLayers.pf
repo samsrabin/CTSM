@@ -393,10 +393,17 @@ contains
   subroutine assertMossUntouched(this)
     ! Assert that the moss slot came through the call intact: its geometry (thickness,
     ! node depth, and the interfaces at its top and bottom, the top one being the
-    ! snowpack base)
-    ! and every staged quantity in slot 0. Any bound that treated slot 0 as snow -- a
-    ! staging offset short by one, a write-back that ran past jbot, or an interface
-    ! recursion that stepped down to j = 0 -- fails one of these.
+    ! snowpack base) and every staged quantity in slot 0. A staging offset short by one,
+    ! or a write-back that ran past jbot, fails one of these.
+    !
+    ! What they do NOT catch is the final interface recursion running one slot too far.
+    ! Reverting that guard -- the j <= col%get_jbot_snow(c) in DivideSnowLayers' last
+    ! loop -- to the pre-NVP j <= 0 leaves all 60 unit-test binaries passing, verified by
+    ! running it. The reason is that setupColumn's moss geometry is self-consistent under
+    ! that very recursion: with zi(c,0) = 0, dz(c,0) = dz_nvp and z(c,0) = -0.5*dz_nvp, a
+    ! pass at j = 0 recomputes z(c,0) and zi(c,-1) as exactly the values already sitting
+    ! there. Catching it would need a moss node placed deliberately off its layer
+    ! midpoint, which no fixture here does; the gap is logged in Task 16 of the plan.
     class(TestDivide), intent(in) :: this
 
     integer :: c
