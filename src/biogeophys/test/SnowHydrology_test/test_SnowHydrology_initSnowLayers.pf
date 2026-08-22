@@ -216,11 +216,31 @@ contains
     ! jbot == 0 the two are identical, so only jbot == -1 can catch a
     ! swallowed moss thickness.
     !
+    ! The moss node laid down below is deliberately not the midpoint of the moss layer,
+    ! which is not where a real moss layer's node would be; see moss_node_fraction. That
+    ! is what pins the slot the interface recursion starts from: a loop that began at
+    ! slot 0 rather than at jbot would overwrite the node with the layer midpoint, which
+    ! is exactly where a physically consistent fixture would already have put it.
+    !
     ! Complementary to test_initSnowLayers_overfillPack_stock: the same snow depth and
     ! the same nlevsno, differing only in whether the moss slot is claimed.
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)  ! [begc:endc]
     real(r8), parameter :: dz_nvp = 0.02_r8
+    ! How far below the top of the moss its node sits, as a fraction of dz_nvp. A real
+    ! moss layer would put its node at the layer midpoint; this one deliberately does not,
+    ! and that is the only reason the recursion's starting slot can be tested at all. The
+    ! recursion is z(c,j) = zi(c,j) - 0.5*dz(c,j) and zi(c,j-1) = zi(c,j) - dz(c,j),
+    ! walked upward from jbot: a pass at slot 0 would overwrite the moss node with the
+    ! layer midpoint, so a node already sitting at the midpoint could not show that the
+    ! pass happened. Worse, any physically consistent moss geometry is a fixed point of
+    ! the whole recursion -- zi(c,0) = 0, dz(c,0) = dz_nvp, z(c,0) = -0.5*dz_nvp and
+    ! zi(c,-1) = -dz_nvp substituted into it reproduce themselves exactly -- so no
+    ! physical fixture could detect the guard at all, however it were asserted over. Any
+    ! fraction strictly between zero and one but not one half would do; a quarter keeps
+    ! the node inside the moss layer, where a node belongs. InitSnowLayers only ever
+    ! writes z(c,0) and never reads it, so the unphysical value feeds back into nothing.
+    real(r8), parameter :: moss_node_fraction = 0.25_r8
     integer, parameter :: my_nlevsno = 5
     ! Deep enough to fill every snow level had the moss not claimed one, which is what
     ! makes the cap the thing under test here; see overfill_depth, which derives the
@@ -260,7 +280,11 @@ contains
     ! Stand in for NVPLayerInit, which is what claims the slot in a real run
     col%jbot_sno(c) = -1
     col%dz(c,j_moss) = dz_nvp
-    col%z(c,j_moss) = -0.5_r8 * dz_nvp
+    ! Deliberately not the midpoint of the moss layer, which is what makes the slot the
+    ! recursion starts from testable: a pass at slot 0 overwrites the node with the
+    ! midpoint, and a physically consistent moss geometry -- being a fixed point of that
+    ! recursion -- could never show it. See moss_node_fraction.
+    col%z(c,j_moss) = -moss_node_fraction * dz_nvp
     col%zi(c,jbot) = -dz_nvp
     dz_moss_before = col%dz(c,j_moss)
     z_moss_before = col%z(c,j_moss)
@@ -279,7 +303,7 @@ contains
     ! the survival assertions below comparing zero to zero. zi(c,jbot) needs no anchor of
     ! its own: the pack-top assertion further down still names dz_nvp outright.
     @assertEqual(dz_nvp, dz_moss_before)
-    @assertEqual(-0.5_r8*dz_nvp, z_moss_before)
+    @assertEqual(-moss_node_fraction*dz_nvp, z_moss_before)
     ! moss geometry survived
     @assertEqual(dz_moss_before, col%dz(c,j_moss))
     @assertEqual(z_moss_before, col%z(c,j_moss))

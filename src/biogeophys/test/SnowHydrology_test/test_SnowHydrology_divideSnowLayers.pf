@@ -19,6 +19,10 @@ module test_SnowHydrology_divideSnowLayers
   ! it and works upward from it, and must never write it. That is the soil surface
   ! zi(c,0) = 0 on a stock column and the top of the moss, zi(c,-1), on an NVP one.
   !
+  ! The moss node these fixtures lay down is deliberately not the midpoint of the moss
+  ! layer, which is not what a real moss layer looks like. See moss_node_fraction: the
+  ! unphysicality is what makes the interface recursion's guard testable at all.
+  !
   ! The NVP changes are:
   ! 1. The staging map, its inverse, and the interface recursion key off jtop/jbot instead
   !    of snl+1 and 0, and
@@ -106,6 +110,24 @@ module test_SnowHydrology_divideSnowLayers
   ! which the dz assertions catch; a staged moss thickness under both thresholds would
   ! only be shuffled between slots and could go unnoticed.
   real(r8), parameter :: dz_nvp = 0.12_r8
+
+  ! How far below the top of the moss its node sits, as a fraction of dz_nvp. A real moss
+  ! layer would have its node at the midpoint; this one deliberately does not, and that is
+  ! the only reason the interface recursion's guard can be tested.
+  !
+  ! The recursion is z(c,j) = zi(c,j) - 0.5*dz(c,j) and zi(c,j-1) = zi(c,j) - dz(c,j),
+  ! walked upward from the snowpack base. A pass at slot 0 would overwrite the moss node
+  ! with the layer midpoint, so a node already sitting at the midpoint cannot show that
+  ! the pass happened. Worse, any physically consistent moss geometry is a fixed point of
+  ! the whole recursion: zi(c,0) = 0, dz(c,0) = dz_nvp, z(c,0) = -0.5*dz_nvp and
+  ! zi(c,-1) = -dz_nvp substituted into it reproduce themselves exactly, so no physical
+  ! fixture could detect the guard at all, and no assertion over one could either.
+  !
+  ! Any fraction strictly between zero and one but not one half would do; a quarter keeps
+  ! the node inside the moss layer, where a node belongs. Nothing under test reads z(c,0)
+  ! -- DivideSnowLayers and InitSnowLayers only ever write it -- so the unphysical value
+  ! cannot feed back into anything the other assertions pin.
+  real(r8), parameter :: moss_node_fraction = 0.25_r8
 
   ! One scale per staged quantity; see slot_value below for how they are used and what
   ! values they produce.
@@ -289,13 +311,19 @@ contains
     end associate
 
     ! zi(c,0) is the soil surface datum on every column. On an NVP column the moss
-    ! occupies the interval [-dz_nvp, 0], so its node sits at -dz_nvp/2 and the interface
-    ! at its top, zi(c,-1), is the snowpack base described in the header: the value the
-    ! interface recursion starts from and must leave alone.
+    ! occupies the interval [-dz_nvp, 0], and the interface at its top, zi(c,-1), is the
+    ! snowpack base described in the header: the value the interface recursion starts
+    ! from and must leave alone.
+    !
+    ! The node is deliberately not the midpoint of that interval, which is what makes the
+    ! guard on the recursion testable: a pass at slot 0 overwrites the node with the
+    ! midpoint, and a node already there could not show it. A physically consistent moss
+    ! geometry is a fixed point of the recursion, so no physical fixture could detect the
+    ! guard at all. See moss_node_fraction for the substitution that shows it.
     col%zi(c,0) = 0._r8
     if (jbot_sno == -1) then
        col%dz(c,0) = dz_nvp
-       col%z(c,0) = -0.5_r8 * dz_nvp
+       col%z(c,0) = -moss_node_fraction * dz_nvp
        col%zi(c,-1) = -dz_nvp
     end if
 
@@ -410,14 +438,14 @@ contains
     ! snowpack base) and every staged quantity in slot 0. A staging offset short by one,
     ! or a write-back that ran past jbot, fails one of these.
     !
-    ! What they do NOT catch is the final interface recursion running one slot too far.
-    ! Reverting that guard -- the j <= col%get_jbot_snow(c) in DivideSnowLayers' last
-    ! loop -- to the pre-NVP j <= 0 leaves all 60 unit-test binaries passing, verified by
-    ! running it. The reason is that setupColumn's moss geometry is self-consistent under
-    ! that very recursion: with zi(c,0) = 0, dz(c,0) = dz_nvp and z(c,0) = -0.5*dz_nvp, a
-    ! pass at j = 0 recomputes z(c,0) and zi(c,-1) as exactly the values already sitting
-    ! there. Catching it would need a moss node placed deliberately off its layer
-    ! midpoint, which no fixture here does; the gap is logged in Task 16 of the plan.
+    ! The final interface recursion running one slot too far is caught here as well, by
+    ! the node-depth assertion. Reverting that guard -- the j <= col%get_jbot_snow(c) in
+    ! DivideSnowLayers' last loop -- to the pre-NVP j <= 0 lets a pass at j = 0 rewrite
+    ! z(c,0) as the midpoint of the moss layer, and setupColumn deliberately puts the moss
+    ! node somewhere else, so the rewrite shows up as a moss node that moved. That is the
+    ! only way it can show up: had the fixture given the moss a physically consistent
+    ! geometry, it would have been a fixed point of the recursion and the extra pass would
+    ! have recomputed exactly what setup wrote. See moss_node_fraction.
     class(TestDivide), intent(in) :: this
 
     integer :: c
