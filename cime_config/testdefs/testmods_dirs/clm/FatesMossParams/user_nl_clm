@@ -1,0 +1,3 @@
+! FatesMossParams: Turn on moss but don't give moss-specific fsurdat; only fates_paramfile
+use_fates_moss = .true.
+fates_paramfile = '$SRCROOT/src/fates/parameter_files/fates_params_moss.json'

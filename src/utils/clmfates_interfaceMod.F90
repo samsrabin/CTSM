@@ -3774,7 +3774,7 @@ module CLMFatesInterfaceMod
    use FatesInterfaceTypesMod, only : nlevsclass, nlevage, nlevcoage
    use FatesInterfaceTypesMod, only : nlevheight
    use FatesInterfaceTypesMod, only : nlevdamage
-   use FatesFuelClassesMod,    only : num_fuel_classes
+   use FatesInterfaceTypesMod, only : num_fuel_classes
    use FatesLitterMod,         only : ncwd
    use EDParamsMod,            only : nlevleaf, nclmax
    use FatesInterfaceTypesMod, only : numpft_fates => numpft

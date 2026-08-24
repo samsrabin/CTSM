@@ -27,8 +27,8 @@ module histFileMod
   use FatesInterfaceTypesMod , only : nlevsclass, nlevage, nlevcoage
   use FatesInterfaceTypesMod , only : nlevheight
   use FatesInterfaceTypesMod , only : nlevdamage
+  use FatesInterfaceTypesMod , only : num_fuel_classes
   use FatesConstantsMod      , only : n_landuse_cats
-  use FatesFuelClassesMod    , only : num_fuel_classes
   use FatesLitterMod         , only : ncwd
   use PRTGenericMod          , only : num_elements_fates  => num_elements
   use FatesInterfaceTypesMod , only : numpft_fates => numpft

@@ -169,9 +169,13 @@ All in FATES `fire/` plus the biomass routing points:
 
 - **Two new fuel classes — "live moss" and "dead moss (duff)"** — growing
   `num_fuel_classes` from 6 to 8, each with its own SAV and bulk density (new entries on
-  the `fates_litterclass` dimension). Requires touching `FatesFuelClassesMod`, the
-  length-6 parameter arrays, and the fragile CWD-index aliasing in `EDPatchDynamicsMod`
-  (burnt-litter loop assumes fuel classes 1–4 are CWD 1–4).
+  the `fates_litterclass` dimension). `num_fuel_classes` becomes a runtime value read from
+  the size of the parameter file's `fates_litterclass` dimension, and the length-6
+  `SF_val_*` parameter arrays and `fuel_type` members become allocatable. Because the moss
+  classes are *appended*, indices 1–6 keep their meanings, and the fragile CWD-index
+  aliasing in `EDPatchDynamicsMod` (burnt-litter loop assumes fuel classes 1–4 are CWD 1–4)
+  needs no change — verified: every one of those loops is `do c = 1,ncwd`, so a longer fuel
+  array never reaches them.
 - **Live routing:** live biomass of moss PFTs (`vascular==0`) goes to the live-moss class
   instead of live grass (`UpdateLiveGrass` in `FatesPatchMod`).
 - **Dead routing:** FATES litter carries no PFT tag — `litter%leaf_fines` is dimensioned
@@ -298,26 +302,37 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   bit-for-bit constraint, which is scoped to a standard 6-litterclass file.
 
   Two independent mechanisms produce that abort, and it is worth knowing which does the work:
-  - **The litterclass size check** (§6, the runtime fuel-class count) is what actually stops
-    the real files. The fuel-class count is set to 6 when moss is off and 8 when it is on, and
-    every `fates_litterclass`-dimensioned array is checked against it, so the 8-class moss file
-    with moss off fails 8 ≠ 6, and the 6-class default file with moss on fails 6 ≠ 8. The error
-    names the dimension.
-  - **The `fates_vascular` biconditional** (§3) covers the case the size check cannot see: a
+  - **The litterclass agreement check** (§6, the runtime fuel-class count) is what actually
+    stops the real files. The count is read from the size of the file's own `fates_litterclass`
+    dimension, then required to be 8 when `use_fates_moss` is on and 6 when it is off — so the
+    8-class moss file with moss off fails 8 ≠ 6, and the 6-class default file with moss on
+    fails 6 ≠ 8. The error names the dimension and the mode it expected.
+  - **The `fates_vascular` biconditional** (§3) covers the case the count cannot see: a
     file whose litterclass count agrees but whose PFT content does not — e.g. a hand-built
     8-class file with `use_fates_moss = .true.` that omits the moss column. Without it, FATES
     would run "with moss" while no moss PFT exists.
 
   So the biconditional does **not**, on its own, foreclose isolating a dimension change from a
-  physics change: the size check forecloses that for any real moss parameter file regardless.
-  The only file the biconditional uniquely rejects is a 15-PFT-but-6-litterclass one, which
-  this project does not produce.
+  physics change: the agreement check forecloses that for any real moss parameter file
+  regardless. The only file the biconditional uniquely rejects is a 15-PFT-but-6-litterclass
+  one, which this project does not produce.
 
-  Timing caveat: before the fuel-class count becomes a runtime value, an 8-class file is not
-  safely fatal at all. The `SF_val_*` arrays are fixed length-6 and are filled by whole-array
-  assignment, so an 8-entry array is a non-conforming assignment — it traps in a bounds-checked
-  build and is silently wrong otherwise. Making the count runtime is what converts that into a
-  clean, explained error.
+  Two implementation notes, both non-obvious:
+  - **The agreement check cannot live in the parameter read**, where the count is established.
+    CTSM reads the FATES parameter file in `CLMFatesGlobals1` but does not pass the namelist
+    switches until `CLMFatesGlobals2`, so at read time `hlm_use_moss` is still the unset
+    sentinel. The check therefore sits in `SpitFireCheckParams`, reached after the switches
+    arrive — the same placement, for the same reason, as the §3 biconditional.
+  - **No per-array size check is needed.** The parameter reader already aborts if any 1-D
+    parameter's data length disagrees with its declared dimension, so reading the count *from*
+    that dimension makes every `SF_val_*` allocation and whole-array fill conforming by
+    construction. The mode-agreement check above is the only one this project adds.
+
+  Historical note: before the fuel-class count became a runtime value, an 8-class file was not
+  safely fatal at all. The `SF_val_*` arrays were fixed length-6 and filled by whole-array
+  assignment, so an 8-entry array was a non-conforming assignment — trapping in a
+  bounds-checked build and silently wrong otherwise. Making the count runtime is what converted
+  that into a clean, explained error.
 - **Moss height is effectively unbounded under the `grass_powerlaw` height allometry.**
   Moss inherits grass's `fates_allom_dbh_maxheight` of 20 cm, and that parameter is the
   only ceiling in that mode: `d2h_2pwr` computes `h = p1*min(d,dbh_maxh)**p2`, so moss

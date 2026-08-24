@@ -4956,5 +4956,49 @@
     </options>
   </test>
 
+  <test name="SMS_Ld5_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesALP2Bare--clm/FatesMossParams">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">Test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare ground only; as a previous test but now with moss paramfile (requires use_fates_moss true)</option>
+    </options>
+  </test>
+
+  <test name="SMS_Ld5_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesALP2BareGrass--clm/FatesMossParams">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">Test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+grass only; as a previous test but now with moss paramfile (requires use_fates_moss true)</option>
+    </options>
+  </test>
+
 
 </testlist>

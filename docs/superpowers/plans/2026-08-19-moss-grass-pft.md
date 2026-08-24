@@ -131,6 +131,20 @@ Not defects in our work; things noticed while implementing that upstream may wan
   at ~4.2 cm — but we inherit grass's 20 cm to stay aligned and to avoid asserting a TRS
   classification, which leaves moss height saturating only at ~1.23 m under `grass_powerlaw`.
   Accepted as a limitation in spec §12, with the intended fix in §11.
+- **The two `*_NoTrunks` fallback branches include trunks.** `AverageBulkDensity_NoTrunks`
+  and `AverageSAV_NoTrunks` (`fire/FatesFuelMod.F90:349,381`) exclude the trunk class in
+  their normal branch, exactly as their names promise, but their near-zero-loading fallback
+  is `sum(x(1:num_fuel_classes))/num_fuel_classes` — an unweighted mean over *every* class
+  including trunks, whose `fates_fire_FBD` is 999.0. Latent today because the branch only
+  fires on patches with essentially no fuel, where nothing downstream burns. Relevant to us
+  because the value moves when the class count grows: see Task 4 Step 3b.
+- **`fates_maxElementsPerPatch` does not account for the fuel-class count.**
+  `main/FatesInterfaceMod.F90:945` takes a `max()` over the cohort and CWD-by-soil-layer
+  terms but omits both `num_fuel_classes` and `numpft`, even though the patch-level restart
+  variable `fates_litter_moisture_pa_nfsc` packs `num_fuel_classes` values into that utility
+  dimension (`main/FatesRestartInterfaceMod.F90:2828-2832,3872-3876`). It fits only because
+  `ncwd*hlm_maxlevsoil` dominates. True at 6 and still true at 8, so this is a documentation
+  gap rather than a bug — but the assumption is unstated and would break silently.
 
 ## Global Constraints
 
@@ -553,12 +567,13 @@ readable by the model until Task 4, so there is no test to run for it — see In
   `fates_fire_SAV`, `fates_fire_FBD`, `fates_fire_min_moisture`, `fates_fire_mid_moisture`,
   `fates_fire_low_moisture_Coeff/Slope`, `fates_fire_mid_moisture_Coeff/Slope`,
   `fates_frag_maxdecomp`.
-- **This file is NOT usable by a model run until Task 4 lands.** `num_fuel_classes = 6` is
-  a compile-time `parameter` and the `SF_val_*` arrays are fixed length-6, filled by
-  `SF_val_SAV(:) = param_p%r_data_1d(:)` (`fire/SFParamsMod.F90:217`) — a non-conforming
-  array assignment for an 8-entry file, which traps in a bounds-checked build and is
-  silently wrong otherwise. So Tasks 2 and 3 must NOT point any test at it; the first
-  consumer is Task 5, after Task 4 makes the count runtime.
+- **This file was NOT usable by a model run until Task 4 landed** (resolved 2026-08-24).
+  Before that, `num_fuel_classes = 6` was a compile-time `parameter` and the `SF_val_*`
+  arrays were fixed length-6, filled by `SF_val_SAV(:) = param_p%r_data_1d(:)` — a
+  non-conforming array assignment for an 8-entry file, which traps in a bounds-checked build
+  and is silently wrong otherwise. So Tasks 2 and 3 pointed no test at it. Its first consumer
+  is Task 4's own Step 3b, not Task 5 as originally planned: making the count runtime is what
+  makes the file readable, so the earliest CLM-level test of it belongs in that same task.
 
 - [x] **Step 0 (orchestrator) — COMPLETE (2026-08-20).** Inspected
   `8382939b9:parameter_files/fates_params_default_moss.json`, its
@@ -766,71 +781,161 @@ end if
   (after resolving the testdata-JSON question from Step 0).
 - [x] **Step 5: reviews, then commit** (FATES commit + CTSM pointer bump).
 
-### Task 4: Runtime fuel-class count (6 ↔ 8) and moss fuel-class indices
+### Task 4: Runtime fuel-class count (6 ↔ 8)
+
+**Status: COMPLETE (2026-08-24).** FATES `21ae02ab`; CTSM pointer bump in `eb3e4131f`.
+Two review rounds (code + spec); the as-built design diverges from this plan's original
+Steps 1–3 in ways recorded inline below, because the planned mechanism turned out to be
+impossible. **Verification runs are deferred to Task 5** — see Step 4. The moss fuel-class
+indices moved to Task 6.
+
+The moss fuel-class indices and their accessors moved to Task 6 (Sam's call, 2026-08-24).
+Nothing this task lands names class 7 or 8: every consumer of the fuel-class dimension
+either loops `1..num_fuel_classes` (history `FatesHistoryInterfaceMod.F90:4224,4902`,
+restart `FatesRestartInterfaceMod.F90:2829,3873`, the history dim maps
+`FatesInterfaceMod.F90:1299,1444`, and all the arithmetic in `FatesFuelMod`) or names a
+class ≤ 6 (`trunks`, `dead_leaves` at `EDPatchDynamicsMod.F90:2086` and
+`EDPhysiologyMod.F90:3298,3302`, `live_grass` at `EDPatchDynamicsMod.F90:1102`). In this
+task the accessors would be dead code with an unexercised guard; they land in Task 6 with
+their first consumer.
 
 **Files:**
-- Modify (FATES): `fire/FatesFuelClassesMod.F90` (parameter → runtime), `fire/FatesFuelMod.F90`
-  (fuel type arrays → allocatable), `fire/SFParamsMod.F90` (arrays → allocatable +
-  size checks), `main/FatesInterfaceMod.F90` (set count from `hlm_use_moss`),
-  `main/FatesHistoryInterfaceMod.F90` + `main/FatesRestartInterfaceMod.F90` (confirm
-  fuel-class dims pick up the runtime value)
-- Modify (FATES): `testing/tests/functional/fire/fuel/FatesTestFuel.F90` if it assumes 6
+- Modify (FATES): `fire/FatesFuelClassesMod.F90` (drop the compile-time `parameter`),
+  `main/FatesInterfaceTypesMod.F90` (declare `num_fuel_classes`), `fire/FatesFuelMod.F90`
+  (fuel type arrays → allocatable, plus a `Deallocate` method), `fire/SFParamsMod.F90`
+  (`SF_val_*` → allocatable; set the count from the paramfile dimension; moss/count
+  agreement check)
+- Modify (FATES, `use`-swaps only): `fire/SFMainMod.F90`,
+  `main/FatesHistoryInterfaceMod.F90`, `main/FatesRestartInterfaceMod.F90`,
+  `main/FatesInterfaceMod.F90`
+- Modify (FATES tests): `testing/tests/functional/fire/fuel/FatesTestFuel.F90`,
+  `testing/tests/functional/fire/shr/FatesTestFireMod.F90`,
+  `testing/tests/fortran_shr/FatesUnitTestParamReaderMod.F90`,
+  `testing/tests/unit/fire_fuel_test/test_FireFuel.pf`
+- Modify (CTSM, `use`-swaps only): `src/main/histFileMod.F90` (which defines
+  `fates_levfuel` from this symbol), `src/utils/clmfates_interfaceMod.F90`
 - Create (CTSM): a testmod that turns moss on and points `fates_paramfile` at the in-repo
-  moss JSON (provisional name `FatesMossParamfile`; confirm at Step 0)
+  moss JSON (provisional name `FatesMossParamfile`; confirm at Step 3b)
 - Modify (CTSM): `cime_config/testdefs/testlist_clm.xml` (one short test, see Step 3b)
 
 **Interfaces:**
 - Consumes: `hlm_use_moss` (Task 1); 8-entry parameter file (Task 2).
-- Produces: `num_fuel_classes` as a protected module **variable** (6 default, 8 when
-  moss on) set via new `SetNumFuelClasses(n)`; new accessors
-  `fuel_classes%live_moss()` → 7 and `fuel_classes%dead_moss()` → 8 (valid only when
-  count is 8); `fuel_type` arrays (`loading`, `frac_loading`, `frac_burnt`,
-  `effective_moisture`) allocatable, allocated to `num_fuel_classes` in `Init`. Tasks
-  6, 7, 9 depend on these names.
+- Produces: `num_fuel_classes` as a plain public module **variable** in
+  `main/FatesInterfaceTypesMod.F90`, read from the size of the parameter file's
+  `fates_litterclass` dimension. Deliberately **not** `protected`, and with **no**
+  initializer — it matches its siblings `numpft`/`nlevage`/`nlevcoage`/`nlevdamage`, which
+  are declared the same way and set from the parameter file in the same phase (Sam's call,
+  2026-08-24). There is no `SetNumFuelClasses`.
+- Produces: `fuel_type` arrays (`loading`, `frac_loading`, `frac_burnt`,
+  `effective_moisture`) allocatable, allocated to `num_fuel_classes` in `Init` and freed by
+  a new `Deallocate` method. Tasks 6, 7, 9 depend on these names.
+- Produces: the moss/count agreement abort, in `SpitFireCheckParams` — see Step 2 for why
+  it cannot live in the parameter read.
 
-- [ ] **Step 0 (orchestrator):** Enumerate every use of `num_fuel_classes`
-  (`grep -rn num_fuel_classes src/fates --include=*.F90`) — known: SFMainMod,
-  SFParamsMod, FatesFuelClassesMod, FatesFuelMod, FatesRestartInterfaceMod,
-  FatesInterfaceMod, FatesHistoryInterfaceMod, EDTypesMod(?), functional fire tests.
-  Confirm each compiles with a runtime variable (static declarations like
-  `real(r8) :: x(num_fuel_classes)` in type definitions MUST become allocatable;
-  local automatic arrays inside subroutines may stay). Confirm restart/history register
-  their fuel-class dimension from this symbol at runtime. Verify the CWD-index
-  aliasing in `EDPatchDynamicsMod` (burnt-litter loop assumes fuel classes 1–4 are
-  CWD 1–4) survives appending classes 7–8 (it should — indices 1–6 are unchanged).
-  Also settle the Step 3b testmod mechanics: whether a CTSM-root-relative `fates_paramfile`
-  in `user_nl_clm` resolves (it is `input_pathname="landroot"`), or whether the
-  `FatesColdPRT2` `shell_commands`/`xmlquery SRCROOT` pattern is required. The answer also
-  settles the same open question for Task 5. Confirm the provisional testmod name with Sam if
-  it matters to him; the NVP branch has no equivalent to copy.
-  Forward check: Task 6 writes `loading(fuel_classes%live_moss())`; Task 9 writes
-  `moisture(fuel_classes%live_moss())` and `(dead_moss)`.
-- [ ] **Step 1: FatesFuelClassesMod.** Change to
-  `integer, protected, public :: num_fuel_classes = 6`, add
-  `subroutine SetNumFuelClasses(n)` (sets 6 or 8; `endrun` otherwise), add private
-  indices `live_moss_i = 7`, `dead_moss_i = 8` with public accessor functions
-  `live_moss()`/`dead_moss()` that `endrun` if `num_fuel_classes < 8`.
-- [ ] **Step 2: call site.** In `FatesInterfaceMod`, immediately after ctrlparms are
-  verified (before parameter read): `call SetNumFuelClasses(6 + 2*hlm_use_moss)`.
-- [ ] **Step 3: allocatable conversions.** `fuel_type` members and `SFParamsMod`
-  `SF_val_*` arrays become allocatable; allocate in `fuel_type%Init` and
-  `SpitFireParamsInit` respectively. In `TransferParamsSpitFire`, after receiving each
-  litterclass array, check `size(param_p%r_data_1d) == num_fuel_classes`; on mismatch,
-  `endrun` with: "fates_litterclass dimension must be 8 when use_fates_moss is on, 6
-  otherwise".
-- [ ] **Step 3b: first CLM-level test of the 8-class parameter file.** This task is where
+- [x] **Step 0 (orchestrator) — COMPLETE (2026-08-24).** Enumerated every use of
+  `num_fuel_classes`. Findings:
+  - **No type-definition component was missed.** After Step 3 the only remaining
+    `num_fuel_classes`-dimensioned declarations are dummy arguments and local automatic
+    arrays (`fire/SFMainMod.F90:370`; `fire/FatesFuelMod.F90:202,206,207,253,256,335,367,400`),
+    all legal specification expressions over a use-associated module variable.
+  - **Restart and history do register the dimension from this symbol at runtime**
+    (`main/FatesInterfaceMod.F90:1245,1268-1269,1299,1444`;
+    `main/FatesRestartInterfaceMod.F90:2829,3873`; `main/FatesHistoryInterfaceMod.F90:4224,4902`),
+    reaching CTSM as `fates_levfuel` via `src/main/histFileMod.F90:2567`.
+  - **The CWD-index aliasing needs no change**, as predicted: every burnt-litter loop in
+    `EDPatchDynamicsMod` is `do c = 1,ncwd` (4), so a longer fuel array never reaches them.
+  - The Step 3b testmod-mechanics question is **not** settled; it moved into Step 3b itself,
+    which is where it is needed.
+- [x] **Step 1: declare the count. COMPLETE.** `fire/FatesFuelClassesMod.F90` loses
+  `integer, parameter, public :: num_fuel_classes = 6`; the symbol is redeclared as
+  `integer, public :: num_fuel_classes` in `main/FatesInterfaceTypesMod.F90`, beside the
+  other parameter-file-derived runtime dimensions. No `protected`, no initializer, no
+  `SetNumFuelClasses` — see Interfaces. The moss indices and their accessors moved to
+  Task 6.
+- [x] **Step 2: set the count. COMPLETE, and not where this plan said.** The planned call
+  site — "in `FatesInterfaceMod`, immediately after ctrlparms are verified (before parameter
+  read)" — **does not exist.** CTSM verifies ctrlparms in `CLMFatesGlobals2`
+  (`clmfates_interfaceMod.F90:673` passes `use_moss`, `:693` `check_allset`) but reads the
+  parameter file in `CLMFatesGlobals1` (`:390` → `SetFatesGlobalElements1`), an earlier call
+  from `clm_initializeMod.F90:109` vs `:274`. So at parameter-read time `hlm_use_moss` is
+  still the `-999` unset sentinel (`main/FatesInterfaceMod.F90:1577`), and the count cannot
+  be derived from it. Instead:
+  - The count is read from the file itself, in `SpitFireParamsInit`:
+    `num_fuel_classes = pstruct%GetDimSizeFromName('fates_litterclass')`. This is strictly
+    better than the planned form, because it makes every `SF_val_x(:) = param_p%r_data_1d(:)`
+    assignment conforming *by construction* rather than checking after the fact.
+  - The moss/count **agreement** check moved to `SpitFireCheckParams`, reached from
+    `FatesCheckParameters` in `SetFatesGlobalElements2`, whose own comment states the
+    rationale: "performed after the parameter AND after all namelist settings because they
+    are cross referenced." Both operands are valid there, and it is master-only, like every
+    other check in that routine. This is the same placement Task 3 used for the
+    `fates_vascular` biconditional, for the same reason.
+- [x] **Step 3: allocatable conversions. COMPLETE.** `fuel_type` members and the nine
+  `SFParamsMod` `SF_val_*` litterclass arrays became allocatable, allocated in
+  `fuel_type%Init` and `SpitFireParamsInit` respectively. `SF_val_CWD_frac` correctly stays
+  fixed at `ncwd` — its JSON dimension is `fates_NCWD`, not `fates_litterclass`.
+  - **No per-array size check was added**, contrary to the original Step 3 text. It would be
+    redundant: `main/JSONParameterUtilsMod.F90:678-687` already aborts if any 1-D parameter's
+    data length disagrees with its declared dimension. The only check worth having is the
+    moss-switch/count agreement one, which is why it is the only one, and why it can safely
+    be late (Step 2).
+  - Making the arrays allocatable broke two test drivers that had relied on the members
+    being static, both fixed here: `FatesTestFuel.F90` never called `fuel%Init()` at all
+    (and allocated its own `num_fuel_classes`-sized arrays before `ReadParameters`, so they
+    were size 0); `test_FireFuel.pf` gained a `num_fuel_classes` assignment in `setUp` plus a
+    `tearDown` calling the new `fuel_type%Deallocate`. The hard-coded 6 in the pFUnit test is
+    deliberate: the count is now an *input* to the unit under test, and no unit test has a
+    parameter file to read (`testing/framework/unit_test.py` runs them under `ctest` with no
+    arguments).
+- [x] **Step 3b: first CLM-level test of the 8-class parameter file. COMPLETE (2026-08-24).**
+  Testmod `FatesMossParams` sets both `use_fates_moss = .true.` and `fates_paramfile`, and two
+  `SMS_Ld5_D_Mmpi-serial` tests at `1x1_ALP2`/`I2000Clm60FatesSpRsGs` compose it with
+  `FatesColdSatPhen` and `FatesALP2Bare`/`FatesALP2BareGrass`. A case built from it completes
+  successfully; the formal suite runs are Task 5's (Step 4).
+  **The switch is not optional in this testmod**, and a first pass omitted it: with the 8-class
+  file and `use_fates_moss` at its `.false.` default, the run aborts twice over — on this
+  task's own agreement check (8 ≠ 6) and on Task 3's `fates_vascular` biconditional. The switch
+  and the moss paramfile must always travel together, which is why they live in one testmod
+  rather than two composable ones. This task is where
   the moss JSON becomes readable at all, so it is the earliest point a CLM test can use it —
   Task 5 is merely where the plan had concentrated the testlist work. Add one now, because
   this task's highest risk is an accidental history or restart shape change from making the
   fuel-class count runtime, and no FATES functional test can see CLM's history/restart files.
   - Create a testmod setting `use_fates_moss = .true.` and pointing `fates_paramfile` at
-    `src/fates/parameter_files/fates_params_moss.json`. Two viable mechanics: `fates_paramfile`
-    is declared `input_pathname="landroot"` (`namelist_definition_ctsm.xml:1054-1055`) and its
-    default is the CTSM-root-relative `src/fates/parameter_files/fates_params_default.json`, so
-    a relative path in `user_nl_clm` may just work; the proven alternative is the
-    `shell_commands` pattern used by `FatesColdPRT2` — `xmlquery SRCROOT`, then append an
-    absolute `fates_paramfile = '...'` to `user_nl_clm`. **Step 0 must determine which form
-    works from a testmod**, since the answer also settles the same open question for Task 5.
+    `src/fates/parameter_files/fates_params_moss.json`.
+  - **`fates_paramfile` mechanics — RESOLVED (2026-08-24). A one-line `user_nl_clm` entry
+    using `$SRCROOT` works; no `shell_commands` and no inputdata copy are needed.** The
+    testmod is `FatesMossParams`, whose entire content is:
+
+    ```
+    fates_paramfile = '$SRCROOT/src/fates/parameter_files/fates_params_moss.json'
+    ```
+
+    Verified by `preview_namelists`: `CaseDocs/lnd_in` carries the fully expanded path. Why
+    this works, and the two traps it avoids:
+    - **XML variables are expanded in `user_nl_clm`.** `read_envxml_case_files`
+      (`bld/CLMBuildNamelist.pm:494-520`) builds an id→value hash from every `env_*xml` in the
+      case, and `process_namelist_infile` runs `expand_xml_variables_in_namelist` over every
+      user_nl value (`:1533`). `SRCROOT` is an entry in `env_case.xml`, so it resolves. This is
+      the same mechanism the `$DIN_LOC_ROOT` paths in `FatesALP2Bare`/`FatesALP2BareGrass` use.
+    - **A bare CTSM-root-relative path would NOT have worked**, even though that is exactly the
+      form in `namelist_defaults_ctsm.xml:617`. The `landroot` relative→absolute conversion
+      (`:5582-5584`) sits inside `add_default`'s `if (! defined $val)` guard (`:5537`), and
+      user_nl is merged into the namelist object at `:627`, long before the FATES block at
+      `:4883`. So for a user-supplied value `add_default` returns immediately and never
+      absolutizes; the path would reach `lnd_in` verbatim and be opened relative to the run
+      directory. The relative form works only as a *default*, never as an override.
+    - **Nothing involves inputdata.** `check_input_files` writes only `abs`- and `rel:`-typed
+      variables into `ctsm.input_data_list` (`:5668,5684`); `landroot` falls through both
+      branches, so `fates_paramfile` never enters that list and `check_input_data` never looks
+      for it. Note the flip side: unlike the `abs` branch there is no existence test at
+      build-namelist time, so a mistyped path fails at model init, not at case setup.
+    - The `shell_commands` + `xmlquery SRCROOT` pattern (`FatesColdSeedDisp`, `FatesColdPRT2`)
+      remains the fallback, but those testmods need it only because they *generate* a modified
+      paramfile with `modify_fates_paramfile.py` — which is also why they pull in
+      `FatesSetupParamBuild`, a conda/`ctsm_pylib`/`ncgen` availability checker. Our moss JSON
+      is committed, so none of that applies. **This also settles the same open question for
+      Task 5.**
   - Compose it with an existing ALP2 fsurdat testmod and add one short test (`SMS_Ld5_D`,
     mpi-serial if the grid allows). Expected outcome: PASS.
   - **This needs no new surface dataset, and that is the point.** Our parameter file puts moss
@@ -845,14 +950,35 @@ end if
     moss science**, because there is no moss area. It also carries no baseline — CIME keys
     baselines by full test name including testmods, so this is a new name and a PASS/FAIL
     test only; the b4b instrument remains the Task 0 tests.
-- [ ] **Step 4: verify.** (a) FATES fuel functional test with a standard 6-class file
+  - **One thing does change numerically at 8 classes even with zero moss area**, and this
+    test can reach it: the near-zero-loading fallback branches in `AverageBulkDensity_NoTrunks`
+    and `AverageSAV_NoTrunks` (`fire/FatesFuelMod.F90:349,381`) take an unweighted mean over
+    *all* classes and divide by `num_fuel_classes`, so they now include the two moss entries.
+    Reached only on patches with essentially no fuel, where there is no fire to be affected —
+    but do not be surprised by it, and see the upstream-observations note on those two lines.
+- [x] **Step 4: verify — RUNS DEFERRED TO TASK 5 (Sam's call, 2026-08-24).** Closed as a
+  Task 4 obligation by transferring the runs into Task 5's test sweep rather than by having
+  run them; the list below is what Task 5 must therefore check. The code and tests are in
+  place; only their execution moves.
+  (a) FATES fuel functional test with a standard 6-class file
   (`MPLBACKEND=Agg python run_functional_tests.py --save-figs -t fuel`) — identical results to
-  pre-change; (b) with
-  the Task 2 moss file → clean abort unless the test driver sets `hlm_use_moss` (set
-  it where the harness sets ctrlparms); (c) standing rule: ALP2 baseline tests compare
-  b4b (this task is the highest-risk one for accidental shape changes — check history
-  and restart dimensions in the baseline-compare output explicitly).
-- [ ] **Step 5: reviews, then commit.**
+  pre-change; (b) the FATES unit tests, which is where the `hlm_use_moss` integer-as-logical
+  slip found in review would have surfaced (gfortran rejects it, Intel accepts it as a DEC
+  extension, so an Intel-only build proves nothing here); (c) the two Step 3b tests;
+  (d) standing rule: ALP2 baseline
+  tests compare b4b (this task is the highest-risk one for accidental shape changes — check
+  history and restart dimensions in the baseline-compare output explicitly).
+  - Note what is **not** verifiable from the FATES harness: the moss/count agreement abort.
+    It lives in `SpitFireCheckParams`, whose only caller is `FatesCheckParameters`
+    (`main/FatesInterfaceMod.F90:2812`), which no test driver reaches. So pointing the fuel
+    functional test at the 8-class moss file does not abort — it runs with 8 classes. That is
+    fine, and deliberate: it means the harness no longer reads `hlm_use_moss` at all, so no
+    test driver has to fake ctrlparms. The abort is CLM-level behaviour, and Step 3b is what
+    exercises it.
+- [x] **Step 5: reviews, then commit. COMPLETE (2026-08-24).** Code review and spec review
+  both run; all findings either fixed or explicitly declined (the bare `num_fuel_classes`
+  declaration and the unguarded `SF_val_*` allocates, both left to match FATES convention).
+  FATES commit + CTSM pointer bump in `eb3e4131f`.
 
 ### Task 5: First moss run — moss testmods and system tests
 
@@ -876,6 +1002,12 @@ end if
   empty; no moss physiology yet) — the tests prove the configuration runs, restarts
   exactly, and conserves. `FatesNvp`'s `user_nl_clm` is also where Tasks 6–10 add
   their new history variables as outputs.
+- **Also inherits Task 4's Step 4 verification runs** (Sam's call, 2026-08-24): the FATES fuel
+  functional test, the FATES unit tests, the two `FatesMossParams` tests added in Task 4
+  Step 3b, and the ALP2 baseline b4b compare. Task 4 landed the code and the tests but ran
+  neither, so Task 5's sweep is the first execution of any of it — including the first check
+  that the runtime fuel-class count did not change history or restart shapes, which Task 4
+  flagged as its highest risk.
 
 NVP-branch source material (adapt, keeping the testmod names): `FatesNvp` (sets
 `use_nvp=.true.`, `use_nvp_undersnow`, `nvp_rad_model_ground`, `use_bedrock=.true.`),
@@ -948,9 +1080,11 @@ Two observations about the existing fsurdats, recorded but NOT acted on:
 - [ ] **Step 5: reviews, then commit.** Sam's post-commit review optionally runs the
   hand-off.
 
-### Task 6: Live-moss fuel routing, cohort burn keying, and live-moss history
+### Task 6: Moss fuel-class indices, live-moss fuel routing, cohort burn keying, and live-moss history
 
 **Files:**
+- Modify (FATES): `fire/FatesFuelClassesMod.F90` (the moss indices and accessors, moved
+  here from Task 4 on 2026-08-24 — see that task's preamble)
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (`UpdateLiveGrass`, ~lines 814–842;
   add `livemoss` patch member beside `livegrass`)
 - Modify (FATES): `fire/SFMainMod.F90` (`UpdateFuelCharacteristics`, ~lines 164–186)
@@ -961,7 +1095,12 @@ Two observations about the existing fsurdats, recorded but NOT acted on:
   history variable to the output list)
 
 **Interfaces:**
-- Consumes: `prt_params%vascular` (Task 3), `fuel_classes%live_moss()` (Task 4).
+- Consumes: `prt_params%vascular` (Task 3), `num_fuel_classes` as a runtime value (Task 4).
+- Produces: `fuel_classes%live_moss()` → 7 and `fuel_classes%dead_moss()` → 8, from private
+  indices `live_moss_i = 7`/`dead_moss_i = 8`, both accessors `endrun`ing if
+  `num_fuel_classes < 8`. Tasks 7 and 9 consume `dead_moss()` from here, not from Task 4.
+  The guard is exercised for the first time by this task, which is why the accessors live
+  here rather than in Task 4.
 - Produces: `currentPatch%livemoss` (r8, kgC m-2), filled alongside `livegrass`;
   `loading(fuel_classes%live_moss()) = currentPatch%livemoss`; history variable
   `FATES_LIVEMOSS_FUEL` (site-level kgC m-2, registered only when `hlm_use_moss` —
@@ -973,6 +1112,11 @@ Two observations about the existing fsurdats, recorded but NOT acted on:
   precedent in `FatesHistoryInterfaceMod` (e.g., hydro-only variables) for the history
   step. Forward check: Task 7 must NOT double-count moss in `livegrass`; the history
   pattern here is reused by Tasks 7, 8, 10.
+- [ ] **Step 0b: moss fuel-class indices.** In `fire/FatesFuelClassesMod.F90`, add private
+  indices `live_moss_i = 7` and `dead_moss_i = 8` with public accessor functions
+  `live_moss()`/`dead_moss()` that `endrun` if `num_fuel_classes < 8`. Also fix that module's
+  header comment, which still says "There are six fuel classes". Do this first — Steps 2 and 3
+  below both call the accessors.
 - [ ] **Step 1: split live pools.** In `UpdateLiveGrass`, for non-woody cohorts branch
   on `prt_params%vascular(pft)`:
 
@@ -1021,7 +1165,7 @@ end if
   history variable to the output list)
 
 **Interfaces:**
-- Consumes: `prt_params%vascular` (Task 3), `fuel_classes%dead_moss()` (Task 4).
+- Consumes: `prt_params%vascular` (Task 3), `fuel_classes%dead_moss()` (Task 6).
 - Produces: on `litter_type`: `moss_fines(ndcmpy)`, `moss_fines_in(ndcmpy)`,
   `moss_fines_frag(ndcmpy)` (all r8, kg m-2 and kg m-2 day-1), behaving exactly as the
   `leaf_fines` triplet; `loading(dead_moss)` populated; history `FATES_MOSS_FINES`
@@ -1120,7 +1264,7 @@ end if
 
 **Interfaces:**
 - Consumes: `currentPatch%fwet_moss` (Task 8), `fuel_classes%live_moss()/dead_moss()`
-  (Task 4), `hlm_moss_fuel_moisture_live_intercept/slope`, `hlm_moss_fuel_moisture_dead_intercept/slope`, `hlm_moss_max_burn_frac`
+  (Task 6), `hlm_moss_fuel_moisture_live_intercept/slope`, `hlm_moss_fuel_moisture_dead_intercept/slope`, `hlm_moss_max_burn_frac`
   (Task 1).
 - Produces: `fuel%moisture(live_moss) = hlm_moss_fuel_moisture_live_intercept + hlm_moss_fuel_moisture_live_slope*fwet`
   (floored at 0); analogous for `dead_moss`. Effective moisture and `frac_burnt` for
