@@ -40,10 +40,10 @@ Index 12 of ..._moss.nc, which is the hand-tuned moss canopy:
 
   MONTHLY_LAI 2.0   MONTHLY_SAI 0.5   MONTHLY_HEIGHT_TOP 0.0338 m   MONTHLY_HEIGHT_BOT 1e-06 m
 
-Both outputs get exactly this column at index 4, which is why `--fin-moss` is required
-even when only `--fout-grassmoss` is requested. For the grassmoss file, three of the four
-variables already match it, so the report should show exactly one correction --
-MONTHLY_HEIGHT_BOT. That is the built-in check that nothing else drifted.
+Both outputs get exactly this column at index 4, which is why the moss-only file is an input
+to the grassmoss build too. For the grassmoss file, three of the four variables already match
+it, so the report should show exactly one correction -- MONTHLY_HEIGHT_BOT. That is the
+built-in check that nothing else drifted.
 
 What moves, and why the canopy columns matter
 ---------------------------------------------
@@ -67,28 +67,44 @@ index 12 is untouched entirely -- it is real arctic grass with real area.
 
 Usage
 -----
-Run in the ctsm_pylib conda env; uses only netCDF4, numpy, and the stdlib.
+Run in the ctsm_pylib conda env; uses only netCDF4, numpy, and the stdlib. Every path is
+defaulted, so from the directory you want the outputs in:
 
-  MOSSDIR=$DIN_LOC_ROOT/lnd/clm2/testdata/moss/fsurdat
-  /glade/work/samrabin/conda-envs/ctsm_pylib/bin/python3 make_moss_pft4_fsurdat.py \
-      --fin-moss       $MOSSDIR/surfdata_ALP2_hist_2000_16pfts_c260427_moss.nc \
-      --fin-grassmoss  $MOSSDIR/surfdata_ALP2_hist_2000_16pfts_c260427_grassmoss.nc \
-      --fout-moss      <somewhere you choose>/surfdata_ALP2_hist_2000_16pfts_<cYYMMDD>_mossPft4.nc \
-      --fout-grassmoss <somewhere you choose>/surfdata_ALP2_hist_2000_16pfts_<cYYMMDD>_grassmossPft4.nc
+  /glade/work/samrabin/conda-envs/ctsm_pylib/bin/python3 make_moss_pft4_fsurdat.py
 
-Either --fout may be omitted to build only the other one; at least one is required.
---fin-moss is always required (it supplies the authoritative moss column).
-No --fout is ever defaulted: the output names, their datestamps, and where the files finally
-land are yours to choose. The script refuses to overwrite an existing output unless
---overwrite is given, and it writes wherever you point it -- it does not know or care about
-$DIN_LOC_ROOT. Inputs are only ever opened read-only.
+That builds both files. Defaults:
+
+  --fin-moss        $INPUTDATA/lnd/clm2/testdata/moss/fsurdat/
+                        surfdata_ALP2_hist_2000_16pfts_c260427_moss.nc
+  --fin-grassmoss   (same directory) ..._c260427_grassmoss.nc
+  --fout-moss       ./<input basename, restamped, with Pft4 appended>, i.e. on 2026-08-24
+                        ./surfdata_ALP2_hist_2000_16pfts_c260824_mossPft4.nc
+  --fout-grassmoss  ./surfdata_ALP2_hist_2000_16pfts_c260824_grassmossPft4.nc
+
+The default output names mint a **fresh** `cYYMMDD` creation stamp from today's date,
+replacing the source file's, per CTSM convention for a newly created dataset. So the default
+names change from day to day -- if you need a fixed name, pass --fout-moss /
+--fout-grassmoss explicitly.
+
+$INPUTDATA is used for the inputs, falling back to $DIN_LOC_ROOT; if neither is set, pass
+the --fin paths explicitly. Outputs default to the directory you invoked the script from,
+never to the input directory -- the script never writes near $INPUTDATA unless you point it
+there. Inputs are only ever opened read-only.
+
+Both outputs are always built. The script refuses to overwrite an existing output unless
+--overwrite is given.
 
 Add --dry-run to print the before/after tables without writing anything.
+
+The exact command you invoked, interpreter included, is recorded in each output's `history`
+attribute alongside a description of what was changed.
 """
 
 import argparse
 import datetime
 import os
+import re
+import shlex
 import shutil
 import sys
 
@@ -102,13 +118,60 @@ AREA_VAR = "PCT_NAT_PFT"
 CANOPY_VARS = ["MONTHLY_LAI", "MONTHLY_SAI", "MONTHLY_HEIGHT_TOP", "MONTHLY_HEIGHT_BOT"]
 ALL_VARS = [AREA_VAR] + CANOPY_VARS
 
+# Where the NVP-branch ALP2 moss fsurdats live under $INPUTDATA, and their names.
+MOSS_TESTDATA_SUBDIR = "lnd/clm2/testdata/moss/fsurdat"
+DEFAULT_MOSS_NAME = "surfdata_ALP2_hist_2000_16pfts_c260427_moss.nc"
+DEFAULT_GRASSMOSS_NAME = "surfdata_ALP2_hist_2000_16pfts_c260427_grassmoss.nc"
+
+
+class FsurdatContentError(ValueError):
+    """An input fsurdat is not shaped the way this script requires."""
+
+
+def inputdata_root():
+    """$INPUTDATA, falling back to $DIN_LOC_ROOT. None if neither is set."""
+    for var in ("INPUTDATA", "DIN_LOC_ROOT"):
+        value = os.environ.get(var)
+        if value:
+            return value
+    return None
+
+
+def default_fin(name):
+    """Default input path, or None if we cannot locate the inputdata root."""
+    root = inputdata_root()
+    return None if root is None else os.path.join(root, MOSS_TESTDATA_SUBDIR, name)
+
+
+def default_fout(fin):
+    """Input basename, restamped with today's cYYMMDD and Pft4 appended, in the invoking dir.
+
+    CTSM convention is that a newly created dataset carries its own creation stamp, so the
+    source file's is replaced rather than inherited.
+    """
+    stem = os.path.basename(fin)
+    if stem.endswith(".nc"):
+        stem = stem[: -len(".nc")]
+    stamp = "c" + datetime.date.today().strftime("%y%m%d")
+    stem, n_replaced = re.subn(r"c\d{6}", stamp, stem, count=1)
+    if n_replaced == 0:
+        stem = f"{stem}_{stamp}"
+    return os.path.join(os.getcwd(), stem + "Pft4.nc")
+
+
+def invocation():
+    """The exact command line, interpreter included, quoted so it can be pasted back."""
+    return " ".join(shlex.quote(a) for a in [sys.executable] + sys.argv)
+
 
 def pft_axis(var):
     """Return the index of var's PFT axis. Fatal if it has none."""
     for axis, dim in enumerate(var.dimensions):
         if dim in ("natpft", "lsmpft"):
             return axis
-    sys.exit(f"ERROR: {var.name} has no natpft/lsmpft dimension: {var.dimensions}")
+    raise FsurdatContentError(
+        f"{var.name} has no natpft/lsmpft dimension: {var.dimensions}"
+    )
 
 
 def column(data, axis, idx):
@@ -126,7 +189,7 @@ def put_column(data, axis, idx, values):
 def require_vars(ds, path):
     for name in ALL_VARS:
         if name not in ds.variables:
-            sys.exit(f"ERROR: expected variable {name} not found in {path}")
+            raise FsurdatContentError(f"expected variable {name} not found in {path}")
 
 
 def area_by_index(ds):
@@ -171,7 +234,7 @@ def read_moss_column(path):
 
 def stamp_history(ds, note):
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    line = f"{stamp}: make_moss_pft4_fsurdat.py {note}"
+    line = f"{stamp}: make_moss_pft4_fsurdat.py {note}\n  command: {invocation()}"
     existing = ds.history if hasattr(ds, "history") else ""
     ds.history = (line + "\n" + existing) if existing else line
 
@@ -182,16 +245,19 @@ def check_moss_only(path):
         require_vars(ds, path)
         n_natpft = len(ds.dimensions["natpft"])
         if max(MOSS_SRC_IDX, MOSS_DST_IDX) >= n_natpft:
-            sys.exit(f"ERROR: index out of range for natpft={n_natpft} in {path}")
+            raise FsurdatContentError(
+                f"index {max(MOSS_SRC_IDX, MOSS_DST_IDX)} out of range for "
+                f"natpft={n_natpft} in {path}"
+            )
         areas = area_by_index(ds)
         if not areas[MOSS_SRC_IDX] > 0:
-            sys.exit(
-                f"ERROR: {AREA_VAR}[{MOSS_SRC_IDX}] is zero in {path} -- this does not look "
+            raise FsurdatContentError(
+                f"{AREA_VAR}[{MOSS_SRC_IDX}] is zero in {path} -- this does not look "
                 "like the moss-on-index-12 file --fin-moss expects."
             )
         if areas[MOSS_DST_IDX] > 0:
-            sys.exit(
-                f"ERROR: {AREA_VAR}[{MOSS_DST_IDX}] is nonzero (max={areas[MOSS_DST_IDX]:.4f}) "
+            raise FsurdatContentError(
+                f"{AREA_VAR}[{MOSS_DST_IDX}] is nonzero (max={areas[MOSS_DST_IDX]:.4f}) "
                 f"in {path}; moving index {MOSS_SRC_IDX} there would clobber real area. "
                 "Did you pass the grassmoss file to --fin-moss?"
             )
@@ -205,14 +271,14 @@ def check_grassmoss(path, moss_col):
         require_vars(ds, path)
         areas = area_by_index(ds)
         if not areas[MOSS_DST_IDX] > 0:
-            sys.exit(
-                f"ERROR: {AREA_VAR}[{MOSS_DST_IDX}] is zero in {path} -- --fin-grassmoss "
+            raise FsurdatContentError(
+                f"{AREA_VAR}[{MOSS_DST_IDX}] is zero in {path} -- --fin-grassmoss "
                 f"expects moss area already on index {MOSS_DST_IDX}. Did you pass the "
                 "moss-only file here?"
             )
         if not areas[MOSS_SRC_IDX] > 0:
-            sys.exit(
-                f"ERROR: {AREA_VAR}[{MOSS_SRC_IDX}] is zero in {path} -- expected arctic "
+            raise FsurdatContentError(
+                f"{AREA_VAR}[{MOSS_SRC_IDX}] is zero in {path} -- expected arctic "
                 f"grass area on index {MOSS_SRC_IDX}. This does not look like the "
                 "bare+grass+moss file."
             )
@@ -225,8 +291,8 @@ def check_grassmoss(path, moss_col):
             have = column(np.asarray(var[:]), pft_axis(var), MOSS_DST_IDX)
             want = moss_col[name]
             if have.shape != want.shape:
-                sys.exit(
-                    f"ERROR: {name} shape mismatch between --fin-moss and --fin-grassmoss: "
+                raise FsurdatContentError(
+                    f"{name} shape mismatch between --fin-moss and --fin-grassmoss: "
                     f"{want.shape} vs {have.shape}. Are they the same grid?"
                 )
             if np.allclose(have, want):
@@ -290,10 +356,10 @@ def build_grassmoss(fin, fout, moss_col, fin_moss, pending):
 
 def check_output_path(path, args, label):
     if os.path.exists(path) and not (args.overwrite or args.dry_run):
-        sys.exit(f"ERROR: {label} exists (pass --overwrite to replace): {path}")
+        raise FileExistsError(f"{label} exists (pass --overwrite to replace): {path}")
     for fin in (args.fin_moss, args.fin_grassmoss):
         if fin and os.path.abspath(fin) == os.path.abspath(path):
-            sys.exit(f"ERROR: {label} is the same file as an input: {path}")
+            raise ValueError(f"{label} is the same file as an input: {path}")
 
 
 def main():
@@ -302,16 +368,27 @@ def main():
     )
     parser.add_argument(
         "--fin-moss",
-        required=True,
-        help="Input ..._moss.nc (read-only). Always required: supplies the authoritative "
-        "moss canopy column.",
+        default=default_fin(DEFAULT_MOSS_NAME),
+        help="Input ..._moss.nc (read-only). Also supplies the authoritative moss canopy "
+        "column used to build the grassmoss output. "
+        f"Default: $INPUTDATA/{MOSS_TESTDATA_SUBDIR}/{DEFAULT_MOSS_NAME}",
     )
     parser.add_argument(
-        "--fin-grassmoss", help="Input ..._grassmoss.nc (read-only). Required for --fout-grassmoss."
+        "--fin-grassmoss",
+        default=default_fin(DEFAULT_GRASSMOSS_NAME),
+        help="Input ..._grassmoss.nc (read-only). "
+        f"Default: $INPUTDATA/{MOSS_TESTDATA_SUBDIR}/{DEFAULT_GRASSMOSS_NAME}",
     )
-    parser.add_argument("--fout-moss", help="Moss-only output to create. You choose the name.")
     parser.add_argument(
-        "--fout-grassmoss", help="Bare+grass+moss output to create. You choose the name."
+        "--fout-moss",
+        help="Moss-only output to create. Default: the --fin-moss basename restamped with "
+        "today's cYYMMDD and Pft4 appended, in the directory you invoked the script from.",
+    )
+    parser.add_argument(
+        "--fout-grassmoss",
+        help="Bare+grass+moss output to create. Default: the --fin-grassmoss basename "
+        "restamped with today's cYYMMDD and Pft4 appended, in the directory you invoked the "
+        "script from.",
     )
     parser.add_argument(
         "--overwrite", action="store_true", help="Permit overwriting an existing output."
@@ -321,56 +398,60 @@ def main():
     )
     args = parser.parse_args()
 
-    if not (args.fout_moss or args.fout_grassmoss):
-        sys.exit("ERROR: nothing to do -- pass --fout-moss and/or --fout-grassmoss.")
-    if args.fout_grassmoss and not args.fin_grassmoss:
-        sys.exit("ERROR: --fout-grassmoss requires --fin-grassmoss.")
+    no_root = (
+        "{0} not given, and neither $INPUTDATA nor $DIN_LOC_ROOT is set, so it "
+        "cannot be defaulted. Pass {0} explicitly."
+    )
     for label, path in (("--fin-moss", args.fin_moss), ("--fin-grassmoss", args.fin_grassmoss)):
-        if path and not os.path.exists(path):
-            sys.exit(f"ERROR: {label} does not exist: {path}")
-    if args.fout_moss:
-        check_output_path(args.fout_moss, args, "--fout-moss")
-    if args.fout_grassmoss:
-        check_output_path(args.fout_grassmoss, args, "--fout-grassmoss")
-    if (
-        args.fout_moss
-        and args.fout_grassmoss
-        and os.path.abspath(args.fout_moss) == os.path.abspath(args.fout_grassmoss)
-    ):
-        sys.exit("ERROR: --fout-moss and --fout-grassmoss are the same file.")
+        if path is None:
+            raise ValueError(no_root.format(label))
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"{label} does not exist: {path}")
+
+    if args.fout_moss is None:
+        args.fout_moss = default_fout(args.fin_moss)
+    if args.fout_grassmoss is None:
+        args.fout_grassmoss = default_fout(args.fin_grassmoss)
+
+    check_output_path(args.fout_moss, args, "--fout-moss")
+    check_output_path(args.fout_grassmoss, args, "--fout-grassmoss")
+    if os.path.abspath(args.fout_moss) == os.path.abspath(args.fout_grassmoss):
+        raise ValueError("--fout-moss and --fout-grassmoss are the same file.")
 
     moss_col = read_moss_column(args.fin_moss)
     print(f"Authoritative moss column: {args.fin_moss} index {MOSS_SRC_IDX}")
     for name in CANOPY_VARS:
         print(f"    {name:20s} max={np.max(moss_col[name]):12.6f}")
 
-    if args.fout_moss:
-        print(f"\n=== moss-only: {args.fin_moss}")
-        check_moss_only(args.fin_moss)
-        if args.dry_run:
-            print(
-                f"\n  --dry-run: would move index {MOSS_SRC_IDX} -> {MOSS_DST_IDX} for "
-                f"{AREA_VAR} and {', '.join(CANOPY_VARS)}. Nothing written."
-            )
-        else:
-            build_moss_only(args.fin_moss, args.fout_moss)
-            print(f"  Wrote {args.fout_moss}")
+    # Validate BOTH inputs before writing EITHER output. Otherwise a bad --fin-grassmoss
+    # only surfaces after the moss-only file has already been written, leaving a half-built
+    # set behind -- and the retry then trips FileExistsError on that leftover.
+    print(f"\n=== validating moss-only: {args.fin_moss}")
+    check_moss_only(args.fin_moss)
+    print(f"\n=== validating bare+grass+moss: {args.fin_grassmoss}")
+    pending = check_grassmoss(args.fin_grassmoss, moss_col)
 
-    if args.fout_grassmoss:
-        print(f"\n=== bare+grass+moss: {args.fin_grassmoss}")
-        pending = check_grassmoss(args.fin_grassmoss, moss_col)
-        if args.dry_run:
-            print(
-                f"\n  --dry-run: would overwrite index {MOSS_DST_IDX} of "
-                f"{', '.join(CANOPY_VARS)} with the moss column "
-                f"(corrections: {', '.join(pending) if pending else 'none'}); "
-                f"{AREA_VAR} untouched. Nothing written."
-            )
-        else:
-            build_grassmoss(
-                args.fin_grassmoss, args.fout_grassmoss, moss_col, args.fin_moss, pending
-            )
-            print(f"  Wrote {args.fout_grassmoss}")
+    if args.dry_run:
+        print(
+            f"\n--dry-run: would move index {MOSS_SRC_IDX} -> {MOSS_DST_IDX} for "
+            f"{AREA_VAR} and {', '.join(CANOPY_VARS)}, into\n    {args.fout_moss}"
+        )
+        print(
+            f"--dry-run: would overwrite index {MOSS_DST_IDX} of "
+            f"{', '.join(CANOPY_VARS)} with the moss column "
+            f"(corrections: {', '.join(pending) if pending else 'none'}), "
+            f"{AREA_VAR} untouched, into\n    {args.fout_grassmoss}"
+        )
+        print("--dry-run: nothing written.")
+        return
+
+    print(f"\n=== writing moss-only: {args.fout_moss}")
+    build_moss_only(args.fin_moss, args.fout_moss)
+    print(f"  Wrote {args.fout_moss}")
+
+    print(f"\n=== writing bare+grass+moss: {args.fout_grassmoss}")
+    build_grassmoss(args.fin_grassmoss, args.fout_grassmoss, moss_col, args.fin_moss, pending)
+    print(f"  Wrote {args.fout_grassmoss}")
 
     print("\nDone. Inputs were opened read-only; nothing outside the --fout paths was modified.")
 
