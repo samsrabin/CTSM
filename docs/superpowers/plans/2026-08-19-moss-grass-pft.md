@@ -93,9 +93,22 @@ Work spans two repositories:
   SSH.)
 
 Per task that touches FATES: commit in `src/fates/` first, then commit in CTSM (including
-the submodule pointer bump and, in the first FATES-touching task, the `.gitmodules`
-`url`/`fxtag` update to `samsrabin/fates`). One logical task = one CTSM commit (which may
-carry a FATES pointer bump) + at most one FATES commit.
+the submodule pointer bump and the matching `.gitmodules` `fxtag` — see below; the first
+FATES-touching task also updates the `url` to `samsrabin/fates`). One logical task = one
+CTSM commit (which may carry a FATES pointer bump) + at most one FATES commit.
+
+**The `.gitmodules` `fxtag` must never lag the submodule pointer (Sam, 2026-08-25).**
+CTSM records the FATES hash in two independent places — the `src/fates` gitlink and
+`[submodule "fates"] fxtag` in `.gitmodules` — and `git commit` updates only the gitlink.
+So: every CTSM commit that moves the FATES pointer must edit that `fxtag` in the **same**
+commit, and, conversely, every commit that edits that `fxtag` must move the pointer to
+match. The same applies to any other submodule whose pointer a commit moves. Verify
+before committing — these two must print the same hash:
+
+```
+git ls-tree HEAD src/fates
+git config -f .gitmodules submodule.fates.fxtag
+```
 
 ## Upstream FATES observations (report when this work goes upstream)
 
