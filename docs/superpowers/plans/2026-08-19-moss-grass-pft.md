@@ -117,6 +117,14 @@ unchanged and shared by both branches; the later SHAs recorded in this plan were
 the rewritten ones. **FATES was not rebased** — every FATES SHA in this plan and the spec is
 still valid, as are the NVP-branch and fork SHAs.
 
+### Test-naming constraint: `ERS`/`ERP` need `STOP_N` >= 3
+
+**`ERS` and `ERP` tests have a minimum `STOP_N` of 3, whatever the `STOP_OPTION` is**
+(Sam, 2026-08-25). CIME rejects anything shorter during test setup. So a two-unit restart
+test has to be respelled in a finer unit: `ERS_Ly2` becomes `ERS_Ld731` (what Task 5 uses
+after Sam's fix in `ac7f14249`; `Ld730` would do as well). Applies whenever a task adds a
+restart test. `SMS` is unaffected — `SMS_Ly2` is fine.
+
 ## Upstream FATES observations (report when this work goes upstream)
 
 Not defects in our work; things noticed while implementing that upstream may want to know.
@@ -1198,11 +1206,11 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
 - [x] **Step 2: testlist. COMPLETE (2026-08-24).** **Ten** entries added, all `1x1_ALP2`,
   `Mmpi-serial`. Eight landed first; the last two came out of Step 5's review — the moss-off
   `ERS` sentinel and the nocomp `ERS`. Wallclocks: `Ld5` `00:20:00`, `Ly2` `00:30:00`,
-  `ERS_Ly2_D` `01:00:00`.
+  `ERS_Ld731_D` `01:00:00`.
   **The `Ly2` figure is not a guess** — NVP commit `997cb054a` ("Add an expected fail and
   extend one test's walltime") bumped the direct analogue of our moss-off `Ly2` bare twin
   from `00:20:00` to `00:30:00`, so 20 minutes is known to be short. An earlier draft of this
-  step cited NVP's `00:20:00`, which was the pre-bump value. `ERS_Ly2_D` gets `01:00:00`
+  step cited NVP's `00:20:00`, which was the pre-bump value. `ERS_Ld731_D` gets `01:00:00`
   because exact-restart runs the model about 1.5×.
   The entries:
   - `SMS_Ld5_D` bare+moss (`FatesColdSatPhen--FatesNvp--FatesALP2BareMoss`) — short
@@ -1214,11 +1222,13 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
     NVP's.
   - `SMS_Ly2_D` moss-off twins of Task 0's two plain tests — long, and the only entries
     carrying `fates_nvp_long_nonvp`
-  - `ERS_Ld5_D` and `ERS_Ly2_D` exact-restart, bare+moss (Sam's call: one short, one long)
+  - `ERS_Ld5_D` and `ERS_Ld731_D` exact-restart, bare+moss (Sam's call: one short, one
+    long; the long one was `ERS_Ly2_D` until `ac7f14249` — see the `STOP_N` >= 3
+    constraint above)
   - `ERS_Ld5_D` moss-off, `FatesColdSatPhen--FatesALP2BareGrass` — restart-integrity
     sentinel for the 6-litterclass path, which the moss-on `ERS` tests cannot cover. Carries
     `fates_nvp_nonvp` and `fates_nvp_short_nonvp` like Task 0's entries.
-  - `ERS_Ly2_D` nocomp fixed-biogeography bare+grass+moss, compset `I2000Clm60Fates` —
+  - `ERS_Ld731_D` nocomp fixed-biogeography bare+grass+moss, compset `I2000Clm60Fates` —
     added in Step 5 after review found that spec §10's exact-restart-in-nocomp requirement
     was unmet. **This is the only exact-restart test that exercises fuel, fire, litter
     turnover and allocation**: SP mode skips all of them (`EDMainMod.F90` gates
@@ -1265,10 +1275,10 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
     two entries comparing against their baselines, and restart integrity comes from the `ERS`
     entries. No moss science (zero moss area).
   - *Moss on, with moss area, SP mode (5 new: `SMS_Ld5_D` and `SMS_Ly2_D` bare+moss,
-    `SMS_Ly2_D` bare+grass+moss, `ERS_Ld5_D` and `ERS_Ly2_D` bare+moss).* **PASS**, and both
+    `SMS_Ly2_D` bare+grass+moss, `ERS_Ld5_D` and `ERS_Ld731_D` bare+moss).* **PASS**, and both
     `ERS` entries restart bit-for-bit. Note these restart a configuration with no fire, no
     litter turnover and no allocation — SP mode skips all of it.
-  - *Moss on, with moss area, nocomp full FATES (2 new: `SMS_Ly2_D` and `ERS_Ly2_D`, both
+  - *Moss on, with moss area, nocomp full FATES (2 new: `SMS_Ly2_D` and `ERS_Ld731_D`, both
     `FatesColdNoCompFixedBioGeo--FatesNvp--FatesALP2BareGrassMoss`, compset
     `I2000Clm60Fates`).* **PASS.** The only entries that exercise moss through fuel, fire,
     litter and allocation, and the only exact-restart coverage of any of it.
