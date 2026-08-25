@@ -4961,13 +4961,9 @@
       <machine name="derecho" compiler="intel" category="fates"/>
       <machine name="derecho" compiler="intel" category="fates_nvp"/>
       <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp_nonvp"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp_short_nonvp"/>
       <machine name="derecho" compiler="gnu" category="fates"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp_nonvp"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp_short_nonvp"/>
       <machine name="izumi" compiler="nag" category="fates"/>
       <machine name="izumi" compiler="nag" category="fates_nvp"/>
       <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
@@ -4983,13 +4979,9 @@
       <machine name="derecho" compiler="intel" category="fates"/>
       <machine name="derecho" compiler="intel" category="fates_nvp"/>
       <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp_nonvp"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp_short_nonvp"/>
       <machine name="derecho" compiler="gnu" category="fates"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp_nonvp"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp_short_nonvp"/>
       <machine name="izumi" compiler="nag" category="fates"/>
       <machine name="izumi" compiler="nag" category="fates_nvp"/>
       <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
@@ -5000,5 +4992,200 @@
     </options>
   </test>
 
+  <test name="SMS_Ld5_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesNvp--clm/FatesALP2BareMoss">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">Test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+moss</option>
+    </options>
+  </test>
 
+  <test name="SMS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesNvp--clm/FatesALP2BareMoss">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+moss</option>
+    </options>
+  </test>
+
+  <test name="SMS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesNvp--clm/FatesALP2BareGrassMoss">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+grass+moss</option>
+    </options>
+  </test>
+
+  <test name="SMS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60Fates" testmods="clm/FatesColdNoCompFixedBioGeo--clm/FatesNvp--clm/FatesALP2BareGrassMoss">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate), bare+grass+moss, nocomp with prescribed biogeography (NOT SP mode - full FATES)</option>
+    </options>
+  </test>
+
+  <test name="SMS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesALP2Bare">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long_nonvp"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare ground only, no moss; use_fates_moss defaults to false, so this is the long-duration b4b sentinel for the moss-enabled tests</option>
+    </options>
+  </test>
+
+  <test name="SMS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesALP2BareGrass">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long_nonvp"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+grass only, no moss; use_fates_moss defaults to false, so this is the long-duration b4b sentinel for the moss-enabled tests</option>
+    </options>
+  </test>
+
+  <test name="ERS_Ld5_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesNvp--clm/FatesALP2BareMoss">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">Exact-restart test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+moss</option>
+    </options>
+  </test>
+
+  <test name="ERS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesNvp--clm/FatesALP2BareMoss">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
+    </machines>
+    <options>
+      <option name="wallclock">01:00:00</option>
+      <option name="comment">2-year exact-restart test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+moss</option>
+    </options>
+  </test>
+
+  <test name="ERS_Ld5_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesALP2BareGrass">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_short_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_nonvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_short_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_nonvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_short_nonvp"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">Exact-restart test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+grass only, no moss; use_fates_moss defaults to false, so this is the restart-integrity sentinel for the 6-litterclass parameter file path, which the moss-on ERS tests cannot cover</option>
+    </options>
+  </test>
+  <test name="ERS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60Fates" testmods="clm/FatesColdNoCompFixedBioGeo--clm/FatesNvp--clm/FatesALP2BareGrassMoss">
+    <machines>
+      <machine name="derecho" compiler="intel" category="fates"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp"/>
+      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
+      <machine name="derecho" compiler="gnu" category="fates"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
+      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
+      <machine name="izumi" compiler="nag" category="fates"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp"/>
+      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
+    </machines>
+    <options>
+      <option name="wallclock">01:00:00</option>
+      <option name="comment">2-year exact-restart test of FATES at ALP2 (GSWP3v1 climate), bare+grass+moss, nocomp with prescribed biogeography (NOT SP mode - full FATES). The only exact-restart test that exercises fuel, fire, litter turnover and allocation: SP mode skips all of them, so the SP ERS tests cannot cover restarted moss litter pools</option>
+    </options>
+  </test>
 </testlist>

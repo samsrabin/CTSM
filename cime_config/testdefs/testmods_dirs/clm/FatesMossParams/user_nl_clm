@@ -1,3 +1,9 @@
 ! FatesMossParams: Turn on moss but don't give moss-specific fsurdat; only fates_paramfile
+!
+! Identical to FatesNvp today, and deliberately so: this one exists only to run the
+! 8-litterclass parameter file against a non-moss fsurdat, so it stays minimal, whereas
+! FatesNvp accumulates moss history variables as they are implemented. Do not consolidate
+! the two. This testmod is expected to be deleted once it has served that purpose.
+
 use_fates_moss = .true.
 fates_paramfile = '$SRCROOT/src/fates/parameter_files/fates_params_moss.json'

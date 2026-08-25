@@ -171,7 +171,12 @@ Not defects in our work; things noticed while implementing that upstream may wan
   patch→site averaging per existing helpers). The first task to add one (Task 6)
   establishes the pattern; later tasks follow it. **Every task that adds a
   moss-specific history variable also adds it to the output list (`hist_fincl`) in the
-  `FatesNvp` testmod's `user_nl_clm`, in that same task.**
+  `FatesNvp` testmod's `user_nl_clm`, in that same task — using the append form
+  `hist_fincl1 += 'VAR'`, never a plain assignment.** CIME applies testmods in order and
+  later ones win (`cime/CIME/user_mod_support.py`), and the nocomp test composes `FatesNvp`
+  after `clm/Fates`, which sets `hist_empty_htapes` plus the ~23-variable FATES list. A plain
+  assignment would silently wipe `FATES_FUEL_AMOUNT`, `FATES_BURNFRAC` and the rest — on the
+  only test that runs SPITFIRE, while looking harmless on the SP tests.
 - Reference implementations to harvest are on `ctsm5.4.028_nvp` — a branch on the
   **`huitang-earth`** remote (`https://github.com/huitang-earth/CTSM.git`), *not* on
   `origin`; worktree at `.worktrees/nvp`, created 2026-08-19 at branch tip `997cb054a`.
@@ -230,26 +235,34 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   - **Categories.** Use the NVP branch's scheme verbatim — `fates` plus `fates_nvp`,
     `fates_nvp_short`, `fates_nvp_long`, `fates_nvp_nonvp`, `fates_nvp_short_nonvp`,
     `fates_nvp_long_nonvp`. No new `fates_moss` category. Short = `Ld5`, long = `Ly2`;
-    the `*_nonvp` categories hold the `FatesNvpOff` tests, which arrive in Task 5.
-  - **Testmod names.** Keep the NVP branch's names verbatim (`FatesNvp`, `FatesNvpOff`,
-    `FatesALP2*`); do **not** rename to `FatesMoss*`.
+    ~~the `*_nonvp` categories hold the `FatesNvpOff` tests, which arrive in Task 5.~~
+    **Superseded 2026-08-24 (Sam):** there is no `FatesNvpOff` — moss-off simply means "no
+    moss testmod", so the `*_nonvp` categories hold plain `FatesALP2*` entries. See Task 5
+    Step 0(e).
+  - **Testmod names.** Keep the NVP branch's names verbatim (`FatesNvp`, `FatesALP2*`); do
+    **not** rename to `FatesMoss*`. (`FatesNvpOff` was in this list; dropped 2026-08-24.)
   - **Testdata.** Verified present on derecho's `$DIN_LOC_ROOT`
     (`/glade/campaign/cesm/cesmdata/cseg/inputdata`): all `fsurdat`
     `surfdata_ALP2_hist_2000_16pfts_c260427*.nc` variants and the default/moss paramfile
     JSONs under `lnd/clm2/testdata/moss/`.
   - **Machines/compilers.** As the NVP entries do: derecho intel, derecho gnu, and izumi
-    nag. (Note the NVP branch omits izumi from the `*_nonvp` categories — mirror that.)
+    nag. ~~(Note the NVP branch omits izumi from the `*_nonvp` categories — mirror that.)~~
+    **Superseded 2026-08-24 (Sam):** izumi nag carries the same categories as derecho on
+    every entry, including the `*_nonvp` suites. Task 5 Step 2's entries follow the new rule;
+    Task 0's two existing entries still follow the old one — see Task 5 Step 2.
   - **`use_bedrock`.** Set `use_bedrock = .true.` in **all** `FatesALP2*` testmods — it
     matters for running at this site — and **not** in `FatesNvp`. Task 5 must drop the
     `use_bedrock` line when it ports `FatesNvp`.
   - **`.gitignore`.** Add `.worktrees/` (done, under "REMOVE BEFORE MERGE").
   - **Finding for later tasks.** CIME keys baselines by full test name *including
-    testmods*, so Task 5's `FatesNvpOff` tests cannot compare against Task 0's
-    baselines — they need baselines of their own, generated at Task 5. Task 0's two
-    plain tests carry no `FatesNvp*` testmod, so `use_fates_moss` takes its `.false.`
-    default: those are the b4b sentinel for Tasks 1–4.
-  - Forward check: `FatesNvp`/`FatesNvpOff` do not exist on this branch yet — they
-    arrive (adapted) in Task 5 along with the remaining NVP-branch tests. Task 0's two
+    testmods*, so none of Task 5's new entries can compare against Task 0's baselines —
+    they need baselines of their own, which Sam generates at Task 5 (see Task 5 Step 4(D)).
+    Task 0's two plain tests carry no `FatesNvp*` testmod, so `use_fates_moss` takes its
+    `.false.` default: those are the b4b sentinel for Tasks 1–4. (This bullet said
+    "`FatesNvpOff` tests" until 2026-08-24; that testmod was dropped.)
+  - Forward check: `FatesNvp` does not exist on this branch yet — it arrives (adapted) in
+    Task 5 along with the remaining NVP-branch tests, without the `FatesNvpOff` that NVP
+    pairs it with. Task 0's two
     baseline tests reference only `FatesColdSatPhen` + `FatesALP2Bare{,Grass}`.
 - [x] **Step 1: copy the two testmod dirs** from the NVP worktree (each is a two-line
   `user_nl_clm` with only `fsurdat` and `fates_paramfile`, no `include_user_mods`), and
@@ -271,7 +284,7 @@ plus `testlist_clm.xml` entries at grid `1x1_ALP2`, compset `I2000Clm60FatesSpRs
   compset `I2000Clm60FatesSpRsGs`, testmods `clm/FatesColdSatPhen--clm/FatesALP2Bare`
   and `...BareGrass`), machines/compilers/categories per Step 0. These are new
   constructions, not ports: every ALP2 entry on the NVP branch composes `FatesNvp` or
-  `FatesNvpOff`, so there is no no-moss ALP2 test there to copy. Model the `<machines>`
+  `FatesNvpOff` (a testmod we do not port), so there is no no-moss ALP2 test there to copy. Model the `<machines>`
   and `<options>` blocks on the NVP branch's `FatesNvp--FatesALP2Bare{,Grass}` entries
   (NVP lines 4972, 4989), minus the `FatesNvp` testmod.
 - [x] **Step 4: reviews, then commit** ("Add ALP2 bare and bare+grass baseline testmods
@@ -567,6 +580,9 @@ readable by the model until Task 4, so there is no test to run for it — see In
   `fates_fire_SAV`, `fates_fire_FBD`, `fates_fire_min_moisture`, `fates_fire_mid_moisture`,
   `fates_fire_low_moisture_Coeff/Slope`, `fates_fire_mid_moisture_Coeff/Slope`,
   `fates_frag_maxdecomp`.
+- **Thirteen moss PFT parameters are deferred to Tasks 10/11** (Sam, 2026-08-24). The file
+  was regenerated with them held at their `arctic_c3_grass` values; the generator keeps
+  the moss values and the reason. Full list and rationale: Task 5 Step 4(C).
 - **This file was NOT usable by a model run until Task 4 landed** (resolved 2026-08-24).
   Before that, `num_fuel_classes = 6` was a compile-time `parameter` and the `SF_val_*`
   arrays were fixed length-6, filled by `SF_val_SAV(:) = param_p%r_data_1d(:)` — a
@@ -631,6 +647,9 @@ readable by the model until Task 4, so there is no test to run for it — see In
     in-repo file, which is NOT yet resolved; see Task 5.
 - [x] **Step 1: build the moss JSON.** Write `tools/make_moss_params.py`, then run it to
   produce `parameter_files/fates_params_moss.json` from `fates_params_default.json`:
+  **Note (2026-08-24):** thirteen of the values below are present in the generator but
+  **not applied** — see the deferral pointer in Interfaces above and Task 5 Step 4(C). The
+  bullets record what the moss column will hold once Tasks 10/11 restore them.
   - Append a 15th PFT by copying the `arctic_c3_grass` column (index 12); name it
     `non_vascular_phototroph` (NVP's name — keep it verbatim).
   - Harvest from NVP's moss column: `fates_leaf_vcmax25top = 30.0` (dims
@@ -783,7 +802,7 @@ end if
 
 ### Task 4: Runtime fuel-class count (6 ↔ 8)
 
-**Status: COMPLETE (2026-08-24).** FATES `21ae02ab`; CTSM pointer bump in `eb3e4131f`.
+**Status: COMPLETE (2026-08-24).** FATES `21ae02ab`; CTSM pointer bump in `41043800a`.
 Two review rounds (code + spec); the as-built design diverges from this plan's original
 Steps 1–3 in ways recorded inline below, because the planned mechanism turned out to be
 impossible. **Verification runs are deferred to Task 5** — see Step 4. The moss fuel-class
@@ -888,10 +907,13 @@ their first consumer.
     parameter file to read (`testing/framework/unit_test.py` runs them under `ctest` with no
     arguments).
 - [x] **Step 3b: first CLM-level test of the 8-class parameter file. COMPLETE (2026-08-24).**
-  Testmod `FatesMossParams` sets both `use_fates_moss = .true.` and `fates_paramfile`, and two
+  Testmod `FatesMossParams` sets both `use_fates_moss = .true.` and `fates_paramfile` (and,
+  from Task 5, a comment explaining why it and `FatesNvp` are identical), and two
   `SMS_Ld5_D_Mmpi-serial` tests at `1x1_ALP2`/`I2000Clm60FatesSpRsGs` compose it with
   `FatesColdSatPhen` and `FatesALP2Bare`/`FatesALP2BareGrass`. A case built from it completes
-  successfully; the formal suite runs are Task 5's (Step 4).
+  successfully; the formal suite runs are Task 5's (Step 4). Their category rows were
+  corrected in Task 5 Step 2: they had inherited `*_nonvp` rows from the Task 0 machine
+  block, which is wrong for a moss-on test.
   **The switch is not optional in this testmod**, and a first pass omitted it: with the 8-class
   file and `use_fates_moss` at its `.false.` default, the run aborts twice over — on this
   task's own agreement check (8 ≠ 6) and on Task 3's `fates_vascular` biconditional. The switch
@@ -978,19 +1000,23 @@ their first consumer.
 - [x] **Step 5: reviews, then commit. COMPLETE (2026-08-24).** Code review and spec review
   both run; all findings either fixed or explicitly declined (the bare `num_fuel_classes`
   declaration and the unguarded `SF_val_*` allocates, both left to match FATES convention).
-  FATES commit + CTSM pointer bump in `eb3e4131f`.
+  FATES commit + CTSM pointer bump in `41043800a` (was `eb3e4131f` before two amends).
 
 ### Task 5: First moss run — moss testmods and system tests
 
 **Files:**
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (adapted from
-  the NVP branch's dir of the same name)
-- Create: `cime_config/testdefs/testmods_dirs/clm/FatesNvpOff/{user_nl_clm,include_user_mods}`
-  (ditto)
+  the NVP branch's dir of the same name). **The first-class moss testmod** (Sam, 2026-08-24):
+  it exists independently of Task 4's `FatesMossParams`, which stays a special case and is
+  eventually deleted. This is also where Tasks 6–10 append their history variables.
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2BareMoss/user_nl_clm` (ditto)
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesALP2BareGrassMoss/user_nl_clm`
   (ditto)
 - Modify: `cime_config/testdefs/testlist_clm.xml`
+- Modify (FATES): `tools/make_moss_params.py` and `parameter_files/fates_params_moss.json`
+  — the parameter deferral of Step 4(C). Implies a FATES commit and a CTSM submodule
+  pointer bump.
+- **No `FatesNvpOff`** — see Step 0(e).
 
 **Interfaces:**
 - Consumes: `use_fates_moss` (Task 1), moss JSON (Task 2), `fates_vascular` checks (Task 3),
@@ -1011,73 +1037,309 @@ their first consumer.
 
 NVP-branch source material (adapt, keeping the testmod names): `FatesNvp` (sets
 `use_nvp=.true.`, `use_nvp_undersnow`, `nvp_rad_model_ground`, `use_bedrock=.true.`),
-`FatesNvpOff` (includes `FatesNvp`, overrides `use_nvp=.false.`), `FatesALP2BareMoss`
-and `FatesALP2BareGrassMoss` (moss fsurdat variants `_moss`/`_grassmoss` +
-NVP-branch moss param JSONs).
+`FatesNvpOff` (includes `FatesNvp`, overrides `use_nvp=.false.` — **not ported**, see
+Step 0(e)), `FatesALP2BareMoss` and `FatesALP2BareGrassMoss` (moss fsurdat variants
+`_moss`/`_grassmoss` + NVP-branch moss param JSONs). Note NVP paired each fsurdat with its *own* paramfile —
+`fates_params_default_moss...json` (moss on HLM 12) for `_moss`, and
+`fates_params_default_mossMapsBrEvTrTree...json` (moss on HLM 4) for `_grassmoss`. We cover
+both fsurdats with our single paramfile, so both of our testmods point `fates_paramfile` at
+`fates_params_moss.json` — the same one-line `$SRCROOT` form Task 4's `FatesMossParams`
+established. Do not port NVP's two-paramfile split.
 
-**Blocking prerequisite — a new fsurdat that only Sam can create (from Task 2 Step 0).**
-Because we commit ONE moss paramfile with moss on HLM PFT 4, the existing
-`..._moss.nc` fsurdat — whose 94.25% sits on natpft 12 — produces a *grass* run under it,
-not a moss run. `FatesALP2BareMoss` therefore needs a moss-at-index-4 counterpart.
-`FatesALP2BareGrassMoss` needs nothing: `..._grassmoss.nc` already has its moss on index 4.
+**Blocking prerequisite — TWO new fsurdats that only Sam can create (from Task 2 Step 0).**
+The NVP branch shipped two ALP2 moss fsurdats, one per NVP paramfile, and because we commit
+ONE moss paramfile with moss on HLM PFT 4, we regenerate both. Verified against the files in
+`$DIN_LOC_ROOT/lnd/clm2/testdata/moss/fsurdat` on 2026-08-24:
 
-A tested generator for that file is written and handed to Sam:
-`./make_moss_pft4_fsurdat.py` at the top of the CTSM checkout — deliberately left
-**untracked and un-run until this task** (Sam, 2026-08-21); do not commit it, gitignore
-it, or run it before then. netCDF4 + numpy + stdlib, for the `ctsm_pylib` env. It moves
-`PCT_NAT_PFT` *and* all four `MONTHLY_*` columns from index 12 to 4 — moving the area alone
-would give moss the stock tropical-tree canopy (`MONTHLY_HEIGHT_TOP` 29.35 m vs the
-hand-tuned 0.034 m at index 12), which matters because FATES-SP prescribes LAI/SAI/height
-from those arrays. **Claude has no write access to `$DIN_LOC_ROOT`**; Sam runs the script
-and chooses the filename, datestamp and location. Task 5 cannot start its moss tests until
-that file exists.
+| source | area layout | status under our paramfile |
+|---|---|---|
+| `..._moss.nc` | 5.75% bare, 94.25% on natpft **12** | index 12 is still `arctic_c3_grass` for us, so this is a **grass** run. Area must move 12 → 4. |
+| `..._grassmoss.nc` | 20% bare, 50% on natpft **4**, 30% on natpft **12** | area is already right — NVP's `mossMapsBrEvTrTree` paramfile made the same HLM-4 choice we did, so this reads as bare + moss + grass unchanged. Its moss *canopy column* is malformed. |
 
-Two observations about the existing fsurdats, recorded but NOT acted on:
-- `..._grassmoss.nc` looks buggy at its moss index: `MONTHLY_HEIGHT_BOT` is 0.839 m
-  (the original tropical-tree value) while its `MONTHLY_HEIGHT_TOP` is 0.034 m — bottom
-  above top. Three of the four columns were moved, not four. Check before relying on it.
+That second row is the payoff of the HLM-4 decision: we inherit NVP's bare+grass+moss area
+layout for free, and only the moss-only file needs its area relocated.
+
+**`..._grassmoss.nc`'s moss column is malformed, and we now fix it rather than work around
+it** (Sam's call, 2026-08-24). Its index 4 matches the authoritative moss column — index 12
+of `..._moss.nc`, i.e. LAI 2.0 / SAI 0.5 / `HEIGHT_TOP` 0.0338 m / `HEIGHT_BOT` 1e-06 m —
+*exactly* for `MONTHLY_HEIGHT_TOP`, `MONTHLY_LAI` and `MONTHLY_SAI` in all 12 months, but its
+`MONTHLY_HEIGHT_BOT` is 0.8386 m, the tropical tree's, under a top of 0.0338 m. Bottom above
+top, every month: three of the four columns were moved from 12 to 4, not four.
+**This is inert in a FATES run** — `MONTHLY_HEIGHT_BOT` is read only at
+`src/biogeochem/SatellitePhenologyMod.F90:494`, flows into `hbot_input_patch`, and is consumed
+only by `SatellitePhenology`, which `endrun`s immediately if `use_fates` is true (`:199-202`);
+FATES-SP ingests only `hlm_sp_htop`, there is no `hlm_sp_hbot` anywhere in the tree, and
+`hbot` flows the other way (FATES → CTSM, `clmfates_interfaceMod.F90:1766`). So this is
+housekeeping, not a bug fix — but it is cheap, and it stops the nonsense column waiting for
+the next reader.
+
+A tested generator for both files is written and handed to Sam:
+`./make_moss_pft4_fsurdat.py` at the top of the CTSM checkout. It was originally to be left
+untracked (Sam, 2026-08-21); Sam committed it instead on 2026-08-24, and it is **to be
+removed before any upstream merge** — Task 12 owns that. netCDF4 + numpy + stdlib, for the
+`ctsm_pylib` env. Every path is defaulted: `--fin-*` from `$INPUTDATA` (falling back to
+`$DIN_LOC_ROOT`), `--fout-*` into the invoking directory with a freshly minted `cYYMMDD`
+stamp. A bare invocation builds **both** outputs; there is no way to build only one.
+- **moss-only output:** moves `PCT_NAT_PFT` *and* all four `MONTHLY_*` columns from index 12
+  to 4, zeroing only the area at 12. Moving the area alone would give moss the stock
+  tropical-tree canopy (`MONTHLY_HEIGHT_TOP` 29.35 m vs the hand-tuned 0.034 m), which matters
+  because FATES-SP prescribes LAI/SAI/height from those arrays.
+- **grassmoss output:** leaves `PCT_NAT_PFT` untouched and overwrites index 4's four
+  `MONTHLY_*` columns with the authoritative moss column. It installs the whole column rather
+  than patching the one variable we noticed, and **enforces** that exactly
+  `MONTHLY_HEIGHT_BOT` needed correcting — in both directions, by exact comparison. Another
+  column differing means the input is not the file the script was written for; that column
+  *not* differing means the file has already been through the script. Either aborts before
+  anything is written. Verified 2026-08-24: the output differs from its input in exactly
+  12 values (index 4 of `MONTHLY_HEIGHT_BOT`, one per month) plus the `history` attribute.
+- **Single-gridcell only.** Both inputs are checked and a multi-gridcell file is refused
+  (Sam, 2026-08-24). Supporting more was judged not worth it for a script that only ever
+  sees the 1×1 ALP2 files and that Task 12 deletes. An earlier draft reported a per-gridcell
+  sum range instead; review found it silently produced `nan` whenever any gridcell carried
+  the `_FillValue = NaN` these files declare, which would have hidden exactly the bad
+  gridcell it was added to expose.
+
+**Claude has no write access to `$DIN_LOC_ROOT`**; Sam runs the script and chooses both
+filenames, their datestamps and their location. Task 5 cannot start its moss tests until both
+files exist.
+
+One further observation about the existing fsurdats, recorded but NOT acted on:
 - `..._grass.nc` is also hand-tuned: its index 12 `MONTHLY_HEIGHT_TOP` is 0.043 m, not the
   stock 0.50 m the plain and `_bare` files carry. So Task 0's grass baseline is a 4 cm
   canopy — fine, but the baselines are specific to these edited files.
 
-- [ ] **Step 0 (orchestrator):** Inspect the four NVP-branch testmods and the full
+- [x] **Step 0 (orchestrator) — COMPLETE (2026-08-24).** Inspect the four NVP-branch testmods and the full
   NVP-branch `testlist_clm.xml` block at `1x1_ALP2` (including entries beyond the four
   Task 0 brought in — identify the ones exercising nocomp fixed-biogeography, per the
-  NVP test comments). Already resolved in Task 0's Step 0, do not re-ask: (a) `FatesNvp`
-  on our branch contains **only** `use_fates_moss = .true.` — the `use_nvp*` /
-  `nvp_rad_model_ground` settings don't exist here, and `use_bedrock = .true.` lives in
-  the `FatesALP2*` testmods instead (so drop that line when porting `FatesNvp`);
-  (b) `FatesNvpOff` correspondingly includes `../FatesNvp` and overrides
-  `use_fates_moss = .false.`; (c) the two new ALP2 moss testmods keep their NVP fsurdat paths
-  and also carry `use_bedrock = .true.`, but point `fates_paramfile` at the committed
-  Task 2 JSON — never at a `$DIN_LOC_ROOT` testdata JSON, which both lack the 8-entry
+  NVP test comments). Resolved in Task 0's Step 0, do not re-ask: (a) porting `FatesNvp`
+  drops three of NVP's four lines — `use_nvp_undersnow` and `nvp_rad_model_ground` do not
+  exist here, and `use_bedrock = .true.` lives in the `FatesALP2*` testmods instead.
+  **Superseded 2026-08-24 on one point:** this item used to say `FatesNvp` contains *only*
+  `use_fates_moss = .true.` It also needs the `fates_paramfile` line — see (e). (b) *(was
+  `FatesNvpOff` construction; dropped — see (e).)* (c) the two new ALP2 moss testmods carry
+  `use_bedrock = .true.` and point `fsurdat` at the **regenerated** fsurdats from the blocking
+  prerequisite above — *not* at the NVP paths, since both NVP files need rebuilding for our
+  HLM-4 mapping. They do **not** set `fates_paramfile` — that lives in `FatesNvp` (see (e)).
+  Wherever it is set, it points at the committed
+  Task 2 JSON via the `$SRCROOT` form (Task 4 Step 3b), never at a `$DIN_LOC_ROOT` testdata
+  JSON, which both lack the 8-entry
   litterclass dimension AND set the NVP-only `fates_allom_fnrt_prof_mode = 4` on their
   moss PFT (see Task 0 Step 1: that mode does not exist in our FATES pin and aborts any
   vegetated patch in `set_root_fraction`). Task 2's moss column must therefore use a
   rooting mode our FATES supports (1–3), consistent with spec §3's "shallow grass-style
   roots, NOT the NVP branch's no-root profile mode 4";
   (d) categories are the NVP branch's `fates_nvp*` scheme, machines derecho intel/gnu +
-  izumi nag. Still to confirm with Sam: which NVP-branch test entries to bring in beyond
-  the nocomp-fixedbiogeo and `FatesNvpOff` sets. Forward check: Tasks 6–11 hand these
+  izumi nag. Forward check: Tasks 6–11 hand these
   tests to Sam and Tasks 6–10 append history variables to `FatesNvp/user_nl_clm`.
-- [ ] **Step 1: port the four testmods**, adapted per Step 0.
-- [ ] **Step 2: testlist.** Add the remaining NVP-branch tests (adapted testmod
-  compositions), covering: SP-mode moss (`FatesColdSatPhen--FatesNvp--FatesALP2*Moss`
-  patterns), the `FatesNvpOff` twins (moss code present but off — b4b sentinels), and
-  the nocomp fixed-biogeography moss tests identified in Step 0; include an `ERS_D`
-  exact-restart variant.
-- [ ] **Step 3: build check.** `cd test-bld-adrianna-moss-grass-pft && qcmd -- ./case.build` passes.
-- [ ] **Step 4: state the expected outcomes** for Sam's review, naming each new test:
-  PASS with moss as an inert grass-like PFT, exact restart, fatal conservation checks
-  clean; the abort case (`use_fates_moss=.true.` with the default 6-class JSON) aborts cleanly
-  with the Task 3/4 messages. Flag to Sam that the `FatesNvpOff` tests cannot be compared
-  against the Task 0 baselines — CIME keys baselines by full test name including
-  testmods, and these carry `--clm-FatesNvpOff--` — so they need baselines generated here
-  if they are to serve, from Task 6 on, as the moss-off b4b sentinel alongside Task 0's
-  plain tests. Moss baselines generated at this task would likewise let later tasks see
-  exactly what each change does to moss behavior. Whether and how to generate any of
-  these is Sam's call.
-- [ ] **Step 5: reviews, then commit.** Sam's post-commit review optionally runs the
+
+  **Resolved 2026-08-24** (inspected all 10 NVP `1x1_ALP2` entries against our 4). The two
+  fsurdat filenames remain pending Sam running the generator, but those are a Step 1 input,
+  not a Step 0 question.
+  - (e) **No `FatesNvpOff`** (Sam confirmed 2026-08-24, after first asking for it). NVP's
+    version includes `FatesNvp` and flips `use_nvp = .false.` while keeping the moss
+    paramfile. For us that is moss-off with the 8-class file, which aborts on *both* the
+    Task 4 agreement check and the Task 3 biconditional, so ours would have to additionally
+    get back to a 6-litterclass file — and relying on a later testmod's `user_nl_clm` line to
+    override an earlier one may not even work. Nothing is lost by dropping it: moss-off for us
+    just means "no moss testmod", and Task 0's plain `FatesALP2Bare`/`FatesALP2BareGrass`
+    entries already carry the `fates_nvp_nonvp` and `fates_nvp_short_nonvp` category rows. So
+    three testmods to create, not four, and (g)'s `Ly2` moss-off twins are plain compositions.
+
+    Because nothing has to override it, **`fates_paramfile` lives in `FatesNvp`** rather than
+    being duplicated into each `FatesALP2*Moss` testmod — we have one moss paramfile where NVP
+    had two, one per fsurdat. That makes `FatesNvp` byte-identical to Task 4's
+    `FatesMossParams` apart from comments. Deliberate: `FatesNvp` is the first-class moss
+    testmod and is where Tasks 6–10 append history variables, while `FatesMossParams` stays
+    the minimal paramfile-dimension case and is eventually deleted. Both files carry a comment
+    saying why the other exists, so neither gets consolidated away. A corollary of them being
+    identical today is (f).
+  - (f) **Two of NVP's ten are already done.** Its `Nvp--ALP2BareGrass` and `Nvp--ALP2Bare`
+    `Ld5` entries are "moss on, no moss area" — exactly Task 4's two `FatesMossParams` tests
+    under different testmod names. Do not re-add them.
+  - (g) **Entries to add** (Sam confirmed): bare+moss `Ld5`; bare+moss `Ly2`;
+    bare+grass+moss `Ly2`; nocomp-fixedbiogeo bare+grass+moss `Ly2` (compset
+    `I2000Clm60Fates`, *not* `…SpRsGs` — NVP's comment saying "in SP mode" is wrong);
+    `Ly2` moss-off twins of Task 0's two plain tests, to populate `fates_nvp_long_nonvp`;
+    plus one `ERS_D` exact-restart moss test. The `_long` categories are currently unpopulated
+    because all four of our existing entries are `Ld5`.
+  - (h) **Categories strictly by duration** (Sam's call): `Ld5` → `_short`, `Ly2` → `_long`.
+    This overrides NVP's own inconsistency — its `Ld5` bare+moss entry carries a
+    `fates_nvp_long` row and its `Ly2` nocomp entry carries a `fates_nvp_short` row.
+  - (i) Comments say **GSWP3v1** climate, matching Task 0's entries, not NVP's CRU-JRA.
+- [x] **Step 1: port the three testmods**, adapted per Step 0. **COMPLETE (2026-08-24).**
+  `FatesNvp` = `use_fates_moss = .true.` + the `$SRCROOT` `fates_paramfile` line, i.e.
+  identical to `FatesMossParams` apart from comments (see Step 0(e)); both files carry a
+  comment saying why the other exists. `FatesALP2BareMoss` and `FatesALP2BareGrassMoss` are
+  `fsurdat` + `use_bedrock = .true.` only, pointing at Sam's regenerated files:
+  `.../moss/fsurdat/surfdata_ALP2_hist_2000_16pfts_c260824_{moss,grassmoss}Pft4.nc`.
+  Verified in place under `$INPUTDATA`: `mossPft4` is 5.75% bare + 94.25% on natpft 4,
+  `grassmossPft4` is 20/50/30 on natpft 0/4/12.
+- [x] **Step 2: testlist. COMPLETE (2026-08-24).** **Ten** entries added, all `1x1_ALP2`,
+  `Mmpi-serial`. Eight landed first; the last two came out of Step 5's review — the moss-off
+  `ERS` sentinel and the nocomp `ERS`. Wallclocks: `Ld5` `00:20:00`, `Ly2` `00:30:00`,
+  `ERS_Ly2_D` `01:00:00`.
+  **The `Ly2` figure is not a guess** — NVP commit `997cb054a` ("Add an expected fail and
+  extend one test's walltime") bumped the direct analogue of our moss-off `Ly2` bare twin
+  from `00:20:00` to `00:30:00`, so 20 minutes is known to be short. An earlier draft of this
+  step cited NVP's `00:20:00`, which was the pre-bump value. `ERS_Ly2_D` gets `01:00:00`
+  because exact-restart runs the model about 1.5×.
+  The entries:
+  - `SMS_Ld5_D` bare+moss (`FatesColdSatPhen--FatesNvp--FatesALP2BareMoss`) — short
+  - `SMS_Ly2_D` bare+moss — long
+  - `SMS_Ly2_D` bare+grass+moss (`…--FatesALP2BareGrassMoss`) — long
+  - `SMS_Ly2_D` nocomp fixed-biogeography bare+grass+moss
+    (`FatesColdNoCompFixedBioGeo--FatesNvp--FatesALP2BareGrassMoss`), compset
+    `I2000Clm60Fates` — long. Comment says explicitly that this is *not* SP mode, correcting
+    NVP's.
+  - `SMS_Ly2_D` moss-off twins of Task 0's two plain tests — long, and the only entries
+    carrying `fates_nvp_long_nonvp`
+  - `ERS_Ld5_D` and `ERS_Ly2_D` exact-restart, bare+moss (Sam's call: one short, one long)
+  - `ERS_Ld5_D` moss-off, `FatesColdSatPhen--FatesALP2BareGrass` — restart-integrity
+    sentinel for the 6-litterclass path, which the moss-on `ERS` tests cannot cover. Carries
+    `fates_nvp_nonvp` and `fates_nvp_short_nonvp` like Task 0's entries.
+  - `ERS_Ly2_D` nocomp fixed-biogeography bare+grass+moss, compset `I2000Clm60Fates` —
+    added in Step 5 after review found that spec §10's exact-restart-in-nocomp requirement
+    was unmet. **This is the only exact-restart test that exercises fuel, fire, litter
+    turnover and allocation**: SP mode skips all of them (`EDMainMod.F90` gates
+    `DailyFireModel`, disturbance, state integration and recruitment on non-SP), so the
+    SP `ERS` tests restart a configuration in which `moss_fines` is identically zero. Task 7
+    Step 5(c) depends on this entry existing.
+
+  Categories per Sam's calls (h) and 2026-08-24: strictly by duration, so short entries take
+  `fates`/`fates_nvp`/`fates_nvp_short` and long ones `fates`/`fates_nvp`/`fates_nvp_long`,
+  with the moss-off twins adding `fates_nvp_long_nonvp`. **Izumi nag carries the same
+  categories as derecho intel/gnu on every entry** — this supersedes the note at the Task 0
+  Step 0 "Categories" bullet that izumi should be omitted from the `*_nonvp` suites.
+
+  Two pre-existing inconsistencies in already-committed entries surfaced here:
+  - **Fixed:** Task 4's two `FatesMossParams` entries carried `fates_nvp_nonvp` and
+    `fates_nvp_short_nonvp`, but those are moss-*on* tests and `_nonvp` means moss-off — the
+    rows were a copy-paste from the Task 0 machine block. Removed (Sam, 2026-08-24).
+  - **Deliberately left:** Task 0's two plain entries still omit izumi from their `*_nonvp`
+    rows, i.e. they follow the superseded rule while everything added here follows the new
+    one. Sam's call (2026-08-24) — not worth churning the b4b baseline entries for.
+- [x] **Step 3: build check — SKIPPED (Sam, 2026-08-24).** The case built at the end of
+  Task 4 and nothing build-relevant has changed since: this task added only testmods,
+  testlist entries, and two fsurdats. No Fortran, no build files.
+- [ ] **Step 4: expected outcomes for Sam's review.** Drafted 2026-08-24. This is the first
+  execution of anything in Tasks 4-5: Task 4 landed code and tests but ran neither.
+
+  **A. FATES harness (inherited from Task 4 Step 4).**
+  1. Fuel functional test, standard 6-class paramfile (`run_functional_tests.py -t fuel`) —
+     results **identical to pre-change**. This is the b4b check on making the fuel-class count
+     runtime.
+  2. FATES unit tests — **PASS**. Note this is the first *gfortran* compile of the Task 4
+     code; the `hlm_use_moss` integer-as-logical slip that review caught would have surfaced
+     only here, since Intel accepts it as a DEC extension.
+
+  **B. CLM system tests — 14 `1x1_ALP2` entries, in six groups.**
+  - *Moss off, pre-existing (2, Task 0, `Ld5`).* Unchanged and **b4b against their
+    baselines**. These remain the b4b instrument for the whole project.
+  - *Moss on, zero moss area (2, Task 4, `FatesMossParams`, `Ld5`).* **PASS.** Exercises the
+    8-litterclass read, the runtime fuel-class sizing, and Task 3's `vascular`/switch
+    agreement check. Be precise about the history/restart claim: these are `SMS` with **no
+    baseline**, so they show only that the 8-class path runs end to end and writes history and
+    restart files without aborting — the dimensions are self-consistent and registerable, not
+    verified correct. The b4b guarantee for the *unchanged 6-class* path comes from Task 0's
+    two entries comparing against their baselines, and restart integrity comes from the `ERS`
+    entries. No moss science (zero moss area).
+  - *Moss on, with moss area, SP mode (5 new: `SMS_Ld5_D` and `SMS_Ly2_D` bare+moss,
+    `SMS_Ly2_D` bare+grass+moss, `ERS_Ld5_D` and `ERS_Ly2_D` bare+moss).* **PASS**, and both
+    `ERS` entries restart bit-for-bit. Note these restart a configuration with no fire, no
+    litter turnover and no allocation — SP mode skips all of it.
+  - *Moss on, with moss area, nocomp full FATES (2 new: `SMS_Ly2_D` and `ERS_Ly2_D`, both
+    `FatesColdNoCompFixedBioGeo--FatesNvp--FatesALP2BareGrassMoss`, compset
+    `I2000Clm60Fates`).* **PASS.** The only entries that exercise moss through fuel, fire,
+    litter and allocation, and the only exact-restart coverage of any of it.
+  - *Moss off, long (2 new `SMS_Ly2_D` twins of Task 0's plain tests).* **PASS.**
+  - *Moss off, exact restart (1 new `ERS_Ld5_D` on `FatesALP2BareGrass`).* **PASS.** Restart
+    sentinel for the 6-litterclass path.
+  - None of the 10 new entries has a baseline — all are new names.
+
+  **C. What these prove — and the thirteen deferred parameters.** Moss runs as a grass-like
+  PFT with a moss identity. Thirteen parameters that would otherwise change its carbon or
+  radiation behaviour are **deferred** (Sam's calls, 2026-08-24). This is the canonical
+  record; Task 2 carries only a pointer here, and Tasks 10/11 the restore instructions.
+
+  - Deferred to **Task 10**, physiology: `fates_leaf_vcmax25top`,
+    `fates_leaf_stomatal_intercept`, `fates_leaf_stomatal_slope_ballberry`,
+    `fates_leaf_stomatal_slope_medlyn`, `fates_leaf_agross_btran_model`,
+    `fates_phen_leaf_habit`.
+  - Deferred to **Task 10** as well, the radiation group restored together:
+    `fates_rad_leaf_clumping_index`, `fates_rad_leaf_taunir`, `fates_rad_leaf_tauvis`,
+    `fates_rad_stem_taunir`, `fates_rad_stem_tauvis`, `fates_rad_leaf_xl`.
+  - Deferred to **Task 11**: `fates_recruit_seed_dbh_repro_threshold`.
+  - **Mechanism:** they stay in `MOSS_PFT_OVERRIDES` in `tools/make_moss_params.py` with
+    their rationale comments intact, but are named in a `DEFERRED_PFT_OVERRIDES` set that the
+    apply loop skips, so moss keeps the `arctic_c3_grass` value it was seeded from. The script
+    prints what it deferred and hard-errors on a key that is not a real override. Restoration
+    is a one-line delete per key plus a regeneration.
+  - **Why the physiology six:** until Task 10 replaces the stomatal solve, moss still goes
+    through it, and with intercept and both slopes at 0 the conductance collapses to the
+    `gsmin0` floor (`biogeophys/LeafBiophysicsMod.F90:2001-2005`) — GPP ~0, a carbon sink with
+    no source. Evergreen leaf habit deepens the drain. Harmless in SP mode where structure is
+    prescribed, but the nocomp full-FATES 2-year test has moss on 50% of the gridcell living
+    off its own carbon balance for two years, where starvation or a conservation-check failure
+    would be an artefact of task ordering *and* would mask real bugs.
+  - **Why the radiation six:** added after review corrected an earlier claim here that
+    radiation does not affect carbon balance. It does — `fates_rad_leaf_clumping_index`
+    multiplies the light-extinction coefficient directly
+    (`radiation/TwoStreamMLPEMod.F90:689,966`), so it changes absorbed PAR and therefore GPP,
+    in the very test the deferral exists to protect. Moss carries 10.0 against a parameter
+    documented as "clumping index 0-1" with no range check anywhere in FATES. The tau/xl
+    overrides go with it because they are one coherent radiative description of a dark,
+    near-opaque thallus; applying half would be worse than applying none. **This does not
+    revisit the 10.0 value**, which is Sam's settled decision — only when it takes effect.
+  - **Not deferred:** the two moss-scale structural overrides, `fates_recruit_height_min` and
+    `fates_allom_fnrt_prof_a`. Neither enters the carbon or radiation budget, so the spec §3
+    corrections stand.
+  - **Net effect:** moss differs from `arctic_c3_grass` in **five** parameters —
+    `fates_pftname`, `fates_vascular`, `fates_hlm_pft_map`, `fates_recruit_height_min`,
+    `fates_allom_fnrt_prof_a`. Moss is grass with an identity flag.
+  - **On reproduction.** Review flagged that reverting the dbh threshold to grass's 3.0 leaves
+    moss on the immature branch at `seed_alloc = 0.0`, i.e. producing no seed — spec §3's
+    stated extinction mechanism. Checked against the regenerated file: of ~70
+    reproduction/recruitment/allometry parameters, moss and grass now differ in exactly two,
+    and only `fates_recruit_height_min` is reproduction-adjacent — it sets recruit size, not
+    whether reproduction happens. Every governing parameter (`seed_alloc`,
+    `seed_alloc_mature`, `germination_rate`, `init_density`, `prescribed_rate`, and every
+    allometry coefficient and mode including `dbh_maxheight`) is now identical to grass. So
+    moss's dbh grows the way grass's does and crossing 3.0 cm is the same question as for
+    arctic grass in the same gridcell. The spec's "never crosses 3 cm" described moss carrying
+    its *own* parameters, which it no longer does. Residual: moss recruits smaller, so it
+    takes marginally longer. Static-parameter reasoning, not a run.
+  - Checked before deferring `fates_phen_leaf_habit`: reverting to grass's deciduous value is
+    safe because moss already inherits `fates_phen_flush_fraction = 0.5` from the grass copy,
+    satisfying the deciduous requirement in `EDPftvarcon.F90`.
+
+  So these tests exercise **plumbing, not moss physiology or radiation**, and deliberately so.
+  The corollary is that they cannot detect a regression in either; Task 10 is the first task
+  whose tests can.
+
+  **D. Baselines.** None of the 10 new entries has one — CIME keys baselines by full test
+  name, and all 10 names are new, including the moss-off `Ly2` twins, which differ from
+  Task 0's `Ld5` entries only in duration. **Sam generates moss baselines at this task**
+  (decided 2026-08-24), so Tasks 6-11 can see exactly what each change does to moss
+  behaviour. That also satisfies Task 6 Step 5(b), which compares `FATES_LIVEMOSS_FUEL`
+  against what previously appeared in the live-grass fuel class — a comparison that needs a
+  prior moss run to exist.
+
+  **E. Two abort cases no test covers.** A CIME test that aborts is a FAIL, so these stay
+  manual: (i) `use_fates_moss = .true.` with the default 6-class JSON, and (ii) the moss JSON
+  with `use_fates_moss = .false.` Both should abort cleanly at initialization with the Task 4
+  size message and/or Task 3's `fates_vascular` biconditional message.
+- [x] **Step 5: reviews, then commit. COMPLETE (2026-08-24).** Code review and spec review
+  both run over the uncommitted work, plus a third focused review of
+  `make_moss_pft4_fsurdat.py`. Substantive changes that came out of them: the `Ly2`
+  wallclocks (NVP's own bump commit proved `00:20:00` short), the nocomp `ERS` entry (spec
+  §10's exact-restart-in-nocomp requirement was unmet — every other `ERS` is SP-mode, where
+  FATES skips fire, litter and allocation entirely), the `hist_fincl1 +=` requirement (a
+  plain assignment would have wiped the FATES history list on the only SPITFIRE test), the
+  radiation group joining the deferral (an earlier note wrongly claimed radiation does not
+  affect carbon balance), and the fsurdat script's drift check becoming a real two-directional
+  assertion over an exact comparison. Findings deliberately not acted on: no
+  `ExpectedTestFails` entries, since we expect these to pass on this branch — NVP carries
+  changes we do not. Sam's post-commit review optionally runs the
   hand-off.
 
 ### Task 6: Moss fuel-class indices, live-moss fuel routing, cohort burn keying, and live-moss history
@@ -1330,6 +1592,23 @@ end if
 
 ### Task 10: Moss physiology — no stomatal solve, wetness-limited vcmax, scaler history
 
+**Also restores twelve deferred moss parameters** (see Task 5 Step 4(C)): delete the six
+physiology keys (`fates_leaf_vcmax25top`, `fates_leaf_stomatal_intercept`,
+`fates_leaf_stomatal_slope_ballberry`, `fates_leaf_stomatal_slope_medlyn`,
+`fates_leaf_agross_btran_model`, `fates_phen_leaf_habit`) **and the six radiation keys**
+(`fates_rad_leaf_clumping_index`, `fates_rad_leaf_taunir`, `fates_rad_leaf_tauvis`,
+`fates_rad_stem_taunir`, `fates_rad_stem_tauvis`, `fates_rad_leaf_xl`) from
+`DEFERRED_PFT_OVERRIDES` in `tools/make_moss_params.py`, regenerate
+`fates_params_moss.json`, and commit both. This task is exactly where the zeroed stomatal
+parameters stop being a hazard, because it is what replaces the stomatal solve; the
+radiation group rides along because it also acts on absorbed PAR and hence GPP, and because
+splitting a single coherent radiative description across two tasks would be worse than
+moving it in one piece. Expect answer changes from the radiation restore that have nothing
+to do with this task's Fortran — in particular `fates_rad_leaf_clumping_index` going 0.75 →
+10.0, which is out of the parameter's documented 0-1 range and unchecked by FATES.
+
+**This task is large — consider splitting it.** See Step 0.
+
 **Files:**
 - Modify (FATES): `biogeophys/LeafBiophysicsMod.F90` (`CiFunc` ~lines 901–1079,
   `CiBisection`, `LeafLayerBiophysicalRates` ~lines 1826–2036)
@@ -1352,6 +1631,13 @@ end if
   with `gs` reported as the existing minimum (`gs0`). Vascular PFTs bit-for-bit
   unchanged. History `FATES_MOSS_VCMAX_SCALER`.
 
+- [ ] **Step 0 (orchestrator): first, consider splitting this task.** By the time it is
+  reached it carries the moss CO2 path, the wetness-limited vcmax, a new patch member, a new
+  history variable, *and* the restoration of twelve deferred parameters — six physiology and
+  six radiation — whose answer changes are independent of this task's Fortran. Plausible
+  seams: (a) the parameter restoration as its own task, so its answer changes are isolated
+  and attributable; (b) radiation separate from physiology; (c) the history variable with
+  whatever it diagnoses. Decide with Sam before starting, not partway through.
 - [ ] **Step 0 (orchestrator):** Read the NVP branch's `nvp_model=3` `CiFunc` branch and
   the current `CiFunc`/`CiBisection` call chain; map exactly which optional arguments
   must be threaded (`fwet` down through `LeafLayerPhotosynthesis` → `CiFunc`). Decide
@@ -1384,6 +1670,12 @@ end if
 - [ ] **Step 5: reviews, then commit.**
 
 ### Task 11: Mat-thickness height allometry (namelist-selectable)
+
+**Also restores one deferred moss parameter** (see Task 5 Step 4(C)): delete
+`fates_recruit_seed_dbh_repro_threshold` from `DEFERRED_PFT_OVERRIDES` in
+`tools/make_moss_params.py`, regenerate `fates_params_moss.json`, and commit both. Assigned
+here because a moss-scale dbh threshold only means something once moss dimensions are
+settled — flagged as a judgement call, not an obvious home.
 
 **Files:**
 - Modify (FATES): `biogeochem/FatesAllometryMod.F90` (`h_allom` ~lines 336–369,
@@ -1430,6 +1722,13 @@ end if
 - Modify: `cime_config/testdefs/testlist_clm.xml` (fill any gaps: one test per
   `fates_moss_height_allom` mode if not added in Task 11; the full `fates_moss` category)
 - Modify: `cime_config/testdefs/ExpectedTestFails.xml` (only if genuinely needed)
+- **Delete: `cime_config/testdefs/testmods_dirs/clm/FatesMossParams/`** (Sam, 2026-08-24).
+  It is identical to `FatesNvp` apart from comments and exists only as the transitional
+  Task 4 case; repoint its two testlist entries at `FatesNvp` or drop them if `FatesNvp`
+  coverage subsumes them.
+- **Delete: `make_moss_pft4_fsurdat.py`** at the CTSM repo root (Sam, 2026-08-24) — a
+  project-local helper that must not go upstream. The fsurdats it generated live in
+  `$INPUTDATA` and are unaffected.
 
 **Interfaces:**
 - Consumes: everything.

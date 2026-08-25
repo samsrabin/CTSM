@@ -1,0 +1,24 @@
+! FatesNvp: run FATES with the moss (non-vascular phototroph) PFT enabled.
+!
+! The switch and the parameter file travel together: with use_fates_moss true, FATES
+! requires a parameter file whose fates_litterclass dimension is 8, and with it false it
+! requires 6. Setting either alone aborts at initialization, by design.
+!
+! use_bedrock is deliberately absent: it lives in the FatesALP2* testmods.
+!
+! This is the general-purpose moss testmod. FatesMossParams is identical to it today but
+! stays minimal, because its only job is to exercise the 8-litterclass parameter file
+! against a non-moss fsurdat. Do not consolidate the two: new moss history variables are
+! added HERE as they are implemented, which is what will make them diverge.
+!
+! Those additions MUST use the append form:
+!     hist_fincl1 += 'FATES_SOME_MOSS_VARIABLE'
+! A plain `hist_fincl1 = ...` would REPLACE, not extend. CIME applies testmods in order and
+! later ones win (cime/CIME/user_mod_support.py), and the nocomp test composes this testmod
+! after clm/Fates, which sets hist_empty_htapes plus the ~23-variable FATES list. Assigning
+! here would silently wipe FATES_FUEL_AMOUNT, FATES_BURNFRAC and the rest -- on the only
+! test that runs SPITFIRE. It would look harmless on the SP tests, which do not include
+! clm/Fates.
+
+use_fates_moss = .true.
+fates_paramfile = '$SRCROOT/src/fates/parameter_files/fates_params_moss.json'
