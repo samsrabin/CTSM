@@ -1,1 +1,4 @@
 use_bedrock = .true.
+
+! See https://github.com/ESCOMP/CTSM/issues/3798
+ch4finundatedmapalgo = 'nn'
