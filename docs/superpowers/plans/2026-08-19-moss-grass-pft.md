@@ -1033,6 +1033,14 @@ their first consumer.
 
 ### Task 5: First moss run — moss testmods and system tests
 
+**Status: COMPLETE (2026-08-25).** Sam ran the CTSM system-test suite at commit `fba615ab1`
+on 2026-08-25 and **all tests pass as expected**. That tip includes the moss testmods and
+14 ALP2 testlist entries (`01e1d847d`, with the FATES parameter-deferral pointer bump in
+`c6c131bdd`) plus the extra infrastructure that made the `derecho_intel` + `mpi-serial` ALP2
+runs pass — the intel/mpi-serial namelist guard and its `ch4finundatedmapalgo='nn'`
+exception, the `FatesALP2` base-testmod refactor, and the bedrock indexing fix — recorded in
+Step 4 below.
+
 **Files:**
 - Create: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (adapted from
   the NVP branch's dir of the same name). **The first-class moss testmod** (Sam, 2026-08-24):
@@ -1252,8 +1260,9 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
 - [x] **Step 3: build check — SKIPPED (Sam, 2026-08-24).** The case built at the end of
   Task 4 and nothing build-relevant has changed since: this task added only testmods,
   testlist entries, and two fsurdats. No Fortran, no build files.
-- [ ] **Step 4: expected outcomes for Sam's review.** Drafted 2026-08-24. This is the first
-  execution of anything in Tasks 4-5: Task 4 landed code and tests but ran neither.
+- [x] **Step 4: expected outcomes for Sam's review.** Drafted 2026-08-24; **executed and
+  COMPLETE (2026-08-25)** — Sam ran the suite and every test passed as expected. This was the
+  first execution of anything in Tasks 4-5: Task 4 landed code and tests but ran neither.
 
   **A. FATES harness (inherited from Task 4 Step 4).**
   1. Fuel functional test, standard 6-class paramfile (`run_functional_tests.py -t fuel`) —
@@ -1358,7 +1367,31 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
   **E. Two abort cases no test covers.** A CIME test that aborts is a FAIL, so these stay
   manual: (i) `use_fates_moss = .true.` with the default 6-class JSON, and (ii) the moss JSON
   with `use_fates_moss = .false.` Both should abort cleanly at initialization with the Task 4
-  size message and/or Task 3's `fates_vascular` biconditional message.
+  size message and/or Task 3's `fates_vascular` biconditional message. (The E cases are
+  manual and separate from the automated suite; "all tests pass" above refers to the suite.)
+
+  **F. Infrastructure added 2026-08-25 to make the `derecho_intel` + `mpi-serial` ALP2 runs
+  pass.** These runs first died with an ESMF floating divide-by-zero deep in the
+  `ch4finundated` stream regrid — a known intel + mpi-serial issue, **ESCOMP/CTSM #3798**
+  (gnu builds of the same tests passed; SP-mode ALP2 tests passed on both compilers). Landed:
+  - `2d62c1ef0` — a CLMBuildNamelist guard that fails the namelist build when
+    `COMPILER=intel` and `MPILIB=mpi-serial`, so the combination errors clearly at build-nml
+    time instead of crashing at runtime. Added via subagent-driven development
+    (implement → review), plus a `%failtest` unit test.
+  - `90ef1c642` — an exception to that guard: it does **not** fire when
+    `ch4finundatedmapalgo='nn'` (nearest-neighbor mapping avoids the crash). Required moving
+    the guard call after `process_namelist_user_input` so the namelist value is available;
+    two new unit tests (`nn` passes, `bilinear` still fails).
+  - `f249440ab` + `fba615ab1` — a `FatesALP2` base testmod that sets `use_bedrock=.true.`
+    and `ch4finundatedmapalgo='nn'`, inherited via `include_user_mods` by all four
+    `FatesALP2{Bare,BareGrass,BareGrassMoss,BareMoss}` leaf testmods, so every ALP2 test now
+    carries `nn` and the guard is satisfied.
+  - `44a424d03` — bedrock indexing fix in the FATES interface (ESCOMP/CTSM #4159), needed
+    because the ALP2 testmods run with `use_bedrock=.true.`
+  **Scope caveat:** the guard is a blanket intel × mpi-serial block (Sam's call — to be
+  removed before any upstream merge). Its blast radius is *every* intel + `_Mmpi-serial`
+  entry in `testlist_clm.xml` (~38, mostly non-ALP2), all of which would now fail the
+  namelist build on `derecho_intel` unless they also set `nn`.
 - [x] **Step 5: reviews, then commit. COMPLETE (2026-08-24).** Code review and spec review
   both run over the uncommitted work, plus a third focused review of
   `make_moss_pft4_fsurdat.py`. Substantive changes that came out of them: the `Ly2`
@@ -1399,18 +1432,18 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
   `FATES_LIVEMOSS_FUEL` (site-level kgC m-2, registered only when `hlm_use_moss` —
   this task establishes the conditional-registration pattern later tasks follow).
 
-- [ ] **Step 0 (orchestrator):** Re-read `UpdateLiveGrass` and the burn-keying block;
+- [x] **Step 0 (orchestrator):** Re-read `UpdateLiveGrass` and the burn-keying block;
   confirm `UpdateTreeGrassArea` (accepted: moss stays lumped as "grass" for wind
   attenuation, spec §12) needs no change. Identify the conditional-registration
   precedent in `FatesHistoryInterfaceMod` (e.g., hydro-only variables) for the history
   step. Forward check: Task 7 must NOT double-count moss in `livegrass`; the history
   pattern here is reused by Tasks 7, 8, 10.
-- [ ] **Step 0b: moss fuel-class indices.** In `fire/FatesFuelClassesMod.F90`, add private
+- [x] **Step 0b: moss fuel-class indices.** In `fire/FatesFuelClassesMod.F90`, add private
   indices `live_moss_i = 7` and `dead_moss_i = 8` with public accessor functions
   `live_moss()`/`dead_moss()` that `endrun` if `num_fuel_classes < 8`. Also fix that module's
   header comment, which still says "There are six fuel classes". Do this first — Steps 2 and 3
   below both call the accessors.
-- [ ] **Step 1: split live pools.** In `UpdateLiveGrass`, for non-woody cohorts branch
+- [x] **Step 1: split live pools.** In `UpdateLiveGrass`, for non-woody cohorts branch
   on `prt_params%vascular(pft)`:
 
 ```fortran
@@ -1425,13 +1458,13 @@ end if
 ```
 
   (initialize/zero `livemoss` wherever `livegrass` is; add to patch init/flush.)
-- [ ] **Step 2: loading.** In `UpdateFuelCharacteristics`, where
+- [x] **Step 2: loading.** In `UpdateFuelCharacteristics`, where
   `loading(live_grass)` is set from `livegrass`, add (guarded by
   `hlm_use_moss == itrue`): `loading(fuel_classes%live_moss()) = currentPatch%livemoss`.
-- [ ] **Step 3: cohort burn keying.** In `EDPatchDynamicsMod` where non-woody cohorts
+- [x] **Step 3: cohort burn keying.** In `EDPatchDynamicsMod` where non-woody cohorts
   take `leaf_burn_frac = frac_burnt(fuel_classes%live_grass())`, moss cohorts
   (`vascular==ifalse`) instead take `frac_burnt(fuel_classes%live_moss())`.
-- [ ] **Step 4: history.** Register and fill `FATES_LIVEMOSS_FUEL` (patch `livemoss`
+- [x] **Step 4: history.** Register and fill `FATES_LIVEMOSS_FUEL` (patch `livemoss`
   area-weighted to site), guarded by `hlm_use_moss`.
 - [ ] **Step 5: verify.** (a) Fuel functional test: with a moss live pool in the driver
   data, `loading(7)` equals the input moss biomass and `SumLoading` includes it; 6-class

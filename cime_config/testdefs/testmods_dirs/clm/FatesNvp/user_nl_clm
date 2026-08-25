@@ -22,3 +22,5 @@
 
 use_fates_moss = .true.
 fates_paramfile = '$SRCROOT/src/fates/parameter_files/fates_params_moss.json'
+
+hist_fincl1 += 'FATES_LIVEMOSS_FUEL'
