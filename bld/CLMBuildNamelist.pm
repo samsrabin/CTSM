@@ -591,6 +591,25 @@ sub check_cesm_inputdata {
 
 #-------------------------------------------------------------------------------
 
+sub check_compiler_mpilib_compatibility {
+  # Check for unsupported compiler/mpilib combinations.  Fail at namelist-build
+  # time so the user gets a clear error instead of a runtime crash.
+  # See ESCOMP/CTSM issue #3798 for the ESMF floating-point crash that motivated
+  # this guard.
+
+  my ($envxml_ref) = @_;
+
+  if ( defined($envxml_ref->{'COMPILER'}) && defined($envxml_ref->{'MPILIB'}) ) {
+    if ( $envxml_ref->{'COMPILER'} eq 'intel' && $envxml_ref->{'MPILIB'} eq 'mpi-serial' ) {
+      $log->fatal_error("COMPILER=intel with MPILIB=mpi-serial is not supported: " .
+                        "this combination triggers an ESMF floating-point crash at runtime " .
+                        "(ESCOMP/CTSM issue #3798). Use a different compiler or MPI library.");
+    }
+  }
+}
+
+#-------------------------------------------------------------------------------
+
 sub process_namelist_user_input {
   # Process the user input in general by order of precedence.  At each point
   # we'll only add new values to the namelist and not overwrite
@@ -6125,6 +6144,9 @@ sub main {
 
   # Read in the env_*.xml files
   my %env_xml    = read_envxml_case_files( \%opts );
+
+  # Check for unsupported compiler/mpilib combinations (e.g. ESCOMP/CTSM #3798)
+  check_compiler_mpilib_compatibility( \%env_xml );
 
   # Process the user inputs
   process_namelist_user_input(\%opts, \%nl_flags, $definition, $defaults, $nl, $cfg, \%env_xml, $physv );

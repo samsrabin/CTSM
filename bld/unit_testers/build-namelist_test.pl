@@ -165,7 +165,7 @@ my $testType="namelistTest";
 #
 # Figure out number of tests that will run
 #
-my $ntests = 3403;
+my $ntests = 3404;
 
 if ( defined($opts{'compare'}) ) {
    $ntests += 2061;
@@ -1408,6 +1408,12 @@ my %failtest = (
                                      LND_SETS_DUST_EMIS_DRV_FLDS=>"FALSE",
                                      phys=>"clm6_0",
                                      },
+     "intel_mpiserial_unsupported"=>{ options=>"-envxml_dir .",
+                                     namelst=>"",
+                                     COMPILER=>"intel",
+                                     MPILIB=>"mpi-serial",
+                                     phys=>"clm6_0",
+                                   },
                );
 foreach my $key ( keys(%failtest) ) {
    print( "$key\n" );
@@ -1422,7 +1428,7 @@ foreach my $key ( keys(%failtest) ) {
    my $options  = $failtest{$key}{"options"};
    my $namelist = $failtest{$key}{"namelst"};
    my %settings;
-   foreach my $xmlvar ( "GLC_TWO_WAY_COUPLING", "LND_SETS_DUST_EMIS_DRV_FLDS", "CLM_CMIP_ERA", "CLM_NDEP_FROM_CPL") {
+   foreach my $xmlvar ( "GLC_TWO_WAY_COUPLING", "LND_SETS_DUST_EMIS_DRV_FLDS", "CLM_CMIP_ERA", "CLM_NDEP_FROM_CPL", "COMPILER", "MPILIB") {
       if ( defined($failtest{$key}{$xmlvar}) ) {
          $settings{$xmlvar} = $failtest{$key}{$xmlvar};
       }
