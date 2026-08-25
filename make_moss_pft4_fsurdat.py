@@ -42,8 +42,13 @@ Index 12 of ..._moss.nc, which is the hand-tuned moss canopy:
 
 Both outputs get exactly this column at index 4, which is why the moss-only file is an input
 to the grassmoss build too. For the grassmoss file, three of the four variables already match
-it, so the report should show exactly one correction -- MONTHLY_HEIGHT_BOT. That is the
-built-in check that nothing else drifted.
+it, so exactly one correction -- MONTHLY_HEIGHT_BOT -- should be needed. That is enforced in
+both directions and is a hard error either way: another column differing means the input is
+not the file this script was written for, and MONTHLY_HEIGHT_BOT *not* differing means the
+file has already been through this script. Comparison is exact, not tolerance-based.
+
+Scope: single-gridcell fsurdats only. Both inputs are checked and a multi-gridcell file is
+refused rather than mishandled -- see require_single_gridcell.
 
 What moves, and why the canopy columns matter
 ---------------------------------------------
@@ -113,6 +118,12 @@ import numpy as np
 
 MOSS_SRC_IDX = 12  # arctic_c3_grass slot, where ..._moss.nc parks its moss
 MOSS_DST_IDX = 4   # broadleaf_evergreen_tropical_tree slot, which our paramfile gives to moss
+
+# The one canopy column that ..._grassmoss.nc is known to have wrong at index 4: three of
+# the four were moved from index 12 and MONTHLY_HEIGHT_BOT was not. Anything else differing
+# from the authoritative moss column means the input is not the file this script expects,
+# and check_grassmoss raises rather than overwriting it.
+EXPECTED_GRASSMOSS_CORRECTIONS = {"MONTHLY_HEIGHT_BOT"}
 
 AREA_VAR = "PCT_NAT_PFT"
 CANOPY_VARS = ["MONTHLY_LAI", "MONTHLY_SAI", "MONTHLY_HEIGHT_TOP", "MONTHLY_HEIGHT_BOT"]
@@ -186,6 +197,24 @@ def put_column(data, axis, idx, values):
     data[tuple(sel)] = values
 
 
+def require_single_gridcell(ds, path):
+    """This script only handles single-gridcell fsurdats.
+
+    Multi-gridcell support was deliberately not implemented (Sam, 2026-08-24): every
+    reported quantity here -- the per-PFT areas, the sum-to-100 line, the column comparison
+    -- would have to become per-gridcell, and fill-valued gridcells would need mask handling
+    that this script does not do. Rather than pretend, it refuses.
+    """
+    nlat = len(ds.dimensions["lsmlat"])
+    nlon = len(ds.dimensions["lsmlon"])
+    if nlat * nlon != 1:
+        raise FsurdatContentError(
+            f"{path} has lsmlat={nlat} x lsmlon={nlon} = {nlat * nlon} gridcells. This "
+            "script only handles single-gridcell fsurdats, such as the 1x1 ALP2 files it "
+            "was written for."
+        )
+
+
 def require_vars(ds, path):
     for name in ALL_VARS:
         if name not in ds.variables:
@@ -193,14 +222,23 @@ def require_vars(ds, path):
 
 
 def area_by_index(ds):
-    """Max PCT_NAT_PFT per PFT index, as a plain list."""
+    """PCT_NAT_PFT per PFT index, as a plain list.
+
+    Exact, not a summary statistic: require_single_gridcell has already established that
+    there is exactly one gridcell, so each index has exactly one value.
+    """
     var = ds.variables[AREA_VAR]
     axis = pft_axis(var)
     data = np.asarray(var[:])
-    return [float(np.max(column(data, axis, i))) for i in range(data.shape[axis])]
+    return [float(np.ravel(column(data, axis, i))[0]) for i in range(data.shape[axis])]
 
 
 def describe_area(ds, label):
+    """Report which PFT indices carry area, and what they sum to.
+
+    Single gridcell, so the sum below is the gridcell's total and should be 100. It is
+    printed, not asserted -- the caller-level checks are the ones that refuse to proceed.
+    """
     areas = area_by_index(ds)
     nz = [(i, round(a, 4)) for i, a in enumerate(areas) if a > 1e-9]
     print(f"    {label:12s} {AREA_VAR} nonzero: {nz}  (sums to {sum(areas):.4f})")
@@ -226,6 +264,7 @@ def read_moss_column(path):
     col = {}
     with netCDF4.Dataset(path) as ds:
         require_vars(ds, path)
+        require_single_gridcell(ds, path)
         for name in CANOPY_VARS:
             var = ds.variables[name]
             col[name] = column(np.asarray(var[:]), pft_axis(var), MOSS_SRC_IDX)
@@ -243,6 +282,7 @@ def check_moss_only(path):
     """Confirm path is the moss-on-index-12 file, and report it."""
     with netCDF4.Dataset(path) as ds:
         require_vars(ds, path)
+        require_single_gridcell(ds, path)
         n_natpft = len(ds.dimensions["natpft"])
         if max(MOSS_SRC_IDX, MOSS_DST_IDX) >= n_natpft:
             raise FsurdatContentError(
@@ -269,6 +309,7 @@ def check_grassmoss(path, moss_col):
     """Confirm path is the bare+grass+moss file, and report which columns need fixing."""
     with netCDF4.Dataset(path) as ds:
         require_vars(ds, path)
+        require_single_gridcell(ds, path)
         areas = area_by_index(ds)
         if not areas[MOSS_DST_IDX] > 0:
             raise FsurdatContentError(
@@ -295,7 +336,7 @@ def check_grassmoss(path, moss_col):
                     f"{name} shape mismatch between --fin-moss and --fin-grassmoss: "
                     f"{want.shape} vs {have.shape}. Are they the same grid?"
                 )
-            if np.allclose(have, want):
+            if np.array_equal(have, want):
                 print(f"      {name:20s} idx{MOSS_DST_IDX} already matches moss column")
             else:
                 pending.append(name)
@@ -303,6 +344,29 @@ def check_grassmoss(path, moss_col):
                     f"      {name:20s} idx{MOSS_DST_IDX} NEEDS CORRECTION: "
                     f"max {np.max(have):.6f} -> {np.max(want):.6f}"
                 )
+        if set(pending) != EXPECTED_GRASSMOSS_CORRECTIONS:
+            expected = ", ".join(sorted(EXPECTED_GRASSMOSS_CORRECTIONS))
+            problems = []
+            extra = sorted(set(pending) - EXPECTED_GRASSMOSS_CORRECTIONS)
+            if extra:
+                problems.append(
+                    f"{', '.join(extra)} differs from the moss column but should already "
+                    "match it -- so this is not the file this script was written for, and "
+                    f"overwriting index {MOSS_DST_IDX} would destroy something real"
+                )
+            missing = sorted(EXPECTED_GRASSMOSS_CORRECTIONS - set(pending))
+            if missing:
+                problems.append(
+                    f"{', '.join(missing)} already matches the moss column but should have "
+                    "needed correcting -- so either this file has already been through this "
+                    "script, or it is not the one this script was written for"
+                )
+            raise FsurdatContentError(
+                f"at index {MOSS_DST_IDX} of {os.path.basename(path)}, exactly "
+                f"[{expected}] was expected to need correcting. Instead: "
+                + "; ".join(problems)
+                + ". Check the input before rerunning."
+            )
         return pending
 
 
