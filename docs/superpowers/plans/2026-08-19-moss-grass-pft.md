@@ -110,6 +110,13 @@ git ls-tree HEAD src/fates
 git config -f .gitmodules submodule.fates.fxtag
 ```
 
+**CTSM history was rewritten on 2026-08-25** to repair exactly that drift: an interactive
+rebase replaced every CTSM commit after `5a350acf4`, and the pre-rewrite branch is
+preserved as `adrianna-moss-grass-pft-badgitmodules`. Commits at or before `5a350acf4` are
+unchanged and shared by both branches; the later SHAs recorded in this plan were updated to
+the rewritten ones. **FATES was not rebased** — every FATES SHA in this plan and the spec is
+still valid, as are the NVP-branch and fork SHAs.
+
 ## Upstream FATES observations (report when this work goes upstream)
 
 Not defects in our work; things noticed while implementing that upstream may want to know.
@@ -815,7 +822,7 @@ end if
 
 ### Task 4: Runtime fuel-class count (6 ↔ 8)
 
-**Status: COMPLETE (2026-08-24).** FATES `21ae02ab`; CTSM pointer bump in `41043800a`.
+**Status: COMPLETE (2026-08-24).** FATES `21ae02ab`; CTSM pointer bump in `f749bce7b`.
 Two review rounds (code + spec); the as-built design diverges from this plan's original
 Steps 1–3 in ways recorded inline below, because the planned mechanism turned out to be
 impossible. **Verification runs are deferred to Task 5** — see Step 4. The moss fuel-class
@@ -1013,7 +1020,8 @@ their first consumer.
 - [x] **Step 5: reviews, then commit. COMPLETE (2026-08-24).** Code review and spec review
   both run; all findings either fixed or explicitly declined (the bare `num_fuel_classes`
   declaration and the unguarded `SF_val_*` allocates, both left to match FATES convention).
-  FATES commit + CTSM pointer bump in `41043800a` (was `eb3e4131f` before two amends).
+  FATES commit + CTSM pointer bump in `f749bce7b` (rebased 2026-08-25 from `41043800a`,
+  itself `eb3e4131f` before two amends).
 
 ### Task 5: First moss run — moss testmods and system tests
 
