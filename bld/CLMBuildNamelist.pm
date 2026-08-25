@@ -596,14 +596,24 @@ sub check_compiler_mpilib_compatibility {
   # time so the user gets a clear error instead of a runtime crash.
   # See ESCOMP/CTSM issue #3798 for the ESMF floating-point crash that motivated
   # this guard.
+  #
+  # Exception: when ch4finundatedmapalgo='nn', nearest-neighbor mapping is used
+  # for the ch4finundated stream and the ESMF crash does not occur, so that
+  # combination is allowed (ESCOMP/CTSM issue #3798).
 
-  my ($envxml_ref) = @_;
+  my ($envxml_ref, $nl) = @_;
 
   if ( defined($envxml_ref->{'COMPILER'}) && defined($envxml_ref->{'MPILIB'}) ) {
     if ( $envxml_ref->{'COMPILER'} eq 'intel' && $envxml_ref->{'MPILIB'} eq 'mpi-serial' ) {
-      $log->fatal_error("COMPILER=intel with MPILIB=mpi-serial is not supported: " .
-                        "this combination triggers an ESMF floating-point crash at runtime " .
-                        "(ESCOMP/CTSM issue #3798). Use a different compiler or MPI library.");
+      my $mapalgo = $nl->get_value('ch4finundatedmapalgo');
+      my $mapalgo_stripped = defined($mapalgo) ? remove_leading_and_trailing_quotes($mapalgo) : undef;
+      unless ( defined($mapalgo_stripped) && $mapalgo_stripped eq 'nn' ) {
+        $log->fatal_error("COMPILER=intel with MPILIB=mpi-serial is not supported: " .
+                          "this combination triggers an ESMF floating-point crash at runtime " .
+                          "(ESCOMP/CTSM issue #3798). Use a different compiler or MPI library, " .
+                          "or set ch4finundatedmapalgo='nn', which avoids the crash by using " .
+                          "nearest-neighbor mapping.");
+      }
     }
   }
 }
@@ -6145,11 +6155,11 @@ sub main {
   # Read in the env_*.xml files
   my %env_xml    = read_envxml_case_files( \%opts );
 
-  # Check for unsupported compiler/mpilib combinations (e.g. ESCOMP/CTSM #3798)
-  check_compiler_mpilib_compatibility( \%env_xml );
-
   # Process the user inputs
   process_namelist_user_input(\%opts, \%nl_flags, $definition, $defaults, $nl, $cfg, \%env_xml, $physv );
+  # Check for unsupported compiler/mpilib combinations (e.g. ESCOMP/CTSM #3798).
+  # Must run after process_namelist_user_input so ch4finundatedmapalgo is available.
+  check_compiler_mpilib_compatibility( \%env_xml, $nl );
   # Get any other defaults needed from the namelist defaults file
   process_namelist_inline_logic(\%opts, \%nl_flags, $definition, $defaults, $nl, \%env_xml, $physv);
 

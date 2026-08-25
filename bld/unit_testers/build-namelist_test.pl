@@ -165,7 +165,7 @@ my $testType="namelistTest";
 #
 # Figure out number of tests that will run
 #
-my $ntests = 3404;
+my $ntests = 3406;
 
 if ( defined($opts{'compare'}) ) {
    $ntests += 2061;
@@ -1576,6 +1576,54 @@ foreach my $key ( keys(%coldwfinidat) ) {
       $finidat = `grep finidat lnd_in`;
       ok ( $finidat =~ "testfile.nc", "coldwfinidat $key finidat? $finidat" );
    }
+}
+
+print "\n===============================================================================\n";
+print "Test intel+mpi-serial guard: nn exception passes, bilinear still fails\n";
+print "=================================================================================\n";
+
+# Test the ch4finundatedmapalgo guard exception (ESCOMP/CTSM #3798).
+# intel+mpi-serial with nn mapping must succeed; with bilinear it must still fail.
+my %mapalgo_guard = (
+     "intel_mpiserial_nn_allowed"     => { options=>"-envxml_dir . --bgc bgc -ignore_warnings",
+                                           namelst=>"ch4finundatedmapalgo='nn'",
+                                           COMPILER=>"intel",
+                                           MPILIB=>"mpi-serial",
+                                           phys=>"clm6_0",
+                                           expected_fail=>0,
+                                         },
+     "intel_mpiserial_bilinear_fails" => { options=>"-envxml_dir . --bgc bgc",
+                                           namelst=>"ch4finundatedmapalgo='bilinear'",
+                                           COMPILER=>"intel",
+                                           MPILIB=>"mpi-serial",
+                                           phys=>"clm6_0",
+                                           expected_fail=>1,
+                                         },
+);
+foreach my $key ( keys(%mapalgo_guard) ) {
+   print( "$key\n" );
+
+   my $var;
+   foreach $var ( "phys", "options", "namelst", "expected_fail" ) {
+      if ( not exists $mapalgo_guard{$key}{$var} ) {
+         die "ERROR: Subkey $var does not exist for mapalgo_guard $key\nERROR:Check if you spelled $var correctly\n"
+      }
+   }
+
+   &make_config_cache($mapalgo_guard{$key}{"phys"});
+   my $options  = $mapalgo_guard{$key}{"options"};
+   my $namelist = $mapalgo_guard{$key}{"namelst"};
+   my $expected_fail = $mapalgo_guard{$key}{"expected_fail"};
+   my %settings;
+   foreach my $xmlvar ( "COMPILER", "MPILIB" ) {
+      if ( defined($mapalgo_guard{$key}{$xmlvar}) ) {
+         $settings{$xmlvar} = $mapalgo_guard{$key}{$xmlvar};
+      }
+   }
+   &make_env_run( %settings );
+   eval{ system( "$bldnml $options -namelist \"&clmexp $namelist /\" > $tempfile 2>&1 " ); };
+   is( $? eq 0, $expected_fail eq 0, "mapalgo_guard $key run");
+   system( "cat $tempfile" );
 }
 
 #
