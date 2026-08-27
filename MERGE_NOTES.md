@@ -69,7 +69,7 @@ Filled by Task 18. One row per spec §10 gate.
 | Gate | Configuration | Result |
 |---|---|---|
 | Bit-for-bit vs `ctsm5.4.028` | `use_nvp=.false.` | **`clm_short` reported good at `1db676ea9` (through Task 5c)** by the user; full `aux_clm` at that commit not yet run. Earlier: **interim pass at `23a59c7a9` (through Task 4).** aux_clm on derecho: **285 BASELINE PASS**, 3 BASELINE FAIL — two flagged EXPECTED FAIL, one (`SSPMATRIXCN_Ly5...ciso_monthly`) a stale baseline whose files are dated 2027-12 against our 2016-12, so cprnc compared nothing. Re-run at Task 18. |
-| Golden zero-thickness | `use_nvp=T, dz_nvp=0, frac_nvp=0` vs `use_nvp=F` | |
+| Zero-thickness | `use_nvp=T, dz_nvp=0, frac_nvp=0` vs `use_nvp=F` | |
 | Partial-cover closure | `frac_nvp=0.3`, `0.7`, winter-crossing | |
 | Exact restart | `ERS`, `use_nvp=T, dz_nvp>0` | |
 | Merge rehearsal | trial merge into `ctsm5.4.028_nvp` | |
@@ -127,8 +127,8 @@ so `jbot_sno` is 0 there and every stock expression is already correct.
 | `SnowHydrologyMod.F90` `BulkDiag_NewSnowDiagnostics` | new snow depth added to `dz(c,snl(c)+1)` | was writing the moss thickness at `snl == -1` | **Done, Task 5c** |
 | `SnowHydrologyMod.F90` `UpdateState_AddNewSnow` | new snow mass added to `h2osoi_ice(c,snl(c)+1)` | was booking snowfall into the moss slot, giving `errh2osno = -qflx_snow_grnd*dtime` and an abort | **Done, Task 5c** |
 | `SnowHydrologyMod.F90:1237` `UpdateState_TopLayerFluxes` | `lev_top(c) = snl(c)+1` | top-layer sublimation/condensation applied to the moss slot at `snl == -1` | Task 6 (called from `SnowWater`) |
-| `clm_driver.F90:1637-1638` `clm_drv_init` | `frac_iceold(c,j)` over `j >= snl(c)+1` | **divide by zero** in the golden `dz_nvp = 0` case: `h2osoi_ice(c,0)/(h2osoi_liq(c,0)+h2osoi_ice(c,0))`, both terms zero. Every timestep the column carries resolved snow | Task 6 — **do this one first** |
-| `ch4Mod.F90:3793-3841` `ch4_tran` snow resistance | `do j = -nlevsno+1,0` / `j >= snl(c)+1`, and `dz(c,j)` in a denominator | counts moss as snow, misses the top snow layer, and **divides by `dz(c,0)`** in the golden case. Whenever `use_lch4` and the column has resolved snow, so every BGC compset | Task 6 (by domain; no task owns `ch4Mod`) |
+| `clm_driver.F90:1637-1638` `clm_drv_init` | `frac_iceold(c,j)` over `j >= snl(c)+1` | **divide by zero** in the `dz_nvp = 0` case: `h2osoi_ice(c,0)/(h2osoi_liq(c,0)+h2osoi_ice(c,0))`, both terms zero. Every timestep the column carries resolved snow | Task 6 — **do this one first** |
+| `ch4Mod.F90:3793-3841` `ch4_tran` snow resistance | `do j = -nlevsno+1,0` / `j >= snl(c)+1`, and `dz(c,j)` in a denominator | counts moss as snow, misses the top snow layer, and **divides by `dz(c,0)`** in the zero-thickness case. Whenever `use_lch4` and the column has resolved snow, so every BGC compset | Task 6 (by domain; no task owns `ch4Mod`) |
 | `AerosolMod.F90:788-796` `AerosolFluxes` | BC/OC/dust deposited into `mss_*(c,snl(c)+1)` | aerosol deposition into the moss slot | Task 6 (routine not previously named) |
 | `AerosolMod.F90:621-624` `AerosolMasses` | `h2osno_top` / `mss_*_top` from `snl(c)+1` | SNICAR top-layer inputs read from moss | Task 6 (outside its cited `:570-580`) |
 | `HydrologyNoDrainageMod.F90:704` | `h2osno_top(c)` from `snl(c)+1` | same SNICAR input as `AerosolMod:621` | Task 6 **by domain**, though Task 10 owns the file — cross-referenced in both |
