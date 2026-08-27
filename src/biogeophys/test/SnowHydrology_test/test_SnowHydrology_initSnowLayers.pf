@@ -23,8 +23,11 @@ module test_SnowHydrology_initSnowLayers
   ! a factor of exactly two would make that residual equal the very threshold it is
   ! measured from. A bottom layer wrongly assigned that threshold would then still
   ! conserve total thickness, and the conservation assertion would not notice. Lowering
-  ! the factor is not free either: somewhere below one and a half it crosses back into
-  ! the even-split branch, where this reasoning stops describing what the fixture does.
+  ! the factor is not free either: it crosses back into the even-split branch just above
+  ! one and a half, where this reasoning stops describing what the fixture does. The
+  ! crossing sits at 1 + dzmax_u(nlevsno-1)/sum(dzmax_u(1:nlevsno-1)), which falls
+  ! towards one and a half from above as nlevsno grows -- 1.56 at an nlevsno of five --
+  ! so one and a half itself is already on the even-split side.
   real(r8), parameter :: overfill_factor = 3._r8
 
   @TestCase
