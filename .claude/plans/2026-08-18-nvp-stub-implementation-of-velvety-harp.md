@@ -944,7 +944,7 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 **Files:**
 - Modify: `src/main/histFileMod.F90` (`hist_set_snow_field_2d` :2209-2300) **and nothing else.**
 
-**Do not touch the eight `SNO_*` field registrations.** An earlier draft of this line left that open ("plus the registrations if their slices need bound changes"); the answer is settled and it is no. Their slices are `(:, -nlevsno+1:0)` literals, and narrowing them to `(:, -nlevsno+1:-1)` would shrink the `levsno` dimension **for every column in every configuration, `use_nvp = .false.` included**, so every existing baseline would fail on shape. The fix belongs entirely in the fill, because the bottom-justification is per-column and keys on `col%jbot_sno(c)`.
+**Do not touch the eight `SNO_` field registrations.** An earlier draft of this line left that open ("plus the registrations if their slices need bound changes"); the answer is settled and it is no. Their slices are `(:, -nlevsno+1:0)` literals, and narrowing them to `(:, -nlevsno+1:-1)` would shrink the `levsno` dimension **for every column in every configuration, `use_nvp = .false.` included**, so every existing baseline would fail on shape. The fix belongs entirely in the fill, because the bottom-justification is per-column and keys on `col%jbot_sno(c)`.
 
 - [ ] **Step 0: Plan review (orchestrator; do not delegate).** Read this task's text against the spec and the code it touches. **STOP** and put to the user: clarifying questions, problems foreseen, cleanup the task text needs, unmet dependencies. Write the resolutions into this plan file before dispatching the implementer.
 
