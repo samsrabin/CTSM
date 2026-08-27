@@ -666,7 +666,7 @@ git config -f .gitmodules submodule.ccs_config.fxtag
 - **Answer changes.** None in pre-existing tests. Both `InitCold` fixes touch only the top snow layer of an NVP column — on a stock column the fill guard `j > snl(c)` already covers the whole pack and is unchanged.
 - **Tests added or changed.** The ALP2 testmods; testlist entries for the two NVP-off site sentinels, the zero-thickness `SMS`/`ERS` pair, the two partial-cover runs and the two required global tests; and the three suites.
 - **Expected fails.** Every NVP-on entry, each naming the phase it fails in. The zero-thickness and global entries retire at Task 11 (Step 4b), the partial-cover pair at Task 14 (Step 3b).
-- **Baselines.** **A complete new baseline is required**, including tests this task did not touch. Generate as `<branchbasename>.<shorthash>>`; compare against the previous baseline. Note the NVP-on entries generate no baseline of their own while they are expected fails — the first baselines for them come at Tasks 11 and 14.
+- **Baselines.** **A complete new baseline is required**, including tests this task did not touch. Generate as `<branchbasename>.<shorthash>`; compare against the previous baseline. Note the NVP-on entries generate no baseline of their own while they are expected fails — the first baselines for them come at Tasks 11 and 14.
 
 ---
 
@@ -822,7 +822,7 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 - **Answer changes.** None in pre-existing tests. NVP-on answers are established for the first time at this task, so there is no prior baseline for them to move against.
 - **Tests added or changed.** No new entries. Step 4b removes the `ExpectedTestFails.xml` entries for the zero-thickness and global NVP-on tests.
 - **Expected fails.** Zero-thickness and global entries retired. The two partial-cover entries remain, and are Task 14's to retire. If a retired test still fails, that is a missing fix — report it rather than restoring the entry.
-- **Baselines.** **A complete new baseline is required.** The retired entries produce comparable output for the first time, so this is where their baselines come from. Generate as `<branchbasename>.<shorthash>>`; compare against the previous baseline.
+- **Baselines.** **A complete new baseline is required.** The retired entries produce comparable output for the first time, so this is where their baselines come from. Generate as `<branchbasename>.<shorthash>`; compare against the previous baseline.
 
 ---
 
@@ -928,7 +928,7 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 - **Answer changes.** None in pre-existing tests, and none in the zero-thickness or global entries — but the risk to watch is Step 1. Restructuring the `TotalWaterAndHeatMod` sums must add the moss terms **only inside `if (col%nvp_layer_exists(c))`**: adding zero-valued terms unconditionally changes the summation order on stock columns and moves the last bit. Partial-cover answers are established for the first time here, so there is no prior baseline for them to move against.
 - **Tests added or changed.** No new entries. Step 3b removes the two partial-cover `ExpectedTestFails.xml` entries. Unit tests: the `Balance_test` NVP coverage and the non-soil-landunit test, both from §10 coverage rows 10.8a and 10.8b.
 - **Expected fails.** The partial-cover pair retired. **None should remain on any NVP test after this task**; one that does is a gap, not an expectation.
-- **Baselines.** **A complete new baseline is required.** The partial-cover entries produce comparable output for the first time. Generate as `<branchbasename>.<shorthash>>`; compare against the previous baseline.
+- **Baselines.** **A complete new baseline is required.** The partial-cover entries produce comparable output for the first time. Generate as `<branchbasename>.<shorthash>`; compare against the previous baseline.
 
 ---
 
