@@ -576,6 +576,47 @@ git config -f .gitmodules submodule.ccs_config.fxtag
 
 ---
 
+### Task 5g: pFUnit coverage for the Task 5a reindex
+
+**In brief.** Task 5g closes coverage holes that an audit of `InitSnowLayers` turned up on 2026-08-27. Task 5a substituted `jbot` at seven sites in that routine; three of them are reached by no test, and one carries a comment that misstates why its line exists. Tests plus one comment — no executable model code, so this task cannot move answers and needs no suite run. Same shape as Task 5d, against a different routine.
+
+**This task runs the test-first process in reverse, deliberately.** The code under test landed in Task 5a and is believed correct, so there is no red-first track here at all: every test is green-throughout by construction and the writer is expected to see green. That drops the writer-before-implementer sequencing of Execution Process step 3a — there is no implementer — and with it the "committed red is the evidence" half of the Global Constraints bullet. What replaces it:
+
+- **The writer still mutates.** Every assertion it lands comes with a mutation it has watched fail, reported in the hand-off. That is the standing green-throughout requirement and it is not relaxed here.
+- **The reviewer mutates too, independently, and may not reuse the writer's mutations.** Task 5d shipped two cap tests that could not fail, and its own Step 7 mutation pass missed them, because the writer mutated the thing its tests were built around. A test that detects only the mutation its author had in mind reads as coverage without being coverage. The spec-compliance reviewer (Execution Process step 6) owns this: for each new test it chooses its own mutation, runs it, and reports what happened. A test that no reviewer-chosen mutation can redden is a finding.
+- **A mutation counts only if it is two-sided: red on the NVP case, green on its stock complement.** One that reddens both is pinning shared arithmetic rather than the moss slot. This is Task 5d Step 7's rule, restated because it is what makes the complementary-pair discipline in these files worth anything.
+- **Prefer reversion to `ctsm5.4.028` over invention.** Every site here is a `jbot` substitution, so `git show ctsm5.4.028:src/biogeophys/SnowHydrologyMod.F90` hands over the exact pre-change line. Reverting one is stronger than a synthetic mutation because it is the code that actually shipped, and on a stock column it is a no-op by construction — the green half of the bar, for free.
+
+**Files:** `src/biogeophys/test/SnowHydrology_test/test_SnowHydrology_initSnowLayers.pf`; one comment in `src/biogeophys/SnowHydrologyMod.F90`. No new files, no `CMakeLists.txt` change.
+
+- [ ] **Step 0: Plan review.** Re-run the audit against HEAD before anything is written. The line numbers below are from 2026-08-27, and the holes were established against the only test file that calls `InitSnowLayers` — confirm that is still the only one, that no later task has added coverage, and that the branch windows below still follow from `SnowHydrologySetControlForTesting`'s values.
+
+- [ ] **Step 1 — the comment fix (`SnowHydrologyMod.F90:3155-3157`).** It says the explicit `zi(c,0) = 0._r8` is there because "the slice above stops short of it when `jbot` is -1." The slice stops short of it on **every** column: on a stock column `jbot` is 0, so `zi(c,-nlevsno+0:jbot-1)` is `-nlevsno:-1`, where `ctsm5.4.028:3067` wrote `-nlevsno:0`. That line is what keeps the stock path b4b; the NVP slot is why the slice had to shrink, not why the line exists. Its own commit, separate from the test commit.
+
+- [ ] **Step 2 — the empty-pack branch on an NVP column (`:3150-3159`).** The highest-value hole. This branch writes its own blanket slices, and none of them has ever run with `jbot == -1`, because every NVP column in the file overfills. Wanted: `jbot_sno = -1`, moss geometry laid down, `snow_depth < dzmin(1)`.
+  - `snl` comes back 0, and `dz(c,-nlevsno+1:-1)`, `z` likewise, `zi(c,-nlevsno:-2)` are zeroed.
+  - `dz(c,0)`, `z(c,0)` and `zi(c,-1)` **survive**. This is what the shrunk slices exist for, and reverting any one of them to its stock bound clobbers the moss.
+  - **`zi(c,0)` has teeth only if setup gives it a non-zero value first.** Leave it at zero and the assertion compares zero to zero, no mutation can redden it, and the result reads as coverage — the Task 5d failure mode exactly. The branch `cycle`s before the geometry recursion, so `zi(c,0)` is written here and never read; the precedent for an unphysical fixture value is `moss_node_fraction` in this same file, and the justification is the same one — a physically consistent fixture is a fixed point of the code under test.
+  - A stock complement, which is what makes the `zi(c,0)` assertion mean anything: the stock column is the one that line is b4b for.
+
+- [ ] **Step 3 — the even-split branch (`:3196-3197`).** Two `jbot`-indexed assignments with zero coverage on any column, so a substitution botched only in this branch is invisible today. Both overfill fixtures land in the `else` at `:3199-3200`, and must — see `overfill_factor`'s comment. Wanted: a depth that takes the even split **and** leaves the NVP layer count below the cap, which also gives the file its first NVP case where depth rather than the moss slot sets the count. At `nlevsno = 5` the window for `-snl = 3` with an even split is `sum(dzmax_u(1:2)) < snow_depth <= dzmax_u(1) + 2*dzmax_u(2)`, i.e. `(0.07, 0.12]`; its midpoint lays down `0.02 / 0.0375 / 0.0375` at slots `-2..0` stock and `-3..-1` with moss at 0. Derive the depth from `dzmax_u` the way `overfill_depth` does — do not name a literal.
+
+- [ ] **Step 4 — the single-layer assignment (`:3169`).** One line, `dz(c,jbot) = snow_depth(c)`, executed by no test at all. On an NVP column a slip to `dz(c,0)` writes the snow depth straight into the moss thickness. Any depth in `[dzmin(1), dzmax_l(1)]`; cheapest of the three, and the pair is small.
+
+- [ ] **Step 5: Verify.** Build check and unit tests; the `SnowHydrology` binary grows. **No suite run** — everything here is test code except one comment, which cannot affect answers. Say so in the hand-off rather than leaving the user to work out whether `aux_clm` needs re-running.
+
+- [ ] **Step 6: Commit.** Two commits: the comment fix, then `git commit -am "Unit tests for the NVP snow pack creation reindex"`. The test commit is standalone and is never amended once it has been run — a finding against it becomes a new commit. No MERGE_NOTES row: their branch left `InitSnowLayers` unmodified, so the test file has no counterpart there and the comment is ours.
+
+**Testing changes and expectations.**
+
+- **Suites.** Not run, and none needed.
+- **Answer changes.** None possible: no executable model code changes.
+- **Tests added or changed.** Unit tests only, added to an existing `.pf`.
+- **Expected fails.** None.
+- **Baselines.** No new baseline: no system test added or changed.
+
+---
+
 ### Task 6: Percolation, drain, capping, aerosols (SnowHydrologyMod part 2 + AerosolMod)
 
 **In brief.** Task 6 covers the second half of `SnowHydrologyMod` plus `AerosolMod` — everything that moves water and aerosols through the snow pack and out of its bottom — now that index 0 may hold a moss layer rather than the bottom snow layer. Most of it is mechanical reindexing from `snl+1 .. 0` to `get_jtop_snow(c) .. get_jbot_snow(c)`, and must reduce exactly to current behaviour on columns without the moss slot. Two things beyond that:
