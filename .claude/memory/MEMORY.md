@@ -8,3 +8,4 @@
 - [Task summaries say what matters](task-summaries-say-what-matters.md) — one paragraph plus a short list of what changes behaviour or fixes order; never an inventory of what gets touched
 - [Do not assume pronouns](dont-assume-pronouns.md) — they/them or second person for everyone, Sam included; a name is not evidence
 - [Match the merge target](match-the-merge-target.md) — align with ctsm5.4.028_nvp over stock-CTSM cleanliness; check the worktree before proposing divergence
+- [Unit tests are test-first](unit-tests-are-test-first.md) — a separate writer commits red tests before the implementer; test commits are standalone and never amended
