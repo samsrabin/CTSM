@@ -3,4 +3,6 @@
 - [NVP plan: subagent dispatch enabled](nvp-plan-subagent-dispatch-enabled.md) — standing authorization to dispatch implementer/reviewer subagents; re-dispatch a lost agent rather than doing its work yourself
 - [No whitespace-only changes](no-whitespace-only-changes.md) — don't re-align neighbors or strip trailing whitespace on lines you didn't otherwise touch
 - [User runs the system test suites](user-runs-system-test-suites.md) — never launch run_sys_tests, clm_short, or aux_clm yourself
-- [Report outcomes, not process](report-outcomes-not-process.md) — no fix-round narration or review-value commentary in a hand-off; end state, omissions, decisions
+- [Report outcomes, not process](report-outcomes-not-process.md) — hand-offs are end state, outstanding items, decisions; nothing about review or fix rounds
+- [No dispatch while a question is open](no-dispatch-while-a-question-is-open.md) — a turn with a question in it ends there; don't start agents or answer yourself
+- [Task summaries say what matters](task-summaries-say-what-matters.md) — one paragraph plus a short list of what changes behaviour or fixes order; never an inventory of what gets touched

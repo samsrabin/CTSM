@@ -1,15 +1,17 @@
 ---
 name: report-outcomes-not-process
-description: "When presenting finished work, report the end state and open decisions — not what the fix rounds found or whether the reviews were worth running"
+description: "Hand-offs carry the end state, what is outstanding, and what needs a decision — nothing about review rounds, fix rounds, or how the work got there"
 metadata: 
   node_type: memory
   type: feedback
   originSessionId: f40bf551-99cf-4468-b4c5-03351848a2a8
-  modified: 2026-08-21T18:33:07.601Z
+  modified: 2026-08-21T22:46:47.901Z
 ---
 
-Leave the process narrative out of a hand-off. Sam does not want to be told what a review stage caught, what changed between one amendment and the next, which agent found what, or that the reviews paid off. Present the final state of the work, anything deliberately left undone and why, and anything needing his decision. A detail from a fix round belongs in the write-up only when it bears on a question you are actually putting to him.
+Leave the process out of a hand-off entirely. Nothing about what a review stage caught, what changed between amendments, which agent found what, what you verified yourself versus took on report, or whether the reviews were worth running. Two narrow exceptions: a review outcome that changed the plan, and anything you need to ask him about.
 
-**Why:** He reviews the commits himself, so the intermediate history is noise he has to read past to find the parts that need him. He raised it after a subagent-driven task where the presentation led with the review findings and a "the review earned its keep" paragraph.
+The bar is higher than "keep it brief". Asides framed as "two things worth knowing" — a defect that turned out to appear twice, an accepted exception to a mechanical gate — do not clear it. If it would not change what he does next, it does not go in.
 
-**How to apply:** Structure the hand-off as: what the change now does, what was left out, what needs a decision. Verification results stay — they are the end state, not the process. This composes with [[number-your-questions]] for the decisions section, and with [[nvp-plan-subagent-dispatch-enabled]], whose two-stage review still runs in full; only the reporting of it changes.
+**Why:** He reviews the commits himself, so intermediate history is noise he must read past to reach the parts that need him. He has raised this twice: first when a hand-off led with review findings and a "the review earned its keep" paragraph, then again when a trimmed version still carried a round-by-round summary and two process footnotes.
+
+**How to apply:** Three parts only — what the change now does, what is outstanding, what needs a decision. Verification results stay: they are end state, not process. Keep them to the result (counts, pass/fail), never the procedure that produced them. See [[number-your-questions]] for the decisions part and [[no-dispatch-while-a-question-is-open]] for when to stop.

@@ -481,6 +481,11 @@ existing `src/biogeophys/test/TotalWaterAndHeat_test/test_total_water_and_heat.p
 
 ### Task 6: Percolation, drain, capping, aerosols (SnowHydrologyMod part 2 + AerosolMod)
 
+**In brief.** Task 6 covers the second half of `SnowHydrologyMod` plus `AerosolMod` — everything that moves water and aerosols through the snow pack and out of its bottom — now that index 0 may hold a moss layer rather than the bottom snow layer. Most of it is mechanical reindexing from `snl+1 .. 0` to `get_jtop_snow(c) .. get_jbot_snow(c)`, and must reduce exactly to current behaviour on columns without the moss slot. Two things beyond that:
+
+1. **One real behavioural change.** Where the moss layer has thickness, water percolating out of the bottom snow layer lands in its liquid rather than going straight to soil layer 1, with `qflx_snow_drain` booking it so the snow balance still closes. Where the slot exists but is empty — the stub's default — it passes through to soil as now.
+2. **Two divide-by-zero fixes go first** — `frac_iceold` in `clm_driver` and the snow-resistance loop in `ch4Mod`. Both blow up on a zero-thickness moss slot: the first on every timestep with resolved snow, the second in every BGC compset.
+
 **Files:**
 - Modify: `src/biogeophys/SnowHydrologyMod.F90` — `SnowWater`, `BulkFlux_SnowPercolation`, `UpdateState_SnowPercolation`, `TracerFlux_SnowPercolation`, `SumFlux_AddSnowPercolation`, `CalcAndApplyAerosolFluxes`, `SnowCapping` + 5 helpers (stock ~3121-3693)
 - Modify: `src/biogeophys/AerosolMod.F90` (`AerosolMasses` guard, theirs :570-580)
@@ -511,6 +516,12 @@ existing `src/biogeophys/test/TotalWaterAndHeat_test/test_total_water_and_heat.p
 
 ### Task 7: Thermal properties + heat-diffusion factors (SoilTemperatureMod part 1)
 
+**In brief.** Task 7 supplies the thermal properties the heat solve consumes — conductivity `thk`, heat capacity `cv`, the interface conductivities `tk`, and the `fact`/`fn` diffusion factors — on columns where index 0 may hold moss rather than the bottom snow layer. The snow branches are reindexed; the moss gets its own `thk`/`cv` from NVP parameters. Three things beyond that:
+
+1. **The factors must always exist.** `ComputeHeatDiffFluxAndFactor` currently skips `j = 0` when `snl == 0`, leaving `fact(c,0)`/`fn(c,0)` undefined. Tasks 8 and 9 consume them, so the guard has to include the moss slot on every NVP column regardless of snow state.
+2. **Layerless snow changes owner.** `h2osno_no_layers` heat currently goes into soil layer 1; where moss is present it sits on the moss instead.
+3. **A cold-start trap.** `TemperatureType%InitCold` writes the snow-temperature fill over the moss slot and leaves the *top* snow layer at `spval`, which reaches this task's own `SoilThermProp` on the first timestep. That routine is shared with Task 10 — whichever lands second must not undo the first.
+
 **Files:**
 - Modify: `src/biogeophys/SoilTemperatureMod.F90` — `SoilThermProp` (stock 602-901), `ComputeHeatDiffFluxAndFactor` (stock 1799-1910)
 - **Folded in from the Task 5c unassigned-sites sweep:** `src/biogeophys/TemperatureType.F90:736` — the `do j = snl(c)+1, 0` snow-temperature fill in `InitCold`, which follows a blanket `spval` assignment at `:732`. On an NVP column at cold start with `snow_depth > 0` it writes 250 K into the moss slot and **leaves the top snow layer holding `spval = 1e36`**, which then reaches `SoilThermProp` — this task's own routine — on the first timestep. **`TemperatureType%InitCold` is shared with Task 10**, which owns `:837` in the same routine; coordinate so the second task to arrive does not undo the first.
@@ -532,6 +543,12 @@ existing `src/biogeophys/test/TotalWaterAndHeat_test/test_total_water_and_heat.p
 ---
 
 ### Task 8: Banded matrix, RHS, assembly, jtop (SoilTemperatureMod part 2)
+
+**In brief.** Task 8 puts the moss into the tridiagonal heat solve as its own matrix row, mapping the pack with `jtop(c) = snl(c) + jbot_sno(c)` so no special case is needed per snow state. Most of the work is harvesting the reference branch's block structure for the RHS and matrix assembly. Three things beyond that:
+
+1. **The moss↔soil coupling weight is the hard part.** Moss loss must equal soil gain identically for every admissible combination of fractions — including where snow cover exceeds moss cover, the regime in which the reference branch creates energy. Derive the interface flux once and use that one weight in all four sub-blocks.
+2. **Zero-thickness moss gets a different row.** With no thickness there is no heat capacity, so row −1 becomes a flux-continuity equation rather than a storage equation.
+3. **This task lands `NVPEffectiveFractions`**, the single four-way endmember fraction routine (snow / moss / soil / h2osfc). Tasks 10 through 13 all call it, so it must be written once here rather than re-derived per site.
 
 **Files:**
 - Modify: `src/biogeophys/SoilTemperatureMod.F90` — `SoilTemperature` (jtop ~273, load/unload 396-434), `SetRHSVec*` (1913-2353), `SetMatrix*` (2356-2926), `AssembleMatrixFromSubmatrices` (2474-2588 incl. sparsity diagram)
@@ -567,6 +584,11 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 
 ### Task 9: Phase change (SoilTemperatureMod part 3)
 
+**In brief.** Task 9 adds melt and freeze in the moss layer and reroutes the snow-versus-soil discriminators in `Phasechange` and `PhaseChangeH2osfc` so they key off the bottom snow index rather than a literal 0. The weighting must match whatever Task 8 settled as its single coupling rule. Two things beyond that:
+
+1. **Moss phase change is accounted separately.** It uses plain `tfrz`, stays out of `qflx_snomelt`/`qflx_snofrz` but inside `xmf`, and moss ice is capped at pore capacity with the excess pushed onward.
+2. **`PhaseChangeH2osfc`'s `snl == 0` branches are a trap.** They write slot 0 as a *newly created* snow layer. On an NVP column that must instead create the layer at the bottom snow index, or deposit into the moss where one is present — and must not overwrite moss temperature with the surface-water temperature.
+
 **Files:**
 - Modify: `src/biogeophys/SoilTemperatureMod.F90` — `Phasechange` (stock 1133-1540), `PhaseChangeH2osfc` (stock 904-1130)
 
@@ -585,6 +607,11 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 ---
 
 ### Task 10: Ground temperature blends + surface humidity
+
+**In brief.** Task 10 turns the ground temperature into a four-way blend over snow, moss, soil and surface water, using the same fraction call at every site, and does the same for surface specific humidity. Two things beyond that:
+
+1. **Four blend sites plus cold start must agree.** `t_grnd`, `t_grnd0`, the `BiogeophysPreFluxCalcs` surface temperature, and the `HydrologyNoDrainage` blend all have to mean the same thing on an NVP column, and `TemperatureType%InitCold` must produce that same thing at cold start. That routine is shared with Task 7.
+2. **Humidity must be gated on the layer existing, not on its fraction.** The moss retention curve supplies `qg`; a column with a nonzero moss fraction but no actual layer would otherwise read bone-dry.
 
 **Files:**
 - Modify: `src/biogeophys/SoilTemperatureMod.F90` (t_grnd, stock 548-568), `src/biogeophys/BiogeophysPreFluxCalcsMod.F90` (:334-341 + `tssbef` loop bounds :302-312), `src/biogeophys/SoilFluxesMod.F90` (t_grnd0 :175-181 — blend only; energy check is Task 11), `src/biogeophys/HydrologyNoDrainageMod.F90` (:555-570 blend; SNOWICE/SNOWLIQ loop bounds :442-499), `src/biogeophys/SurfaceHumidityMod.F90` (qg blend, their :~165-290)
@@ -608,6 +635,11 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 
 ### Task 11: Surface fluxes + ground heat flux + energy check
 
+**In brief.** Task 11 gives the moss its own surface energy and moisture fluxes — sensible heat, evaporation, longwave emission — fills the ground heat flux `hs_nvp` that Task 8 stubbed to zero, and adds the moss storage term to the soil energy balance check. Two things beyond that:
+
+1. **Flux seen by the atmosphere must equal flux lost by the moss.** The `hs_nvp` accumulation over patches has to use the same patch gate as the flux definitions, or the two disagree for any non-vegetated patch structure.
+2. **This task lands `NVPEvapResistance`** as one shared function. The reference branch has the formula inline and duplicated in three files, which is how its two `lw_grnd` sites drifted apart.
+
 **Files:**
 - Modify: `src/biogeophys/SoilTemperatureMod.F90` (`ComputeGroundHeatFluxAndDeriv` stock 1543-1796: `lwrad_emit_nvp`, `hs_nvp` fill, `eflx_gnet_nvp`), `src/biogeophys/BareGroundFluxesMod.F90` (their +184 diff), `src/biogeophys/CanopyFluxesMod.F90` (their +162 diff), `src/biogeophys/SoilFluxesMod.F90` (their +358 diff: `qflx_evap_grnd_eff`, lw_grnd both places, `eflx_soil_grnd`, errsoi)
 
@@ -627,6 +659,11 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 
 ### Task 12: Radiation (constant transmissivity)
 
+**In brief.** Task 12 splits absorbed shortwave between the moss and what lies beneath it using a constant transmissivity, and blends moss albedo into the ground albedo over the exposed-moss fraction. Two things beyond that:
+
+1. **Transmissivity ≡ 1 must reproduce current behaviour exactly**, and the `sabg_lyr` conservation `endrun` stays armed — no bypass, no widened tolerance.
+2. **"The flux reaching the moss surface" means different things by snow state** — SNICAR's through-snow output when snow is resolved, the ground share of `sabg` when it is not. That has to be settled before implementation; the task text currently reasons about it without concluding.
+
 **Files:**
 - Modify: `src/biogeophys/SurfaceRadiationMod.F90` (stock 745-852), `src/biogeophys/SurfaceAlbedoMod.F90` (ground-albedo blend, their :868-879 region), `src/biogeophys/SolarAbsorbedType.F90` (`sabg_nvp_patch` exists from Task 4)
 
@@ -645,6 +682,12 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 ---
 
 ### Task 13: NVP water balance + soil-side plumbing
+
+**In brief.** Task 13 closes the moss water budget — in from rain, snowmelt, snow percolation and dew; out by evaporation, drainage and an ice push to snow — and wires the result into soil hydrology, infiltration, condensation renewal and surface water. Three things beyond that:
+
+1. **The withheld and credited amounts must match exactly.** Whatever `SetQflxInputs` holds back from the soil is precisely what the moss is credited, in the same timestep, at every snow state. Any mismatch is a rain-through-snow leak.
+2. **The reference branch's evaporation clamp creates water.** Replace `max(0, h2osoi_net)` with a limiter on the demand side: cap evaporation at what is available and pass the residual demand to the soil evaporation pathway.
+3. **This task lands the retention-curve and hydraulic-conductivity functions**, which may require adding `NVPLayerDynamicsMod` and `NVPParamsMod` to the pFUnit build's source list.
 
 **Files:**
 - Modify: `src/biogeophys/NVPLayerDynamicsMod.F90` (add `NVPWaterBalance_Column`), `src/biogeophys/HydrologyNoDrainageMod.F90` (call site after `SnowWater`, before `SetQflxInputs` — their :324-330), `src/biogeophys/SoilHydrologyMod.F90` (`SetQflxInputs` :302-412 their numbering; `Infiltration` :492-510; `RenewCondensation` :2637-2746), `src/biogeophys/SurfaceWaterMod.F90` (:331), `src/main/clm_driver.F90` (`p2c` of `qflx_ev_nvp_patch`, their :1726-1743, guarded `if (use_nvp)`)
@@ -666,6 +709,11 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 
 ### Task 14: Conservation accounting
 
+**In brief.** Task 14 makes moss water and heat appear in the column totals exactly once, keeps moss out of the snow total, and adds the moss-to-snow ice flux as a snow source. Two things beyond that:
+
+1. **Mass and heat must share one predicate.** The reference branch adds the water but omits the heat when `snl == 0`, which is the kind of asymmetry that only shows up as a balance failure much later.
+2. **No `select type` downcast** for the new snow source — either move the flux to the generic water-flux type, or apply the correction in a bulk-only wrapper. Some of this task was pulled forward into Task 5 to keep the balance checks from firing; verify rather than redo those parts.
+
 **Files:**
 - Modify: `src/biogeophys/TotalWaterAndHeatMod.F90` (:282, :485, :688-757, :1015 stock), `src/biogeophys/WaterStateType.F90` (`CalculateTotalH2osno` :891, `CheckSnowConsistency` :936), `src/biogeophys/BalanceCheckMod.F90` (snow sources :813-840 their numbering)
 
@@ -684,6 +732,8 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 
 ### Task 15: History snow-field fill + SNO_* slices
 
+**In brief.** Task 15 keeps the moss slot out of the 19 `SNO_*` history fields. The bottom-justification in `hist_set_snow_field_2d` ends at `jbot_sno` instead of 0, and `num_snow_layers` is already honest. The one open question is whether excluding it in the fill is sufficient or the field slices need their bounds changed too — decide by reading the fill rather than by inspecting the registrations.
+
 **Files:**
 - Modify: `src/main/histFileMod.F90` (`hist_set_snow_field_2d` :2209-2300), plus the 19 `SNO_*` field registrations if their slices need bound changes (they are `(:, -nlevsno+1:0)` literals — with the moss in slot 0, the fill routine's exclusion is the fix; slices can stay if the fill never reads slot 0 on NVP columns — decide by reading the fill)
 
@@ -695,6 +745,8 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 ---
 
 ### Task 16: Unit tests
+
+**In brief.** Task 16 is what remains of the unit-test work after Task 5 absorbed most of it. One case is left: `CombineSnowLayers` on an NVP column where the bottom layer vanishes, which must deposit into the moss when it has thickness and pass through to soil when it does not, booking `qflx_sl_top_soil` either way. The open question is ordering — these tests arrive after the code they cover, and this case may belong alongside Task 14 instead.
 
 **Files:**
 - Modify: `src/unit_test_shr/unittestSubgridMod.F90` (:471-493 `init_nlevsno` area — add optional `jbot_sno` setup), `src/biogeophys/test/SnowHydrology_test/*`, `src/biogeophys/test/TotalWaterAndHeat_test/*`, `src/biogeophys/test/Balance_test/*` (run existing suites both ways; add NVP-specific cases)
@@ -709,6 +761,8 @@ frac_soil = max(0._r8, 1._r8 - frac_sno_eff - frac_h2osfc - frac_nvp_eff)
 ---
 
 ### Task 17: Remove the NVP debug traces
+
+**In brief.** Task 17 deletes every `NVP_TRACE:` debug line, along with any wrapper, import or local that existed only to support one, before the final verification gates run. The acceptance test is not that the traces are gone but that `git diff ctsm5.4.028` contains zero `write(iulog` additions outside `use_nvp` guards: the reference branch's roughly 128 debug writes, many unguarded, are exactly what makes its `use_nvp=.false.` fail to reproduce the baseline. One judgement call up front — whether any trace has earned promotion to a permanent guarded diagnostic, which the spec allows.
 
 Runs **before** Task 18 so the final verification gates and the merge rehearsal see the code that actually ships. Every trace added under the Global Constraints debug-trace rule is removed here.
 
@@ -727,6 +781,11 @@ Runs **before** Task 18 so the final verification gates and the merge rehearsal 
 ---
 
 ### Task 18: Verification & merge rehearsal (spec §10)
+
+**In brief.** Task 18 runs the four verification gates — `use_nvp=.false.` bit-for-bit against `ctsm5.4.028`, the zero-thickness golden case against `use_nvp=.false.`, partial moss cover across a winter with every balance check armed, and exact restart — then rehearses the merge against `ctsm5.4.028_nvp` and checks the real conflict list against the one MERGE_NOTES predicts. Two things beyond that:
+
+1. **The cases are not specified anywhere.** Compsets, resolutions, run lengths and baselines all have to be settled before this task can start.
+2. **The rehearsal target may have moved.** It must be whichever `ctsm5.4.028_nvp` commit is the actual merge destination, which is not necessarily the one the code was harvested from.
 
 No new source files. Run and record results in MERGE_NOTES.md § "Verification results":
 
