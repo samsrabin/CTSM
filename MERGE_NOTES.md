@@ -52,16 +52,27 @@ testid suffix that stopped them auto-classifying, fixed in `6ad7df015`.
 namelist-comparison baselines need regenerating. Expected for a namelist addition, but
 it must be called out in the PR.
 
-**The `ccs_config` and `cdeps` pointers mirror the merge target, quirks included** (Task 5f).
-`ctsm5.4.028_nvp` pins `ccs_config` at `b6387972b` and `cdeps` at `42f9a6b06`, and we match
-both so the merge stays clean — but its `.gitmodules` handles the two inconsistently and we
-inherit that. `ccs_config` moves `url` to `samsrabin/ccs_config_cesm.git` and leaves
-`fxDONOTUSEurl` upstream, which is the normal shape, and which `git fleximod test` correctly
-reports as a personal fork. `cdeps` does the opposite: `url` stays at `ESCOMP/CDEPS.git` and the
-**fork URL is parked in `fxDONOTUSEurl`**, so a fresh clone tries to fetch `42f9a6b06` from
-upstream. This checkout already has the object, so it bites only a new clone. Not a divergence —
-matching them is the point — but it is the first thing to check if a fresh clone of this branch
-fails to populate `components/cdeps`, and neither entry should be "tidied up" before the merge.
+**The `ccs_config` and `cdeps` pointers match the merge target; their `.gitmodules` field
+layout deliberately does not** (Task 5f). `ctsm5.4.028_nvp` pins `ccs_config` at `b6387972b` and
+`cdeps` at `42f9a6b06`, and we pin both to the same commits. What differs is which field carries
+the fork URL, because that branch handles its two submodules inconsistently. `ccs_config` takes
+the normal shape there — `url` on `samsrabin/ccs_config_cesm.git`, `fxDONOTUSEurl` left upstream,
+which `git fleximod test` correctly reports as a personal fork — but `cdeps` has them swapped:
+`url` stays at `ESCOMP/CDEPS.git` while the fork sits in `fxDONOTUSEurl`, so a fresh clone of that
+branch cannot fetch `42f9a6b06` from `url` at all. **We did not inherit that.** Both submodules
+take the normal shape here, fork in `url` and upstream in `fxDONOTUSEurl`, so a fresh clone of
+this branch populates `components/cdeps` without help.
+
+**That divergence costs nothing at merge time, but it leaves one trap.** Merging the two
+`.gitmodules` three-way against the merge base `3ebc34d65` (verified 2026-08-28 with
+`git merge-file`) yields **exactly one conflict**, on `cdeps`'s `url` line, and it resolves in our
+favour: `samsrabin/CDEPS.git` is where `42f9a6b06` actually lives. `ccs_config` merges clean and
+needs nothing. **The trap is the line the conflict does not mark.** `fxDONOTUSEurl` changed on
+their side only, so it merges silently to `samsrabin/CDEPS.git`; resolve the `url` conflict and
+move on, and the block ends up with the fork in *both* fields, which leaves `git fleximod test`
+comparing the fork against itself and no longer reporting a personal fork at all. **Set `cdeps`'s
+`fxDONOTUSEurl` back to `https://github.com/ESCOMP/CDEPS.git` as part of resolving that
+conflict.**
 
 **Intermediate commits are only expected to hold for `use_nvp = .false.`.** The
 `use_nvp = .true.` path is not coherent until the full task stack has landed —

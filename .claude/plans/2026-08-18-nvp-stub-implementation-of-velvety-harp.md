@@ -551,7 +551,7 @@ existing `src/biogeophys/test/TotalWaterAndHeat_test/test_total_water_and_heat.p
 - `ccs_config` `b6387972b` is one commit and a clean fast-forward from `ccs_config_cesm1.0.77`, the tag pinned today. It adds 11 lines across two files: a lat/lon point (60.8231 N, 7.27596 E) and a grid alias, in the same shape as every other `1x1_*` site. Low risk. It is on no upstream branch, which is why the `url` moves to the `samsrabin` fork.
 - `cdeps` `42f9a6b06` is one commit ahead of `cdeps1.0.93`. It rewrites the **shared** `CLM_USRDAT.$CLM_USRDAT_NAME` datm stream into three split streams (`.Solar`, `.Precip`, `.TPQW`), changes the forcing-file pattern from `%ym.nc` to `clm1pt_${CLM_USRDAT_NAME}_%ym.nc`, swaps `FSDS Faxa_swdn` for split `SWDIFDS_RAD`/`SWDIRS_RAD`, and drops `ZBOT Sa_z`. The ALP2 compset is `DATM%GSWP3v1` and uses none of it. Existing `CLM_USRDAT` forcing on disk is named `1999-01.nc`, which the new pattern would not match. Its one behaviourally safe piece is the Fortran change, a pure `associated()` guard that leaves GSWP3 untouched.
 
-**Mirror `ctsm5.4.028_nvp`'s `.gitmodules` fields exactly**, including that its `cdeps` entry parks the fork URL in `fxDONOTUSEurl` while `url` stays upstream. That arrangement means a fresh clone cannot fetch `42f9a6b06` from `url`; this checkout already has the object, so it bites only a new clone. Record it in MERGE_NOTES rather than "fixing" it — correcting it would be a divergence from the merge target for no gain.
+**Match `ctsm5.4.028_nvp`'s pinned commits, but not its `.gitmodules` field layout** (revised 2026-08-28, after a first pass had mirrored it). That branch parks the `cdeps` fork URL in `fxDONOTUSEurl` while `url` stays upstream — the reverse of what it does for `ccs_config`, and it means a fresh clone cannot fetch `42f9a6b06` from `url` at all. Mirroring that was the original instruction here, on the premise that any divergence costs merge cleanliness. It does not: a test merge of the two `.gitmodules` against the merge base produces exactly one conflict, `cdeps`'s `url`, which resolves in our favour. So both submodules take the normal shape on this branch — fork in `url`, upstream in `fxDONOTUSEurl`. MERGE_NOTES records the divergence together with the one line that merges silently and needs fixing by hand.
 
 **The `.gitmodules` `fxtag` and the gitlink must move in the same commit.** `git commit` updates only the gitlink. Verify before committing that these print the same hash, for each submodule:
 
@@ -562,9 +562,9 @@ git config -f .gitmodules submodule.ccs_config.fxtag
 
 **Files:** `.gitmodules`; the gitlinks for `ccs_config` and `components/cdeps`; MERGE_NOTES.
 
-- [ ] **Step 1:** Move both pointers and both `fxtag`s, and set `submodule.ccs_config.url` to the fork. One commit.
-- [ ] **Step 2:** Verify `fxtag` and gitlink agree for both submodules, then confirm `./cime/scripts/query_testlists` still parses `testlist_clm.xml`.
-- [ ] **Step 3: build check**, per the standing rule.
+- [x] **Step 1:** Move both pointers and both `fxtag`s, and set `submodule.ccs_config.url` to the fork. One commit.
+- [x] **Step 2:** Verify `fxtag` and gitlink agree for both submodules, then confirm `./cime/scripts/query_testlists` still parses `testlist_clm.xml`.
+- [x] **Step 3: build check**, per the standing rule.
 
 **Testing changes and expectations.**
 
