@@ -1497,7 +1497,7 @@ end if
   `leaf_fines` triplet; `loading(dead_moss)` populated; history `FATES_MOSS_FINES`
   (site-level kg m-2). Task 9 needs `dead_moss` loading populated.
 
-- [ ] **Step 0 (orchestrator):** Enumerate ALL touch points of `leaf_fines` (`grep -rn
+- [x] **Step 0 (orchestrator):** Enumerate ALL touch points of `leaf_fines` (`grep -rn
   leaf_fines src/fates --include=*.F90`) — every site must be evaluated for a
   `moss_fines` twin: init/allocate/zero, fuse, copy, turnover input, fragmentation,
   burn, disturbance-driven litter transfer between patches, seed/litter mass checks,
@@ -1507,23 +1507,23 @@ end if
   stays in ordinary `root_fines` (roots are a plumbing fiction; suggested: yes).
   Forward check: Task 9 moisture for `dead_moss`; the moss ALP2 ERS test is the
   conservation proof.
-- [ ] **Step 1: type + threading.** Add the three members mirroring the `leaf_fines`
+- [x] **Step 1: type + threading.** Add the three members mirroring the `leaf_fines`
   triplet at every site enumerated in Step 0 (allocation `ndcmpy`, zeroing, fuse with
   the same weighting arithmetic, copy, restart registration mirroring the existing
   `leaf_fines` restart pattern).
-- [ ] **Step 2: routing.** In `EDPhysiologyMod` where non-woody cohorts' leaf and stem
+- [x] **Step 2: routing.** In `EDPhysiologyMod` where non-woody cohorts' leaf and stem
   turnover/mortality carbon enters `leaf_fines_in`, route moss cohorts
   (`vascular==ifalse`) to `moss_fines_in` instead. Fragmentation: mirror the
   `leaf_fines_frag` computation for `moss_fines_frag` using `SF_val_max_decomp(
   fuel_classes%dead_moss())` as its decay modifier, and add `moss_fines_frag` into the
   same aggregate fragmentation flux that `leaf_fines_frag` feeds (so CTSM-BGC sees one
   combined fines flux — no CTSM-side change).
-- [ ] **Step 3: fuel + burn.** `loading(fuel_classes%dead_moss()) =
+- [x] **Step 3: fuel + burn.** `loading(fuel_classes%dead_moss()) =
   sum(litt%moss_fines(:))` beside the dead-leaves loading; in the
   `EDPatchDynamicsMod` burnt-litter block, burn `moss_fines` by
   `frac_burnt(fuel_classes%dead_moss())` with the same bookkeeping
   (`burned_mass` accounting) as `leaf_fines`.
-- [ ] **Step 4: history.** Register and fill `FATES_MOSS_FINES` per the Task 6 pattern.
+- [x] **Step 4: history.** Register and fill `FATES_MOSS_FINES` per the Task 6 pattern.
 - [ ] **Step 5: verify.** (a) Fuel functional test: nonzero `moss_fines` →
   `loading(8)` matches; (b) FATES unit/patch tests (`python run_unit_tests.py`,
   `MPLBACKEND=Agg python run_functional_tests.py --save-figs -t patch`); (c) moss ALP2 SMS +
@@ -1532,7 +1532,7 @@ end if
   balance checks prove the routing conserves; `FATES_MOSS_FINES` accumulates over the
   run and dead-leaves fuel drops correspondingly for the moss patch; (d) ALP2
   baselines b4b.
-- [ ] **Step 6: reviews, then commit.**
+- [x] **Step 6: reviews, then commit.**
 
 ### Task 8: fwet proxy — canopy wetted fraction `bc_in` field, patch `fwet_moss`, and fwet history
 
