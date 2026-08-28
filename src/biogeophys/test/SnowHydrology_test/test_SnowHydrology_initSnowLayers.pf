@@ -136,13 +136,10 @@ contains
 
   @Test
   subroutine test_initSnowLayers_overfillPack_unevenSplit_stock(this)
-    ! The uneven bottom-two split, with the layer count at the stock cap. A snow depth
-    ! past the fill-every-level threshold takes the else branch of the bottom-two rule --
-    ! second-from-bottom layer held at dzmax_u, bottom layer taking the whole residual --
-    ! and drives the layer count up against nlevsno instead of letting the thresholds
-    ! settle it. InitSnowLayers must lay down a pack whose thicknesses sum to the snow
-    ! depth and whose node depths and interfaces close on one another all the way up from
-    ! the soil surface.
+    ! On a stock column given snow deep enough to overfill the pack, InitSnowLayers must
+    ! lay down a pack whose thicknesses sum to the snow depth and whose node depths and
+    ! interfaces close on one another all the way up from the soil surface. (This test
+    ! is for overfill too thick to result in evenly-split bottom layers.)
     !
     ! Geometry, not just the layer count. Asserted as invariants rather than literal
     ! thicknesses: SnowHydrologySetControlForTesting does pin the vertical structure
@@ -153,11 +150,10 @@ contains
     ! the same nlevsno, differing only in whether the moss slot is claimed. This one pins
     ! what the geometry has to look like with all nlevsno slots available to snow, so
     ! that whatever differs over there is the moss slot's doing and nothing else.
+
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)  ! [begc:endc]
     integer, parameter :: my_nlevsno = 5
-    ! Deep enough that InitSnowLayers fills every snow level; see overfill_depth, which
-    ! derives the depth from the vertical structure rather than naming one.
     real(r8) :: total_snow_depth
     ! The most layers a stock column may hold, which an overfilling snow depth takes it
     ! to: no slot is reserved for moss, so snow may fill all nlevsno of them. On a stock
@@ -166,10 +162,7 @@ contains
     integer, parameter :: snl_full = -my_nlevsno
     integer, parameter :: jtop = snl_full + 1
     integer, parameter :: jbot = 0
-    ! The soil surface datum as this test's setup left it, read back out of the array
-    ! instead of being restated as a literal below. The invariant being pinned is that
-    ! InitSnowLayers returns the datum it was handed, not that the datum is any
-    ! particular number, so the assertion has to follow whatever setup wrote.
+    ! The soil surface datum as this test's setup left it.
     real(r8) :: zi_soil_before
     real(r8), parameter :: tol = 1.e-13_r8
     integer :: c, j
@@ -178,7 +171,8 @@ contains
     nlevsno = my_nlevsno
     call SnowHydrologySetControlForTesting()
     call setup_single_veg_patch(pft_type = 1)
-    ! Before anything else this test sets up: overfill_depth makes a throwaway
+    ! Set total_snow_depth to something large enough to overfill the pack so much that
+    ! the bottom layers can't be split evenly. Note that overfill_depth makes a throwaway
     ! InitSnowLayers call, which zeroes the snow slots and snl and sets zi(c,0) to 0.
     ! The soil surface datum is still assigned explicitly below, deliberately: without
     ! that line the datum assertion would only be checking that InitSnowLayers preserves
@@ -194,13 +188,15 @@ contains
     call InitSnowLayers(bounds, snow_depth)
 
     ! Verify
+    !
     @assertEqual(snl_full, col%snl(c))
     ! Soil surface datum untouched
     @assertEqual(zi_soil_before, col%zi(c,0))
-    ! Thickness conserved
+    ! Snow thickness conserved
     @assertEqual(total_snow_depth, sum(col%dz(c,jtop:jbot)), tolerance=tol)
-    ! Top of the pack a full snow depth above the soil surface
+    ! Top of the pack sits a full snow depth above the soil surface
     @assertEqual(-total_snow_depth, col%zi(c,jtop-1), tolerance=tol)
+
     ! Node at layer midpoint, and the interface recursion closes
     do j = jtop, jbot
        @assertGreaterThan(col%dz(c,j), 0._r8)
@@ -212,11 +208,10 @@ contains
 
   @Test
   subroutine test_initSnowLayers_overfillPack_unevenSplit_nvp(this)
-    ! The uneven bottom-two split, with the layer count at the NVP cap. The same branch
-    ! and the same snow depth as the stock case, but the moss slot has claimed one of the
-    ! nlevsno slots: InitSnowLayers must cap the layer count at what that leaves free,
-    ! rest the pack on top of the moss rather than on the soil surface, and leave the moss
-    ! geometry untouched.
+    ! On an NVP column given snow deep enough to overfill the pack, InitSnowLayers must
+    ! cap the layer count at what the moss slot leaves free, rest the pack on top of the
+    ! moss rather than on the soil surface, and leave the moss geometry untouched. (This
+    ! test is for overfill too thick to result in evenly-split bottom layers.)
     !
     ! With the index-0 slot claimed, snow occupies -4:-1, the layer count is
     ! capped at nlevsno-1, and the moss geometry at slot 0 survives untouched.
@@ -233,6 +228,7 @@ contains
     !
     ! Complementary to test_initSnowLayers_overfillPack_unevenSplit_stock: the same snow depth and
     ! the same nlevsno, differing only in whether the moss slot is claimed.
+
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)  ! [begc:endc]
     real(r8), parameter :: dz_nvp = 0.02_r8
@@ -276,7 +272,8 @@ contains
     nlevsno = my_nlevsno
     call SnowHydrologySetControlForTesting()
     call setup_single_veg_patch(pft_type = 1)
-    ! Before anything else this test sets up: overfill_depth makes a throwaway
+    ! Set total_snow_depth to something large enough to overfill the pack so much that
+    ! the bottom layers can't be split evenly. Note that overfill_depth makes a throwaway
     ! InitSnowLayers call, which zeroes the snow slots and snl and sets zi(c,0) to 0.
     ! The soil surface datum is still assigned explicitly below, deliberately: without
     ! that line the datum assertion would only be checking that InitSnowLayers preserves
@@ -286,6 +283,7 @@ contains
     snow_depth(:) = total_snow_depth
     c = bounds%begc
     col%zi(c,0) = 0._r8 ! Normally initialized elsewhere (initVerticalMod)
+
     ! Stand in for NVPLayerInit, which is what claims the slot in a real run
     col%jbot_sno(c) = -1
     col%dz(c,j_moss) = dz_nvp
@@ -300,34 +298,35 @@ contains
     zi_moss_top_before = col%zi(c,jbot)
     zi_soil_before = col%zi(c,0)
 
+    ! Ensure we set things up right. Note that there is no mutation of InitSnowLayers
+    ! that will make these assertions fail, and that's fine.
+    @assertEqual(dz_nvp, dz_moss_before)
+    @assertEqual(-moss_node_fraction*dz_nvp, z_moss_before)
+
     ! Exercise
     call InitSnowLayers(bounds, snow_depth)
 
     ! Verify
-    ! capped at nlevsno-1
+    !
     @assertEqual(snl_full, col%snl(c))
-    ! Literal anchors, so that the fixture itself stays pinned. The captures follow
-    ! whatever setup wrote, and overfill_depth's throwaway call has already zeroed slot 0
-    ! by the time setup reaches it, so a moss assignment that went missing would leave
-    ! the survival assertions below comparing zero to zero. zi(c,jbot) needs no anchor of
-    ! its own: the pack-top assertion further down still names dz_nvp outright.
-    @assertEqual(dz_nvp, dz_moss_before)
-    @assertEqual(-moss_node_fraction*dz_nvp, z_moss_before)
-    ! moss geometry survived
-    @assertEqual(dz_moss_before, col%dz(c,j_moss))
-    @assertEqual(z_moss_before, col%z(c,j_moss))
-    @assertEqual(zi_moss_top_before, col%zi(c,jbot))
+    ! Soil surface datum untouched
     @assertEqual(zi_soil_before, col%zi(c,0))
-    ! snow thickness conserved
+    ! Snow thickness conserved
     @assertEqual(total_snow_depth, sum(col%dz(c,jtop:jbot)), tolerance=tol)
-    ! Top of the pack sits a full snow depth above the moss, not above the soil
-    ! surface: this is the assertion that fails if the snowpack base drops dz_nvp.
+    ! Top of the pack sits a full snow depth above the moss
     @assertEqual(-(dz_nvp + total_snow_depth), col%zi(c,jtop-1), tolerance=tol)
+
+    ! Node at layer midpoint, and the interface recursion closes
     do j = jtop, jbot
        @assertGreaterThan(col%dz(c,j), 0._r8)
        @assertEqual(col%zi(c,j) - 0.5_r8*col%dz(c,j), col%z(c,j), tolerance=tol)
        @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=tol)
     end do
+
+    ! moss geometry survived
+    @assertEqual(dz_moss_before, col%dz(c,j_moss))
+    @assertEqual(z_moss_before, col%z(c,j_moss))
+    @assertEqual(zi_moss_top_before, col%zi(c,jbot))
 
   end subroutine test_initSnowLayers_overfillPack_unevenSplit_nvp
 
