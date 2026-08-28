@@ -7,17 +7,20 @@ module test_SnowHydrology_postPercolation
   ! dz = max(dz, h2osoi_liq/denh2o + h2osoi_ice/denice). Slots outside the pack are not
   ! visited at all.
   !
-  ! Terms used below. A "slot" is one index of the column arrays in -nlevsno+1 .. 0,
-  ! whether or not a snow layer occupies it. The "pack" is the run of slots that do hold
-  ! snow, jtop .. jbot, short for col%get_jtop_snow(c) .. col%get_jbot_snow(c). On an NVP
-  ! column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot", which is
-  ! not snow; on a stock column (jbot_sno == 0) the pack is snl+1 .. 0 and index 0 is
-  ! ordinary bottom snow.
+  ! Terms used below:
+  ! - A "slot" is one index (vertical level) of the column arrays in -nlevsno+1 .. 0,
+  !   whether or not a snow layer occupies it.
+  ! - The "pack" is the run of slots that do hold snow (jtop .. jbot; short for
+  !   col%get_jtop_snow(c) .. col%get_jbot_snow(c)).
+  ! - "snl" is col%snl, which is NEGATIVE the number of snow layers.
   !
-  ! The NVP change is just that loop range: jtop .. jbot instead of snl+1 .. 0. The two
-  ! tests below use identical dz and h2osoi_liq arrays and identical snl, and differ only
-  ! in jbot_sno, so the pack shifts down by one slot between them. That makes the pair
-  ! pin both ends of the range at once: a slot excluded in one test is included in the
+  ! On an NVP column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot",
+  ! which is not snow; on a stock column (jbot_sno == 0) the pack is snl+1 .. 0 and index
+  ! 0 is ordinary bottom snow.
+  !
+  ! The two tests below use identical dz and h2osoi_liq arrays and identical snl, and
+  ! differ only in jbot_sno, so the pack shifts down by one slot between them. That makes
+  ! the pair test both ends of the range: a slot excluded in one test is included in the
   ! other.
 
   use funit
@@ -63,6 +66,17 @@ module test_SnowHydrology_postPercolation
   real(r8), parameter :: dz_nvp = 0.02_r8
   real(r8), parameter :: liq_nvp = 100._r8
 
+  ! The five slots the tests fill. j_surface is the slot resting on the soil
+  ! surface, which every column has whatever occupies it, and each j_upN sits N slots
+  ! higher.
+  integer, parameter :: j_surface = 0
+  integer, parameter :: j_up1 = j_surface - 1
+  integer, parameter :: j_up2 = j_surface - 2
+  integer, parameter :: j_up3 = j_surface - 3
+  integer, parameter :: j_up4 = j_surface - 4
+  ! NEGATIVE the number of snow layers
+  integer, parameter :: snl = -3
+
 contains
 
   subroutine setUp(this)
@@ -80,96 +94,6 @@ contains
 
     call unittest_subgrid_teardown()
   end subroutine tearDown
-
-  @Test
-  subroutine postPercolation_nvp(this)
-    ! On an NVP column, PostPercolation_AdjustLayerThicknesses must thicken every snow
-    ! layer whose water implies more thickness than the layer has, and must leave both
-    ! the empty slots above the pack and the moss slot below it at the thicknesses they
-    ! came in with.
-    !
-    ! An NVP column with snl = -3, so the pack runs -3..-1 and slot 0 is moss. The five
-    ! slots are laid out so that every distinction is exercised at once: -4 is a
-    ! thin/over pair above the pack, -3 and -1 are thin/over pairs inside it, -2 is a
-    ! thick/under pair inside it, and 0 is the moss with far more water than thickness.
-    ! Ice is zero throughout, so only the liquid term of the max() is in play.
-    !
-    ! Expected: -3 and -1 grow to liq_over/denh2o = 0.02; -2 stays at 0.05 because its
-    ! own thickness already covers its water; -4 and 0 keep what they came in with
-    ! because the routine never visits them.
-    !
-    ! Complementary to postPercolation_stock: the same five slots given the same
-    ! thicknesses, the same water and the same snl, differing only in whether the moss
-    ! slot is claimed. The slot names below are anchored on the soil surface --
-    ! j_surface is the slot resting on it and each j_upN sits N slots higher -- because
-    ! the pack is the very thing that differs between the two tests, so naming a slot
-    ! after its place in the pack would give the same physical slot a different name in
-    ! each. What genuinely differs is the pack's extent: -3..-1 here against -2..0
-    ! there. So j_up3 is the top snow layer here and an empty slot there, while
-    ! j_surface is moss here and bottom snow there, and those are the only two
-    ! assertions below that differ.
-    class(TestPostPercolation), intent(inout) :: this
-    ! The five slots the fixture fills. j_surface is the slot resting on the soil
-    ! surface, which every column has whatever occupies it, and each j_upN sits N slots
-    ! higher. Defined downward from the surface, which is the reverse of the order the
-    ! array constructors below fill them in.
-    integer, parameter :: j_surface = 0
-    integer, parameter :: j_up1 = j_surface - 1
-    integer, parameter :: j_up2 = j_surface - 2
-    integer, parameter :: j_up3 = j_surface - 3
-    integer, parameter :: j_up4 = j_surface - 4
-    ! The layer count the column carries throughout; the routine never changes it.
-    integer, parameter :: snl = -3
-    ! The pack, in the same terms as its twin so that the two can be lined up:
-    ! jtop = snl+1+jbot_sno, and jbot_sno is -1 on an NVP column, so the pack's top slot
-    ! is snl itself and its bottom slot is one above the soil surface, leaving the moss
-    ! at j_surface outside the pack. Both are load-bearing: jbot is what the fixture
-    ! assigns to jbot_sno, and jtop is asserted against get_jtop_snow below, which
-    ! checks that arithmetic rather than restating it -- jtop is declared here as snl.
-    ! The dz assertions still index off the slot names rather than off these, because
-    ! indexing off these would rename every slot between the two tests, including the
-    ! three whose role does not change.
-    integer, parameter :: jtop = snl
-    integer, parameter :: jbot = j_up1
-    integer :: num_snowc
-    integer, allocatable :: filter_snowc(:)  ! [1:num_snowc]
-    real(r8) :: h2osoi_ice(1,-my_nlevsno+1:0)
-    real(r8) :: h2osoi_liq(1,-my_nlevsno+1:0)
-    real(r8) :: dz(1,-my_nlevsno+1:0)
-    ! The moss slot's thickness as this test's setup left it, read back out of the array
-    ! instead of being restated as a literal below. The invariant being pinned is that a
-    ! slot outside the pack keeps the thickness it came in with, not that the thickness
-    ! is any particular number, so the assertion has to follow whatever setup wrote.
-    real(r8) :: dz_moss_before
-
-    call setup_single_veg_patch(pft_type = 1)
-    call filter_from_range(bounds%begc, bounds%endc, num_snowc, filter_snowc)
-    col%snl(bounds%begc:bounds%endc) = snl
-    col%jbot_sno(bounds%begc:bounds%endc) = jbot
-    ! Ties the jtop declared above to the arithmetic the routine's own bound comes from
-    @assertEqual(jtop, col%get_jtop_snow(bounds%begc))
-
-    ! Array constructors fill the second dimension from its lower bound, so the elements
-    ! below are slots j_up4, j_up3, j_up2, j_up1 and j_surface in that order.
-    h2osoi_ice(:,:) = 0._r8
-    dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
-    h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
-    dz_moss_before = dz(1,j_surface)
-
-    call PostPercolation_AdjustLayerThicknesses(bounds, num_snowc, filter_snowc, &
-         col%snl(bounds%begc:bounds%endc), h2osoi_ice, h2osoi_liq, dz)
-
-    ! Above the pack, so never visited
-    @assertEqual(dz_thin, dz(1,j_up4), tolerance=tol)
-    ! The top snow layer, whose water outgrows the thickness it came in with
-    @assertEqual(liq_over/denh2o, dz(1,j_up3), tolerance=tol)
-    ! Inside the pack, but already thick enough for the water it holds
-    @assertEqual(dz_thick, dz(1,j_up2), tolerance=tol)
-    ! The bottom snow layer, whose water outgrows the thickness it came in with
-    @assertEqual(liq_over/denh2o, dz(1,j_up1), tolerance=tol)
-    ! The moss slot, below the pack, so never visited
-    @assertEqual(dz_moss_before, dz(1,j_surface), tolerance=tol)
-  end subroutine postPercolation_nvp
 
   @Test
   subroutine postPercolation_stock(this)
@@ -198,19 +122,10 @@ contains
     ! there. So j_up3 is an empty slot here and the top snow layer there, while
     ! j_surface is bottom snow here and moss there, and those are the only two
     ! assertions below that differ.
+
     class(TestPostPercolation), intent(inout) :: this
-    ! The five slots the fixture fills. j_surface is the slot resting on the soil
-    ! surface, which every column has whatever occupies it, and each j_upN sits N slots
-    ! higher. Defined downward from the surface, which is the reverse of the order the
-    ! array constructors below fill them in.
-    integer, parameter :: j_surface = 0
-    integer, parameter :: j_up1 = j_surface - 1
-    integer, parameter :: j_up2 = j_surface - 2
-    integer, parameter :: j_up3 = j_surface - 3
-    integer, parameter :: j_up4 = j_surface - 4
-    ! The layer count the column carries throughout; the routine never changes it.
-    integer, parameter :: snl = -3
-    ! The pack, in the same terms as its twin so that the two can be lined up:
+
+    ! The snowpack:
     ! jtop = snl+1+jbot_sno, and jbot_sno is 0 on a stock column, so the pack's top slot
     ! is snl+1 -- one lower than the same snl would give on an NVP column -- and its
     ! bottom slot is the soil surface, leaving two empty slots above the pack instead of
@@ -231,11 +146,17 @@ contains
     call filter_from_range(bounds%begc, bounds%endc, num_snowc, filter_snowc)
     col%snl(bounds%begc:bounds%endc) = snl
     col%jbot_sno(bounds%begc:bounds%endc) = jbot
-    ! Ties the jtop declared above to the arithmetic the routine's own bound comes from
+
+    ! Make sure we defined jtop correctly. Note that no mutation in the tested subroutine
+    ! can cause this assertion to fail, and that's okay.
     @assertEqual(jtop, col%get_jtop_snow(bounds%begc))
 
-    ! Array constructors fill the second dimension from its lower bound, so the elements
-    ! below are slots j_up4, j_up3, j_up2, j_up1 and j_surface in that order.
+    ! Give most slots too much water content for their depth, except for the middle slot.
+    ! Note that not all slots will be visited by PostPercolation_AdjustLayerThicknesses.
+    ! (There is no NVP in this version of the test, but we use dz_nvp and liq_nvp to
+    ! minimize diffs between this test and its NVP complement.)
+    ! (Array constructors fill the second dimension from its lower bound, so the elements
+    ! below are slots j_up4, j_up3, j_up2, j_up1 and j_surface in that order.)
     h2osoi_ice(:,:) = 0._r8
     dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
     h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
@@ -243,9 +164,9 @@ contains
     call PostPercolation_AdjustLayerThicknesses(bounds, num_snowc, filter_snowc, &
          col%snl(bounds%begc:bounds%endc), h2osoi_ice, h2osoi_liq, dz)
 
-    ! Above the pack, so never visited
+    ! Above the 3-layer pack, so never visited
     @assertEqual(dz_thin, dz(1,j_up4), tolerance=tol)
-    ! Above the pack, so never visited
+    ! Above the 3-layer pack, so never visited
     @assertEqual(dz_thin, dz(1,j_up3), tolerance=tol)
     ! The top snow layer, but already thick enough for the water it holds
     @assertEqual(dz_thick, dz(1,j_up2), tolerance=tol)
@@ -254,5 +175,90 @@ contains
     ! The bottom snow layer, whose water outgrows the thickness it came in with
     @assertEqual(liq_nvp/denh2o, dz(1,j_surface), tolerance=tol)
   end subroutine postPercolation_stock
+
+  @Test
+  subroutine postPercolation_nvp(this)
+    ! On an NVP column, PostPercolation_AdjustLayerThicknesses must thicken every snow
+    ! layer whose water implies more thickness than the layer has, and must leave both
+    ! the empty slots above the pack and the moss slot below it at the thicknesses they
+    ! came in with.
+    !
+    ! An NVP column with snl = -3, so the pack runs -3..-1 and slot 0 is moss. The five
+    ! slots are laid out so that every distinction is exercised at once: -4 is a
+    ! thin/over pair above the pack, -3 and -1 are thin/over pairs inside it, -2 is a
+    ! thick/under pair inside it, and 0 is the moss with far more water than thickness.
+    ! Ice is zero throughout, so only the liquid term of the max() is in play.
+    !
+    ! Expected: -3 and -1 grow to liq_over/denh2o = 0.02; -2 stays at 0.05 because its
+    ! own thickness already covers its water; -4 and 0 keep what they came in with
+    ! because the routine never visits them.
+    !
+    ! Complementary to postPercolation_stock: the same five slots given the same
+    ! thicknesses, the same water and the same snl, differing only in whether the moss
+    ! slot is claimed. The slot names below are anchored on the soil surface --
+    ! j_surface is the slot resting on it and each j_upN sits N slots higher -- because
+    ! the pack is the very thing that differs between the two tests, so naming a slot
+    ! after its place in the pack would give the same physical slot a different name in
+    ! each. What genuinely differs is the pack's extent: -3..-1 here against -2..0
+    ! there. So j_up3 is the top snow layer here and an empty slot there, while
+    ! j_surface is moss here and bottom snow there, and those are the only two
+    ! assertions below that differ.
+
+    class(TestPostPercolation), intent(inout) :: this
+
+    ! The snowpack:
+    ! jtop = snl+1+jbot_sno, and jbot_sno is -1 on an NVP column, so the pack's top slot
+    ! is snl itself and its bottom slot is one above the soil surface, leaving the moss
+    ! at j_surface outside the pack. Both are load-bearing: jbot is what the fixture
+    ! assigns to jbot_sno, and jtop is asserted against get_jtop_snow below, which
+    ! checks that arithmetic rather than restating it -- jtop is declared here as snl.
+    ! The dz assertions still index off the slot names rather than off these, because
+    ! indexing off these would rename every slot between the two tests, including the
+    ! three whose role does not change.
+    integer, parameter :: jtop = snl
+    integer, parameter :: jbot = j_up1
+    integer :: num_snowc
+    integer, allocatable :: filter_snowc(:)  ! [1:num_snowc]
+    real(r8) :: h2osoi_ice(1,-my_nlevsno+1:0)
+    real(r8) :: h2osoi_liq(1,-my_nlevsno+1:0)
+    real(r8) :: dz(1,-my_nlevsno+1:0)
+
+    ! The moss slot's thickness after test setup
+    real(r8) :: dz_moss_before
+
+    call setup_single_veg_patch(pft_type = 1)
+    call filter_from_range(bounds%begc, bounds%endc, num_snowc, filter_snowc)
+    col%snl(bounds%begc:bounds%endc) = snl
+    col%jbot_sno(bounds%begc:bounds%endc) = jbot
+
+    ! Make sure we defined jtop correctly. Note that no mutation in the tested subroutine
+    ! can cause this assertion to fail, and that's okay.
+    @assertEqual(jtop, col%get_jtop_snow(bounds%begc))
+
+    ! Give most slots too much water content for their depth, except for the middle slot.
+    ! Note that not all slots will be visited by PostPercolation_AdjustLayerThicknesses.
+    ! (There is no NVP in this version of the test, but we use dz_nvp and liq_nvp to
+    ! minimize diffs between this test and its NVP complement.)
+    ! (Array constructors fill the second dimension from its lower bound, so the elements
+    ! below are slots j_up4, j_up3, j_up2, j_up1 and j_surface in that order.)
+    h2osoi_ice(:,:) = 0._r8
+    dz(1,:) = [dz_thin, dz_thin, dz_thick, dz_thin, dz_nvp]
+    h2osoi_liq(1,:) = [liq_over, liq_over, liq_under, liq_over, liq_nvp]
+    dz_moss_before = dz(1,j_surface)
+
+    call PostPercolation_AdjustLayerThicknesses(bounds, num_snowc, filter_snowc, &
+         col%snl(bounds%begc:bounds%endc), h2osoi_ice, h2osoi_liq, dz)
+
+    ! Above the 3-layer pack, so never visited
+    @assertEqual(dz_thin, dz(1,j_up4), tolerance=tol)
+    ! The top snow layer, whose water outgrows the thickness it came in with
+    @assertEqual(liq_over/denh2o, dz(1,j_up3), tolerance=tol)
+    ! Inside the pack, but already thick enough for the water it holds
+    @assertEqual(dz_thick, dz(1,j_up2), tolerance=tol)
+    ! The bottom snow layer, whose water outgrows the thickness it came in with
+    @assertEqual(liq_over/denh2o, dz(1,j_up1), tolerance=tol)
+    ! The moss slot: below the pack, so never visited and thus never changed
+    @assertEqual(dz_moss_before, dz(1,j_surface), tolerance=tol)
+  end subroutine postPercolation_nvp
 
 end module test_SnowHydrology_postPercolation
