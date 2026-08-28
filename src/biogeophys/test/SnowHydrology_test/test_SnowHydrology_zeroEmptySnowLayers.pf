@@ -6,21 +6,23 @@ module test_SnowHydrology_zeroEmptySnowLayers
   ! bounding interface, temperature, ice and liquid -- so that unused snow levels never
   ! carry stale values forward.
   !
-  ! Terms used below. A "slot" is one index of the column arrays in -nlevsno+1 .. 0,
-  ! whether or not a snow layer occupies it. The "pack" is the run of slots that do hold
-  ! snow, jtop .. jbot, short for col%get_jtop_snow(c) .. col%get_jbot_snow(c). On an NVP
-  ! column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot", which is
-  ! not snow and must survive; on a stock column (jbot_sno == 0) the pack is snl+1 .. 0
-  ! and there is no moss slot.
+  ! Terms used below:
+  ! - A "slot" is one index (vertical level) of the column arrays in -nlevsno+1 .. 0,
+  !   whether or not a snow layer occupies it.
+  ! - The "pack" is the run of slots that do hold snow (jtop .. jbot; short for
+  !   col%get_jtop_snow(c) .. col%get_jbot_snow(c)).
+  ! - "snl" is col%snl, which is NEGATIVE the number of snow layers.
+  ! - "dz" is col%dz, which is the thickness of each slot
+  ! - "z" is col%z, which is the depth below soil surface at the middle of each slot
+  ! - "zi" is col%zi, which is the depth below soil surface at the bottom of each slot
   !
-  ! The NVP change is that the routine zeroes j < jtop instead of j < snl+1. Because jtop
-  ! is snl on an NVP column, that keeps the moss slot out of the zeroed range even when
-  ! snl == 0 and the pack is empty. Under the pre-NVP bound a snow-free NVP column would
-  ! have slot 0 wiped, taking the moss state and the interface at its top with it.
+  ! On an NVP column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot",
+  ! which is not snow; on a stock column (jbot_sno == 0) the pack is snl+1 .. 0 and index
+  ! 0 is ordinary bottom snow.
   !
   ! Note the pairing the routine uses, which the tests follow: zeroing slot j clears
   ! zi(c,j-1), the interface at the top of slot j, not zi(c,j). So the interface that
-  ! survives along with the moss slot is zi(c,-1).
+  ! is untouched along with the moss slot is zi(c,-1).
 
   use funit
   use SnowHydrologyMod, only : ZeroEmptySnowLayers
@@ -48,7 +50,7 @@ module test_SnowHydrology_zeroEmptySnowLayers
      procedure :: tearDown
      procedure :: setupColumn
      procedure :: assertSlotZeroed
-     procedure :: assertSlotSurvives
+     procedure :: assertSlotUntouched => assertSlotUntouched
   end type TestZeroEmpty
 
   ! Column shape handed to the water type factory. nlevsno = 5 gives four slots above a
@@ -60,14 +62,17 @@ module test_SnowHydrology_zeroEmptySnowLayers
   real(r8), parameter :: tol = 1.e-13_r8
 
   ! Scales giving each slot a distinct nonzero value in each quantity, so that a slot
-  ! that must survive cannot pass the test by already holding zero. The z and zi scales
+  ! that must be untouched cannot pass the test by already holding zero. The z and zi scales
   ! are negative because those are depths above the soil surface; nothing here depends on
-  ! the six quantities being mutually consistent, only on their being nonzero.
+  ! the six quantities being mutually consistent, only on their being nonzero. (Thus 
+  ! it doesn't matter that |zi - z|*2 /= dz, which is what we'd see in an actual run.)
   real(r8), parameter :: dz_scale = 0.01_r8
   real(r8), parameter :: z_scale = -0.1_r8
   real(r8), parameter :: zi_scale = -0.2_r8
   real(r8), parameter :: ice_scale = 10._r8
   real(r8), parameter :: liq_scale = 1._r8
+
+  ! temperature
   real(r8), parameter :: t_base = 260._r8
 
 contains
@@ -102,8 +107,7 @@ contains
   end subroutine setUp
 
   subroutine tearDown(this)
-    ! Runs after every test, including one that failed before setupColumn allocated
-    ! t_soisno_col, hence the associated() guard.
+    ! Runs after every test.
     class(TestZeroEmpty), intent(inout) :: this
 
     if (associated(this%temperature_inst%t_soisno_col)) then
@@ -165,7 +169,7 @@ contains
     @assertEqual(0._r8, liq)
   end subroutine assertSlotZeroed
 
-  subroutine assertSlotSurvives(this, j)
+  subroutine assertSlotUntouched(this, j)
     ! The converse of assertSlotZeroed: slot j still holds exactly the marker values
     ! setupColumn gave it, zi(c,j-1) included.
     class(TestZeroEmpty), intent(in) :: this
@@ -185,7 +189,39 @@ contains
     @assertEqual(t_base + slot_value(j, 1._r8), t, tolerance=tol)
     @assertEqual(slot_value(j, ice_scale), ice, tolerance=tol)
     @assertEqual(slot_value(j, liq_scale), liq, tolerance=tol)
-  end subroutine assertSlotSurvives
+  end subroutine assertSlotUntouched
+
+  @Test
+  subroutine zeroEmpty_noSnow_stock(this)
+    ! On a snow-free stock column, which carries no moss slot to protect,
+    ! ZeroEmptySnowLayers must clear the whole snow range, the slot at the soil surface
+    ! included.
+    !
+    ! Complementary to zeroEmpty_noSnow_nvp: the same snl and the same nlevsno, with
+    ! every slot given the same marker values, differing only in whether the moss slot
+    ! is claimed. Here jtop is snl+1 = 1 and there is nothing to keep, so slot 0 is
+    ! emptied along with everything above it.
+
+    class(TestZeroEmpty), intent(inout) :: this
+
+    ! A bare column: no snow layers at all.
+    integer, parameter :: snl = 0
+    ! jbot_sno is 0 on a stock column, so jtop is snl+1 -- one lower than the same snl
+    ! would give on an NVP column -- which puts every slot in the snow range inside the
+    ! zeroed range j < jtop.
+    integer, parameter :: jtop = snl + 1
+    integer :: j
+
+    call this%setupColumn(snl = snl, jbot_sno = 0)
+
+    call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         col, this%water_inst, this%temperature_inst)
+
+    ! Loop through all slots, -4 .. 0
+    do j = -my_nlevsno+1, jtop-1
+       call this%assertSlotZeroed(j)
+    end do
+  end subroutine zeroEmpty_noSnow_stock
 
   @Test
   subroutine zeroEmpty_noSnow_nvp(this)
@@ -203,9 +239,10 @@ contains
     !
     ! Complementary to zeroEmpty_noSnow_stock: the same snl and the same nlevsno, with
     ! every slot given the same marker values, differing only in whether the moss slot
-    ! is claimed. This one pins that the moss survives, so that what the two tests zero
-    ! differs by exactly the moss slot and nothing else.
+    ! is claimed.
+
     class(TestZeroEmpty), intent(inout) :: this
+
     ! A bare column: no snow layers at all.
     integer, parameter :: snl = 0
     ! jtop = snl+1+jbot_sno, and jbot_sno is -1 on an NVP column, so with no snow the
@@ -220,41 +257,49 @@ contains
     call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          col, this%water_inst, this%temperature_inst)
 
+    ! Loop through slots -4 .. -1
     do j = -my_nlevsno+1, jtop-1
        call this%assertSlotZeroed(j)
     end do
-    call this%assertSlotSurvives(j_moss)
+
+    ! Check slot 0, which is moss
+    call this%assertSlotUntouched(j_moss)
   end subroutine zeroEmpty_noSnow_nvp
 
   @Test
-  subroutine zeroEmpty_noSnow_stock(this)
-    ! On a snow-free stock column, which carries no moss slot to protect,
-    ! ZeroEmptySnowLayers must clear the whole snow range, the slot at the soil surface
-    ! included.
+  subroutine zeroEmpty_partialPack_stock(this)
+    ! On a stock column whose pack leaves free slots above it, ZeroEmptySnowLayers must
+    ! clear exactly those free slots, stopping at the top snow layer and never reaching
+    ! the pack.
     !
-    ! Complementary to zeroEmpty_noSnow_nvp: the same snl and the same nlevsno, with
-    ! every slot given the same marker values, differing only in whether the moss slot
-    ! is claimed. Here jtop is snl+1 = 1 and there is nothing to keep, so slot 0 is
-    ! emptied along with everything above it. This is the guard that the reindexed bound
-    ! still reduces to the stock one.
+    ! Two snow layers on a non-NVP column, so the pack is -1..0 with
+    ! three free slots above. Only -4, -3, and -2 may be emptied;
+    ! the pack is left alone.
     class(TestZeroEmpty), intent(inout) :: this
-    ! A bare column: no snow layers at all.
-    integer, parameter :: snl = 0
-    ! jbot_sno is 0 on a stock column, so jtop is snl+1 -- one lower than the same snl
-    ! would give on an NVP column -- which puts every slot in the snow range inside the
-    ! zeroed range j < jtop.
+    ! Fewer layers than the column can hold, so there are free slots above the pack for
+    ! the routine to clear.
+    integer, parameter :: snl = -2
+    ! On a stock column jtop is snl+1, and get_jbot_snow puts the pack's bottom slot
+    ! at 0.
     integer, parameter :: jtop = snl + 1
+    integer, parameter :: jbot_sno = 0
     integer :: j
 
-    call this%setupColumn(snl = snl, jbot_sno = 0)
+    call this%setupColumn(snl = snl, jbot_sno = jbot_sno)
 
     call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          col, this%water_inst, this%temperature_inst)
 
+    ! Check that empty slots got zeroed
     do j = -my_nlevsno+1, jtop-1
        call this%assertSlotZeroed(j)
     end do
-  end subroutine zeroEmpty_noSnow_stock
+
+    ! Check that non-empty (snow) slots were untouched
+    do j = jtop, 0
+       call this%assertSlotUntouched(j)
+    end do
+  end subroutine zeroEmpty_partialPack_stock
 
   @Test
   subroutine zeroEmpty_partialPack_nvp(this)
@@ -262,10 +307,9 @@ contains
     ! clear exactly those free slots, stopping at the top snow layer and never reaching
     ! the pack or the moss slot below it.
     !
-    ! Two snow layers on an NVP column, so the pack is -2..-1 with the moss at 0 and two
-    ! free slots above. Only -4 and -3 may be emptied; the pack and the moss are left
-    ! alone. A bound one slot too low would eat the top snow layer at -2, one slot too
-    ! high would leave stale values sitting at -3.
+    ! Two snow layers on an NVP column, so the pack is -2..-1 with the moss at 0 and
+    ! two free slots above. Only -4 and -3 may be emptied;
+    ! the pack and the moss are left alone.
     class(TestZeroEmpty), intent(inout) :: this
     ! Fewer layers than the column can hold, so there are free slots above the pack for
     ! the routine to clear.
@@ -273,21 +317,49 @@ contains
     ! On an NVP column jtop is snl itself, and get_jbot_snow puts the pack's bottom slot
     ! at -1, with the moss just below it at 0.
     integer, parameter :: jtop = snl
+    integer, parameter :: jbot_sno = -1
     integer, parameter :: j_moss = 0
     integer :: j
 
-    call this%setupColumn(snl = snl, jbot_sno = -1)
+    call this%setupColumn(snl = snl, jbot_sno = jbot_sno)
 
     call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          col, this%water_inst, this%temperature_inst)
 
+    ! Check that empty slots got zeroed
     do j = -my_nlevsno+1, jtop-1
        call this%assertSlotZeroed(j)
     end do
-    do j = jtop, j_moss
-       call this%assertSlotSurvives(j)
+
+    ! Check that non-empty (snow or moss) slots were untouched
+    do j = jtop, 0
+       call this%assertSlotUntouched(j)
     end do
   end subroutine zeroEmpty_partialPack_nvp
+
+  @Test
+  subroutine zeroEmpty_fullPack_stock(this)
+    ! On a non-NVP column whose pack already fills every slot,
+    ! ZeroEmptySnowLayers must find nothing above the pack to clear and leave the whole
+    ! snow range exactly as it found it.
+
+    class(TestZeroEmpty), intent(inout) :: this
+
+    ! A non-NVP column has no potential snow layer taken up by moss.
+    integer, parameter :: snl_full = -my_nlevsno
+    integer, parameter :: jtop = snl_full + 1
+    integer, parameter :: jbot_sno = 0
+    integer :: j
+
+    call this%setupColumn(snl = snl_full, jbot_sno = jbot_sno)
+
+    call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
+         col, this%water_inst, this%temperature_inst)
+
+    do j = jtop, 0
+       call this%assertSlotUntouched(j)
+    end do
+  end subroutine zeroEmpty_fullPack_stock
 
   @Test
   subroutine zeroEmpty_fullPack_nvp(this)
@@ -297,23 +369,25 @@ contains
     !
     ! An NVP pack at its capacity of nlevsno-1 = 4 layers, running -4..-1 with the moss
     ! at 0. jtop is -nlevsno+1, the top of the column arrays, so there is no slot above
-    ! the pack and nothing at all may be zeroed. Every slot must survive.
+    ! the pack and nothing at all may be zeroed. Every slot must be untouched.
+
     class(TestZeroEmpty), intent(inout) :: this
+
     ! The most layers an NVP column may hold, the moss having claimed one of the nlevsno
     ! slots. On an NVP column jtop is snl itself, so the pack starts at the first index
     ! the column arrays have and the loop below covers every slot there is.
     integer, parameter :: snl_full = -(my_nlevsno-1)
     integer, parameter :: jtop = snl_full
-    integer, parameter :: j_moss = 0
+    integer, parameter :: jbot_sno = -1
     integer :: j
 
-    call this%setupColumn(snl = snl_full, jbot_sno = -1)
+    call this%setupColumn(snl = snl_full, jbot_sno = jbot_sno)
 
     call ZeroEmptySnowLayers(bounds, this%num_snowc, this%filter_snowc, &
          col, this%water_inst, this%temperature_inst)
 
-    do j = jtop, j_moss
-       call this%assertSlotSurvives(j)
+    do j = jtop, 0
+       call this%assertSlotUntouched(j)
     end do
   end subroutine zeroEmpty_fullPack_nvp
 
