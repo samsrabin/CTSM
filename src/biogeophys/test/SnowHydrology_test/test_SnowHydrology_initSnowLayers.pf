@@ -135,18 +135,22 @@ contains
   end subroutine test_initSnowLayers_depth1_snl
 
   @Test
-  subroutine test_initSnowLayers_overfillPack_stock(this)
-    ! On a stock column given snow deep enough to overfill the pack, InitSnowLayers must
-    ! lay down a pack whose thicknesses sum to the snow depth and whose node depths and
-    ! interfaces close on one another all the way up from the soil surface.
+  subroutine test_initSnowLayers_overfillPack_unevenSplit_stock(this)
+    ! The uneven bottom-two split, with the layer count at the stock cap. A snow depth
+    ! past the fill-every-level threshold takes the else branch of the bottom-two rule --
+    ! second-from-bottom layer held at dzmax_u, bottom layer taking the whole residual --
+    ! and drives the layer count up against nlevsno instead of letting the thresholds
+    ! settle it. InitSnowLayers must lay down a pack whose thicknesses sum to the snow
+    ! depth and whose node depths and interfaces close on one another all the way up from
+    ! the soil surface.
     !
     ! Geometry, not just the layer count. Asserted as invariants rather than literal
     ! thicknesses: SnowHydrologySetControlForTesting does pin the vertical structure
     ! those thicknesses come from, but restating it here would only re-derive that
     ! structure instead of the property the layering has to satisfy.
     !
-    ! Complementary to test_initSnowLayers_overfillPack_nvp: the same snow depth and the
-    ! same nlevsno, differing only in whether the moss slot is claimed. This one pins
+    ! Complementary to test_initSnowLayers_overfillPack_unevenSplit_nvp: the same snow depth and
+    ! the same nlevsno, differing only in whether the moss slot is claimed. This one pins
     ! what the geometry has to look like with all nlevsno slots available to snow, so
     ! that whatever differs over there is the moss slot's doing and nothing else.
     class(TestSnowHydrology), intent(inout) :: this
@@ -204,13 +208,15 @@ contains
        @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=tol)
     end do
 
-  end subroutine test_initSnowLayers_overfillPack_stock
+  end subroutine test_initSnowLayers_overfillPack_unevenSplit_stock
 
   @Test
-  subroutine test_initSnowLayers_overfillPack_nvp(this)
-    ! On an NVP column given snow deep enough to overfill the pack, InitSnowLayers must
-    ! cap the layer count at what the moss slot leaves free, rest the pack on top of the
-    ! moss rather than on the soil surface, and leave the moss geometry untouched.
+  subroutine test_initSnowLayers_overfillPack_unevenSplit_nvp(this)
+    ! The uneven bottom-two split, with the layer count at the NVP cap. The same branch
+    ! and the same snow depth as the stock case, but the moss slot has claimed one of the
+    ! nlevsno slots: InitSnowLayers must cap the layer count at what that leaves free,
+    ! rest the pack on top of the moss rather than on the soil surface, and leave the moss
+    ! geometry untouched.
     !
     ! With the index-0 slot claimed, snow occupies -4:-1, the layer count is
     ! capped at nlevsno-1, and the moss geometry at slot 0 survives untouched.
@@ -225,7 +231,7 @@ contains
     ! slot 0 rather than at jbot would overwrite the node with the layer midpoint, which
     ! is exactly where a physically consistent fixture would already have put it.
     !
-    ! Complementary to test_initSnowLayers_overfillPack_stock: the same snow depth and
+    ! Complementary to test_initSnowLayers_overfillPack_unevenSplit_stock: the same snow depth and
     ! the same nlevsno, differing only in whether the moss slot is claimed.
     class(TestSnowHydrology), intent(inout) :: this
     real(r8), allocatable :: snow_depth(:)  ! [begc:endc]
@@ -323,6 +329,6 @@ contains
        @assertEqual(col%zi(c,j) - col%dz(c,j), col%zi(c,j-1), tolerance=tol)
     end do
 
-  end subroutine test_initSnowLayers_overfillPack_nvp
+  end subroutine test_initSnowLayers_overfillPack_unevenSplit_nvp
 
 end module test_SnowHydrology_initSnowLayers
