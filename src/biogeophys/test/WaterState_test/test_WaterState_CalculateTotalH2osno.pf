@@ -7,11 +7,12 @@ module test_WaterState_CalculateTotalH2osno
   ! first calls CheckSnowConsistency, which aborts through endrun if any slot above the
   ! pack holds ice or liquid that is neither 0 nor spval.
   !
-  ! Terms used below. A "slot" is one index of the column arrays in -nlevsno+1 .. 0,
-  ! whether or not a snow layer occupies it. The "pack" is the run of slots that do hold
-  ! snow, jtop .. jbot, short for col%get_jtop_snow(c) .. col%get_jbot_snow(c). On an NVP
-  ! column (jbot_sno == -1) the pack is snl .. -1 and slot 0 is the "moss slot", whose
-  ! water is not snow; on a stock column (jbot_sno == 0) the pack is snl+1 .. 0.
+  ! Terms used below:
+  ! - A "slot" is one index (vertical level) of the column arrays in -nlevsno+1 .. 0,
+  !   whether or not a snow layer occupies it.
+  ! - The "pack" is the run of slots that do hold snow (jtop .. jbot; short for
+  !   col%get_jtop_snow(c) .. col%get_jbot_snow(c)).
+  ! - "snl" is col%snl, which is NEGATIVE the number of snow layers.
   !
   ! The NVP change touches both routines. The sum runs jtop .. jbot, so it reaches the
   ! top snow layer at snl and stops short of the moss. CheckSnowConsistency's scan of
@@ -105,15 +106,9 @@ contains
   end subroutine setupColumn
 
   @Test
-  subroutine totalH2osno_stock(this)
+  subroutine totalH2osno_partialPack_stock(this)
     ! On a stock column, CalculateTotalH2osno must total the ice and liquid of every snow
-    ! layer down to the one resting on the soil surface, over a pack whose empty slots
-    ! above hold nothing for the consistency check to object to.
-    !
-    ! A stock column with three snow layers, so the pack runs -2..0 and the bottom snow
-    ! layer is index 0, whose water belongs in the total. Slots -4 and -3 are left at
-    ! zero, which is both what the total requires and what CheckSnowConsistency demands
-    ! of slots above the pack.
+    ! layer down to the one resting on the soil surface.
     !
     ! Complementary to totalH2osno_nvp: the same three layer waters and the same snl,
     ! differing only in whether the moss slot is claimed and so in where the pack sits.
@@ -149,12 +144,12 @@ contains
     end associate
 
     @assertEqual(expected, h2osno_total(c), tolerance=tol)
-  end subroutine totalH2osno_stock
+  end subroutine totalH2osno_partialPack_stock
 
   @Test
-  subroutine totalH2osno_nvp(this)
-    ! On an NVP column, CalculateTotalH2osno must total the ice and liquid of the snow
-    ! pack alone, reaching the top snow layer while leaving out the water the moss slot
+  subroutine totalH2osno_partialPack_nvp(this)
+    ! On an NVP column, CalculateTotalH2osno must total the ice and liquid of every snow
+    ! layer down to the one resting on the moss, leaving out the water the moss slot
     ! holds below the pack.
     !
     ! Complementary to totalH2osno_stock: the same three layer waters and the same snl,
@@ -199,10 +194,47 @@ contains
     end associate
 
     @assertEqual(expected, h2osno_total(c), tolerance=tol)
-  end subroutine totalH2osno_nvp
+  end subroutine totalH2osno_partialPack_nvp
 
   @Test
-  subroutine totalH2osno_nvpNoSnowLayers(this)
+  subroutine totalH2osno_onlyLayerlessSnow_stock(this)
+    ! On a snow-free non-NVP column, CalculateTotalH2osno must return the layerless snow
+    ! alone and must complete without its consistency check mistaking the water in the
+    ! moss slot for snow stranded above the pack.
+    !
+    ! snl = 0 makes jtop -1 and jbot 0, so the sum loop runs over nothing and the total
+    ! is the layerless snow alone.
+    !
+    ! What this case tests is mainly that the call completes at all, given CheckSnowConsistency.
+
+    class(TestCalcTotalH2osno), intent(inout) :: this
+
+    ! A bare column: no snow layers at all. jtop = snl+1+jbot_sno is then 0 on an NVP
+    ! column, so the pack's top slot coincides with the moss slot, the sum loop runs
+    ! over nothing, and CheckSnowConsistency's scan of -nlevsno+1 .. jtop-1 stops just
+    ! above the moss.
+    integer, parameter :: snl = 0
+    integer, parameter :: jbot_sno = 0
+    integer :: num_c, c
+    integer, allocatable :: filter_c(:)  ! [1:num_c]
+    real(r8) :: h2osno_total(1)
+    real(r8), parameter :: h2osno_no_layers = 33._r8
+
+    call this%setupColumn(snl = snl, jbot_sno = jbot_sno)
+    call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
+    c = bounds%begc
+
+    associate(ws => this%water_inst%waterstatebulk_inst)
+    ws%h2osno_no_layers_col(c) = h2osno_no_layers
+
+    call ws%CalculateTotalH2osno(bounds, num_c, filter_c, 'test', h2osno_total)
+    end associate
+
+    @assertEqual(h2osno_no_layers, h2osno_total(c), tolerance=tol)
+  end subroutine totalH2osno_onlyLayerlessSnow_stock
+
+  @Test
+  subroutine totalH2osno_onlyLayerlessSnow_nvp(this)
     ! On a snow-free NVP column, CalculateTotalH2osno must return the layerless snow
     ! alone and must complete without its consistency check mistaking the water in the
     ! moss slot for snow stranded above the pack.
@@ -210,26 +242,28 @@ contains
     ! snl = 0 makes jtop 0 and jbot -1, so the sum loop runs over nothing and the total
     ! is the layerless snow alone.
     !
-    ! The total by itself discriminates nothing here, because at snl == 0 the pre-NVP
-    ! sum loop is empty too. What this case tests is that the call completes at all.
+    ! What this case tests is mainly that the call completes at all, given CheckSnowConsistency.
     ! CheckSnowConsistency scans -nlevsno+1 .. jtop-1 for slots that should be empty;
     ! under the pre-NVP bound that range ends at snl = 0 and so includes the moss slot,
     ! where ice_nvp is neither 0 nor spval, so the run would abort through endrun. That
     ! is why the moss water is set here even though it contributes nothing to the
     ! expected value.
+
     class(TestCalcTotalH2osno), intent(inout) :: this
+
     ! A bare column: no snow layers at all. jtop = snl+1+jbot_sno is then 0 on an NVP
     ! column, so the pack's top slot coincides with the moss slot, the sum loop runs
     ! over nothing, and CheckSnowConsistency's scan of -nlevsno+1 .. jtop-1 stops just
     ! above the moss.
     integer, parameter :: snl = 0
+    integer, parameter :: jbot_sno = -1
     integer, parameter :: j_moss = 0
     integer :: num_c, c
     integer, allocatable :: filter_c(:)  ! [1:num_c]
     real(r8) :: h2osno_total(1)
     real(r8), parameter :: h2osno_no_layers = 33._r8
 
-    call this%setupColumn(snl = snl, jbot_sno = -1)
+    call this%setupColumn(snl = snl, jbot_sno = jbot_sno)
     call filter_from_range(bounds%begc, bounds%endc, num_c, filter_c)
     c = bounds%begc
 
@@ -242,6 +276,6 @@ contains
     end associate
 
     @assertEqual(h2osno_no_layers, h2osno_total(c), tolerance=tol)
-  end subroutine totalH2osno_nvpNoSnowLayers
+  end subroutine totalH2osno_onlyLayerlessSnow_nvp
 
 end module test_WaterState_CalculateTotalH2osno
