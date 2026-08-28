@@ -4997,12 +4997,6 @@
       <machine name="derecho" compiler="intel" category="fates"/>
       <machine name="derecho" compiler="intel" category="fates_nvp"/>
       <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
-      <machine name="derecho" compiler="gnu" category="fates"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
-      <machine name="izumi" compiler="nag" category="fates"/>
-      <machine name="izumi" compiler="nag" category="fates_nvp"/>
-      <machine name="izumi" compiler="nag" category="fates_nvp_short"/>
     </machines>
     <options>
       <option name="wallclock">00:20:00</option>
@@ -5012,15 +5006,9 @@
 
   <test name="SMS_Ly2_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesNvp--clm/FatesALP2BareMoss">
     <machines>
-      <machine name="derecho" compiler="intel" category="fates"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
       <machine name="derecho" compiler="gnu" category="fates"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
-      <machine name="izumi" compiler="nag" category="fates"/>
-      <machine name="izumi" compiler="nag" category="fates_nvp"/>
-      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
     </machines>
     <options>
       <option name="wallclock">00:30:00</option>
@@ -5051,12 +5039,6 @@
       <machine name="derecho" compiler="intel" category="fates"/>
       <machine name="derecho" compiler="intel" category="fates_nvp"/>
       <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
-      <machine name="derecho" compiler="gnu" category="fates"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
-      <machine name="izumi" compiler="nag" category="fates"/>
-      <machine name="izumi" compiler="nag" category="fates_nvp"/>
-      <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
     </machines>
     <options>
       <option name="wallclock">00:30:00</option>
@@ -5114,9 +5096,6 @@
 
   <test name="ERS_Ld5_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60FatesSpRsGs" testmods="clm/FatesColdSatPhen--clm/FatesNvp--clm/FatesALP2BareMoss">
     <machines>
-      <machine name="derecho" compiler="intel" category="fates"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp_short"/>
       <machine name="derecho" compiler="gnu" category="fates"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp_short"/>
@@ -5135,9 +5114,6 @@
       <machine name="derecho" compiler="intel" category="fates"/>
       <machine name="derecho" compiler="intel" category="fates_nvp"/>
       <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
-      <machine name="derecho" compiler="gnu" category="fates"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp"/>
-      <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
       <machine name="izumi" compiler="nag" category="fates"/>
       <machine name="izumi" compiler="nag" category="fates_nvp"/>
       <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
@@ -5173,9 +5149,6 @@
   </test>
   <test name="ERS_Ld731_D_Mmpi-serial" grid="1x1_ALP2" compset="I2000Clm60Fates" testmods="clm/FatesColdNoCompFixedBioGeo--clm/FatesNvp--clm/FatesALP2BareGrassMoss">
     <machines>
-      <machine name="derecho" compiler="intel" category="fates"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp"/>
-      <machine name="derecho" compiler="intel" category="fates_nvp_long"/>
       <machine name="derecho" compiler="gnu" category="fates"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp"/>
       <machine name="derecho" compiler="gnu" category="fates_nvp_long"/>
