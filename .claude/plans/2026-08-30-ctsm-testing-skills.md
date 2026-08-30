@@ -122,13 +122,16 @@ Four skills. Names are provisional and will be settled when each is written.
 
 *How to build, run, and write a pFUnit test in CTSM, and what will bite you.*
 
-Covers the mechanics of running the unit test suite; the build configuration the tests
-actually compile under, including several places where the documented behaviour and the real
-behaviour differ (one compiler check is silently disabled by a later flag; another setting
-turns a divide-by-zero into an immediate abort rather than a NaN); two hard limits in the
-pFUnit preprocessor that produce baffling compile errors; the inventory of test fixtures CTSM
-already provides, so that nobody rebuilds one; and how to hand-build the few structures that
-have no fixture.
+Covers the mechanics of running the unit test suite, including a trap in which re-running the
+tests incrementally silently executes the *previous* set of tests while reporting complete
+success; the build configuration the tests actually compile under, including several places
+where the documented behaviour and the real behaviour differ (one compiler check is silently
+disabled by a later flag; another setting turns a divide-by-zero into an immediate abort
+rather than a NaN); two hard limits in the pFUnit preprocessor that produce baffling compile
+errors; the inventory of test fixtures CTSM already provides, so that nobody rebuilds one; how to
+hand-build the few structures that have no fixture; and how to run a single test over several
+different inputs, a pFUnit capability CTSM supports but has never once used, so there is no
+example in the codebase for anyone to copy.
 
 **Why it is not project-specific:** it applies to every CTSM checkout and every CTSM
 developer. It is specific to CTSM, but CTSM is not a project — it is a codebase many projects
@@ -174,7 +177,9 @@ expected-failures list; the mechanism for landing a test before the capability i
 exists, and the trap of doing that to a test that is also serving as a baseline reference;
 several testmod rules that fail silently when got wrong; which machine and compiler
 combinations catch which classes of bug; how to derive a wallclock limit from existing
-entries rather than guessing it; and when a commit may still be amended and when it may not.
+entries rather than guessing it; how to verify a change by building a case, including a cache
+refresh the build system does not perform for you when a source file is added; and when a
+commit may still be amended and when it may not.
 
 This skill also absorbs a rule about who runs the suites — see below.
 
@@ -259,6 +264,22 @@ suite launcher names are a fixed, short list. That is a hook, not a paragraph.
 
 ---
 
+## One upstream documentation fix
+
+CTSM's own unit-testing document, `src/README.unit_testing`, is eleven lines long and its
+substance is a recommendation to reuse the existing build directory for an incremental
+rebuild. That is exactly the practice that silently runs the previous set of tests after a new
+test file is added. The documentation steers the reader into the trap and presents it as a
+feature.
+
+That is a bug affecting humans, not only assistants, so it gets fixed in CTSM rather than
+merely documented around in a skill. The fix is a brief note in that file.
+
+The two changes are complementary rather than redundant: the README serves the reader who opens
+it, and the skill triggers on the *symptom* — a test count that did not change — for the reader
+who did not. We are not running a control to measure how much each contributes on its own,
+because the README note is warranted for human readers whatever it does for an assistant.
+
 ## Where they live
 
 Committed into this repository under `.claude/skills/`, one folder per skill.
@@ -281,12 +302,50 @@ Skills are documentation, but they are documentation whose only purpose is to ch
 behaviour — which means they can be tested, and the guidance we are following insists that
 they are. The shape is the same as test-driven development:
 
-1. **Observe the failure first.** Give an agent a realistic task *without* the skill, and
-   record exactly what it gets wrong and how it justifies itself. If it does not fail, the
-   skill has nothing to fix and should not be written.
-2. **Write the minimum that addresses those specific failures.** Not hypothetical ones.
-3. **Verify, then close the gaps.** Re-run with the skill present; when a new evasion appears,
-   answer it explicitly and re-run.
+1. **Observe the baseline first.** Give an agent a realistic task *without* the skill and
+   record what it actually did: where it went wrong and how it justified itself — and, where it
+   went right, what the right answer cost it. Build jobs submitted, compile errors hit,
+   wall-clock, and which facts it had to derive that the checkout could simply have handed it.
+2. **Write the guidance**, leading with whatever the baseline showed was scarce.
+3. **Verify against the same measure the baseline used**, then close the gaps. Where the
+   baseline was a failure, re-run and answer any new evasion explicitly. Where it was a success
+   that cost too much, re-run and check that the cost fell. A skill that moves neither is a
+   finding about the skill, not about the agent.
+
+**A deliberate departure from the guidance we are following.** The skill-authoring guidance
+says a rule whose baseline agent already gets it right should not be written at all. We are
+keeping such rules, marked in the plan as not proven necessary, because a single agent getting
+something right once is weak evidence that agents get it right reliably — these models are
+stochastic, and the cost of a rule that turns out to be redundant is much lower than the cost
+of a trap that reappears on a bad day. The mark is recorded in the plan's evidence appendix and
+**not** in the skill text, because a rule annotated "this may be unnecessary" invites the
+reader to skip it. The appendix then doubles as the worklist for a later pruning pass, once
+there is enough evidence to prune on — but **not on the proven/unproven axis**. Pruning on "did
+an agent fail without this" would cut the time-saving facts first, and those are the ones that
+pay off on every run rather than only in the fraction of runs where an agent goes wrong. Prune
+on whether a fact ever gets used.
+
+**A baseline that succeeds is a result, not a null.** Recorded here because it was a surprise,
+and because it should shape A, B and D rather than being rediscovered from scratch each time.
+C's six baselines, run 2026-08-30, came back five-of-six with the agent doing the right thing
+unaided: it found the water-type fixture factory and got its call order right first try, read
+the whole compiler flag line instead of stopping at the first match, and reached for pFUnit's
+parameterized-test decorator with no example anywhere in the codebase to copy. What those agents
+lost was submitted build jobs. Counted from the transcripts afterwards, the two scenarios that
+hit a trap — an incremental rebuild that reported complete success while running the previous set
+of tests, and a preprocessor limit whose rule was sitting unremarked in the neighbouring test
+file — cost seven and nine PBS jobs, against two or three for each of the other four. Those two
+were also the largest writing tasks, so job count confounds task size with trap cost; what is
+unconfounded is that only the preprocessor scenario produced a compile error at all. Reaching for
+an unfamiliar tool was *not* expensive: the scenario that derived parameterized-test syntax from
+the pFUnit preprocessor's own source, with no example in the codebase, cost three jobs. For a reference skill, then, "did the agent fail?" is the wrong question
+and produces a table of unproven rules; "what did the right answer cost, and how much of that
+was avoidable?" is the one that discriminates.
+
+This does not automatically transfer. A is classified below as a discipline skill and B as a
+pattern skill, and both may behave quite differently under a baseline — an agent that skips
+writing a test first is failing, not paying. But the classification is a prediction, and each
+skill's baseline should be read as a test of it rather than as a confirmation.
 
 The *design* of step 1 differs by what kind of skill it is, and this is the part worth stating
 up front:

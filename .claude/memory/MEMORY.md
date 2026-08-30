@@ -9,3 +9,5 @@
 - [Do not assume pronouns](dont-assume-pronouns.md) — they/them or second person for everyone, Sam included; a name is not evidence
 - [Match the merge target](match-the-merge-target.md) — align with ctsm5.4.028_nvp over stock-CTSM cleanliness; check the worktree before proposing divergence
 - [Unit tests are test-first](unit-tests-are-test-first.md) — a separate writer commits red tests before the implementer; test commits are standalone and never amended
+- [Tasks run strictly in order](tasks-run-strictly-in-order.md) — never start Task N+1 before Task N is finished; say when an ordering is load-bearing
+- [Failed verification is a stop](failed-verification-is-a-stop.md) — a capability that does not work stops the plan; a claim that is merely false gets cut and reported
