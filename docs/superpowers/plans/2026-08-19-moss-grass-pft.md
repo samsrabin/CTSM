@@ -173,6 +173,34 @@ Not defects in our work; things noticed while implementing that upstream may wan
   dimension (`main/FatesRestartInterfaceMod.F90:2828-2832,3872-3876`). It fits only because
   `ncwd*hlm_maxlevsoil` dominates. True at 6 and still true at 8, so this is a documentation
   gap rather than a bug — but the assumption is unstated and would break silently.
+- **The soil-water boundary condition disagrees with itself between its two host fills.**
+  `bc_in%h2o_liqvol_sl` declares itself "Liquid volume in soil layer (m3/m3)"
+  (`main/FatesInterfaceTypesMod.F90:572`), and CTSM's `wrap_btran` fills it from
+  `h2osoi_liqvol_col` — liquid only — as it has since that routine was introduced (CTSM
+  `85b9d5b83`, clm4_5_12_r192, Aug 2016). Nine months later `dynamics_driv` gained a *second*
+  fill of the same field from `h2osoi_vol_col`, which is total water, liquid plus ice (CTSM
+  `2c68a254f`, clm4_5_16_r238, May 2017). Neither commit mentions the other, no comment marks
+  the difference, and the tech note never states the field's phase — though it does describe
+  btran as handling the ice fraction separately via effective porosity over total porosity,
+  which is only coherent if the water term is liquid. So the phase FATES sees depends on which
+  host routine wrote last: total water during the daily dynamics call, liquid-only during the
+  sub-daily canopy flux steps. Two of the three daily-path consumers are protected by accident,
+  because `check_layer_water` (`biogeophys/EDBtranMod.F90:42-57`) tests `tempk` independently of
+  the water value, so `get_active_suction_layers` and the `smp_memory` accumulation
+  (`biogeochem/EDPhysiologyMod.F90:1228`) drop frozen layers either way. The unguarded consumer
+  is `liqvol_memory` (`biogeochem/EDPhysiologyMod.F90:1223`), a raw root-weighted mean feeding
+  drought-deciduous phenology. It is latent only because all 14 default PFTs set
+  `fates_phen_drought_threshold` negative (-152957.4), selecting the matric-potential branch at
+  `:1250-1253`; a PFT switching to a positive volumetric threshold would silently compare
+  ice+liquid against a liquid-water threshold. What is *not* latent is the diagnostic:
+  `FATES_MEANLIQVOL_DROUGHTPHEN_PF`, long name "PFT-level mean liquid water volume for drought
+  phenolgy", reports total water today. The fix is a choice between making the daily fill use
+  liquid volumetric water (an answer change for any PFT on the volumetric threshold, and for
+  that history variable) and documenting the field as total-at-daily/liquid-at-sub-daily, which
+  is hard to defend for a field named `liqvol`. Noticed because Task 8's moss wetness proxy
+  reads this field in the daily path: total water is the behaviour that task wants — a frozen
+  top layer means frozen moss, which damps fire — but that is a coincidence of where the proxy
+  is computed, not a contract the field offers.
 
 ## Global Constraints
 
@@ -194,17 +222,23 @@ Not defects in our work; things noticed while implementing that upstream may wan
   comments just because a new line is longer or shorter — Sam does not care about
   preserving column alignment, and a realigned block buries the real change in the diff.
   Prefer adding a line that fits the existing alignment loosely over adjusting others.
-- New moss history variables follow the existing conditional-registration patterns in
-  `main/FatesHistoryInterfaceMod.F90` (register only when `hlm_use_moss==itrue`;
-  patch→site averaging per existing helpers). The first task to add one (Task 6)
-  establishes the pattern; later tasks follow it. **Every task that adds a
-  moss-specific history variable also adds it to the output list (`hist_fincl`) in the
-  `FatesNvp` testmod's `user_nl_clm`, in that same task — using the append form
-  `hist_fincl1 += 'VAR'`, never a plain assignment.** CIME applies testmods in order and
-  later ones win (`cime/CIME/user_mod_support.py`), and the nocomp test composes `FatesNvp`
-  after `clm/Fates`, which sets `hist_empty_htapes` plus the ~23-variable FATES list. A plain
-  assignment would silently wipe `FATES_FUEL_AMOUNT`, `FATES_BURNFRAC` and the rest — on the
-  only test that runs SPITFIRE, while looking harmless on the SP tests.
+- New moss history variables register **unconditionally** in
+  `main/FatesHistoryInterfaceMod.F90` (`use_default='active'`, `hlms='CLM:ALM'`; patch→site
+  averaging per existing helpers), each carrying a
+  `! TODO: Before merge, change these to default 'inactive'` comment. This means a moss-off
+  run's history file gains these fields too (populated with 0, since the underlying patch
+  members are only ever written when `hlm_use_moss==itrue`) — Sam confirmed on 2026-09-01 that
+  this is the right call for new fields, and that the `TODO` comments mark a required pre-merge
+  sweep: every one of them must be revisited (flip the default, or reconsider the guard) before
+  this branch merges. The first task to add one (Task 6, FATES `8bdc97783`) establishes the
+  pattern; later tasks follow it. **Every task that adds a moss-specific history variable also
+  adds it to the output list (`hist_fincl`) in the `FatesNvp` testmod's `user_nl_clm`, in that
+  same task — using the append form `hist_fincl1 += 'VAR'`, never a plain assignment.** CIME
+  applies testmods in order and later ones win (`cime/CIME/user_mod_support.py`), and the
+  nocomp test composes `FatesNvp` after `clm/Fates`, which sets `hist_empty_htapes` plus the
+  ~23-variable FATES list. A plain assignment would silently wipe `FATES_FUEL_AMOUNT`,
+  `FATES_BURNFRAC` and the rest — on the only test that runs SPITFIRE, while looking harmless
+  on the SP tests.
 - Reference implementations to harvest are on `ctsm5.4.028_nvp` — a branch on the
   **`huitang-earth`** remote (`https://github.com/huitang-earth/CTSM.git`), *not* on
   `origin`; worktree at `.worktrees/nvp`, created 2026-08-19 at branch tip `997cb054a`.
@@ -1540,14 +1574,19 @@ end if
 - Modify (FATES): `main/FatesInterfaceTypesMod.F90` (declare `fwet_veg_pa` in
   `bc_in_type`, patch-dimensioned), `main/FatesInterfaceMod.F90` (`allocate_bcin`
   with `maxpatch_total`, `zero_bcs`)
-- Modify: `src/utils/clmfates_interfaceMod.F90` (fill from
-  `waterdiagnosticbulk_inst%fwet_patch`; wire the instance into the wrapper that
-  runs before fire/photosynthesis — per Step 0)
+- Modify: `src/utils/clmfates_interfaceMod.F90` (fill `fwet_veg_pa` from
+  `waterdiagnosticbulk_inst%fwet_patch`, ungated; fill `watsat_sl` daily from
+  `soilstate_inst%watsat_col`, gated on `use_fates_moss` since `wrap_btran` is
+  otherwise its only writer; wire the instance into the wrapper that runs before
+  fire/photosynthesis — per Step 0)
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (add `fwet_moss` patch member) and the
   site-level update loop (`EDMainMod` daily driver or `SFMainMod` entry — Step 0 picks
   the single update point)
 - Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_FWET`,
   `FATES_MOSS_FWET_SOIL`, `FATES_MOSS_FWET_CANOPY`)
+- Modify (FATES): `main/FatesRestartInterfaceMod.F90` (restart `fwet_moss` and its two
+  ingredients, gated on `hlm_use_moss`, following the Task 7 `moss_fines` conditional
+  pattern)
 - Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (add the new
   history variables to the output list)
 
@@ -1560,7 +1599,41 @@ end if
   bc_in%fwet_veg_pa(ifp))`, updated once per day before fire; history variables for
   the proxy and both ingredients. Tasks 9 and 10 read `currentPatch%fwet_moss`.
 
-- [ ] **Step 0 (orchestrator):** Choose the fill site in `clmfates_interfaceMod`: it
+**Step 0 resolutions (Sam, 2026-09-01):**
+- The soil half uses TOTAL volumetric water (liquid + ice), not liquid only — a frozen top
+  soil layer means frozen moss, which damps fire. This keeps spec §7's single new coupler
+  field. `bc_in%h2o_liqvol_sl` carries total water only at the daily `dynamics_driv` fill;
+  `wrap_btran` overwrites it with liquid-only water sub-daily, which is why the proxy must be
+  diagnosed in the daily sequence — see the upstream-observations bullet on that field.
+- `watsat_sl` is filled daily in `dynamics_driv`, gated on `use_fates_moss`, because
+  `wrap_btran` sets it to -999 outside the exposed-vegetation filter and the proxy needs a
+  valid porosity at the daily call.
+- The single update point is `ed_ecosystem_dynamics`, outside the SP/ST3 gate and ahead of
+  `DailyFireModel` — unlike grass's fuel quantities, which are computed only when SPITFIRE is
+  on — because moss physiology needs the proxy too. Deliberately one writer.
+- Three patch members rather than one: `update_history_dyn_sitelevel` takes no `bc_in`, so the
+  two ingredients spec §9 asks for must ride on the patch. `fwet_moss_soil` stays there too,
+  for uniformity, though it is site-uniform by construction.
+- Bareground patches are skipped, and history is area-weighted over all patches including
+  bareground, matching the existing intensive fuel diagnostics (`FATES_FUEL_EFF_MOIST`,
+  `_BULKD`, `_SAV`, `_MEF`), which are likewise computed only for vegetated patches and then
+  diluted by bareground area.
+- The three patch members are on the FATES restart file, gated on `hlm_use_moss`. Without them
+  the first post-restart history record is zero, because `restart()` calls `update_history_dyn`
+  before the first daily dynamics — the moss `ERS` tests would fail. Later tasks adding
+  daily-diagnosed patch state should follow this.
+- **`maximum_leaf_wetted_fraction` is a candidate for eventual tuning, and will be awkward
+  to tune.** The canopy ingredient of the proxy can never exceed it (0.05 on the standard
+  parameter file), so it sets a hard ceiling on how much interception can move the proxy —
+  the reason the soil ingredient dominates in practice. Retuning it for moss alone is not
+  possible today: it is a single global scalar read from the CTSM parameter file
+  (`readNcdioScalar`, `biogeophys/CanopyHydrologyMod.F90:53,162`) and applied uniformly to
+  every patch at `:1171`, with no PFT dimension to key off. Any change to it therefore moves
+  leaf wetting for all 14 PFTs, not just moss. Making it moss-specific would mean giving it
+  a PFT dimension upstream in CTSM — out of scope here. Recorded so it is not rediscovered
+  in Task 9 or Task 10.
+
+- [x] **Step 0 (orchestrator):** Choose the fill site in `clmfates_interfaceMod`: it
   must run before `wrap_spitfire` each FATES dynamics step — inspect where
   `precip24_pa`-style fire weather inputs are filled and co-locate. Confirm
   `waterdiagnosticbulk_inst` is reachable there (otherwise add it to the call
@@ -1568,17 +1641,31 @@ end if
   `h2o_liqvol_sl`. Ask Sam: should the soil half use liquid only (suggested: yes —
   frozen layer-1 water should read as "dry" fuel-wise)? Forward check: Tasks 9, 10
   read `fwet_moss` by that exact name.
-- [ ] **Step 1: 4-touch `bc_in` field.** Declare, allocate (`maxpatch_total`), zero, and
+- [x] **Step 1: 4-touch `bc_in` field.** Declare, allocate (`maxpatch_total`), zero, and
   fill `fwet_veg_pa` from `fwet_patch(p)` for exposed-veg patches.
-- [ ] **Step 2: patch member + update.** Add `fwet_moss` to `fates_patch_type` (init
+- [x] **Step 2: patch member + update.** Add `fwet_moss` to `fates_patch_type` (init
   0), compute it at the chosen daily update point, guarded by `hlm_use_moss`.
-- [ ] **Step 3: history.** Register and fill `FATES_MOSS_FWET` (the max),
+- [x] **Step 3: history.** Register and fill `FATES_MOSS_FWET` (the max),
   `FATES_MOSS_FWET_SOIL` (soil ingredient), `FATES_MOSS_FWET_CANOPY` (canopy wetted
   fraction as received) per the Task 6 pattern.
-- [ ] **Step 4: verify.** Moss ALP2 tests PASS; in the history, `FATES_MOSS_FWET`
-  tracks rain events (canopy ingredient spikes with precipitation and decays;
-  soil ingredient varies smoothly; the max is always ≥ both); ALP2 baselines b4b.
-- [ ] **Step 5: reviews, then commit.**
+- [ ] **Step 4: verify — SKIPPED (Sam, 2026-09-01).** Every machine Sam could build or run
+  on was down, so verification (build, run, FATES functional/unit tests, ALP2 b4b) is
+  deferred until a machine is back. When run, expect: moss ALP2 tests PASS; in the
+  history, `FATES_MOSS_FWET` tracks rain events (canopy ingredient spikes with
+  precipitation and decays; soil ingredient varies smoothly; the max is always ≥ both);
+  ALP2 baselines b4b.
+- [x] **Step 5: reviews, then commit. COMPLETE (2026-09-01).** Spec review passed; code
+  review found one Important issue (the three new patch members were missing from the FATES
+  restart file, which would have failed the moss `ERS_Ld731` tests as soon as this task
+  landed, because `restart()` calls `update_history_dyn` before the first daily dynamics)
+  plus three minor ones. All five fixed in fix round 1 and confirmed ADDRESSED by a scoped
+  re-review, with no new breakage. Three further rounds followed: round 2 applied Sam's
+  change requests after he reviewed the Step 0 rulings (gate the `watsat_sl` fill on
+  `use_fates_moss`; say in the code why the update sits outside the fire path; record the
+  resolutions and correct the Global Constraints history-variable bullet). Rounds 3 and 4
+  were comment-only, making that rationale self-contained for upstream — no task numbers,
+  no plan-file pointers, no hardcoded line numbers — and restating the proxy's consumers as
+  a contract rather than as a call graph that does not exist until Tasks 9 and 10.
 
 ### Task 9: Moss fuel moisture
 

@@ -1248,9 +1248,25 @@ module CLMFatesInterfaceMod
             this%fates(nc)%bc_in(s)%t_scalar_sisl(1:nlevsoil) = 0.0_r8
          end if
 
-         ! Soil water
+         ! Soil water. h2osoi_vol_col is TOTAL volumetric water (liquid + ice) here; wrap_btran
+         ! later overwrites bc_in%h2o_liqvol_sl with liquid-only water for the sub-daily canopy
+         ! flux steps. The moss wetness proxy is diagnosed in this daily dynamics call
+         ! specifically so it sees total, not liquid-only, water -- a frozen top soil layer
+         ! should read as "dry" fuel-wise. Changing this fill's source changes what the proxy
+         ! means; see UpdateMossFwet in FatesPatchMod.F90.
          this%fates(nc)%bc_in(s)%h2o_liqvol_sl(1:nlevsoil)  = &
                waterstatebulk_inst%h2osoi_vol_col(c,1:nlevsoil)
+
+         ! wrap_btran is otherwise the only writer of watsat_sl, and it sets this to -999
+         ! for columns outside the exposed-vegetation filter, so the moss wetness proxy --
+         ! diagnosed in the daily dynamics call -- needs a valid porosity here. Gated on
+         ! use_fates_moss so a moss-off run leaves this field exactly as it was before this
+         ! branch: gating protects against a future daily reader other than the moss proxy
+         ! silently picking up an unintended fill.
+         if (use_fates_moss) then
+            this%fates(nc)%bc_in(s)%watsat_sl(1:nlevsoil) = &
+                  soilstate_inst%watsat_col(c,1:nlevsoil)
+         end if
 
          this%fates(nc)%bc_in(s)%max_rooting_depth_index_col = &
               min(nlevsoil, active_layer_inst%altmax_lastyear_indx_col(c))
@@ -1286,6 +1302,9 @@ module CLMFatesInterfaceMod
 
             this%fates(nc)%bc_in(s)%wind24_pa(ifp) = &
                   atm2lnd_inst%wind24_patch(p)
+
+            this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = &
+                  waterdiagnosticbulk_inst%fwet_patch(p)
 
          end do
 
