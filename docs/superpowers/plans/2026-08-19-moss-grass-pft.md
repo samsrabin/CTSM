@@ -1672,8 +1672,12 @@ end if
 **Files:**
 - Modify (FATES): `fire/FatesFuelMod.F90` (`UpdateFuelMoisture`, lines 189–236)
 - Modify (FATES): `fire/SFMainMod.F90` (pass `currentPatch%fwet_moss` down)
-- Modify (FATES): `testing/tests/functional/fire/fuel/FatesTestFuel.F90` (+ its Python
-  checker) — moss moisture cases
+- Modify (FATES): `testing/tests/functional/fire/fuel/FatesTestFuel.F90` — passes a fixed
+  `fwet_moss` and sets the moss moisture coefficients the CTSM namelist would otherwise
+  supply. Its Python checker is **not** modified: the driver writes only non-trunk
+  aggregates, so there is nothing per-class for the plotter to show.
+- Modify (FATES): `testing/tests/unit/fire_fuel_test/test_FireFuel.pf` — the moss moisture
+  assertions live here (see Step 3a)
 
 **Interfaces:**
 - Consumes: `currentPatch%fwet_moss` (Task 8), `fuel_classes%live_moss()/dead_moss()`
@@ -1685,16 +1689,83 @@ end if
   history (moisture, loading) already extends to 8 via Task 4 — this task's run
   verifies those outputs are sensible.
 
-- [ ] **Step 0 (orchestrator):** Re-read `UpdateFuelMoisture` + `CalculateFuelBurnt`.
+**Step 0 findings (Claude, 2026-09-01):**
+- The Step 2 snippet below cannot compile as written: `fuel_type` has no `moisture`
+  component (see the type definition in `FatesFuelMod.F90`). Inside `UpdateFuelMoisture`,
+  `moisture` is a local array `real(r8) :: moisture(num_fuel_classes)` that the fire weather
+  class fills and the moisture-of-extinction loop then consumes. The moss branches therefore
+  assign to the local `moisture(...)`, not to `this%moisture(...)`.
+- The moss gate is `fuel_classes%moss_classes_present()`, not `hlm_use_moss == itrue`.
+  `FatesFuelMod` does not import `hlm_use_moss` at all, and already uses
+  `moss_classes_present()` as its moss gate in `UpdateLoading` for exactly this reason; FATES
+  commit `ae792edb1` established the convention of preferring the local self-consistent
+  identifier over the redundant global. The two are held consistent by the abort check in
+  `SFParamsMod`, so they are equivalent in a real run, but `moss_classes_present()` is the
+  one that also guards the array bounds and keeps the parameterized pFUnit fixture (which
+  sweeps `num_fuel_classes` over 6 and 8 with no namelist behind it) working. The five
+  `hlm_moss_*` scalars are still imported from `FatesInterfaceTypesMod` — those are values,
+  not gates. In `CalculateFuelBurnt` the live-moss index is resolved once before the loop
+  rather than inside an `.and.`, because `fuel_classes%live_moss()` aborts when the moss
+  classes are absent and Fortran does not guarantee short-circuit evaluation.
+- **Live moss was non-flammable at the original defaults. Sam set the live intercept to 0
+  (2026-09-01), which fixes it.** Moss inherits SAV = 66 /cm for both moss classes from
+  `fates_params_moss.json`, so MEF = 0.524 - 0.066*log(66) = 0.2475 m3/m3, and MEF follows
+  moss SAV and nothing else (it rises as SAV falls). The shipped live-moss map was
+  `moisture = 0.3 + 0.7*fwet`, whose minimum at fwet = 0 is 0.30 — already above MEF — so
+  effective moisture never dropped below 1.21 and `frac_burnt(live_moss)` was identically 0
+  at every fwet, taking the "very wet litter" branch of `CalculateFuelBurnt` always. The
+  root cause is structural, not a near-miss: every other fuel class gets its moisture from
+  the Nesterov relation `exp(-alpha*NI)`, which decays toward zero without a floor, so it
+  always crosses MEF eventually (live grass at NI ~ 7089, roughly 19 rainless days). The
+  moss linear map is bounded below by its intercept, and that bound was set above MEF.
+  Grass has no floor to get wrong. Zeroing the live intercept alone then left live moss
+  drier than dead moss at every fwet, inverting the usual live/dead ordering, so Sam set
+  **both** classes to intercept 0 and slope 0.7 (2026-09-01). Both now burn below
+  fwet ~ 0.354 and are extinguished above it, and nothing distinguishes the two classes at
+  default. That is deliberate and provisional — all four coefficients were placeholders
+  from the start (Task 1 Step 0) and are tuned in Task 12.
+- **The assertions went into the pFUnit unit test, not the functional test.** The
+  functional-test framework (`testing/tests/functional/fire/fuel/fuel_test.py`) is a plotter
+  with no assertion capability, so it cannot check the moss map. The pFUnit `fire_fuel` test
+  (`testing/tests/unit/fire_fuel_test/test_FireFuel.pf`) is already parameterized over
+  `num_fuel_classes` in {6, 8}, so it exercises both the moss and no-moss paths without a
+  namelist behind it. The functional driver is still touched — it passes a fixed `fwet_moss`
+  and sets the four `hlm_moss_fuel_moisture_*` scalars by hand, because they normally arrive
+  from the CTSM namelist, which no standalone driver reads; left unset they would be
+  undefined memory whenever the 8-class parameter file is used.
+
+**Deferred to Task 12 (not Task 9 work):**
+- **The moss burn-fraction cap was untestable; closed on 2026-09-01 rather than deferred.**
+  `CalculateFuelBurnt` reads `SF_val_min_moisture` and the other per-class moisture-response
+  arrays, declared `protected, allocatable` in `SFParamsMod`, so a test module could neither
+  allocate nor assign them, and no pFUnit test in the tree reads a parameter file. Sam chose
+  to add `SpitFireParamsInitForTesting`, a public unit-test-only routine inside `SFParamsMod`
+  that allocates and sets exactly what `CalculateFuelBurnt` reads. Two alternatives were
+  weighed and rejected: dropping `protected` to `public` (does not solve allocation — the
+  test would still have to hand-allocate six arrays, duplicating `SpitFireParamsInit`'s
+  sizing — and discards the guarantee wholesale), and teaching the pFUnit harness to read a
+  parameter file (no param-file plumbing in `run_unit_tests.py`, and it couples the test to
+  the shipped JSON). Note the "public for unit testing" precedent in
+  `JSONParameterUtilsMod.F90` is **commented-out dead code**, not a live pattern.
+- **No range validation on the new namelist scalars.** Neither `fates_moss_max_burn_frac`
+  nor the four moisture coefficients have range checks in
+  `bld/namelist_files/namelist_definition_ctsm.xml`, and `FatesInterfaceMod` only checks that
+  they are set, not that they are sane. A negative cap would produce a negative
+  `frac_burnt(live_moss)` and surface as the generic "unexpected fire fractions" abort in
+  `EDPatchDynamicsMod` rather than as a namelist error.
+
+- [x] **Step 0 (orchestrator):** Re-read `UpdateFuelMoisture` + `CalculateFuelBurnt`.
   **The max-burn-fraction question is already decided — do not re-ask.** Moss does NOT
   reuse grass's cap: see Step 2. Note MEF is computed from SAV
   (`FatesFuelMod.F90:271-313`) — moss MEF therefore follows moss SAV; flag to Sam that
   tuning moss SAV (Task 2 file) is the only MEF lever, per spec's accepted design.
   Forward check: none downstream.
-- [ ] **Step 1: signature.** Extend `UpdateFuelMoisture(this, sav_fuel, drying_ratio,
-  fireWeatherClass)` with `fwet_moss` (r8, intent(in); always passed, ignored when
-  `hlm_use_moss==ifalse` — match FATES style). Update the SFMainMod call site.
-- [ ] **Step 2: moss branches.** After the existing per-class Nesterov loop:
+- [x] **Step 1: signature.** Extend `UpdateFuelMoisture(this, sav_fuel, drying_ratio,
+  fireWeatherClass)` with `fwet_moss` (r8, intent(in); always passed, ignored when the moss
+  fuel classes are absent — match FATES style). Update the SFMainMod call site.
+- [x] **Step 2: moss branches.** After the existing per-class Nesterov loop:
+
+**superseded — see Step 0 findings**
 
 ```fortran
 if (hlm_use_moss == itrue) then
@@ -1716,6 +1787,8 @@ end if
   that untouched. Add a parallel branch for the live-moss class that caps with
   `hlm_moss_max_burn_frac` (Task 1) instead:
 
+**superseded — see Step 0 findings**
+
 ```fortran
         ! we can't ever kill all of the grass
         if (i == fuel_classes%live_grass()) then
@@ -1725,21 +1798,59 @@ end if
         end if
 ```
 
-  Rationale for the 1.0 default: grass's 0.8 encodes surviving tillers/meristems, which
-  moss has no equivalent of — a moss mat can burn off completely. At the default the
+  Rationale for the 1.0 default: grass's 0.8 exists because "we can't ever kill all of the
+  grass", which FATES asserts without giving a mechanism; moss carries no such assumption,
+  and a moss mat can burn off completely. At the default the
   `min` is a no-op (`frac_burnt` is already ≤ 1), so the default imposes no cap at all;
   the namelist exists so the cap can be tightened during tuning (Task 12) without a code
   change. Note this is the fuel-class consumption cap; it is what Task 6's cohort burn
   keying reads through `frac_burnt(fuel_classes%live_moss())`, so moss cohort
   `leaf_burn_frac` inherits the same limit automatically — no separate change there.
-- [ ] **Step 3: functional test.** Add moss cases to the fuel functional test: given
-  fwet_moss ∈ {0, 0.5, 1}, assert `moisture(7)` and `moisture(8)` equal the linear
-  form; assert grass/leaf classes unchanged vs. the 6-class baseline run. Run
-  `MPLBACKEND=Agg python run_functional_tests.py --save-figs -t fuel`.
-- [ ] **Step 4: verify in-model.** Moss ALP2 tests PASS; fuel-class-dimensioned
-  moisture history for classes 7–8 tracks `FATES_MOSS_FWET` (linear map) while classes
-  1–6 keep tracking the Nesterov index; ALP2 baselines b4b.
-- [ ] **Step 5: reviews, then commit.**
+- [x] **Step 3a: tests written.** The assertions live in the pFUnit `fire_fuel` unit test
+  (`testing/tests/unit/fire_fuel_test/test_FireFuel.pf`), not in the functional test — see
+  the Step 0 findings for why. The unit test is already parameterized over
+  `num_fuel_classes` in {6, 8}, so it exercises both the moss and no-moss paths. Added
+  there: given fwet_moss ∈ {0, 0.5, 1}, `effective_moisture` for the two moss classes
+  equals `(intercept + slope*fwet)/MEF` (the type stores effective, not raw, moisture);
+  `average_moisture_notrunks` rises strictly across those three fwet values, which pins the
+  moss overwrite ahead of the accumulation loop; the twigs / dead-leaves / live-grass classes
+  are unchanged between fwet_moss = 0 and 1; and a negative linear map is floored at zero. The
+  four `hlm_moss_fuel_moisture_*` scalars are set in `setUp` so the tests do not depend on
+  namelist defaults. The functional test passes a fixed fwet of 0.5 and sets those same four
+  scalars to the CTSM namelist defaults; note it only writes the loading-weighted non-trunk
+  average moisture, not per-class moisture, so the moss classes only ever show up there as a
+  constant contribution to that average.
+- [ ] **Step 3b: run the tests — SKIPPED (2026-09-01).** Fortran cannot be built or run on
+  the implementation machine: Sam stated this directly on 2026-09-01, and `run_unit_tests.py`
+  fails at CIME machine initialization (`Could not initialize machine object from
+  ccs_config/machines/config_machines.xml. This machine is not available for the target
+  CIME_MODEL`), with no `~/.cime` and no pFUnit installation present. (`ctsm_pylib` is *not*
+  the blocker — it exists at `/Users/samrabin/mamba/envs/ctsm_pylib` and imports
+  xarray/matplotlib/netCDF4 fine.) Sam did not restate the skip for this task — it is the same
+  outage carried over from Task 8. When a machine is available, run the pFUnit suite and
+  `MPLBACKEND=Agg python run_functional_tests.py --save-figs -t fuel -p parameter_files/fates_params_moss.json`
+  (the moss branch of the functional test only runs with the 8-class parameter file; the
+  default `-p` is the 6-class `fates_params_default.json`).
+- [ ] **Step 4: verify in-model — SKIPPED (2026-09-01).** Same outage as Step 3b and as
+  Task 8 — Fortran cannot be built or run on this machine — carried over rather than restated
+  by Sam, so verification (build, run, FATES functional/unit tests,
+  ALP2 b4b) is deferred until a machine is available. When run, expect:
+  moss ALP2 tests PASS; `FATES_FUEL_MOISTURE_FC` for classes 7–8 tracks `FATES_MOSS_FWET`
+  linearly **scaled by 1/MEF** — that history variable reports effective moisture
+  (`cpatch%fuel%effective_moisture`, filled in `FatesHistoryInterfaceMod`), not the raw
+  linear map — while classes 1–6 keep tracking the Nesterov index; ALP2 baselines b4b.
+- [x] **Step 5: reviews, then commit. COMPLETE (2026-09-01).** Spec review passed on all
+  five of its scoped questions. Between them the two reviewers found one real defect: the
+  functional driver read the four `hlm_moss_fuel_moisture_*` scalars uninitialized whenever
+  the 8-class parameter file was used, since they normally arrive from the CTSM namelist and
+  no standalone driver reads it — fixed. Also fixed: a wrong upper bound in the science
+  comment (live-moss effective moisture spans [1.21, 4.04], not [1.21, 5.25] — the
+  conclusion was unaffected), leaky `hlm_moss_*` state between unit tests, a missing
+  assertion pinning the moss overwrite ahead of the accumulation loop, and a skip note that
+  wrongly blamed `ctsm_pylib`. One spec-review finding was **rejected**: its proposed
+  `CalculateFuelBurnt` unit test cannot compile, because the `SF_val_*` arrays that routine
+  reads are `protected` in `SFParamsMod` and unallocated without a parameter-file read. That
+  coverage gap is recorded in the test module and deferred above instead.
 
 ### Task 10: Moss physiology — no stomatal solve, wetness-limited vcmax, scaler history
 
@@ -1900,7 +2011,46 @@ settled — flagged as a judgement call, not an obvious home.
   seasonal; fire behavior responds to moss moisture (compare two short runs with
   perturbed `fates_moss_fuel_moisture_*` coefficients); `FATES_NOCOMP_PATCHAREA_PF` reports
   the prescribed moss cover.
-- [ ] **Step 4: reviews, then commit** (including any ExpectedTestFails hygiene, with
+- [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
+  Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
+  source. They now sit at intercept 0, slope 0.7 for **both** classes, chosen for simplicity
+  after the original live intercept of 0.3 turned out to exceed the moss moisture of
+  extinction and make live moss structurally unburnable. Two things to settle:
+  (a) **the extinction threshold.** With this map moss stops carrying fire at
+  fwet ~ 0.354, since extinction sits at `MEF/slope` = 0.2475/0.7. Pick the wetness at which
+  a moss mat should stop burning and let the slope follow from it; there is no evidence
+  behind 0.7.
+  (b) **whether live and dead moss should differ at all.** They are currently identical, so
+  the two namelist pairs are redundant at default. If dead moss should be the drier of the
+  two — the conventional ordering for dead versus live fuel — that argues for a lower dead
+  slope. If the living mat is the sun- and wind-exposed surface while dead fines sit beneath
+  it, the reverse may hold for moss specifically. Decide and record the reasoning.
+  Step 3's perturbed-coefficient comparison is the instrument for both.
+- [ ] **Step 5: add range validation to the moss namelist scalars (carried forward from
+  Task 9, 2026-09-01).** None of the five have range checks in
+  `bld/namelist_files/namelist_definition_ctsm.xml`, and `FatesInterfaceMod` only checks they
+  are set. A negative `fates_moss_max_burn_frac` would surface as the generic "unexpected
+  fire fractions" abort in `EDPatchDynamicsMod` rather than a namelist error. Add
+  `valid_values` or an explicit check. (The other Task 9 gap, the untested burn-fraction cap,
+  was closed on 2026-09-01 — see Task 9's Step 0 findings.)
+- [ ] **Step 6: make moss moisture visible in the fuel functional test (carried forward
+  from Task 9, 2026-09-01).** The test cannot currently show it. `FatesTestFuel.F90` passes
+  `fuel_moisture(time, fuel_model)` to `WriteFireData`, and that is
+  `average_moisture_notrunks` — the loading-weighted mean over every non-trunk class — so
+  the two moss classes appear only as a constant buried inside an average, and a moss
+  moisture regression would have to shift that average enough to be noticed in a plot.
+  Three small pieces:
+  (a) add a `(time, litter_class, fuel_model)` per-class moisture array in `FatesTestFuel.F90`
+  and register it in `WriteFireData` (`testing/tests/functional/fire/shr/FatesTestFireMod.F90`)
+  — all three dimensions already exist in the output file and are used by `fuel_loading`
+  and `frac_loading`, so no new dimension is needed;
+  (b) add a per-class moisture plot to `testing/tests/functional/fire/fuel/fuel_test.py`,
+  reusing the 8-class litter-class names and colors already in `plot_barchart`;
+  (c) replace the driver's fixed `test_fwet_moss = 0.5_r8` with a value that varies over the
+  365-day run, or the moss lines are flat by construction and show nothing.
+  Worth doing because it is the only way the functional suite displays what Task 9 added:
+  one figure showing flat moss lines against the classes tracking the Nesterov index.
+- [ ] **Step 7: reviews, then commit** (including any ExpectedTestFails hygiene, with
   each entry justified).
 
 ---

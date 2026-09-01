@@ -198,9 +198,9 @@ All in FATES `fire/` plus the biomass routing points:
   fragments. The `moss_fines` litter pool burns per the dead-moss class's `frac_burnt`,
   alongside the existing burnt-litter accounting.
 - **Moss does NOT inherit grass's 0.8 maximum burn fraction.** Grass is capped by a
-  hardcoded `max_grass_frac = 0.8` applied to the live-grass fuel class only, encoding
-  surviving tillers and meristems; moss has no equivalent, and a moss mat can burn off
-  completely. Live moss instead gets its own cap on the CTSM namelist (§8), defaulting to
+  hardcoded `max_grass_frac = 0.8` applied to the live-grass fuel class only, on the stated
+  grounds that "we can't ever kill all of the grass" — FATES gives no mechanism beyond that.
+  Moss carries no such assumption, and a moss mat can burn off completely. Live moss instead gets its own cap on the CTSM namelist (§8), defaulting to
   1.0 — i.e. no cap by default, with the knob present so it can be tightened during
   tuning without a code change. Grass's cap is untouched. Because moss cohort
   `leaf_burn_frac` is keyed off the live-moss class's `frac_burnt`, the cohort-level
