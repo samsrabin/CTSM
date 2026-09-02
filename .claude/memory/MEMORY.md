@@ -2,10 +2,10 @@
 - [Number your questions](number-your-questions.md) — one question at a time, or a numbered list he can answer point-by-point
 - [NVP plan: subagent dispatch enabled](nvp-plan-subagent-dispatch-enabled.md) — standing authorization to dispatch implementer/reviewer subagents, and to farm intense analysis out to Opus agents; re-dispatch a lost agent rather than doing its work yourself
 - [No whitespace-only changes](no-whitespace-only-changes.md) — don't re-align neighbors or strip trailing whitespace on lines you didn't otherwise touch
-- [User runs the system test suites](user-runs-system-test-suites.md) — never launch run_sys_tests, clm_short, or aux_clm yourself
 - [Report outcomes, not process](report-outcomes-not-process.md) — hand-offs are end state, outstanding items, decisions; nothing about review or fix rounds
 - [No dispatch while a question is open](no-dispatch-while-a-question-is-open.md) — a turn with a question in it ends there; don't start agents or answer yourself
 - [Task summaries say what matters](task-summaries-say-what-matters.md) — one paragraph plus a short list of what changes behaviour or fixes order; never an inventory of what gets touched
 - [Do not assume pronouns](dont-assume-pronouns.md) — they/them or second person for everyone, Sam included; a name is not evidence
 - [Match the merge target](match-the-merge-target.md) — align with ctsm5.4.028_nvp over stock-CTSM cleanliness; check the worktree before proposing divergence
-- [Unit tests are test-first](unit-tests-are-test-first.md) — a separate writer commits red tests before the implementer; test commits are standalone and never amended
+- [Tasks run strictly in order](tasks-run-strictly-in-order.md) — never start Task N+1 before Task N is finished; say when an ordering is load-bearing
+- [Failed verification is a stop](failed-verification-is-a-stop.md) — a capability that does not work stops the plan; a claim that is merely false gets cut and reported

@@ -3,6 +3,14 @@
 # This reuses the existing 'unit_tests.temp' directory (if present) in
 # order to do an incremental rebuild of the unit tests from the last
 # time you ran them from this directory.
+#
+# The incremental rebuild does not pick up a .pf file that you have just
+# added, even if you have correctly added it to that directory's
+# CMakeLists.txt: the build succeeds and reports that all tests passed,
+# without ever running the new ones. So after adding or removing a .pf
+# file, delete the build directory first:
+#
+#     rm -rf unit_tests.temp
 
 # From a standalone CTSM checkout:
 ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp
