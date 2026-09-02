@@ -18,10 +18,10 @@ Concrete case, 2026-08-27: I recommended dropping the `cdeps` bump to
 `42f9a6b06` because it rewrites the shared `CLM_USRDAT` 1PT stream into three
 split streams and changes the forcing-file pattern to something that does not
 match the files on disk, and because the ALP2 compset is `DATM%GSWP3v1` and does
-not need it. Sam: *"No, keep the cdeps changes. Remember that the entire point of
-our branch is that we will eventually merge it into the NVP branch, which (trust
-me) uses the same ccs_config and cdeps as what I'm telling you to use."*
-Verified: `ctsm5.4.028_nvp` pins `ccs_config` at `b6387972b` (fork
+not need it. The user: *"No, keep the cdeps changes. Remember that the entire
+point of our branch is that we will eventually merge it into the NVP branch,
+which (trust me) uses the same ccs_config and cdeps as what I'm telling you to
+use."* Verified: `ctsm5.4.028_nvp` pins `ccs_config` at `b6387972b` (fork
 `samsrabin/ccs_config_cesm`) and `cdeps` at `42f9a6b06`, in both `.gitmodules`
 and the gitlinks.
 

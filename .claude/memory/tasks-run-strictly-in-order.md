@@ -13,11 +13,11 @@ finished. Stated 2026-08-30, in answer to a narrower question about whether two 
 tasks had to run in sequence — the answer generalized to all of them, so do not read task
 independence into a plan just because two tasks touch different files.
 
-**Why:** the reason he gave for the general rule is the same reason the specific case had:
-finishing a task can change what a later task is even measuring. In the skills work, running a
-baseline after the fix it is meant to baseline destroys the measurement with no way to recover
-it. Overlapping tasks also make a review gate meaningless, since the reviewer can no longer
-tell which task produced what.
+**Why:** the reason the user gave for the general rule is the same reason the specific case
+had: finishing a task can change what a later task is even measuring. In the skills work,
+running a baseline after the fix it is meant to baseline destroys the measurement with no way
+to recover it. Overlapping tasks also make a review gate meaningless, since the reviewer can no
+longer tell which task produced what.
 
 **How to apply:** write plans so each task ends with an independently reviewable deliverable,
 and do not batch or interleave, even to save a dispatch. Where an ordering is load-bearing

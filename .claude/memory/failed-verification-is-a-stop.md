@@ -9,19 +9,19 @@ metadata:
 ---
 
 When a step that exists to confirm something comes back negative, and the consequence is that
-the deliverable can no longer do what it was scoped to do, **stop and tell Sam**. Do not pick a
-fallback yourself. The fallbacks that feel reasonable in the moment — documenting the failure
-as a known limitation, dropping the affected section, working around it — are all the same
-move: shrinking the deliverable without him ever choosing that.
+the deliverable can no longer do what it was scoped to do, **stop and tell the user**. Do not
+pick a fallback yourself. The fallbacks that feel reasonable in the moment — documenting the
+failure as a known limitation, dropping the affected section, working around it — are all the
+same move: shrinking the deliverable without them ever choosing that.
 
 Stated 2026-08-30 about a step verifying that pFUnit's `@testParameter` builds under CTSM's
 own test harness. The plan I had written said the skill would "describe the limitation
-instead"; he replaced that with a stop.
+instead"; the user replaced that with a stop.
 
-**Why:** what to do about a capability gap depends on things only he knows — whether it is
+**Why:** what to do about a capability gap depends on things only they know — whether it is
 worth fixing the infrastructure, whether the section matters enough to teach with a caveat,
 whether it should wait. A negative result is often a finding about the codebase rather than
-about the task, and findings are his to act on.
+about the task, and findings are theirs to act on.
 
 **How to apply:** distinguish two negatives. A **claim that turns out false** (a trap that no
 longer reproduces) has one obvious action — cut it, record it, report it, keep going; a false

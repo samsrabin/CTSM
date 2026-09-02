@@ -12,4 +12,4 @@ In a plan with per-task review gates, each task's section covers that task and n
 
 **Why:** A per-task gate exists so a question gets answered when the relevant code is in front of you and the tasks it depends on have landed. Hoisting those questions into Task 0 asks the user to decide without the context that would make the decision good, and defeats the gate.
 
-**How to apply:** Put each concern in the section that owns it. When Sam corrects a mistake like this, fix that specific instance only — do not also add a defensive rule, scoping note, or meta-commentary to the document to keep it from recurring. That over-reach is the same error one level up: he interrupted exactly that follow-up edit.
+**How to apply:** Put each concern in the section that owns it. When the user corrects a mistake like this, fix that specific instance only — do not also add a defensive rule, scoping note, or meta-commentary to the document to keep it from recurring. That over-reach is the same error one level up: they interrupted exactly that follow-up edit.
