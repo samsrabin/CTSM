@@ -1,6 +1,6 @@
 # CTSM Testing Skills — Design
 
-**Status:** written 2026-08-30. C, A and D are built and committed; B remains.
+**Status:** written 2026-08-30. All four skills are built; C, A and D are committed.
 
 ## What this document is
 
@@ -384,6 +384,28 @@ cost of case builds, and paying that again to reconfirm them was not worth it. T
 figures in `wallclock.md` *were* re-read from `testlist_clm.xml` — they are free to check and
 they go stale — and that file says so, telling the reader to re-read the file rather than
 trust the page when a number matters.
+
+**B was built without a baseline either** (Sam, 2026-09-02), and this time the decision was
+taken before any baseline ran rather than argued from the material afterwards. Three scenarios
+had been prepared and dispatched — pFUnit coverage for `AerosolMasses`, `Combo` and
+`SetSoilWaterFractions`, each picked because its natural fixture invites one of B's blind spots,
+and each forbidden from building so that no allocation was spent — and Sam stopped them:
+*"Everything that's recorded has been earned by hard experience. Just write the skill."* Which
+is the correct reading of what B's material is. Unlike C's, none of it came from a survey; every
+rule in it is a correction someone made to a test that had already been written, so the
+question a baseline answers — does an agent get this wrong unaided? — has already been answered
+once, in the affirmative, by the tests that had to be corrected.
+
+The cost is the same as D's and is worth stating in the same terms: B lands with no evidence
+record, so the later pruning pass has only B's own future use to go on. B carries an additional
+exposure that D does not, because half of it is about wording rather than about facts. The
+skill-authoring guidance we follow says that guidance competing with an incentive gets its
+wording micro-tested against a no-guidance control; Part 2 of B competes with an agent's
+inclination to write a test comment that describes the test. It is written as a recipe rather
+than a prohibition — the form that guidance says survives a competing incentive — but that
+choice is applied here on the guidance's authority, not on evidence from this skill.
+
+The human gate below is therefore B's only verification, and it has not yet been run.
 
 The *design* of step 1 differs by what kind of skill it is, and this is the part worth stating
 up front:
