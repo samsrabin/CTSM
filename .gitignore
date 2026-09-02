@@ -125,6 +125,10 @@ doc/.coverage
 PET?.ESMF_LogFile
 PET??.ESMF_LogFile
 
+# Per-developer auto-memory for this checkout. Project conventions belong in
+# CLAUDE.md instead; this directory holds one developer's own preferences.
+.claude/memory/
+
 # DELETE THESE BEFORE MERGING
 test-bld
 .worktrees
