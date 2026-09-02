@@ -814,6 +814,23 @@ Maximum fraction of live moss fuel that can burn in a fire
 (only relevant if use_fates_moss is true).
 </entry>
 
+<entry id="fates_moss_vcmax_fwet_thresh" type="real" category="physics" group="clm_inparm">
+Moss wetness proxy at and above which moss reaches its full photosynthetic capacity,
+and, if fates_moss_scale_resp_by_fwet is true, its full leaf maintenance respiration
+(only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_scale_resp_by_fwet" type="logical" category="physics" group="clm_inparm">
+Toggle for also scaling moss leaf maintenance respiration by the moss wetness scaler;
+false scales photosynthetic capacity only
+(only relevant if use_fates_moss is true).
+</entry>
+
+<entry id="fates_moss_co2_film_min" type="real" category="physics" group="clm_inparm">
+Floor on the moss water-film factor that scales boundary-layer CO2 diffusion
+(only relevant if use_fates_moss is true).
+</entry>
+
 <entry id="fates_harvest_mode" type="char*18" category="physics"
         group="clm_inparm" valid_values="no_harvest,event_code,landuse_timeseries,luhdata_area,luhdata_mass">
 Set FATES harvesting mode by setting fates_harvest_mode to a valid string option.

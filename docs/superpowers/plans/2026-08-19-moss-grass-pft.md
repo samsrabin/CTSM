@@ -642,7 +642,8 @@ readable by the model until Task 4, so there is no test to run for it — see In
   `fates_fire_SAV`, `fates_fire_FBD`, `fates_fire_min_moisture`, `fates_fire_mid_moisture`,
   `fates_fire_low_moisture_Coeff/Slope`, `fates_fire_mid_moisture_Coeff/Slope`,
   `fates_frag_maxdecomp`.
-- **Thirteen moss PFT parameters are deferred to Tasks 10/11** (Sam, 2026-08-24). The file
+- **Thirteen moss PFT parameters are deferred to Tasks 10/10b/11** (Sam, 2026-08-24; the
+  radiation six moved to Task 10b on 2026-09-01). The file
   was regenerated with them held at their `arctic_c3_grass` values; the generator keeps
   the moss values and the reason. Full list and rationale: Task 5 Step 4(C).
 - **This file was NOT usable by a model run until Task 4 landed** (resolved 2026-08-24).
@@ -711,7 +712,7 @@ readable by the model until Task 4, so there is no test to run for it — see In
   produce `parameter_files/fates_params_moss.json` from `fates_params_default.json`:
   **Note (2026-08-24):** thirteen of the values below are present in the generator but
   **not applied** — see the deferral pointer in Interfaces above and Task 5 Step 4(C). The
-  bullets record what the moss column will hold once Tasks 10/11 restore them.
+  bullets record what the moss column will hold once Tasks 10/10b/11 restore them.
   - Append a 15th PFT by copying the `arctic_c3_grass` column (index 12); name it
     `non_vascular_phototroph` (NVP's name — keep it verbatim).
   - Harvest from NVP's moss column: `fates_leaf_vcmax25top = 30.0` (dims
@@ -1333,15 +1334,17 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
   **C. What these prove — and the thirteen deferred parameters.** Moss runs as a grass-like
   PFT with a moss identity. Thirteen parameters that would otherwise change its carbon or
   radiation behaviour are **deferred** (Sam's calls, 2026-08-24). This is the canonical
-  record; Task 2 carries only a pointer here, and Tasks 10/11 the restore instructions.
+  record; Task 2 carries only a pointer here, and Tasks 10/10b/11 the restore instructions.
 
   - Deferred to **Task 10**, physiology: `fates_leaf_vcmax25top`,
     `fates_leaf_stomatal_intercept`, `fates_leaf_stomatal_slope_ballberry`,
     `fates_leaf_stomatal_slope_medlyn`, `fates_leaf_agross_btran_model`,
     `fates_phen_leaf_habit`.
-  - Deferred to **Task 10** as well, the radiation group restored together:
+  - Deferred to **Task 10b**, the radiation group restored together:
     `fates_rad_leaf_clumping_index`, `fates_rad_leaf_taunir`, `fates_rad_leaf_tauvis`,
-    `fates_rad_stem_taunir`, `fates_rad_stem_tauvis`, `fates_rad_leaf_xl`.
+    `fates_rad_stem_taunir`, `fates_rad_stem_tauvis`, `fates_rad_leaf_xl`. (Originally
+    Task 10; split off 2026-09-01 — Sam — so that the radiation answer changes, which are
+    independent of Task 10's Fortran, stay attributable.)
   - Deferred to **Task 11**: `fates_recruit_seed_dbh_repro_threshold`.
   - **Mechanism:** they stay in `MOSS_PFT_OVERRIDES` in `tools/make_moss_params.py` with
     their rationale comments intact, but are named in a `DEFERRED_PFT_OVERRIDES` set that the
@@ -1852,84 +1855,245 @@ end if
   reads are `protected` in `SFParamsMod` and unallocated without a parameter-file read. That
   coverage gap is recorded in the test module and deferred above instead.
 
-### Task 10: Moss physiology — no stomatal solve, wetness-limited vcmax, scaler history
+### Task 10: Moss physiology — no stomatal solve, wetness-limited vcmax and respiration, scaler history
 
-**Also restores twelve deferred moss parameters** (see Task 5 Step 4(C)): delete the six
-physiology keys (`fates_leaf_vcmax25top`, `fates_leaf_stomatal_intercept`,
+**Restores six deferred moss parameters** (see Task 5 Step 4(C)): delete the six physiology
+keys (`fates_leaf_vcmax25top`, `fates_leaf_stomatal_intercept`,
 `fates_leaf_stomatal_slope_ballberry`, `fates_leaf_stomatal_slope_medlyn`,
-`fates_leaf_agross_btran_model`, `fates_phen_leaf_habit`) **and the six radiation keys**
-(`fates_rad_leaf_clumping_index`, `fates_rad_leaf_taunir`, `fates_rad_leaf_tauvis`,
-`fates_rad_stem_taunir`, `fates_rad_stem_tauvis`, `fates_rad_leaf_xl`) from
-`DEFERRED_PFT_OVERRIDES` in `tools/make_moss_params.py`, regenerate
-`fates_params_moss.json`, and commit both. This task is exactly where the zeroed stomatal
-parameters stop being a hazard, because it is what replaces the stomatal solve; the
-radiation group rides along because it also acts on absorbed PAR and hence GPP, and because
-splitting a single coherent radiative description across two tasks would be worse than
-moving it in one piece. Expect answer changes from the radiation restore that have nothing
-to do with this task's Fortran — in particular `fates_rad_leaf_clumping_index` going 0.75 →
-10.0, which is out of the parameter's documented 0-1 range and unchecked by FATES.
+`fates_leaf_agross_btran_model`, `fates_phen_leaf_habit`) from `DEFERRED_PFT_OVERRIDES` in
+`tools/make_moss_params.py`, regenerate `fates_params_moss.json`, and commit both. This
+task is exactly where the zeroed stomatal parameters stop being a hazard, because it is
+what replaces the stomatal solve; and where `fates_leaf_agross_btran_model = 0` stops btran
+multiplying moss vcmax, which is what keeps the fwet scaler from double-counting water
+limitation.
 
-**This task is large — consider splitting it.** See Step 0.
+**The six radiation keys moved to Task 10b** (Sam, 2026-09-01). They change absorbed PAR
+and therefore GPP on their own, so leaving them here would make it impossible to attribute
+a GPP change to the new moss physiology rather than to moss suddenly having near-opaque
+leaves and a clumping index of 10.
+
+#### Step 0 findings (orchestrator, 2026-09-01) — read before implementing
+
+- **Split: decided.** Radiation → Task 10b (above). Physiology parameters stay here because
+  they are entangled with the Fortran: zeroing the stomatal slopes is only safe once the
+  stomatal solve is bypassed, and `fates_leaf_agross_btran_model` is what prevents
+  double-counted water limitation.
+- **The branch key cannot be `prt_params%vascular(ft)` inside `CiFunc`.**
+  `LeafBiophysicsMod` is deliberately standalone — it has no `use PRTParametersMod` and
+  carries its own `lb_params`, so the vascular flag is not visible there. **Dispatch at the
+  caller instead:** `FatesPlantRespPhotosynthMod` already has `prt_params`, so it passes the
+  optional `fwet_moss` argument *only* for cohorts with `prt_params%vascular(ft)==ifalse`,
+  and `CiFunc` takes the moss path on `present(fwet_moss)`. This keeps moss-ness decided in
+  exactly one place and leaves `LeafBiophysicsMod` free of moss parameters; Fortran
+  propagates an absent optional down the `LeafLayerPhotosynthesis` → `CiFunc`/`CiBisection`
+  chain for free. Cost: physics keyed on argument presence, which **must** carry a loud
+  comment at each of the three signatures. (The rejected alternative — a `vascular(:)` array
+  on `lb_params` — would mean claiming `fates_vascular` from a second module and
+  maintaining the field in the standalone `leaf_biophys` harness's `LeafBiophysSuppMod.F90`
+  too.)
+- **`gs = gs0` is safe with `fates_leaf_stomatal_intercept = 0`.** No extra floor is needed:
+  `LeafLayerBiophysicalRates` already returns `gs0 = max(gsmin0, intercept*btran)`
+  (`LeafBiophysicsMod.F90:1997-2005`), and `gsmin0` is the conductance reciprocal of
+  `rsmax0`, so downstream CTSM `rssun/rssha` stay finite.
+- **btran needs no Fortran override — confirmed, and the mechanism is a parameter restored
+  by this task.** `fates_leaf_agross_btran_model = 0` (`btran_on_ag_none`) stops btran
+  multiplying vcmax/jmax at `LeafBiophysicsMod.F90:1975`. `fates_leaf_stomatal_btran_model`
+  stays 1, but with a zero intercept the `gsmin0` floor makes btran irrelevant there too. So
+  btran leaves the moss photosynthesis path entirely. **Do not port the NVP branch's
+  `btran_eff = 1.0_r8` hack** (`FatesPlantRespPhotosynthMod.F90:603` on `33640d372`): NVP
+  needed it because its moss had no fine roots at all and hence `btran_ft = 0`; ours has a
+  shallow rooting profile.
+- **Moss `btran_ft` is sane.** `EDBtranMod.F90:154-176` builds it as
+  `Σ_j rootfrac_j · rresis_j` with `rresis ∈ [0,1]` and `rootfrac` normalized, so it is
+  bounded in [0,1] by construction; moss's `fnrt_prof_mode = 3, fnrt_prof_a = 30` (Task 2)
+  concentrates it in soil layer 1, making it a top-soil water-stress index. Consequence to
+  watch, not to fix here: btran still drives hydraulic-failure mortality
+  (`EDMortalityFunctionsMod.F90:193`), so surface-concentrated roots mean moss crosses
+  `hf_sm_threshold` whenever the top layer dries. Flag it in Task 12 Step 3.
+- **`fwet_moss` is a daily value read at the sub-daily photosynthesis timestep.** Task 8
+  confined `UpdateMossFwet` to the daily dynamics sequence because `wrap_btran` overwrites
+  `bc_in%h2o_liqvol_sl(1)` with liquid-only water during the canopy flux steps
+  (`FatesPatchMod.F90:890-897`). Reading it sub-daily is correct — it is a read, not a
+  recompute — but moss GPP is then constant across the diurnal cycle. Say so in a comment at
+  the read site. Fixing it is **Task 12 Step 3a**.
+- **The scaler is placed at the call site, not inside `LeafLayerBiophysicalRates`.** Inside,
+  it would land before the `do_mincap_vcjmax` floor
+  (`vcmax = max(min_vcmax_frac*vcmax25top_ft, vcmax)`, `LeafBiophysicsMod.F90:1987-1993`),
+  which would partly undo it. That floor is `.false.` today; the ordering must not depend on
+  that.
+- **Respiration is scaled too (Sam, 2026-09-01), which diverges from the NVP branch.** Leaf
+  maintenance respiration in FATES depends only on leaf nitrogen and temperature
+  (`LeafLayerMaintenanceRespiration_Ryan_1991` / `_Atkin_etal_2017`) with no wetness term,
+  so capacity-only scaling would leave dry moss respiring at full rate against zero gross
+  photosynthesis — a permanent dry-period carbon drain. The NVP branch scales `vcmax_z`
+  only and accepts that; this project does not. **The divergence must be recorded in a code
+  comment at the scaling site and in the commit message.** Apply the scaler to
+  `lmr_z(iv,ft,cl)` immediately after it is filled
+  (`FatesPlantRespPhotosynthMod.F90:594-621`): that single site feeds both `CiFunc`'s
+  `anet = agross − lmr` and, via `ScaleLeafLayerFluxToCohort`, `currentCohort%rdark` in the
+  carbon budget — so one edit keeps the solve and the budget consistent. The respiration
+  half is switchable from the namelist (`fates_moss_scale_resp_by_fwet`, Step 1) so the
+  divergence can be A/B'd in Task 12 without a code change; capacity scaling is not
+  switchable.
+- **New namelist settings (Sam, 2026-09-01),** per spec §8 — two reals and one logical;
+  see Step 1. **The water-film exponent and the dry-fraction floor stay Fortran parameters,
+  not namelist settings** (Sam, 2026-09-01): they are interior details of the shape of the
+  harvested Porada relation, not tuning knobs. The namelist therefore carries only the
+  things that change moss behaviour under normal use.
+- **The two clamps in the harvested water-film expression `max((max(1-fwet, 0.1))**12,
+  1.e-6)` do not do what the NVP comment says.** That comment claims the factor is "clamped
+  to 0.1^12" at saturation. Both halves are wrong: `0.1**12 = 1e-12` sits *below* the outer
+  `1e-6` floor, so the inner 0.1 clamp never binds at the fixed exponent of 12, and the
+  outer floor is what binds — from `fwet ≈ 0.685` upward, not at saturation. **Do not copy
+  that comment; write one that says what actually happens.** The inner clamp is nevertheless
+  kept in the code, because `fates_moss_co2_film_min` is settable: lower that floor below
+  1e-12 and the inner clamp becomes the operative guard against `factor = 0` and a division
+  by zero in `gb * factor`. Its Fortran comment must say exactly that, or a future reader
+  will delete it as dead code.
 
 **Files:**
+- Modify (CTSM): `bld/namelist_files/namelist_definition_ctsm.xml`,
+  `bld/namelist_files/namelist_defaults_ctsm.xml`, `bld/CLMBuildNamelist.pm`,
+  `src/main/clm_varctl.F90`, `src/main/controlMod.F90`,
+  `src/utils/clmfates_interfaceMod.F90` (the standard seven-step scalar plumbing from
+  Task 1, for the two new scalars plus the new logical)
+- Modify (FATES): `main/FatesInterfaceTypesMod.F90`, `main/FatesInterfaceMod.F90`
+  (receive + is-set check for the two new scalars plus the new logical, following the
+  Task 1 pattern)
 - Modify (FATES): `biogeophys/LeafBiophysicsMod.F90` (`CiFunc` ~lines 901–1079,
-  `CiBisection`, `LeafLayerBiophysicalRates` ~lines 1826–2036)
+  `CiBisection`, `LeafLayerPhotosynthesis`)
 - Modify (FATES): `biogeophys/FatesPlantRespPhotosynthMod.F90` (thread
-  `currentPatch%fwet_moss` down; moss branch selection)
-- Modify (FATES): `biogeochem/FatesPatchMod.F90` (add `moss_vcmax_scaler` patch member,
-  init 0, beside `fwet_moss` from Task 8)
-- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_VCMAX_SCALER`)
+  `currentPatch%fwet_moss` down; moss branch selection; vcmax and lmr scaling)
+- Modify (FATES): `biogeochem/FatesPatchMod.F90` (add `moss_wetness_scaler` patch member,
+  init 0, beside `fwet_moss` from Task 8; set it in `UpdateMossFwet`)
+- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (`FATES_MOSS_WETNESS_SCALER`)
+- Modify (FATES): `tools/make_moss_params.py` (drop the six physiology keys from
+  `DEFERRED_PFT_OVERRIDES`; retag the radiation group's comment from "Task 10 as well" to
+  "Task 10b"), `parameter_files/fates_params_moss.json` (regenerate)
 - Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (add the new
-  history variable to the output list)
+  history variable to the output list, using the `hist_fincl1 +=` append form)
 
 **Interfaces:**
 - Consumes: `prt_params%vascular` (Task 3), `currentPatch%fwet_moss` (Task 8).
 - Produces: for moss cohorts only — (a) `vcmax_z` scaled by
-  `min(1._r8, fwet_moss/0.6_r8)`; (b) Ci solved with no stomatal conductance: CO₂
-  through the boundary layer with water-film factor, harvested from the NVP branch
-  (`git -C src/fates show 33640d372:biogeophys/LeafBiophysicsMod.F90`, the
-  `nvp_model=3` branch at ~lines 1075–1099):
-  `fval = ci - (can_co2_ppress - anet*can_press*1.4/(gb_mol*max(max(1-fwet,0.1)**12, 1.e-6)))`,
-  with `gs` reported as the existing minimum (`gs0`). Vascular PFTs bit-for-bit
-  unchanged. History `FATES_MOSS_VCMAX_SCALER`.
+  `min(1._r8, fwet_moss/hlm_moss_vcmax_fwet_thresh)`, and `lmr_z` scaled by the same factor
+  when `hlm_moss_scale_resp_by_fwet` is on; (b) Ci solved with no stomatal
+  conductance: CO₂ through the boundary layer with water-film factor, harvested from the
+  NVP branch (`git -C src/fates show 33640d372:biogeophys/LeafBiophysicsMod.F90`, the
+  `nvp_model=3` branch at ~lines 1075–1105), with `gs` reported as the existing minimum
+  (`gs0`). Vascular PFTs bit-for-bit unchanged. History `FATES_MOSS_WETNESS_SCALER`; patch
+  member `currentPatch%moss_wetness_scaler`. Two new `hlm_moss_*` scalars plus
+  `hlm_moss_scale_resp_by_fwet` (Step 1).
 
-- [ ] **Step 0 (orchestrator): first, consider splitting this task.** By the time it is
-  reached it carries the moss CO2 path, the wetness-limited vcmax, a new patch member, a new
-  history variable, *and* the restoration of twelve deferred parameters — six physiology and
-  six radiation — whose answer changes are independent of this task's Fortran. Plausible
-  seams: (a) the parameter restoration as its own task, so its answer changes are isolated
-  and attributable; (b) radiation separate from physiology; (c) the history variable with
-  whatever it diagnoses. Decide with Sam before starting, not partway through.
-- [ ] **Step 0 (orchestrator):** Read the NVP branch's `nvp_model=3` `CiFunc` branch and
-  the current `CiFunc`/`CiBisection` call chain; map exactly which optional arguments
-  must be threaded (`fwet` down through `LeafLayerPhotosynthesis` → `CiFunc`). Decide
-  the branch key: use `prt_params%vascular(ft)==ifalse` directly rather than a global
-  `stomatal_model` value (this is the per-PFT dispatch, spec §5). Confirm `btran`
-  needs no override (moss uses shallow-root btran, spec §3/§5) — verify the moss
-  rooting profile from Task 2 produces sane `btran_ft`. Ask Sam: apply the
-  vcmax-wetness scaler to leaf maintenance respiration too, or photosynthetic capacity
-  only (suggested: capacity only, matching Porada; NVP branch precedent — check)?
-  Forward check: none downstream.
-- [ ] **Step 1: thread fwet.** Add `fwet_moss` (r8) as an optional argument through
-  `LeafLayerPhotosynthesis` and into `CiFunc`/`CiBisection`, following the NVP
-  branch's threading (same routine names at `33640d372`).
-- [ ] **Step 2: moss Ci branch.** Inside `CiFunc`, when the moss flag argument is
-  present/true, replace the stomatal-model residual with the boundary-layer-only form
-  above; set the returned `gs` to the existing floor (`gs0`) so downstream CTSM
-  `rssun/rssha` stay finite.
-- [ ] **Step 3: vcmax scaling + history.** In `LeafLayerBiophysicalRates` (or at its
-  call site where `vcmax_z` emerges — follow NVP branch placement at
-  `FatesPlantRespPhotosynthMod.F90:~806`), for moss cohorts multiply `vcmax_z` by
-  `min(1._r8, fwet_moss/0.6_r8)`; store the applied scaler in
-  `currentPatch%moss_vcmax_scaler` (acceptable given one moss PFT per patch in nocomp;
-  note full-comp refinement in a code comment) and register/fill
-  `FATES_MOSS_VCMAX_SCALER` per the Task 6 pattern.
-- [ ] **Step 4: verify.** Moss ALP2 tests PASS; in history, moss-PFT GPP
-  (`FATES_GPP_PF`) is nonzero and covaries with `FATES_MOSS_FWET`;
-  `FATES_MOSS_VCMAX_SCALER` equals `min(1, fwet/0.6)`; vascular-PFT GPP in the
-  BareGrass baseline is b4b (ALP2 baseline compare); fuel + allometry functional
-  tests green.
-- [ ] **Step 5: reviews, then commit.**
+- [x] **Step 0 (orchestrator): completed 2026-09-01** — see the findings block above.
+- [x] **Step 1: three new CTSM namelist settings,** standard seven-step plumbing (spec §8),
+  each `(only relevant if use_fates_moss is true)` like the Task 1 scalars:
+  - `fates_moss_vcmax_fwet_thresh` (real, default 0.6) → `hlm_moss_vcmax_fwet_thresh`.
+    Wetness at and above which moss reaches its full photosynthetic capacity — and, when
+    the switch below is on, its full leaf maintenance respiration.
+  - `fates_moss_scale_resp_by_fwet` (logical, default `.true.`) →
+    `hlm_moss_scale_resp_by_fwet`. Whether the wetness scaler also multiplies leaf
+    maintenance respiration. `.true.` is this project's choice; `.false.` reproduces the NVP
+    branch's capacity-only behaviour, so the divergence can be A/B'd in Task 12 without a
+    code change.
+  - `fates_moss_co2_film_min` (real, default 1.0e-6) → `lb_params%moss_co2_film_min`. Floor
+    on the whole water-film factor; this is the one that actually binds, from
+    `fwet ≈ 0.685` up.
+
+    **Ruling (orchestrator, 2026-09-01):** this one lands on `lb_params`, not in
+    `FatesInterfaceTypesMod` as the other two do. `LeafBiophysicsMod` is compiled
+    standalone by `functional_unit_testing/leaf_biophys/build_leafbiophys_objects.sh`
+    against only `FatesConstantsMod`, `FatesUtilsMod` and the WrapShrMod stubs; a
+    `use FatesInterfaceTypesMod` there would drag that module plus a new `shr_infnan_mod`
+    stub into the harness build — the same harness-maintenance cost that made Step 0
+    reject a `vascular(:)` array on `lb_params`. FATES already routes every CTSM-namelist
+    scalar `LeafBiophysicsMod` consumes (`stomatal_model`, `stomatal_assim_model`,
+    `dayl_switch`, `electron_transport_model`) through `lb_params` for exactly this
+    reason. The namelist name is unchanged. Cost if wrong: one rename plus the harness
+    build-script work.
+
+  **Not on the namelist (Sam, 2026-09-01):** the water-film exponent (12) and the
+  dry-fraction floor (0.1). Both stay named Fortran parameters in `LeafBiophysicsMod`
+  beside the other harvested constants — they are the interior shape of the relation, and
+  with the exponent fixed the dry-fraction floor cannot bind at all unless
+  `fates_moss_co2_film_min` is pushed below 1e-12, so exposing it would be a permanently
+  caveated knob.
+- [x] **Step 2: thread fwet.** Add `fwet_moss` (r8) as an optional argument through
+  `LeafLayerPhotosynthesis` and into `CiFunc`/`CiBisection`, following the NVP branch's
+  threading (same routine names at `33640d372`). Pass it from
+  `FatesPlantRespPhotosynthMod` only when `prt_params%vascular(ft)==ifalse`.
+- [x] **Step 3: moss Ci branch.** Inside `CiFunc`, when `present(fwet_moss)`, replace the
+  stomatal-model residual with the boundary-layer-only form
+  `fval = ci - (can_co2_ppress - anet*can_press*h2o_co2_bl_diffuse_ratio /
+  (gb * max((max(1-fwet_moss, co2_film_dryfrac_min))**co2_film_exponent,
+  lb_params%moss_co2_film_min)))`, and set `gs = gs0` so downstream CTSM `rssun/rssha` stay
+  finite. `co2_film_exponent` (= 12) and `co2_film_dryfrac_min` (= 0.1) are named Fortran
+  parameters in `LeafBiophysicsMod`, not namelist settings; only the outer floor is.
+- [x] **Step 4: vcmax and lmr scaling + history.** Compute
+  `min(1, fwet_moss/hlm_moss_vcmax_fwet_thresh)` in `UpdateMossFwet` beside `fwet_moss`
+  and store it in `currentPatch%moss_wetness_scaler` — one definition, and the daily history
+  frequency is then exactly right. It needs **no restart field**: it is a pure function of
+  `fwet_moss`, which Task 8 already restarts. In `FatesPlantRespPhotosynthMod`, for moss
+  cohorts, multiply `vcmax_z` by that scaler at the `LeafLayerBiophysicalRates` call site,
+  and `lmr_z(iv,ft,cl)` where it is filled **when `hlm_moss_scale_resp_by_fwet` is on**.
+  Register/fill `FATES_MOSS_WETNESS_SCALER` per the Task 6 pattern (`use_default='active'`
+  with the standing pre-merge TODO), with this `long=` string verbatim (194 of the 199
+  characters `fates_long_string_length` allows):
+
+      moss wetness scaler applied to photosynthetic capacity, and to leaf maintenance
+      respiration unless hlm_moss_scale_resp_by_fwet is false; not applied to moss fuel
+      moisture, which uses its own map
+
+  It must name all three consumers (Sam, 2026-09-01): the same wetness proxy drives moss
+  photosynthesis, moss respiration and moss fuel moisture, and nothing else in the history
+  file tells a reader that this scaler governs the first two and not the third. Note the
+  one-moss-PFT-per-patch nocomp assumption and the full-comp refinement in a code comment.
+- [x] **Step 5: restore the six physiology parameters** and regenerate
+  `fates_params_moss.json` (canonical invocation in `make_moss_params.py`'s header —
+  byte-reproducibility is verified every round).
+- [ ] **Step 6: verify.** Claude: CTSM-FATES builds; FATES functional/unit suites covering
+  the touched code. Sam (post-commit review): moss ALP2 tests PASS; in history, moss-PFT
+  GPP (`FATES_GPP_PF`) is nonzero and covaries with `FATES_MOSS_FWET`;
+  `FATES_MOSS_WETNESS_SCALER` equals `min(1, FATES_MOSS_FWET/0.6)`; vascular-PFT GPP in the
+  BareGrass baseline is b4b (ALP2 baseline compare).
+- [x] **Step 7: reviews, then commit.**
+
+### Task 10b: Restore the six deferred moss radiation parameters
+
+Split out of Task 10 on 2026-09-01 (Sam) so that its answer changes are isolated and
+attributable. No Fortran: this is a parameter-file task, and every answer change it
+produces is independent of Task 10's physiology.
+
+**Files:**
+- Modify (FATES): `tools/make_moss_params.py` (delete `fates_rad_leaf_clumping_index`,
+  `fates_rad_leaf_taunir`, `fates_rad_leaf_tauvis`, `fates_rad_stem_taunir`,
+  `fates_rad_stem_tauvis`, `fates_rad_leaf_xl` from `DEFERRED_PFT_OVERRIDES`)
+- Modify (FATES): `parameter_files/fates_params_moss.json` (regenerate)
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: moss leaf/stem transmittance 0.01 (near-opaque), leaf angle index 0, clumping
+  index 10.0. Vascular PFTs and `use_fates_moss = .false.` unaffected — only the moss
+  column of `fates_params_moss.json` changes.
+
+- [ ] **Step 0 (orchestrator):** Confirm `fates_rad_leaf_clumping_index = 10.0` is
+  survivable before running. It is out of the parameter's documented 0–1 range and FATES
+  does not check it (`EDPftvarcon.F90` only prints it). It multiplies light-extinction
+  coefficients: `k_dir = clumping_index * gdir / sin(sb)`
+  (`FatesNormanRadMod.F90:246`, **unclamped**) and
+  `Kb_leaf = min(kb_max, clumping_index * gdir / cosz)`
+  (`TwoStreamMLPEMod.F90:966`, clamped). Check which radiation model the moss ALP2 tests
+  run under; if Norman, confirm the unclamped path does not produce a floating-point
+  problem at 10.0 before committing. **The 10.0 value itself is not up for review** — Sam
+  settled it on 2026-08-24 (Task 5 Step 4(C)); this step is only about whether the code
+  survives it.
+- [ ] **Step 1: delete the six keys, regenerate the parameter file.**
+- [ ] **Step 2: verify.** Claude: build. Sam (post-commit review): moss ALP2 tests PASS;
+  moss GPP changes relative to the Task 10 commit in the direction expected from more
+  light absorbed in a thinner layer (`FATES_MOSS_WETNESS_SCALER` should NOT move — it
+  depends only on the wetness proxy, so a change there means something unintended); the no-moss ALP2
+  baselines stay b4b (nothing outside the moss column moved).
+- [ ] **Step 3: reviews, then commit.**
 
 ### Task 11: Mat-thickness height allometry (namelist-selectable)
 
@@ -2007,10 +2171,70 @@ settled — flagged as a judgement call, not an obvious home.
   machine has an aux_clm baseline) a broader no-moss FATES test against baseline —
   bit-for-bit.
 - [ ] **Step 3: science sanity.** In the moss run's history: moss GPP > 0 and responds
-  to `FATES_MOSS_FWET`; `FATES_LIVEMOSS_FUEL` and `FATES_MOSS_FINES` nonzero and
+  to `FATES_MOSS_FWET` — but see Step 3b before judging that response, because it is
+  **humped, not monotonic**, and a negative correlation above `fwet ~ 0.35` is the
+  expected result rather than a failure; `FATES_LIVEMOSS_FUEL` and `FATES_MOSS_FINES` nonzero and
   seasonal; fire behavior responds to moss moisture (compare two short runs with
   perturbed `fates_moss_fuel_moisture_*` coefficients); `FATES_NOCOMP_PATCHAREA_PF` reports
-  the prescribed moss cover.
+  the prescribed moss cover. Also check moss mortality: Task 10 Step 0 found that moss's
+  surface-concentrated rooting profile makes its `btran_ft` a top-soil index, so moss
+  crosses `hf_sm_threshold` and takes hydraulic-failure mortality
+  (`EDMortalityFunctionsMod.F90:193`) whenever the top layer dries. Watch
+  `FATES_MORTALITY_HYDRAULIC_SZPF` for the moss PFT and judge whether the rate is credible.
+- [ ] **Step 3a: give moss photosynthesis a sub-daily wetness signal (carried forward from
+  Task 10, 2026-09-01).** As shipped by Task 10, moss GPP is **constant across the diurnal
+  cycle**, which is a science defect to fix, not a limitation to accept. The cause is that
+  `currentPatch%fwet_moss` is diagnosed once a day: Task 8 confined `UpdateMossFwet` to the
+  daily dynamics sequence because `wrap_btran` overwrites `bc_in%h2o_liqvol_sl(1)` with
+  liquid-only water during the sub-daily canopy flux steps, so calling it from there would
+  silently change the proxy's meaning (`FatesPatchMod.F90:890-897`). Photosynthesis runs
+  sub-daily and reads the stale daily value, so an afternoon rain event does not reach moss
+  until the next day, and both the vcmax scaler and the respiration scaler inherit the same
+  flatness. The fix has to make the top-soil water available sub-daily *without* changing
+  what the proxy means — most likely a separate `bc_in` field carrying total (liquid+ice)
+  top-layer water at canopy-flux frequency, so `UpdateMossFwet` can be called sub-daily and
+  the fire path can keep using the daily value it was designed around. Confirm with Sam
+  which of the two consumers (photosynthesis, fire) should move to sub-daily before
+  implementing — fuel moisture may well want to stay daily.
+- [ ] **Step 3b: check that moss actually visits its productive wetness window (carried
+  forward from Task 10, 2026-09-01; Sam confirmed the deferral 2026-09-01 — leave the
+  Task 10 defaults alone and revisit here).** Task 10's code review established that the
+  two wetness responses do not overlap at the shipped defaults. The water film caps **net**
+  assimilation at `A_max = (ca - cp)*gb*co2_film_factor/(h2o_co2_bl_diffuse_ratio*can_press)`,
+  which falls below leaf maintenance respiration at `fwet ~ 0.39-0.50`, while full capacity
+  needs `fwet >= fates_moss_vcmax_fwet_thresh = 0.6`. So the `min(1, fwet/0.6)` plateau is
+  never reached in a state with meaningful net uptake, and the response is humped with its
+  productive window near `fwet ~ 0.3-0.4`.
+
+  **Those `fwet` figures are indicative only.** They come from assumed values for boundary
+  layer resistance (30-100 s/m), leaf maintenance respiration, canopy CO2 and the
+  compensation point, none of which has a source — the assumed `rb` range in particular was
+  never cited. They also depend on the shipped defaults for
+  `fates_moss_vcmax_fwet_thresh` and `fates_moss_co2_film_min`. What is robust without any
+  of those assumptions is the shape: the film cap collapses with wetness far faster than
+  the capacity scaler climbs, so the plateau is unreachable and the response is humped.
+  Take the actual window from the plotted output below, not from these numbers.
+
+  That shape is intended physiology, not a bug — moss photosynthesis does peak at
+  intermediate water content. The open question is whether **this** `fwet_moss` ever visits
+  the window. Because the cap binds net rather than gross assimilation, wet moss does not
+  drain carbon; it stalls, with `agross -> lmr` and net leaf uptake near zero. But Task 8
+  defines `fwet_moss = max(top-layer saturation, fwet_veg)`, and in wet arctic soil that may
+  sit high nearly all the time, which would park moss permanently in the suppressed limb —
+  contributing nothing to NPP year-round while stem and root respiration and growth costs
+  continue. That is slow starvation, not a fast conservation failure, so it will show up as
+  moss that never accumulates biomass rather than as a crashing test.
+
+  Do this: from the moss ALP2 run, plot moss `FATES_GPP_PF` against `FATES_MOSS_FWET`, and
+  plot the distribution of `FATES_MOSS_FWET` itself. Confirm a productive window is actually
+  visited. If it is not, the choice is between lowering `fates_moss_vcmax_fwet_thresh`
+  toward ~0.3, raising `fates_moss_co2_film_min` by two or three orders of magnitude, and
+  reopening the Task 8 question of whether `max(top-layer saturation, fwet_veg)` is the
+  right quantity to feed a relation calibrated against thallus water content — the NVP
+  branch feeds the same two relations a host-supplied `fwet_nvp` describing thallus water
+  status, which is not the same variable. Decide against the plotted distribution, not in
+  the abstract. Pairs with Step 3a: a sub-daily wetness signal changes the distribution this
+  step measures, so run 3a first if both are being done.
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
   source. They now sit at intercept 0, slope 0.7 for **both** classes, chosen for simplicity
@@ -2027,12 +2251,16 @@ settled — flagged as a judgement call, not an obvious home.
   it, the reverse may hold for moss specifically. Decide and record the reasoning.
   Step 3's perturbed-coefficient comparison is the instrument for both.
 - [ ] **Step 5: add range validation to the moss namelist scalars (carried forward from
-  Task 9, 2026-09-01).** None of the five have range checks in
+  Task 9, 2026-09-01).** None of the **seven** — the five from Task 1/9 (bulk density, the
+  four fuel-moisture coefficients, the max burn fraction) plus the two reals added by
+  Task 10 (`fates_moss_vcmax_fwet_thresh`, `fates_moss_co2_film_min`) — have range checks
+  in
   `bld/namelist_files/namelist_definition_ctsm.xml`, and `FatesInterfaceMod` only checks they
   are set. A negative `fates_moss_max_burn_frac` would surface as the generic "unexpected
-  fire fractions" abort in `EDPatchDynamicsMod` rather than a namelist error. Add
-  `valid_values` or an explicit check. (The other Task 9 gap, the untested burn-fraction cap,
-  was closed on 2026-09-01 — see Task 9's Step 0 findings.)
+  fire fractions" abort in `EDPatchDynamicsMod` rather than a namelist error, and a
+  `fates_moss_vcmax_fwet_thresh` of 0 would divide by zero. Add `valid_values` or an
+  explicit check. (The other Task 9 gap, the untested burn-fraction cap, was closed on
+  2026-09-01 — see Task 9's Step 0 findings.)
 - [ ] **Step 6: make moss moisture visible in the fuel functional test (carried forward
   from Task 9, 2026-09-01).** The test cannot currently show it. `FatesTestFuel.F90` passes
   `fuel_moisture(time, fuel_model)` to `WriteFireData`, and that is
@@ -2057,14 +2285,15 @@ settled — flagged as a judgement call, not an obvious home.
 
 ## Self-review checklist (run after writing; completed 2026-08-19)
 
-1. **Spec coverage:** §3→Tasks 2–3; §4→Task 11; §5→Tasks 8, 10; §6→Tasks 4, 6, 7, 9;
-   §7→Task 8; §8→Task 1; §9→history distributed into Tasks 6–10 (variables land with
+1. **Spec coverage:** §3→Tasks 2–3; §4→Task 11; §5→Tasks 8, 10, 10b; §6→Tasks 4, 6, 7, 9;
+   §7→Task 8; §8→Tasks 1 and 10 (the four physiology scalars); §9→history distributed
+   into Tasks 6–10 (variables land with
    their quantities) plus Task 12 review; §10→Tasks 0, 5, and the standing
    verification rule, consolidated in Task 12. §11/§12 are non-goals/limitations — no
    tasks required.
 2. **Placeholder scan:** none of the banned patterns; open decisions are assigned to a
    specific Step 0 with a suggested answer.
 3. **Type consistency:** `prt_params%vascular`, `fuel_classes%live_moss()/dead_moss()`,
-   `currentPatch%livemoss/fwet_moss/moss_vcmax_scaler`, `litt%moss_fines*`,
+   `currentPatch%livemoss/fwet_moss/moss_wetness_scaler`, `litt%moss_fines*`,
    `bc_in%fwet_veg_pa`, `hlm_*` names — spelled identically at every producing and
    consuming site above.

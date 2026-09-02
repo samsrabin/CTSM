@@ -387,6 +387,12 @@ module clm_varctl
   real(r8), public           :: fates_moss_fuel_moisture_dead_intercept = 0.05_r8 ! intercept of dead-moss fuel moisture (unitless)
   real(r8), public           :: fates_moss_fuel_moisture_dead_slope = 0.75_r8 ! slope of dead-moss fuel moisture (unitless)
   real(r8), public           :: fates_moss_max_burn_frac = 1.0_r8     ! maximum fraction of live moss fuel that can burn (0-1)
+  ! wetness at/above which moss reaches full photosynthetic capacity (0-1)
+  real(r8), public           :: fates_moss_vcmax_fwet_thresh = 0.6_r8
+  ! true => wetness scaler also multiplies moss leaf maintenance respiration
+  logical, public            :: fates_moss_scale_resp_by_fwet = .true.
+  ! floor on the moss water-film factor scaling boundary-layer CO2 diffusion
+  real(r8), public           :: fates_moss_co2_film_min = 1.0e-6_r8
   
   !----------------------------------------------------------
   !  LUNA switches		

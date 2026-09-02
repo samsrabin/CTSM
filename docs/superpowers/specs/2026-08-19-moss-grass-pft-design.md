@@ -139,8 +139,15 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
 - **Moss CO₂ path** (harvest from NVP branch `LeafBiophysicsMod` `nvp_model=3`): no
   stomatal solve; CO₂ diffuses through the leaf boundary layer with a water-film
   resistance factor `(1 − fwet)^12` (Porada et al. 2013).
-- **Wetness-limited capacity:** `vcmax × min(1, fwet/0.6)` (full capacity above 60%
-  saturation; Porada et al. 2013).
+- **Wetness-limited capacity and respiration:** `vcmax × min(1, fwet/0.6)` (full capacity
+  above 60% saturation; Porada et al. 2013), and the **same scaler applied to leaf
+  maintenance respiration** (Sam, 2026-09-01). The respiration half is a deliberate
+  divergence from the NVP branch, which scales `vcmax` only: FATES leaf maintenance
+  respiration depends on leaf nitrogen and temperature with no wetness term, so scaling
+  capacity alone would leave dry moss respiring at full rate against zero gross
+  photosynthesis — a permanent dry-period carbon drain. The threshold (0.6) is a CTSM
+  namelist scalar (§8), not a hard-coded constant, and the respiration half is switchable
+  from the namelist so the divergence can be tested against NVP's behaviour.
 - **fwet proxy:** `fwet = max(top-soil-layer effective saturation, canopy wetted
   fraction)` for the moss patch. The soil part comes from moisture fields already present
   in `bc_in` (used by btran); the canopy wetted fraction is one new `bc_in` field (§7).
@@ -154,7 +161,12 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
 - **Gas parameters use `t_veg`** (patch vegetation temperature) for moss initially. The
   NVP branch's per-cohort gas-parameter separation (FATES `33640d372`) is the drop-in
   pattern if a ground-temperature proxy is added later (§11).
-- **btran** comes through the standard shallow-root pathway (§3); no override needed.
+- **btran** comes through the standard shallow-root pathway (§3); no override needed. What
+  removes btran from moss photosynthesis is a parameter, not Fortran:
+  `fates_leaf_agross_btran_model = 0` stops btran multiplying moss vcmax/jmax, so the fwet
+  scaler above is the sole water limitation and nothing is double-counted. btran still
+  drives moss's hydraulic-failure mortality, and a surface-concentrated rooting profile
+  makes that sensitive to top-soil drying (§9 validation).
 - Plant hydraulics is unsupported for moss (pre-existing FATES divide-by-zero for PFTs
   under ~10 cm); `use_fates_moss` + `use_fates_planthydro` is a fatal namelist error.
 
@@ -233,6 +245,19 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   fuel-moisture coefficient pairs for the live-moss and dead-moss classes (`a`, `b` each;
   §6), and the live-moss maximum burn fraction (§6; default 1.0).
   Any further scalars discovered during implementation follow the same convention.
+- Moss physiology settings, added under that rule during implementation (Sam, 2026-09-01):
+  the wetness threshold for full photosynthetic capacity (default 0.6; §5); a logical for
+  whether the same scaler also multiplies leaf maintenance respiration (default true — the
+  divergence from NVP described in §5, switchable so it can be tested); and the outer floor
+  `f` (default 1e-6) of the water-film CO₂ resistance `max((max(1 − fwet, c))^n, f)`.
+  **The exponent `n` (12) and the dry-fraction floor `c` (0.1) are deliberately *not* on the
+  namelist** — they are the interior shape of the harvested relation, not tuning knobs, and
+  at `n = 12` the floor `c` cannot bind at all, because `0.1^12` is below `f`. `f` is what
+  binds, from fwet ≈ 0.685 upward, not at saturation as the NVP source comment claims. `c`
+  stays in the code regardless: lowering `f` below 1e-12 makes it the operative guard
+  against a zero factor. This is the one place the convention above yields — exposing a
+  constant that cannot act under any supported setting would be worse than keeping it in
+  Fortran.
   (SAV and fuel bulk density for the two new classes are *array* entries on the existing
   `fates_litterclass` parameter-file dimension, which must grow to 8 regardless — they
   stay on the parameter file like other array parameters.)
@@ -247,7 +272,10 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   - `FATES_MOSS_FWET` — the fwet proxy (patch-level), plus its two ingredients
     (top-soil-layer saturation and canopy wetted fraction as seen by FATES) so proxy
     behavior can be decomposed;
-  - `FATES_MOSS_VCMAX_SCALER` — the `min(1, fwet/0.6)` wetness scalar actually applied;
+  - `FATES_MOSS_WETNESS_SCALER` — the `min(1, fwet/threshold)` wetness scalar actually
+    applied to photosynthetic capacity and to leaf maintenance respiration. Its long name
+    must also say it is *not* applied to moss fuel moisture, which has its own map (§6):
+    one proxy, three consumers, two of them governed by this scalar;
   - fuel load and fuel moisture for the live-moss and dead-moss classes
     (fuel-class-dimensioned history variables extend automatically when the dimension
     grows to 8);
@@ -255,6 +283,12 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Standard per-PFT biomass/GPP/crown-area variables come automatically.
 - Validation target: observed fractional cover of two moss species at boreal sites; plus
   qualitative fuel-load and fuel-moisture behavior.
+- Two moss-specific things to check rather than assume, both consequences of design choices
+  made elsewhere in this spec: moss hydraulic-failure mortality
+  (`FATES_MORTALITY_HYDRAULIC_SZPF`), because the shallow rooting profile of §3 makes moss
+  btran a top-soil index that crosses the mortality threshold whenever the surface dries;
+  and the diurnal cycle of moss GPP, which the daily fwet proxy of §5 flattens entirely
+  until the proxy is given a sub-daily path.
 
 ## 10. Testing
 
@@ -289,6 +323,10 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Moss "roots" in soil layer 1 and a carbon pool labeled sapwood: conserving carbon/water
   plumbing, not mechanism claims.
 - One patch-level leaf boundary layer for all cohorts (moss exchange overestimated).
+- The moss wetness proxy is patch-level, so under full competition a patch holding moss
+  and vascular cohorts together gives moss a patch-mean wetness shared with taller
+  vegetation that may be shading and drying the moss beneath it. The wetness scaler
+  derived from it is still applied only to moss cohorts.
 - Moss lumped with grass in fire wind-attenuation and tree/grass area accounting.
 - Snow > moss height fully occludes photosynthesis (real bryophytes photosynthesize under
   thin snow).

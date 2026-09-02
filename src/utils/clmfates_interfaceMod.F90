@@ -81,6 +81,9 @@ module CLMFatesInterfaceMod
    use clm_varctl        , only : fates_moss_fuel_moisture_dead_intercept
    use clm_varctl        , only : fates_moss_fuel_moisture_dead_slope
    use clm_varctl        , only : fates_moss_max_burn_frac
+   use clm_varctl        , only : fates_moss_vcmax_fwet_thresh
+   use clm_varctl        , only : fates_moss_scale_resp_by_fwet
+   use clm_varctl        , only : fates_moss_co2_film_min
    use clm_varctl        , only : flandusepftdat
    use clm_varctl        , only : fates_seeddisp_cadence
    use clm_varctl        , only : fates_inventory_ctrl_filename
@@ -439,6 +442,7 @@ module CLMFatesInterfaceMod
      integer                                        :: pass_managed_fire
      integer                                        :: pass_use_moss
      integer                                        :: pass_moss_height_allom = -999
+     integer                                        :: pass_moss_scale_resp_by_fwet
 
      call t_startf('fates_globals2')
 
@@ -688,6 +692,15 @@ module CLMFatesInterfaceMod
         call set_fates_ctrlparms('moss_fuel_moisture_dead_intercept',rval=fates_moss_fuel_moisture_dead_intercept)
         call set_fates_ctrlparms('moss_fuel_moisture_dead_slope',rval=fates_moss_fuel_moisture_dead_slope)
         call set_fates_ctrlparms('moss_max_burn_frac',rval=fates_moss_max_burn_frac)
+        call set_fates_ctrlparms('moss_vcmax_fwet_thresh',rval=fates_moss_vcmax_fwet_thresh)
+        call set_fates_ctrlparms('moss_co2_film_min',rval=fates_moss_co2_film_min)
+
+        if(fates_moss_scale_resp_by_fwet) then
+           pass_moss_scale_resp_by_fwet = 1
+        else
+           pass_moss_scale_resp_by_fwet = 0
+        end if
+        call set_fates_ctrlparms('moss_scale_resp_by_fwet',ival=pass_moss_scale_resp_by_fwet)
 
         ! Check through FATES parameters to see if all have been set
         call set_fates_ctrlparms('check_allset')

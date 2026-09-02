@@ -267,7 +267,10 @@ contains
           fates_moss_fuel_moisture_live_slope,          &
           fates_moss_fuel_moisture_dead_intercept,      &
           fates_moss_fuel_moisture_dead_slope,          &
-          fates_moss_max_burn_frac
+          fates_moss_max_burn_frac,                     &
+          fates_moss_vcmax_fwet_thresh,                 &
+          fates_moss_scale_resp_by_fwet,                &
+          fates_moss_co2_film_min
 
     ! Ozone vegetation stress method
     namelist / clm_inparm / o3_veg_stress_method
@@ -574,6 +577,35 @@ contains
              write(iulog,*)'ERROR: fates_moss_max_burn_frac = ',fates_moss_max_burn_frac, &
                   ' is not supported, must be in range 0.0-1.0.'
              call endrun(msg=' ERROR: invalid value for fates_moss_max_burn_frac in CLM namelist. '//&
+                  errMsg(sourcefile, __LINE__))
+          endif
+          ! Strictly positive, not merely non-negative: FATES divides the moss wetness
+          ! proxy by this to form the wetness scaler (FatesPatchMod's
+          ! UpdateMossWetnessScaler).
+          ! Values above 1 are rejected too -- the proxy itself is capped at 1, so a
+          ! threshold above 1 would mean moss could never reach full capacity.
+          if (fates_moss_vcmax_fwet_thresh <= 0.0_r8 .or. fates_moss_vcmax_fwet_thresh > 1.0_r8) then
+             write(iulog,*)'ERROR: fates_moss_vcmax_fwet_thresh = ',fates_moss_vcmax_fwet_thresh, &
+                  ' is not supported, must be greater than 0.0 and no greater than 1.0.'
+             call endrun(msg=' ERROR: invalid value for fates_moss_vcmax_fwet_thresh in CLM namelist. '//&
+                  errMsg(sourcefile, __LINE__))
+          endif
+          ! Also strictly positive, but NOT because a non-positive value would be
+          ! numerically dangerous -- it would not be. MossCO2FilmFactor's outer max()
+          ! takes the LARGER of the power term and this floor, and its inner dry-fraction
+          ! clamp holds the power term at or above co2_film_dryfrac_min**co2_film_exponent
+          ! = 1e-12. So a non-positive setting is a silent no-op: the floor simply never
+          ! binds and the effective floor quietly becomes 1e-12, six orders of magnitude
+          ! below the default, with no division by zero and nothing driven negative. It is
+          ! rejected because it cannot mean what a user intends -- this is a floor on a
+          ! strictly positive fraction, so a non-positive value is meaningless.
+          ! At the other end, a floor of exactly 1 makes the factor 1 for every fwet and
+          ! so disables the water-film limitation entirely; that is allowed deliberately,
+          ! as an off-switch, and anything above 1 is meaningless.
+          if (fates_moss_co2_film_min <= 0.0_r8 .or. fates_moss_co2_film_min > 1.0_r8) then
+             write(iulog,*)'ERROR: fates_moss_co2_film_min = ',fates_moss_co2_film_min, &
+                  ' is not supported, must be greater than 0.0 and no greater than 1.0.'
+             call endrun(msg=' ERROR: invalid value for fates_moss_co2_film_min in CLM namelist. '//&
                   errMsg(sourcefile, __LINE__))
           endif
        end if
@@ -888,6 +920,9 @@ contains
     call mpi_bcast (fates_moss_fuel_moisture_dead_intercept, 1, MPI_REAL8, 0, mpicom, ier)
     call mpi_bcast (fates_moss_fuel_moisture_dead_slope, 1, MPI_REAL8, 0, mpicom, ier)
     call mpi_bcast (fates_moss_max_burn_frac, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_vcmax_fwet_thresh, 1, MPI_REAL8, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_scale_resp_by_fwet, 1, MPI_LOGICAL, 0, mpicom, ier)
+    call mpi_bcast (fates_moss_co2_film_min, 1, MPI_REAL8, 0, mpicom, ier)
 
     call mpi_bcast (fates_parteh_mode, 1, MPI_INTEGER, 0, mpicom, ier)
     call mpi_bcast (fates_seeddisp_cadence, 1, MPI_INTEGER, 0, mpicom, ier)
@@ -1314,6 +1349,9 @@ contains
        write(iulog, *) '    fates_moss_fuel_moisture_dead_intercept = ', fates_moss_fuel_moisture_dead_intercept
        write(iulog, *) '    fates_moss_fuel_moisture_dead_slope = ', fates_moss_fuel_moisture_dead_slope
        write(iulog, *) '    fates_moss_max_burn_frac = ', fates_moss_max_burn_frac
+       write(iulog, *) '    fates_moss_vcmax_fwet_thresh = ', fates_moss_vcmax_fwet_thresh
+       write(iulog, *) '    fates_moss_scale_resp_by_fwet = ', fates_moss_scale_resp_by_fwet
+       write(iulog, *) '    fates_moss_co2_film_min = ', fates_moss_co2_film_min
     end if
   end subroutine control_print
 

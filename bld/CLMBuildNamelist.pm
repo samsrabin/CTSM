@@ -4920,7 +4920,8 @@ sub setup_logic_fates {
                        "use_fates_moss", "fates_moss_height_allom", "fates_moss_bulk_density",
                        "fates_moss_fuel_moisture_live_intercept", "fates_moss_fuel_moisture_live_slope",
                        "fates_moss_fuel_moisture_dead_intercept", "fates_moss_fuel_moisture_dead_slope",
-                       "fates_moss_max_burn_frac"
+                       "fates_moss_max_burn_frac", "fates_moss_vcmax_fwet_thresh",
+                       "fates_moss_scale_resp_by_fwet", "fates_moss_co2_film_min"
                     );
 
         foreach my $var ( @list ) {

@@ -2741,6 +2741,9 @@ lnd/clm2/surfdata_esmf/NEON/ctsm5.4.0/surfdata_1x1_NEON_TOOL_hist_2000_78pfts_c2
 <fates_moss_fuel_moisture_dead_intercept use_fates=".true.">0.0</fates_moss_fuel_moisture_dead_intercept>
 <fates_moss_fuel_moisture_dead_slope use_fates=".true.">0.7</fates_moss_fuel_moisture_dead_slope>
 <fates_moss_max_burn_frac use_fates=".true.">1.0</fates_moss_max_burn_frac>
+<fates_moss_vcmax_fwet_thresh use_fates=".true.">0.6</fates_moss_vcmax_fwet_thresh>
+<fates_moss_scale_resp_by_fwet use_fates=".true.">.true.</fates_moss_scale_resp_by_fwet>
+<fates_moss_co2_film_min use_fates=".true.">1.0e-6</fates_moss_co2_film_min>
 
 
 <!-- =========================================  -->
