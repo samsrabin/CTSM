@@ -1,6 +1,6 @@
 # CTSM Testing Skills — Design
 
-**Status:** design, not yet implemented. Written 2026-08-30.
+**Status:** written 2026-08-30. C, A and D are built and committed; B remains.
 
 ## What this document is
 
@@ -262,6 +262,22 @@ This follows a principle from the skill-authoring guidance we are using: if a ru
 enforceable by pattern-matching, automate it, and save documentation for judgment calls. The
 suite launcher names are a fixed, short list. That is a hook, not a paragraph.
 
+**What landed** (2026-09-02), in `.claude/hooks/ctsm-suite-launch-guard.py`, wired into the
+committed `.claude/settings.json` so it travels with the skills:
+
+- **It asks rather than denying** (Sam's call). A hard deny cannot be talked out of, which is
+  the attraction; but it also means a developer who does want a suite has to edit committed
+  settings to get one, and the thing being prevented is an *uninvited* launch, not a launch.
+  A prompt puts a human in front of the command, which is the whole requirement.
+- **It covers `create_test --xml-category` as well as `run_sys_tests`.** The plan called the
+  launcher names "a fixed, short list", which they are — but a category-wide `create_test` is
+  a suite launch spelled another way and would have walked straight through. A single named
+  `create_test` is left to ordinary permissions.
+- Matching is on the *command position*, not the substring: the guard parses the command,
+  strips wrappers (`qcmd --`, `nohup`, `python -m`), and checks the executable, so reading or
+  grepping `run_sys_tests.py` does not trip it. Unparseable commands fall back to a substring
+  check and ask.
+
 ---
 
 ## One upstream documentation fix
@@ -347,6 +363,28 @@ pattern skill, and both may behave quite differently under a baseline — an age
 writing a test first is failing, not paying. But the classification is a prediction, and each
 skill's baseline should be read as a test of it rather than as a confirmation.
 
+**D was built without a baseline** (decided 2026-09-02). Two reasons, and it is worth being
+clear that only the first is a good one. A realistic D scenario ends in a case build or a
+`create_test` submission, so measuring what the right answer *cost* — the measure C's
+baselines showed to be the discriminating one — would have spent real allocation on baseline
+runs; and D's material, unlike C's, was not assembled from a survey of what CTSM does but
+accumulated as a list of things that had already gone wrong across eighteen tasks, so the
+"what did an agent have to derive?" question was already answered in the plan it came from.
+The second reason is weaker: it argues from the material's provenance rather than from
+evidence, which is exactly the reasoning the baseline step exists to replace. The cost is that
+D lands with no evidence record of its own, so the later pruning pass — which is meant to
+prune on whether a fact ever gets used — has nothing to go on for D except its own future use.
+Anything in D that turns out to be wrong will be found by a reader hitting it, not by us.
+
+The facts D carries over from the NVP plan were **not re-verified** against the checkout,
+also Sam's call: several of them (a `landroot` override never entering
+`ctsm.input_data_list`, `$SRCROOT` reaching `lnd_in` verbatim in a user override, which CIME
+phase an expected-fail entry must name) were confirmed empirically during that work at the
+cost of case builds, and paying that again to reconfirm them was not worth it. The testlist
+figures in `wallclock.md` *were* re-read from `testlist_clm.xml` — they are free to check and
+they go stale — and that file says so, telling the reader to re-read the file rather than
+trust the page when a number matters.
+
 The *design* of step 1 differs by what kind of skill it is, and this is the part worth stating
 up front:
 
@@ -398,7 +436,12 @@ Current default is to write A, commit it, and leave the NVP plan's inline copy i
 that branch lands, with the skill marked canonical. Not yet decided.
 
 **Drift between the plan's inline copy and the skill.** A consequence of the above, and the
-reason it should not be a permanent arrangement.
+reason it should not be a permanent arrangement. The same now holds for D: its rules are still
+spelled out in the NVP plan's Global Constraints, and that copy was left in place on the same
+default — the branch's remaining tasks keep the wording they were written against, and the
+skill is canonical for everything else. D's copy is the lower-risk of the two, because a
+dispatch that misses a system-test rule mostly loses a fact rather than silently producing
+false evidence.
 
 **Discoverability from a subagent.** A subagent only knows what it is handed or what it finds.
 Skill descriptions have to be good enough that the right one is picked up without being named,
