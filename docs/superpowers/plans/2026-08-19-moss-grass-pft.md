@@ -80,6 +80,11 @@ of labor:**
   Sam owns how the tests are launched and how baselines are named.
 - The b4b intent stands throughout: `use_fates_moss` off must remain bit-for-bit; the ALP2
   baselines (Task 0) are the instrument whenever Sam chooses to run them.
+- **A task's verify step records only the tests expected to CHANGE, never the ones
+  expected to be b4b (Sam, 2026-09-02).** The b4b requirement is a Global Constraint
+  below and does not need restating per task, so enumerating the tests it covers is
+  noise. Name what should move and what it should look like. (Tasks before 10b still
+  carry b4b listings in their verify steps; they are settled text and were left alone.)
 
 ### Git choreography
 
@@ -109,6 +114,16 @@ before committing — these two must print the same hash:
 git ls-tree HEAD src/fates
 git config -f .gitmodules submodule.fates.fxtag
 ```
+
+**Never run `git checkout`, `git restore`, `git stash` or `git clean` against a tracked
+file (Sam, 2026-09-02).** This loop routinely leaves work uncommitted on purpose — the
+CTSM-side plan and spec edits wait for Sam, and a task's FATES commits sit unsquashed —
+so a working tree that looks dirty is the normal state, not a mess to tidy. A Task 10b
+implementer reverted the plan file with `git checkout --` to undo one bad edit of its own
+and destroyed four rounds of accumulated uncommitted work with it; it happened to be
+reconstructible from that agent's transcript, and would not have been from a fresh one.
+To undo your own edit, edit it back. This binds implementer subagents as well as the
+orchestrator, and belongs in every dispatch.
 
 **CTSM history was rewritten on 2026-08-25** to repair exactly that drift: an interactive
 rebase replaced every CTSM commit after `5a350acf4`, and the pre-rewrite branch is
@@ -2076,7 +2091,62 @@ produces is independent of Task 10's physiology.
   index 10.0. Vascular PFTs and `use_fates_moss = .false.` unaffected — only the moss
   column of `fates_params_moss.json` changes.
 
-- [ ] **Step 0 (orchestrator):** Confirm `fates_rad_leaf_clumping_index = 10.0` is
+#### Step 0 findings (orchestrator, 2026-09-02) — read before implementing
+
+**Machine constraint for this task (Sam, 2026-09-02): this machine cannot run Fortran.**
+No build, no CTSM-FATES run. Step 2's "Claude: build" is therefore deferred; the commit
+must say so.
+
+Step 0 question answered: **is `fates_rad_leaf_clumping_index = 10.0` survivable?** Yes.
+
+- **Radiation model: Norman**, i.e. the unclamped path. `fates_radiation_model` defaults to
+  `norman` (`bld/namelist_files/namelist_definition_ctsm.xml:853-854`,
+  `namelist_defaults_ctsm.xml:2709`), and no testmod in any moss ALP2 test's chain
+  overrides it. Only `FatesColdTwoStream*` and `FatesColdSatPhenCamLndTuningMode` set
+  `twostream`, and none of those compose with `FatesNvp`. Chains checked:
+  `FatesColdSatPhen`→`FatesColdBasic`, `FatesColdNoCompFixedBioGeo`→`FatesColdNoComp`→
+  `FatesCold`→`Fates`, `FatesNvp`, `FatesALP2Bare{,Grass}Moss`→`FatesALP2`.
+- **Norman survives 10.0.** `k_dir(ft) = clumping_index*gdir/sin(sb)`
+  (`radiation/FatesNormanRadMod.F90:246`) has a bounded denominator:
+  `cosz = max(0.001, coszen)` and `sb = pi/2 - acos(cosz)`, so `sin(sb) = cosz >= 0.001`.
+  With `xl = 0` (this task's other value) `phi1b = 0.5`, `phi2b = 0`, so `gdir = 0.5`
+  identically and `k_dir <= 5000`. Every one of the seven uses of `k_dir` is inside
+  `exp(-k_dir*lai)` (lines 339, 342, 387, 390, 618, 680, 724) — nothing divides by it — so
+  the worst case is gradual underflow to zero, which no CTSM debug configuration traps.
+  A second, independent route reaches an exponential too: the diffuse-
+  transmittance term `exp(-clumping_index*gdir/sin(angle)*(elai+esai))`
+  (`radiation/FatesNormanRadMod.F90:299`), sampled at nine sky angles from
+  5° to 85°, so `sin(angle)` never approaches zero either — same bounded
+  exponent, same underflow-to-zero outcome.
+  `FatesNormanRadMod.F90` contains no `endrun` at all; its radiation-conservation
+  discrepancies are written to the log and folded into the albedo.
+- **`clumping_index` has no range check anywhere in FATES** — confirmed:
+  `main/EDPftvarcon.F90:856` prints it and nothing else tests it. So 10.0 passes
+  initialization.
+- **`fates_rad_leaf_xl = 0.0` does have a range check, and passes it.**
+  `main/EDPftvarcon.F90:1141-1144` aborts outside [-0.4, 0.6] (Bonan 2019); 0.0 is inside.
+  Two-stream additionally nudges exactly-zero xl to 1e-4 to dodge an `avmu` singularity
+  (`radiation/TwoStreamMLPEMod.F90:677`), so even the mode we do not run is guarded.
+- **tau = 0.01 does not endanger the one division that uses it.**
+  `f_abs_leaf = (1-fcansno)*frac_lai*(1-rhol-taul)/f_abs` with
+  `f_abs = 1 - tau_layer - rho_layer` (`FatesNormanRadMod.F90:222-227`). Moss keeps
+  grass's rho (rho was never in the override set), so f_abs lands at 0.94 (leaf VIS),
+  0.71 (leaf NIR), 0.68 (stem VIS), 0.46 (stem NIR) — all far from zero. Two-stream's
+  `om = rho + tau > 0.99` warning is also untouched (max 0.29).
+- **Generator is byte-reproducible today.** Ran the canonical invocation from
+  `src/fates`; `git diff` on `parameter_files/fates_params_moss.json` is empty. So any
+  diff after Step 1 is exactly the six-key change.
+- **Ruling: also delete the "Why the radiation group is deferred" comment paragraph**
+  above `DEFERRED_PFT_OVERRIDES`, and fold its one still-live fact — that 10.0 is outside
+  the parameter's documented 0-1 range, that FATES never checks it, and that Norman
+  consumes it unclamped, reaching it only through exponentials (the direct-beam
+  extinction coefficient and the diffuse-transmittance term) — into the
+  `fates_rad_leaf_clumping_index` entry in `MOSS_PFT_OVERRIDES`, where the value now
+  actually takes effect. The plan's Files section names only the six-key delete, but
+  leaving a paragraph explaining a deferral this task removes would be a stale comment.
+  Cost if wrong: a few lines of comment churn, trivially revertible.
+
+- [x] **Step 0 (orchestrator):** Confirm `fates_rad_leaf_clumping_index = 10.0` is
   survivable before running. It is out of the parameter's documented 0–1 range and FATES
   does not check it (`EDPftvarcon.F90` only prints it). It multiplies light-extinction
   coefficients: `k_dir = clumping_index * gdir / sin(sb)`
@@ -2087,13 +2157,42 @@ produces is independent of Task 10's physiology.
   problem at 10.0 before committing. **The 10.0 value itself is not up for review** — Sam
   settled it on 2026-08-24 (Task 5 Step 4(C)); this step is only about whether the code
   survives it.
-- [ ] **Step 1: delete the six keys, regenerate the parameter file.**
-- [ ] **Step 2: verify.** Claude: build. Sam (post-commit review): moss ALP2 tests PASS;
-  moss GPP changes relative to the Task 10 commit in the direction expected from more
-  light absorbed in a thinner layer (`FATES_MOSS_WETNESS_SCALER` should NOT move — it
-  depends only on the wetness proxy, so a change there means something unintended); the no-moss ALP2
-  baselines stay b4b (nothing outside the moss column moved).
-- [ ] **Step 3: reviews, then commit.**
+- [x] **Step 1: delete the six keys, regenerate the parameter file.**
+- [ ] **Step 2: verify.** Claude: build — not possible on the implementation machine, so
+  unattempted here. Sam (post-commit review): moss ALP2 tests PASS. Expected GPP direction,
+  stated so it is falsifiable: the clumping index rises from grass's 0.75 to 10.0 and
+  leaf/stem transmittance drops to 0.01, so both the direct-beam and diffuse extinction
+  coefficients rise sharply and almost nothing is transmitted through a leaf or stem
+  element. Two consequences follow, and they pull GPP in opposite directions
+  (Sam, 2026-09-02, asking what a clumping index above 1 buys when interception
+  saturates). **Confidently expected:** albedo over the moss patches goes down and less
+  solar reaches the soil surface. **Genuinely uncertain in sign: moss GPP.** Total canopy
+  interception is `1 - exp(-k*VAI)`, which saturates, so once `k*VAI >> 1` raising the
+  clumping index buys almost no extra absorbed PAR — that term is a small positive. What
+  the clumping index keeps doing past saturation is redistribute: FATES leaf layers are
+  1.0 VAI wide (`fates_vai_top_bin_width` 1.0 with `fates_vai_width_increase_factor` 1.0,
+  so `dinc_vai` is 1.0 throughout, `main/FatesInterfaceMod.F90:992-994`), and at 10.0
+  essentially the whole beam is absorbed in leaf layer 1 with the layers beneath it dark.
+  Photosynthesis is solved per leaf layer on that layer's own PAR and summed leaf-area-
+  weighted over layers (`leaf_layer_loop` and `ScaleLeafLayerFluxToCohort`,
+  `biogeophys/FatesPlantRespPhotosynthMod.F90`), and the light response is concave, so
+  concentrating a fixed absorbed PAR into fewer layers *lowers* the sum — a negative term
+  that grows with moss's layer count. Leaf maintenance respiration also rises with a
+  warmer canopy. So: if moss sits inside one leaf layer (VAI < 1) there is nothing to
+  redistribute and GPP should rise; if it spans several, GPP may well fall. **Report which
+  way it went and the moss VAI alongside it — that pair is the measurement, not a pass/fail
+  criterion.** Task 12 Step 3 should decide whether 10.0 plus an SLA-derived multi-layer
+  VAI is asserting the mat's optical thickness twice. `FATES_MOSS_WETNESS_SCALER` has no
+  direct dependence on radiation — it is `min(1, fwet_moss/thresh)`, and `fwet_moss` is
+  `max(top-soil-layer saturation, canopy wetted fraction)` (`UpdateMossFwet`,
+  `biogeochem/FatesPatchMod.F90`), neither of which reads a radiation quantity — but both
+  ingredients are prognostic host state that respond to the surface energy and water
+  balance, which this commit changes. So in a multi-day run the proxy will drift, and in
+  the two-year tests that drift should be visible; a small drift is expected and is not
+  itself a defect. The red flags are a step change, or the scaler moving while
+  `FATES_MOSS_FWET` does not. The tripwire is sharpest on the first day or two of a cold
+  start, before the radiation change has had time to move soil moisture.
+- [x] **Step 3: reviews, then commit.**
 
 ### Task 11: Mat-thickness height allometry (namelist-selectable)
 
