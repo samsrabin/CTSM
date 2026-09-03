@@ -114,6 +114,17 @@ implementer per task, then reviewers):
   the plan's Global Constraints — never the whole plan, never the Self-Review
   section. If the tree already carries orchestrator edits (the plan itself,
   `MERGE_NOTES.md`), tell the agent explicitly to leave those files alone.
+- **Name the skills the agent must invoke, in the dispatch itself.** A subagent
+  sees this project's skill listing and can invoke one from its name alone, but
+  nothing makes it do so — and the general rules that a plan's Global
+  Constraints used to spell out now live in those skills, so an agent that does
+  not invoke them is working without them. A dispatch whose work involves `.pf`
+  files at all — writing them, making them pass without editing them, or
+  reviewing them — names `writing-tests-before-the-implementer`,
+  `ctsm-unit-tests` and `designing-unit-test-cases`; one that touches
+  `testlist_clm.xml`, a testmod or `ExpectedTestFails.xml` names
+  `ctsm-system-tests`. Write it as "invoke these
+  before you start", not "see also".
 - A task's review gate is never delegated: subagents cannot ask the user
   anything.
 - When a subagent is lost, stopped, or returns nothing, re-dispatch the same
