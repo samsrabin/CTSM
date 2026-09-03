@@ -25,6 +25,14 @@
 #              It is intended for use of github workflows to test commits to protected
 #              repository branches.
 #
+[submodule "cesm_srscripts"]
+	path = tools/contrib/cesm_srscripts
+	url = https://github.com/samsrabin/CESM_SRscripts
+fxtag = 8ab6154600caa09015b2a50e13b40f5ce10cfc1b
+fxrequired = AlwaysRequired
+# Standard Fork to compare to with "git fleximod test" to ensure personal forks aren't committed
+fxDONOTUSEurl = https://github.com/samsrabin/CESM_SRscripts
+
 [submodule "fates"]
 path = src/fates
 url = https://github.com/NGEET/fates
