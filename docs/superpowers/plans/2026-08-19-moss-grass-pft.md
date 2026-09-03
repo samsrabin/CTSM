@@ -11,8 +11,8 @@ soil/canopy wetness proxy.
 
 **Architecture:** Moss is a 15th, non-woody FATES PFT identified by a new per-PFT
 `fates_vascular` flag. FATES-side changes: two new fuel classes (runtime-sized), a
-`moss_fines` litter pool, moss physiology (no stomatal solve, wetness-scaled vcmax), and
-an optional mat-thickness height allometry. CTSM-side changes: namelist plumbing and one
+`moss_fines` litter pool, and moss physiology (no stomatal solve, wetness-scaled vcmax).
+Moss keeps the grass height allometry. CTSM-side changes: namelist plumbing and one
 new `bc_in` field (canopy wetted fraction). Spec:
 `docs/superpowers/specs/2026-08-19-moss-grass-pft-design.md`.
 
@@ -172,7 +172,7 @@ Not defects in our work; things noticed while implementing that upstream may wan
   versa. Splitting the tree test onto its own parameter (or onto `woody`) would decouple them.
   This bit us concretely: moss wants a mat-scale ceiling — a moss-specific 0.1 cm caps height
   at ~4.2 cm — but we inherit grass's 20 cm to stay aligned and to avoid asserting a TRS
-  classification, which leaves moss height saturating only at ~1.23 m under `grass_powerlaw`.
+  classification, which leaves moss height saturating only at 1.23 m under the grass power law.
   Accepted as a limitation in spec §12, with the intended fix in §11.
 - **The two `*_NoTrunks` fallback branches include trunks.** `AverageBulkDensity_NoTrunks`
   and `AverageSAV_NoTrunks` (`fire/FatesFuelMod.F90:349,381`) exclude the trunk class in
@@ -521,6 +521,11 @@ Not in the original plan. Added 2026-08-20 after Task 0's izumi/nag tests failed
 **Status: COMPLETE (2026-08-20).** FATES `030e41a1` + `d9b28108`; CTSM `66266d8eb`,
 `13a5caed3`, `9cf3be6f9`. Nothing pushed.
 
+**Two of the eight names were later removed (2026-09-02).** `fates_moss_height_allom` and
+`fates_moss_bulk_density` (with `hlm_moss_height_allom` and `hlm_moss_bulk_density`) went
+away with the mat-thickness allometry — see Task 11. The Files, Interfaces and Steps below
+are left as the as-built record of this task; six of the eight survive.
+
 **Files:**
 - Modify: `bld/namelist_files/namelist_definition_ctsm.xml` (near `use_fates_sp`, ~line 771)
 - Modify: `bld/namelist_files/namelist_defaults_ctsm.xml`
@@ -719,6 +724,9 @@ readable by the model until Task 4, so there is no test to run for it — see In
     the existing lowercase-with-space style.
   - **Not double-booked:** the namelist `fates_moss_bulk_density` is for mat-thickness
     allometry (§4); fire SAV/FBD for the new classes are paramfile arrays (spec §8).
+    **Superseded 2026-09-02:** `fates_moss_bulk_density` was removed with the mat-thickness
+    allometry (Task 11). Fire SAV/FBD stay paramfile arrays, and the moss fuel-bed bulk
+    density is now Task 12 Step 4a's open question.
   - **Forward check.** Task 3 reads `fates_vascular` (now already present). Task 4 requires
     exactly 8 litterclass entries when `use_fates_moss` is on. Task 5 points
     `fates_paramfile` at this committed JSON — and needs a path CIME can resolve to an
@@ -1385,9 +1393,13 @@ One further observation about the existing fsurdats, recorded but NOT acted on:
   - **Not deferred:** the two moss-scale structural overrides, `fates_recruit_height_min` and
     `fates_allom_fnrt_prof_a`. Neither enters the carbon or radiation budget, so the spec §3
     corrections stand.
-  - **Net effect:** moss differs from `arctic_c3_grass` in **five** parameters —
-    `fates_pftname`, `fates_vascular`, `fates_hlm_pft_map`, `fates_recruit_height_min`,
-    `fates_allom_fnrt_prof_a`. Moss is grass with an identity flag.
+  - **Net effect at this task:** moss differed from `arctic_c3_grass` in **five**
+    parameters — `fates_pftname`, `fates_vascular`, `fates_hlm_pft_map`,
+    `fates_recruit_height_min`, `fates_allom_fnrt_prof_a`. Moss was grass with an identity
+    flag. **All thirteen deferrals have since been restored** — the physiology six in
+    Task 10, the radiation six in Task 10b, and
+    `fates_recruit_seed_dbh_repro_threshold` in Task 11 — so `DEFERRED_PFT_OVERRIDES` is
+    now empty and the moss column differs from `arctic_c3_grass` in **18** parameters.
   - **On reproduction.** Review flagged that reverting the dbh threshold to grass's 3.0 leaves
     moss on the immature branch at `seed_alloc = 0.0`, i.e. producing no seed — spec §3's
     stated extinction mechanism. Checked against the regenerated file: of ~70
@@ -2194,58 +2206,95 @@ Step 0 question answered: **is `fates_rad_leaf_clumping_index = 10.0` survivable
   start, before the radiation change has had time to move soil moisture.
 - [x] **Step 3: reviews, then commit.**
 
-### Task 11: Mat-thickness height allometry (namelist-selectable)
+### Task 11: Mat-thickness height allometry — abandoned
 
-**Also restores one deferred moss parameter** (see Task 5 Step 4(C)): delete
-`fates_recruit_seed_dbh_repro_threshold` from `DEFERRED_PFT_OVERRIDES` in
-`tools/make_moss_params.py`, regenerate `fates_params_moss.json`, and commit both. Assigned
-here because a moss-scale dbh threshold only means something once moss dimensions are
-settled — flagged as a judgement call, not an obvious home.
+**Status: ABANDONED (2026-09-02).** The mat-thickness allometry was implemented in full —
+a `mat_thickness` `h_allom` mode with its exact closed-form `h2d_allom` inverse, the
+`fates_moss_height_allom` and `fates_moss_bulk_density` namelist settings with their
+`hlm_*` counterparts, and a new pFUnit suite — and then removed from both repositories.
+The section is kept because the decision, not the code, is what a later reader needs.
 
-**Files:**
-- Modify (FATES): `biogeochem/FatesAllometryMod.F90` (`h_allom` ~lines 336–369,
-  `h2d_allom`)
-- Modify (FATES): `testing/tests/functional/allometry/` (new mode coverage)
+**Why (Sam, 2026-09-02).** The NVP branch's moss mat thickness exists only to support
+treating the moss mat as a distinct CTSM layer between snow and soil. This branch
+deliberately does not do that, and that simplification is the entire point of the branch
+(spec §2 non-goals). So a concept of mat thickness is not needed at all. **Moss keeps the
+grass height allometry it already has** — `fates_allom_hmode = 3`, `d2h1 = 0.1812`,
+`d2h2 = 0.6384`, inherited from `arctic_c3_grass`.
 
-**Interfaces:**
-- Consumes: `hlm_moss_height_allom`, `hlm_moss_bulk_density` (Task 1),
-  `prt_params%vascular` (Task 3).
-- Produces: `h_allom` case "mat thickness": for moss PFTs when
-  `hlm_moss_height_allom==2`,
-  `h = (blmax(d) * c2b) / (c_area_nom(d) * hlm_moss_bulk_density)` where
-  `c_area_nom(d)` is the crown area at nominal spread (the `carea_2pwr` form with
-  spread-max coefficient), i.e. mat thickness = leaf dry mass per crown area / bulk
-  density; `h2d_allom` inverts by bisection on d ∈ [1e-6, d(maxheight)]. `ForceDBH`
-  and recruitment then work unmodified.
+Four findings, all checked against source. The first three support the decision; the
+fourth is what implementing the mode actually taught, and is where anyone revisiting mat
+thickness should start.
 
-- [ ] **Step 0 (orchestrator):** Read `h_allom`/`h2d_allom` dispatch and `carea_2pwr`
-  (`FatesAllometryMod.F90:2606-2661`) to fix the exact nominal-spread expression
-  (`spreadterm` at maximum spread — the `d2ca_coefficient_max` path). Confirm mode
-  selection mechanics: rather than a new `allom_hmode` value on the parameter file,
-  branch inside `h_allom`: `if (vascular==ifalse .and. hlm_moss_height_allom==2)` →
-  mat-thickness; else fall through to the PFT's `allom_hmode` (grass power law for
-  moss when ==1). This keeps the namelist in control per spec §4/§8 — confirm with
-  Sam. Check monotonicity of h(d) under the 3pwr-grass `blmax` saturation so bisection
-  is safe over the full d range. Forward check: none downstream.
-- [ ] **Step 1: implement `h_allom` mat-thickness branch** (with `dhdd` by the same
-  analytic differentiation pattern used by neighboring cases, or centered finite
-  difference if the saturation term resists closed form — match file conventions).
-- [ ] **Step 2: implement `h2d_allom` bisection inverse** (tolerance 1e-9 m on h;
-  `endrun` on non-convergence).
-- [ ] **Step 3: functional test.** Extend the allometry functional test config to run
-  the moss PFT under both modes; assert round-trip `h2d(h_allom(d)) ≈ d` to 1e-6 and
-  that thickness is linear in `blmax/c_area`. Run
-  `MPLBACKEND=Agg python run_functional_tests.py --save-figs -t allometry`.
-- [ ] **Step 4: verify in-model.** Run the moss ALP2 SMS test once per
-  `fates_moss_height_allom` mode (a user_nl override run for `mat_thickness`); both PASS;
-  moss height history differs between modes as expected; ALP2 baselines b4b.
-- [ ] **Step 5: reviews, then commit.**
+- **The NVP branch does not give moss a special height either.** Its moss PFT also uses
+  `fates_allom_hmode = 3` with `d2h1 = 0.1812`, `d2h2 = 0.6384` — the plain grass power
+  law, identical to what this branch's moss column already carries. NVP holds thickness in
+  a **separate** cohort field, `nvp_dz`, computed one-way in `NVP_allom`
+  (`biogeochem/FatesAllometryMod.F90` on branch `sci.1.91.1_api.43.1.0_nvp` in
+  `src/fates`) from the cohort's *actual* leaf carbon rather than from a diameter
+  allometry, and consumed in moss photosynthesis, in `bc_out%nvp_dz_pa` for the host, and
+  as a history variable. Nothing in NVP inverts thickness back to a diameter, so NVP has
+  no circularity to solve by construction — and neither did we, once thickness stopped
+  being a height.
+- **Specific leaf area does not enter a mat-thickness relation.** It cancels out of
+  `leaf dry mass / crown area / bulk density`; in `NVP_allom` the leaf-carbon → LAI step
+  multiplies by SLA and the LAI → thickness step divides by it. Spec §4 said SLA entered
+  the relation; it has been corrected. The planned mode would also have taken its mass
+  from the allometric *target* `blmax(d)` rather than from actual leaf carbon, which is
+  not what NVP does.
+- **`ForceDBH` never calls `h2d_allom`,** so "the new mode must be invertible so
+  `ForceDBH` works" — spec §4's stated constraint on the mode — was not a real constraint.
+  `h2d_allom`'s callers are `PRTParamsFATESMod` (init from `hgt_min`), `EDPhysiologyMod`
+  (recruitment, cold start, FATES-SP prescribed `htop`), `FatesInventoryInitMod` and
+  `EDInitMod` (cold start). `ForceDBH` pushes diameter toward actual leaf carbon one-way,
+  converging on the trimmed target `bleaf = blmax*canopy_trim*elongf_leaf`.
+- **Mat thickness has a closed form. It needs no iteration, and the implementation
+  approach this task originally specified was wrong twice over.** That approach was an
+  `h2d_allom` inverse by bisection with a monotonicity check, over a forward expression
+  `h = blmax(d)*c2b / (c_area_nom(d)*rho)`. The forward half was not even evaluable as
+  written: under moss's `allom_lmode = 5` the routine `blmax_allom` calls `h_allom`
+  itself, so `h_allom → blmax_allom → h_allom` recurses — and only the inverse had been
+  flagged as needing iteration. Substituting the `lmode = 5` leaf allometry
+  `blmax = p1*duse**p2 * h**p3 / c2b` (`dh2blmax_3pwr_grass`) and the `carea_2pwr` crown
+  area `c_area = d2ca_max*duse**(p2+ediff)` dissolves both at once: `c2b` and `duse**p2`
+  cancel, and height separates into a plain power law
+  `h = mat_a * min(d,dbh_maxh)**mat_b`, with
+  `mat_a = (p1/(d2ca_max*rho))**(1/(1-p3))` and `mat_b = -ediff/(1-p3)`. That inverts
+  exactly and differentiates analytically in both directions — no bisection, no convergence
+  guard, and monotonicity is settled by inspection rather than checked: at moss's
+  `ediff = -0.487` and `p3 = 0.3417`, `mat_b = 0.740 > 0`, so `h` rises with `d` over the
+  whole range. Note what the closed form also shows: mat thickness in this construction is
+  just another power law in diameter, differing from the grass height allometry only in its
+  coefficients.
+
+**What survives.**
+- [x] **`fates_recruit_seed_dbh_repro_threshold` restored** — the last deferred moss
+  parameter (see Task 5 Step 4(C)). The key is deleted from `DEFERRED_PFT_OVERRIDES` in
+  `tools/make_moss_params.py`, which is now empty, and `fates_params_moss.json` is
+  regenerated. Sam confirms `0.001` is intentional; the reasoning is in Task 2 Step 1 and
+  spec §3. This was assigned to Task 11 on the argument that a moss-scale dbh threshold
+  only means something once moss dimensions are settled; those dimensions are now Task 12
+  Steps 3c/3d, so revisit `0.001` there if they move.
+- [x] **`FATES_MOSS_HEIGHT`** — a new history variable, the crown-area weighted mean
+  height over moss cohorts, registered per the Task 6 pattern, plus its
+  `hist_fincl1 += 'FATES_MOSS_HEIGHT'` line in
+  `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm`. It is the instrument for
+  Task 12 Step 3c.
+
+**What was removed** from both repositories: the `mat_thickness` `h_allom` mode and its
+closed-form `h2d_allom` inverse; the `fates_moss_height_allom` and `fates_moss_bulk_density`
+namelist settings and their `hlm_moss_height_allom` / `hlm_moss_bulk_density` counterparts;
+and the pFUnit suite written for the new mode. Task 1's Interfaces list still names all
+four namelist/`hlm_` symbols as products of that task — see the note at its Status.
+
+**Deferred to Task 12.** Two things this task would plausibly have addressed are now
+science questions rather than allometry code: moss height parametrization (Step 3c) and
+the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 
 ### Task 12: Final integration, science sanity, and test-suite consolidation
 
 **Files:**
-- Modify: `cime_config/testdefs/testlist_clm.xml` (fill any gaps: one test per
-  `fates_moss_height_allom` mode if not added in Task 11; the full `fates_moss` category)
+- Modify: `cime_config/testdefs/testlist_clm.xml` (fill any gaps; the full `fates_moss`
+  category)
 - Modify: `cime_config/testdefs/ExpectedTestFails.xml` (only if genuinely needed)
 - **Delete: `cime_config/testdefs/testmods_dirs/clm/FatesMossParams/`** (Sam, 2026-08-24).
   It is identical to `FatesNvp` apart from comments and exists only as the transitional
@@ -2262,10 +2311,9 @@ settled — flagged as a judgement call, not an obvious home.
 - [ ] **Step 0 (orchestrator):** Review accumulated test coverage from Tasks 0, 5–11
   against spec §10; list gaps. Ask Sam: any additional history variables or tests
   wanted before calling the implementation complete?
-- [ ] **Step 1: consolidate the suite.** Ensure the `fates_moss` category contains: the
-  ALP2 baselines (Task 0), the moss SMS + ERS tests (Task 5), and a mat-thickness-mode
-  test; run the full category on the target machine — all PASS with fatal conservation
-  checks.
+- [ ] **Step 1: consolidate the suite.** Ensure the `fates_moss` category contains the
+  ALP2 baselines (Task 0) and the moss SMS + ERS tests (Task 5); run the full category on
+  the target machine — all PASS with fatal conservation checks.
 - [ ] **Step 2: b4b-off final sweep.** Re-run the Task 0 baseline compare and (if the
   machine has an aux_clm baseline) a broader no-moss FATES test against baseline —
   bit-for-bit.
@@ -2334,6 +2382,58 @@ settled — flagged as a judgement call, not an obvious home.
   status, which is not the same variable. Decide against the plotted distribution, not in
   the abstract. Pairs with Step 3a: a sub-daily wetness signal changes the distribution this
   step measures, so run 3a first if both are being done.
+- [ ] **Step 3c: settle moss height parametrization (carried forward from Task 11,
+  2026-09-02).** Moss keeps the grass power law — `fates_allom_hmode = 3` with
+  `d2h1 = 0.1812`, `d2h2 = 0.6384` — and grass's `fates_allom_dbh_maxheight = 20` cm,
+  which is the only ceiling that mode has: `d2h_2pwr` computes
+  `h = d2h1*min(d,dbh_maxh)**d2h2`, so **moss saturates at 1.23 m**. Moss recruits at 2 cm
+  (dbh ~0.032 cm) and nothing stops it growing the whole way there if it accumulates leaf
+  carbon.
+
+  Two consequences follow, and both are robust — arithmetic over shipped parameters plus a
+  code path, with no assumed inputs:
+  - **Snow never buries moss.** FATES occludes leaf and stem area by comparing
+    `currentSite%snow_depth` against canopy-layer top and bottom heights derived from
+    cohort height and crown depth (`biogeochem/EDCanopyStructureMod.F90`, the
+    `fraction_exposed` block at ~line 1128). A 1.2 m moss is above any snowpack at these
+    sites, so the seasonal snow burial that spec §4 and §12 assume never actually happens,
+    and spec §12's "snow > moss height fully occludes photosynthesis" fiction is inert as
+    shipped.
+  - **Moss is never systematically shaded by the grass it lives under.** Moss sorts into
+    canopy layers as a peer of `arctic_c3_grass`, whose height allometry is *identical* —
+    same `allom_hmode`, same `d2h1`/`d2h2`, same `dbh_maxheight` — so under full
+    competition the two are separated by leaf carbon alone, not by a mat sitting beneath a
+    sward.
+
+  Neither consequence follows from a moss-specific choice. `dbh_maxheight = 20` was
+  inherited deliberately (spec §3) because `fates_allom_dbh_maxheight` doubles as the TRS tree test
+  — see the upstream-observations note — so a moss-scale ceiling cannot be set without
+  also reclassifying moss as a non-tree. A moss-specific 0.1 cm would cap height at
+  ~4.2 cm. Decide what moss height should be and how to get it without moving that
+  classification; spec §11 records the upstream fix (splitting the tree test onto its own
+  parameter or onto `woody`). Report diagnosed `FATES_MOSS_HEIGHT` from the moss ALP2 runs
+  alongside whatever is decided — Task 11 added that variable for this.
+- [ ] **Step 3d: settle moss's leaf-biomass allometry, `fates_allom_d2bl1` (carried
+  forward from Task 11, 2026-09-02).** Moss's `fates_allom_d2bl1` is still the
+  `arctic_c3_grass` value `0.0004`; it has never had moss-specific thought. Under
+  `dh2blmax_3pwr_grass` (`blmax = d2bl1*min(d,dbh_maxh)**d2bl2 * h**d2bl3 / c2b`, with
+  moss's `d2bl2 = 1.7092`, `d2bl3 = 0.3417`, `c2b = 2`) and `carea_2pwr` crown area, moss
+  reaches **LAI 0.0065 at recruit size and 0.61 at maximum size** — cohort leaf area per
+  unit crown area, i.e. `treelai`. Both figures are robust: every input is a shipped
+  parameter of `fates_params_moss.json`, and moss's two crown spread coefficients are both
+  0.0408, so site spread does not enter. For scale, the ALP2 moss surface datasets
+  prescribe LAI 2.0 in SP mode — the prognostic mat tops out below a third of that.
+
+  **This is inherited, not introduced here:** the NVP branch's moss column carries the
+  identical `0.0004`. So the first question is whether NVP ever needed moss leaf area to be
+  right — its moss LAI feeds `NVP_allom` and hence its mat thickness — or whether it
+  inherited the grass value for the same reason we did. Settle that before retuning.
+
+  Interacts with two other steps. Step 3c: height enters `blmax` through `d2bl3`, so the
+  two cannot be tuned independently. Task 10b's finding: FATES leaf layers are 1.0 VAI
+  wide, so at LAI 0.61 moss occupies a single leaf layer and the clumping index of 10 has
+  nothing to redistribute — raise moss LAI past 1.0 and the concave-light-response penalty
+  that step describes switches on.
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
   source. They now sit at intercept 0, slope 0.7 for **both** classes, chosen for simplicity
@@ -2349,17 +2449,69 @@ settled — flagged as a judgement call, not an obvious home.
   slope. If the living mat is the sun- and wind-exposed surface while dead fines sit beneath
   it, the reverse may hold for moss specifically. Decide and record the reasoning.
   Step 3's perturbed-coefficient comparison is the instrument for both.
-- [ ] **Step 5: add range validation to the moss namelist scalars (carried forward from
-  Task 9, 2026-09-01).** None of the **seven** — the five from Task 1/9 (bulk density, the
-  four fuel-moisture coefficients, the max burn fraction) plus the two reals added by
-  Task 10 (`fates_moss_vcmax_fwet_thresh`, `fates_moss_co2_film_min`) — have range checks
-  in
-  `bld/namelist_files/namelist_definition_ctsm.xml`, and `FatesInterfaceMod` only checks they
-  are set. A negative `fates_moss_max_burn_frac` would surface as the generic "unexpected
-  fire fractions" abort in `EDPatchDynamicsMod` rather than a namelist error, and a
-  `fates_moss_vcmax_fwet_thresh` of 0 would divide by zero. Add `valid_values` or an
-  explicit check. (The other Task 9 gap, the untested burn-fraction cap, was closed on
-  2026-09-01 — see Task 9's Step 0 findings.)
+- [ ] **Step 4a: settle the moss fuel-bed bulk density, and the two other moss fire
+  fuel parameters copied with it (Sam, 2026-09-02).** SPITFIRE's moss fuel bed is
+  4.0 kg/m3 (`fates_fire_FBD` indices 7-8 in `fates_params_moss.json`). Nobody chose
+  that for moss: `make_moss_params.py` grows every `fates_litterclass`-dimensioned
+  parameter by copying the "dead leaves" value (`DEAD_LEAVES_INDEX = 4`) into both new
+  slots unless `LITTERCLASS_OVERRIDE` says otherwise, and `fates_fire_FBD` is not
+  overridden. The NVP branch, meanwhile, carries `fates_nvp_bulk_density = 75.0 kg/m3`
+  and uses it in `NVP_allom` to turn LAI into mat thickness; that routine's header
+  attributes its parameters to Porada et al. (2013) and related literature.
+
+  These are the same physical quantity — mass of mat per unit volume of mat, pore space
+  included. NVP not modelling fire does not make its number a bad fuel-bed density, and
+  a factor of roughly 19 between the two is too large to leave unexamined.
+
+  It is not a cosmetic difference. `SFMainMod.F90:302` forms the packing ratio as
+  `beta = fuel%bulk_density_notrunks/SF_val_part_dens`, which then feeds
+  `OptimumPackingRatio`, `PropagatingFlux` and `ForwardRateOfSpread`, so the moss
+  contribution to modelled rate of spread moves substantially.
+
+  Do this: find the source behind NVP's 75 rather than adopting the number on trust —
+  75 kg/m3 is at the high end of published moss bulk densities, and living Sphagnum and
+  feather-moss layers are usually quoted well below it. Then decide the moss fuel-bed
+  density on that evidence and add it to `LITTERCLASS_OVERRIDE`. While there, revisit
+  the other two moss fire entries that arrived by the same dead-leaves copy and have had
+  no moss-specific thought: `fates_fire_SAV` (66.0 /cm) and
+  `fates_fire_low_moisture_Coeff` (1.15). Note that SAV also sets the moisture of
+  extinction that Step 4(a) reasons about, so the two steps interact and SAV should be
+  settled first.
+
+  Do **not** treat the removed `fates_moss_bulk_density` namelist default of 10 kg/m3 as
+  evidence for anything. It was introduced in CTSM commit `66266d8` purely to feed the
+  mat-thickness height allometry, was never sourced, and went away with it.
+- [ ] **Step 5: finish range validation of the moss namelist scalars (carried forward from
+  Task 9, 2026-09-01; rescoped 2026-09-02).** There are **seven** moss reals: the five from
+  Tasks 1/9 (the four fuel-moisture coefficients and `fates_moss_max_burn_frac`) plus the
+  two added by Task 10 (`fates_moss_vcmax_fwet_thresh`, `fates_moss_co2_film_min`).
+  (`fates_moss_bulk_density` was a sixth from Task 1 until Task 11 removed it with the
+  mat-thickness allometry; `fates_moss_scale_resp_by_fwet` is a logical and needs no range.)
+
+  **Three of the seven are already checked**, in `src/main/controlMod.F90` inside the
+  `if (use_fates_moss)` block: `fates_moss_max_burn_frac` (0–1),
+  `fates_moss_vcmax_fwet_thresh` (>0 and ≤1) and `fates_moss_co2_film_min` (>0 and ≤1),
+  each with its rationale stated at the check. Task 9's framing of this step is therefore
+  **out of date**: it said a negative `fates_moss_max_burn_frac` would surface as the
+  generic "unexpected fire fractions" abort in `EDPatchDynamicsMod` and that a
+  `fates_moss_vcmax_fwet_thresh` of 0 would divide by zero. Both now abort with a namelist
+  error first.
+
+  What is actually left:
+  - **The four fuel-moisture coefficients are unchecked, deliberately.** The form is
+    `moisture = max(0, intercept + slope*fwet)`, so a negative intercept is a legitimate
+    way to express "dry until a wetness threshold" rather than an error. Revisit after
+    Step 4 picks real values: if the tuned form fixes a sign for either coefficient, say so
+    and check it; if not, the deliberate absence stands and this step closes on that.
+  - **Nothing is expressed in `bld/namelist_files/namelist_definition_ctsm.xml`,** and
+    before proposing `valid_values` there, note that it is an enumerated list and that
+    **no** `type="real"` entry in that file uses it (91 real entries, none). Real ranges
+    are conventionally enforced in `controlMod` or `CLMBuildNamelist.pm`. What the XML can
+    do is state the bounds in each `<entry>`'s description text, which the three checked
+    scalars do not — a documentation gap rather than a validation one.
+
+  (The other Task 9 gap, the untested burn-fraction cap, was closed on 2026-09-01 — see
+  Task 9's Step 0 findings.)
 - [ ] **Step 6: make moss moisture visible in the fuel functional test (carried forward
   from Task 9, 2026-09-01).** The test cannot currently show it. `FatesTestFuel.F90` passes
   `fuel_moisture(time, fuel_model)` to `WriteFireData`, and that is
@@ -2384,8 +2536,10 @@ settled — flagged as a judgement call, not an obvious home.
 
 ## Self-review checklist (run after writing; completed 2026-08-19)
 
-1. **Spec coverage:** §3→Tasks 2–3; §4→Task 11; §5→Tasks 8, 10, 10b; §6→Tasks 4, 6, 7, 9;
-   §7→Task 8; §8→Tasks 1 and 10 (the four physiology scalars); §9→history distributed
+1. **Spec coverage:** §3→Tasks 2–3; §4→Task 11 (the mat-thickness mode was abandoned
+   2026-09-02; moss keeps the grass power law, and its parametrization is now Task 12
+   Steps 3c/3d); §5→Tasks 8, 10, 10b; §6→Tasks 4, 6, 7, 9;
+   §7→Task 8; §8→Tasks 1 and 10 (the three physiology scalars); §9→history distributed
    into Tasks 6–10 (variables land with
    their quantities) plus Task 12 review; §10→Tasks 0, 5, and the standing
    verification rule, consolidated in Task 12. §11/§12 are non-goals/limitations — no

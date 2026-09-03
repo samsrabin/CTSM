@@ -779,16 +779,6 @@ Toggle to turn on the moss plant functional type in FATES
 (only relevant if FATES is being used).
 </entry>
 
-<entry id="fates_moss_height_allom" type="char*32" category="physics"
-       group="clm_inparm" valid_values="grass_powerlaw,mat_thickness">
-Height allometry applied to moss PFTs (only relevant if use_fates_moss is true).
-</entry>
-
-<entry id="fates_moss_bulk_density" type="real" category="physics" group="clm_inparm">
-Moss mat bulk density (kg m-3) used by the mat_thickness height allometry
-(only relevant if use_fates_moss is true).
-</entry>
-
 <entry id="fates_moss_fuel_moisture_live_intercept" type="real" category="physics" group="clm_inparm">
 Intercept of live-moss fuel moisture as a function of the moss wetness proxy
 (only relevant if use_fates_moss is true).

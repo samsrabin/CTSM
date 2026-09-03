@@ -380,8 +380,6 @@ module clm_varctl
 
   ! FATES moss PFT switch and moss science constants (fuel moisture and fire)
   logical, public            :: use_fates_moss = .false.              ! true => turn on the moss plant functional type
-  character(len=256), public :: fates_moss_height_allom = ''          ! grass_powerlaw or mat_thickness
-  real(r8), public           :: fates_moss_bulk_density = 10._r8      ! moss mat bulk density (kg m-3)
   real(r8), public           :: fates_moss_fuel_moisture_live_intercept = 0.3_r8  ! intercept of live-moss fuel moisture (unitless)
   real(r8), public           :: fates_moss_fuel_moisture_live_slope = 0.7_r8  ! slope of live-moss fuel moisture (unitless)
   real(r8), public           :: fates_moss_fuel_moisture_dead_intercept = 0.05_r8 ! intercept of dead-moss fuel moisture (unitless)

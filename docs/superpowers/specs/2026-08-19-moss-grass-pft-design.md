@@ -96,7 +96,7 @@ etc.), with these deliberate settings:
   experimental. The parameter's other job is real but is accepted as a limitation: it is
   the diameter at which height and max-leaf-biomass saturate, entering `d2h_*` and
   `d2blmax_*` only as `min(d, dbh_maxh)`, so inheriting 20 cm leaves moss height
-  effectively unbounded under the `grass_powerlaw` allometry (§4, §12).
+  effectively unbounded under the grass power-law allometry (§4, §12).
 - Recruit height (`hgt_min`): a **realistic** moss height — a taller recruit inflates
   the allometric per-plant target biomass. Raise it only as a fallback if cohort
   termination floors (`store_c` and number-density minima, which apply in all modes, not
@@ -112,21 +112,47 @@ etc.), with these deliberate settings:
   `allom_smode=2`, `allom_dmode=1`). The resulting "sapwood" pool is a labeled carbon
   pool only; harmless without plant hydraulics, and it correctly burns as live fuel.
 
-## 4. Height allometry: two modes, namelist-selectable
+## 4. Height allometry
 
 Moss height is dynamic for free (height = allometric function of dbh; dbh is continuously
-forced from leaf carbon for non-woody PFTs). Two carbon-to-height mappings are
-implemented, chosen by a CTSM namelist setting (§8):
+forced from leaf carbon for non-woody PFTs). **Moss uses the grass power law** — the
+existing `allom_hmode = 3` (`d2h_2pwr`) with the `arctic_c3_grass` coefficients
+`d2h1 = 0.1812`, `d2h2 = 0.6384` that the moss column is seeded from. Zero new allometry
+code, and nothing on the namelist selects it.
 
-1. **Grass power law** (existing `allom_hmode=3`, `d2h_2pwr`) with moss-tuned
-   coefficients. Zero new allometry code.
-2. **Mat thickness** (new `h_allom` mode): height = mat depth derived from leaf carbon
-   via SLA and a moss bulk-density parameter, harvested from the NVP branch's
-   `NVP_allom` (`FatesAllometryMod`). More mechanistic for a moss mat.
+*(Amended 2026-09-02. This section previously specified a second, namelist-selectable
+"mat thickness" mode — height = mat depth from leaf carbon and a moss bulk density,
+harvested from the NVP branch's `NVP_allom`. It was implemented and then abandoned; the
+decision is recorded in the plan's Task 11. The reason: the NVP branch's mat thickness
+exists only to support treating the moss mat as a distinct CTSM layer between snow and
+soil. This design deliberately does not do that — that simplification is the point of the
+branch — so a concept of mat thickness is not needed at all. The NVP branch does not give
+its moss PFT a special height either: its moss column also uses `fates_allom_hmode = 3`
+with the same `d2h1`/`d2h2`, and carries thickness as a separate cohort field `nvp_dz`,
+computed one-way in `NVP_allom` from the cohort's actual leaf carbon — not from a diameter
+allometry — and consumed by moss photosynthesis, by `bc_out%nvp_dz_pa`, and by a history
+variable. Nothing in NVP inverts thickness back to a diameter.)*
 
-The new mode must be invertible (an `h2d_allom` case) so `ForceDBH` and recruitment
-initialization work. Height feeds snow occlusion of LAI (`fraction_exposed =
-1 − snow_depth/height`), so either mode gives seasonally sensible snow burial.
+Two claims in that removed text were wrong on their own terms, recorded here so they are
+not resurrected:
+
+- **Specific leaf area does not enter a mat-thickness relation.** It cancels out of
+  `leaf dry mass / crown area / bulk density` — visible in `NVP_allom` itself, where the
+  leaf-carbon → LAI step multiplies by SLA and the LAI → thickness step divides by it. The
+  planned mode would also have taken its mass from the allometric *target* `blmax(d)`
+  rather than from the cohort's actual leaf carbon, which is not what NVP does.
+- **`ForceDBH` never calls `h2d_allom`,** so "the new mode must be invertible so `ForceDBH`
+  works" was not a real constraint on it. `h2d_allom`'s callers are `PRTParamsFATESMod`
+  (init from `hgt_min`), `EDPhysiologyMod` (recruitment, cold start, and FATES-SP
+  prescribed `htop`), `FatesInventoryInitMod` (inventory init) and `EDInitMod` (cold
+  start). `ForceDBH` instead pushes diameter toward actual leaf carbon one-way, converging
+  on the trimmed target `bleaf = blmax*canopy_trim*elongf_leaf`.
+
+Height feeds snow occlusion of leaf and stem area: `EDCanopyStructureMod` compares
+`currentSite%snow_depth` against canopy-layer top and bottom heights derived from cohort
+height. Under the grass power law moss saturates at 1.23 m (§12), which is well above any
+snowpack these sites see, so moss is never in fact buried. Moss height parametrization is
+an open science question, deferred to the plan's Task 12.
 
 ## 5. Physiology
 
@@ -235,13 +261,11 @@ only at upstream-FATES merge time.) Standard seven-step plumbing (XML definition
 defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast,
 `clmfates_interfaceMod` `set_fates_ctrlparms`, FATES-side `case` + is-set check):
 
-- `use_fates_moss` (logical, default `.false.`) → `hlm_use_moss`. Gates the moss fuel class,
-  moss physiology dispatch, and moss allometry mode. Fatal errors: `use_fates_moss` true with
+- `use_fates_moss` (logical, default `.false.`) → `hlm_use_moss`. Gates the moss fuel class
+  and moss physiology dispatch. Fatal errors: `use_fates_moss` true with
   no `vascular==0` PFT on the parameter file (and vice versa); `use_fates_moss` with
   `use_fates_planthydro`.
-- `fates_moss_height_allom` (string: `'grass_powerlaw'` | `'mat_thickness'`) → selects the
-  height-allometry mode applied to moss PFTs (§4).
-- Moss science scalars: at minimum, moss bulk density (mat-thickness allometry), the
+- Moss science scalars: at minimum, the
   fuel-moisture coefficient pairs for the live-moss and dead-moss classes (`a`, `b` each;
   §6), and the live-moss maximum burn fraction (§6; default 1.0).
   Any further scalars discovered during implementation follow the same convention.
@@ -298,8 +322,8 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - `use_fates_moss = .true.` with a parameter file lacking a moss PFT must abort cleanly.
 - Site-level smoke/exact-restart tests in nocomp-fixedbiogeo with a moss parameter file;
   new testmods dir + ExpectedTestFails hygiene.
-- Unit-testable pieces (mat-thickness allometry and its inverse, moss fuel-moisture
-  function) get FATES functional/unit tests where the harness allows.
+- Unit-testable pieces (the moss fuel-moisture function) get FATES functional/unit tests
+  where the harness allows.
 
 ## 11. Later extensions (explicitly out of scope now)
 
@@ -371,18 +395,22 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   assignment, so an 8-entry array was a non-conforming assignment — trapping in a
   bounds-checked build and silently wrong otherwise. Making the count runtime is what converted
   that into a clean, explained error.
-- **Moss height is effectively unbounded under the `grass_powerlaw` height allometry.**
+- **Moss height is effectively unbounded under the grass power-law height allometry.**
   Moss inherits grass's `fates_allom_dbh_maxheight` of 20 cm, and that parameter is the
   only ceiling in that mode: `d2h_2pwr` computes `h = p1*min(d,dbh_maxh)**p2`, so moss
-  saturates only at ~1.23 m, versus ~4.2 cm had a moss-specific 0.1 cm been kept. Moss
+  saturates only at 1.23 m, versus ~4.2 cm had a moss-specific 0.1 cm been kept. Moss
   recruits at 2 cm height (dbh ~0.032 cm), so nothing stops it growing well past mat-like
   dimensions if it accumulates leaf carbon; `dh2blmax_3pwr_grass` caps target leaf biomass
-  at the same diameter, so that is unbounded in practice too. The `mat_thickness` mode (§4)
-  is the principled fix, and the `grass_powerlaw` mode should be read as a
-  conservation-correct but dimensionally unconstrained baseline. Watch diagnosed moss
-  height in any `grass_powerlaw` run. A second consequence: with 20 cm, moss sits above
+  at the same diameter, so that is unbounded in practice too. Read the grass power law as a
+  conservation-correct but dimensionally unconstrained baseline, and watch diagnosed
+  `FATES_MOSS_HEIGHT`. Deciding what moss height should be, and how to get it without
+  moving the TRS tree classification, is deferred to the plan's Task 12. (An earlier version
+  of this bullet named the `mat_thickness` mode of §4 as the principled fix; that mode was
+  abandoned — see §4.) A second consequence: with 20 cm, moss sits above
   `min_max_dbh_for_trees` (15 cm), so if TRS is ever enabled moss would be classified a
-  tree and routed through the tree-recruitment path.
+  tree and routed through the tree-recruitment path. A third: at 1.2 m, moss is taller than
+  any snowpack at these sites, so the snow-occlusion fiction listed above never actually
+  engages.
 - **Moss displaces an existing HLM PFT rather than adding one.** The host's `natpft`
   dimension is bare ground plus 14 natural PFTs, and `fates_hlm_pftno` stays 14, so there
   is no free HLM index to give moss. `fates_params_moss.json` therefore hands HLM PFT 4
@@ -398,7 +426,7 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 |---|---|---|
 | Moss PFT parameter column | `fates_params_default_moss.json` | §3, adapted (roots, repro) |
 | `fates_vascular` per-PFT flag | parameter files (unread there) | §3, wired up as moss identifier |
-| `NVP_allom` leaf-C ↔ LAI/thickness | `FatesAllometryMod` | §4 mode 2 |
+| `NVP_allom` leaf-C ↔ LAI/thickness | `FatesAllometryMod` | **Not harvested** — mat thickness abandoned (§4) |
 | `vcmax × min(1, fwet/0.6)` | `FatesPlantRespPhotosynthMod` | §5 |
 | Boundary-layer-only Ci, `(1−fwet)^12` | `LeafBiophysicsMod` (`nvp_model=3`) | §5, behind per-PFT dispatch |
 | Per-cohort gas-params separation | FATES `33640d372` | §11 (temperature proxy, later) |

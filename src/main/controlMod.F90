@@ -261,8 +261,6 @@ contains
           fates_history_dimlevel,                       &
           use_fates_managed_fire,                       &
           use_fates_moss,                               &
-          fates_moss_height_allom,                      &
-          fates_moss_bulk_density,                      &
           fates_moss_fuel_moisture_live_intercept,      &
           fates_moss_fuel_moisture_live_slope,          &
           fates_moss_fuel_moisture_dead_intercept,      &
@@ -561,18 +559,12 @@ contains
 
        end if
 
-       ! Range checks on the FATES moss parameters. Only fates_moss_bulk_density and
-       ! fates_moss_max_burn_frac have well-defined bounds; the four fuel moisture
-       ! coefficients are not checked here because their form is
-       ! moisture = max(0, intercept + slope*fwet), so a negative intercept is a
-       ! legitimate way to express "dry until a wetness threshold" rather than an error.
+       ! Range checks on the three moss parameters with well-defined bounds:
+       ! fates_moss_max_burn_frac, fates_moss_vcmax_fwet_thresh and fates_moss_co2_film_min.
+       ! The four fuel moisture coefficients are deliberately not checked: their form is
+       ! moisture = max(0, intercept + slope*fwet), so a negative intercept is a legitimate
+       ! way to express "dry until a wetness threshold" rather than an error.
        if (use_fates_moss) then
-          if (fates_moss_bulk_density <= 0.0_r8) then
-             write(iulog,*)'ERROR: fates_moss_bulk_density = ',fates_moss_bulk_density, &
-                  ' is not supported, must be greater than 0.0.'
-             call endrun(msg=' ERROR: invalid value for fates_moss_bulk_density in CLM namelist. '//&
-                  errMsg(sourcefile, __LINE__))
-          endif
           if (fates_moss_max_burn_frac < 0.0_r8 .or. fates_moss_max_burn_frac > 1.0_r8) then
              write(iulog,*)'ERROR: fates_moss_max_burn_frac = ',fates_moss_max_burn_frac, &
                   ' is not supported, must be in range 0.0-1.0.'
@@ -913,8 +905,6 @@ contains
     call mpi_bcast (flandusepftdat, len(flandusepftdat) , MPI_CHARACTER, 0, mpicom, ier)
     call mpi_bcast (use_fates_managed_fire, 1, MPI_LOGICAL, 0, mpicom, ier)
     call mpi_bcast (use_fates_moss, 1, MPI_LOGICAL, 0, mpicom, ier)
-    call mpi_bcast (fates_moss_height_allom, len(fates_moss_height_allom), MPI_CHARACTER, 0, mpicom, ier)
-    call mpi_bcast (fates_moss_bulk_density, 1, MPI_REAL8, 0, mpicom, ier)
     call mpi_bcast (fates_moss_fuel_moisture_live_intercept, 1, MPI_REAL8, 0, mpicom, ier)
     call mpi_bcast (fates_moss_fuel_moisture_live_slope, 1, MPI_REAL8, 0, mpicom, ier)
     call mpi_bcast (fates_moss_fuel_moisture_dead_intercept, 1, MPI_REAL8, 0, mpicom, ier)
@@ -1342,8 +1332,6 @@ contains
        write(iulog, *) '    fates_inventory_ctrl_filename = ', trim(fates_inventory_ctrl_filename)
        write(iulog, *) '    use_fates_managed_fire= ', use_fates_managed_fire
        write(iulog, *) '    use_fates_moss = ', use_fates_moss
-       write(iulog, *) '    fates_moss_height_allom = ', trim(fates_moss_height_allom)
-       write(iulog, *) '    fates_moss_bulk_density = ', fates_moss_bulk_density
        write(iulog, *) '    fates_moss_fuel_moisture_live_intercept = ', fates_moss_fuel_moisture_live_intercept
        write(iulog, *) '    fates_moss_fuel_moisture_live_slope = ', fates_moss_fuel_moisture_live_slope
        write(iulog, *) '    fates_moss_fuel_moisture_dead_intercept = ', fates_moss_fuel_moisture_dead_intercept

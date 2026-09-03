@@ -4917,7 +4917,7 @@ sub setup_logic_fates {
                        "fates_stomatal_assimilation", "fates_leafresp_model", "fates_cstarvation_model",
                        "fates_regeneration_model", "fates_hydro_solver", "fates_radiation_model", "fates_electron_transport_model",
 		       "use_fates_managed_fire",
-                       "use_fates_moss", "fates_moss_height_allom", "fates_moss_bulk_density",
+                       "use_fates_moss",
                        "fates_moss_fuel_moisture_live_intercept", "fates_moss_fuel_moisture_live_slope",
                        "fates_moss_fuel_moisture_dead_intercept", "fates_moss_fuel_moisture_dead_slope",
                        "fates_moss_max_burn_frac", "fates_moss_vcmax_fwet_thresh",
