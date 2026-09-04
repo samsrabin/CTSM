@@ -81,9 +81,9 @@ questions so the wait happens once.
 
 ## Subagent dispatch mechanics
 
-Dispatching subagents at all requires the user's authorization; it is not a
-project default. Where a plan's execution process does call for them (a fresh
-implementer per task, then reviewers):
+Dispatching subagents on this project is authorized standing (Sam, 2026-09-04);
+you do not need to ask each time. Where a plan's execution process calls for
+them (a fresh implementer per task, then reviewers):
 
 - An implementer receives only its own task's text as amended by that task's
   review gate, the spec path, the harvest-worktree path, the checkout path, and
