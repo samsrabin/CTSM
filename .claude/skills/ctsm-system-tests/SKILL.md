@@ -74,7 +74,7 @@ them):
 **Prefer a unit test where the requirement is about internal detail.** Which layer received
 what, whether a weight was applied identically on both sides, whether a guard fired: a
 stock `SMS` cannot see any of it, and "the run exercises it" is not an assessment. A unit
-test that runs in seconds is both cheaper and stricter — see the `ctsm-unit-tests` skill.
+test that runs in seconds is both cheaper and stricter — see the `pfunit-tests` skill.
 
 **A CIME test that aborts is a FAIL.** So a requirement of the form "this configuration
 must abort cleanly" cannot be a suite entry at all. It stays a manual check, named as such
@@ -207,7 +207,7 @@ These checks are yours to run:
   long-lived verification case only — a CIME test builds in a fresh directory, and test
   directories should not be reused.
 - **Run the unit tests** (`cime/scripts/fortran_unit_testing/run_tests.py`; the
-  `ctsm-unit-tests` skill covers the traps, including an incremental rebuild that reports
+  `pfunit-tests` skill covers the traps, including an incremental rebuild that reports
   success while running the previous set of tests).
 - **A change that touches namelist code additionally runs**
   `bld/unit_testers/build-namelist_test.pl` — see `testing.rst` for how to read its log.

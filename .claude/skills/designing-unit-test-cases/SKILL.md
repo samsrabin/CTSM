@@ -14,7 +14,7 @@ dimension it is the same in, and no amount of asserting on it will change that.
 
 This skill is about the values and the wording. The evidence a test owes — a red run or a
 mutation — is in the `writing-tests-before-the-implementer` skill; the mechanics of building
-and running are in `ctsm-unit-tests`.
+and running are in `pfunit-tests`.
 
 **One word used throughout.** A **slot** is one position in an array the routine indexes into —
 a soil or snow layer, a PFT, an aerosol species, a column — whether or not anything occupies it.
@@ -206,9 +206,9 @@ test_divideSnowLayers_geometry                                 ! names neither
 ```
 
 **Expect to rename.** A name that distinguished a test while it stood alone stops distinguishing
-once its siblings land, and renaming it then is the right move rather than a churn. Find out what
-your test runner needs in order to notice the new name — in CTSM it needs a full rebuild, and the
-check is that the count did *not* move; see `ctsm-unit-tests`.
+once its siblings land, and renaming it then is the right move rather than a churn. Both pFUnit
+harnesses here pick a renamed `@Test` up on an incremental rebuild, so the rename itself costs
+nothing; see `pfunit-tests` for what does need a rebuild.
 
 ### Give the quantities names, not literals
 

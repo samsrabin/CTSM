@@ -16,7 +16,8 @@ whose commands run from somewhere else.
 
 These are not the pFUnit unit tests, which live in
 `src/fates/testing/tests/unit/` and run the same way via `./run_unit_tests.py`
-from the same directory.
+from the same directory. Those have their own skill, `pfunit-tests`; its
+`fates-harness.md` covers the parts of the build these two share.
 
 ## Running
 

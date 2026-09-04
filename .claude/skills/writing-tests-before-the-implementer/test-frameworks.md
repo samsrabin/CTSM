@@ -36,17 +36,17 @@ narrowed until it reaches the assertion you are actually trying to exercise.
 ## Confirming a new test actually ran
 
 `SKILL.md` requires the writer to confirm its tests ran, not merely that the suite was green.
-In CTSM this is not paranoia: adding a new `.pf` **file** to an existing test directory leaves
-the generated pFUnit driver stale, and the run reports every test passing while executing the
-previous set of tests. A red-first test can therefore appear to pass at its own test commit,
-which destroys the evidence the commit exists to carry. The rebuild that fixes it, the narrow
-boundary of the trap, and the per-directory executable whose reported count is the real
-confirmation are in the **ctsm-unit-tests** skill.
+In both pFUnit harnesses here this is not paranoia: adding a new `.pf` **file** to an existing
+test directory leaves the generated pFUnit driver stale, and the run reports every test passing
+while executing the previous set of tests. A red-first test can therefore appear to pass at its
+own test commit, which destroys the evidence the commit exists to carry. The rebuild that fixes
+it, the narrow boundary of the trap, and the per-directory executable whose reported count is the
+real confirmation are in the **pfunit-tests** skill.
 
 ## Mutations that abort instead of failing an assertion
 
-CTSM's unit tests build under `CESM_DEBUG`, where `-check bounds` turns a broken index into an
+Both harnesses build under `CESM_DEBUG`, where `-check bounds` turns a broken index into an
 abort and `-fpe0` turns a signalling NaN or a zero divisor into `forrtl` errors 65 and 73. So a
 mutation you expected to fail an assertion may stop the binary instead, with no assertion
 reported. That still counts as the test catching the mutation — say which form you saw. What
-that build does and does not check is in the **ctsm-unit-tests** skill.
+that build does and does not check is in the **pfunit-tests** skill.

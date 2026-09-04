@@ -97,7 +97,7 @@ implementer per task, then reviewers):
   not invoke them is working without them. A dispatch whose work involves `.pf`
   files at all — writing them, making them pass without editing them, or
   reviewing them — names `writing-tests-before-the-implementer`,
-  `ctsm-unit-tests` and `designing-unit-test-cases`; one that touches
+  `pfunit-tests` and `designing-unit-test-cases`; one that touches
   `testlist_clm.xml`, a testmod or `ExpectedTestFails.xml` names
   `ctsm-system-tests`. Write it as "invoke these
   before you start", not "see also".
