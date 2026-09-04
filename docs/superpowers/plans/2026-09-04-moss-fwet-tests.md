@@ -160,13 +160,14 @@ working around it are the same move — shrinking the deliverable without Sam ch
 writes a coordinate variable's values as a literal `1..6` list, from a time when the
 number of fuel classes was fixed at six. It is now a runtime value that can be eight, and
 the dimension it writes into is sized from that runtime value — so under the larger
-configuration the coordinate is short, and every bar chart keyed to it is presumably
-mislabelled. This task confirms that is really happening and fixes it. It comes first
-because a later task in this plan reads from the same helper, and because a fix here
-changes an existing test's figures, which is easier to review on its own.
+configuration the coordinate is short, silently, with the tail left at netCDF's fill
+value. This task fixes it. It comes first because a later task in this plan reads from the
+same helper.
 
-1. The claim above is unverified. If it does not reproduce, cut it, say so, and move on —
-   do not go looking for a different bug to justify the task.
+1. Step 0 verified the short write and disproved the consequence originally claimed for
+   it: the existing figures do not read the coordinate's values and so are not
+   mislabelled by it. Do not go looking for a different bug to restore the stakes; the
+   wrong coordinate is reason enough, and no figure should change.
 
 **Files:**
 - Modify: `src/fates/testing/tests/functional/fire/shr/FatesTestFireMod.F90`
@@ -177,7 +178,7 @@ changes an existing test's figures, which is easier to review on its own.
   module).
 - Produces: nothing later tasks depend on; the fix is contained.
 
-- [ ] **Step 0 (orchestrator):** Confirm the defect is live before dispatching anything.
+- [x] **Step 0 (orchestrator):** Confirm the defect is live before dispatching anything.
   Run the existing fuel functional test under `parameter_files/fates_params_moss.json` and
   read the `litter_class` coordinate out of `fuel_out.nc` — the question is whether netCDF
   short-writes it with two fill values, errors, or something else, and whether the fuel
@@ -186,12 +187,48 @@ changes an existing test's figures, which is easier to review on its own.
   that way, so reuse that idiom rather than inventing a second one. Decide whether the
   6-class figures change at all — if they do, that is worth knowing before the commit,
   not after.
-- [ ] **Step 1: fix the write** so the coordinate is generated from `num_fuel_classes`.
-- [ ] **Step 2: verify under both parameter files.** Run the fuel test with the default
+
+  **Step 0 findings and rulings** (verified 2026-09-04 by running the fuel functional test
+  on the current tree, both parameter files):
+
+  - **The short write is real.** Under `parameter_files/fates_params_moss.json`
+    (`num_fuel_classes == 8`), `fuel_out.nc` carries
+    `litter_class = 1, 2, 3, 4, 5, 6, _, _`. netCDF raises nothing:
+    `FatesUnitTestIOMod::WriteVar1DInt` calls `nf90_put_var(ncid, varID, data(:))`, which
+    takes its element count from the six-element array constructor and leaves elements 7-8
+    at the default integer fill. No `_FillValue` attribute is registered, so xarray reads
+    the coordinate as int32 `[1 2 3 4 5 6 -2147483647 -2147483647]` — an index coordinate
+    carrying two sentinels, not NaN.
+  - **Ruling: the bar charts are not mislabelled. Cut that half of the claim.**
+    `fuel_test.py` sizes its label list from `fuel_dat.sizes["litter_class"]` and slices
+    with `isel(litter_class=i)`, positionally; it never reads the coordinate's values.
+    Confirmed on the 8-class `Fuel loading` figure — `live_moss`/`dead_moss` are labelled
+    on fuel models 1080/1081 and zero on 108, matching `FatesFuelClassesMod`'s documented
+    1-8 ordering. `WriteFireData` has exactly one caller (`FatesTestFuel.F90`), and
+    nothing else in the tree, Fortran or Python, reads `litter_class` values. The fix is
+    warranted by the wrong coordinate alone; no figure changes under either file.
+  - **Ruling: fix shape.** An allocatable `litter_index(num_fuel_classes)` filled by a
+    `do` loop, matching the `time_index` block immediately above it, passed to `WriteVar`.
+    Not an inline `[(i, i = 1, num_fuel_classes)]` constructor — reuse the module's one
+    existing idiom. Size it from `num_fuel_classes`, matching the `RegisterNCDims` call
+    two lines up, not from `size(loading, dim=1)`.
+  - **Ruling: fix the stale comment above `time_index`.** It reads `! create pft indices`
+    over a loop that fills time indices. The new block lands beside it, so a wrong comment
+    on the line the new code imitates is worth one line of diff. This is a comment
+    correctness fix, not whitespace churn.
+  - **Ruling: the 6-class output must be unchanged**, since the fix reproduces `1..6`
+    exactly there. Step 2 demonstrates that against the pre-fix baselines rather than
+    asserting it.
+  - **Deferred to Task 5** (a finding, not Task 0's scope): `FatesTestFuel.F90:79`
+    branches on a literal `num_fuel_classes == 8` where
+    `fuel_classes%moss_classes_present()` exists — the same thing Task 4 Step 2 forbids in
+    new code. Left alone because Task 0's Files list is one file.
+- [x] **Step 1: fix the write** so the coordinate is generated from `num_fuel_classes`.
+- [x] **Step 2: verify under both parameter files.** Run the fuel test with the default
   file and with `fates_params_moss.json`; confirm the coordinate now reads 1–6 and 1–8
   respectively, and inspect the loading bar charts under `src/fates/_run/plots/fuel/` for
   correct class labels. Note whether the 6-class figures are unchanged.
-- [ ] **Step 3: reviews, then commit.**
+- [x] **Step 3: reviews, then commit.**
 
 ---
 
