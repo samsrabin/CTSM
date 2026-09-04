@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./xmlquery DEBUG,COMPSET,GRID,NTASKS,COMP_INTERFACE)",
+      "Bash(./xmlquery CHARGE_ACCOUNT,PROJECT)",
+      "Read(~/.claude/**)",
+      "Bash(qcmd -- ./case.build)",
+      "Bash(qcmd -- ../cime/scripts/fortran_unit_testing/run_tests.py --build-dir unit_tests.temp)"
+    ],
+    "deny": [
+      "Edit(test-bld/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ctsm-suite-launch-guard.py",
+            "timeout": 10,
+            "statusMessage": "Checking for a system test suite launch"
+          }
+        ]
+      }
+    ]
+  }
+}
