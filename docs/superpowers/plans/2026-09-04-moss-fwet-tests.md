@@ -269,7 +269,7 @@ mistake, and proving each assertion catches one.
   file reaches a pFUnit test.
 - Produces: `public :: MossCO2FilmFactor` in `LeafBiophysicsMod`, which Task 3 also uses.
 
-- [ ] **Step 0 (orchestrator):** Settle the case table — the `(fwet_veg, h2o_vol,
+- [x] **Step 0 (orchestrator):** Settle the case table — the `(fwet_veg, h2o_vol,
   watsat)` triples and the threshold values — against `designing-unit-test-cases`, so no
   two inputs coincide and no expected value can be produced by the wrong branch. At
   minimum the table must separate: soil ingredient larger, canopy ingredient larger, the
@@ -284,31 +284,223 @@ mistake, and proving each assertion catches one.
   weaken the test. Confirm the patch object can be declared and used without `Init()` (the
   routines touch four scalar members) and that no globals init is needed. Decide whether
   `nearzero` and the sentinel belong in the test as named constants.
-- [ ] **Step 1: make `MossCO2FilmFactor` public**, with a short comment saying a unit test
+
+  **Step 0 findings and rulings** (2026-09-04). These are binding on the implementer;
+  where one conflicts with the implementer's own judgement, it raises the conflict rather
+  than quietly doing something else.
+
+  **Confirmations.**
+
+  - The header comment on `MossCO2FilmFactor` is **correct**, so assertions may depend on
+    it. `(1-fwet)**12 = 1e-6` at `1-fwet = 10**(-0.5) = 0.316228`, i.e. `fwet = 0.68377`;
+    and `co2_film_dryfrac_min**12 = 0.1**12 = 1e-12`, four orders below the default outer
+    floor, so the inner clamp cannot change the result at any default-ish setting. No
+    finding against the code.
+  - The patch needs no `Init()` and no `InitializeGlobals`. `validate_cohorts_test` already
+    declares a bare `type(fates_patch_type) :: patch` and calls a type-bound procedure on
+    it; `fates_patch_type` is `type, public`, its `contains` block has no `private`, so
+    both `UpdateMossFwet` and `UpdateMossWetnessScaler` are callable. The only module state
+    either routine reads is `hlm_moss_vcmax_fwet_thresh` and `nearzero`.
+  - `lb_params` is a public module variable, so `lb_params%moss_co2_film_min` is settable
+    directly. Nothing else in `LeafBiophysicsMod` needs initialising for this one function.
+
+  **Fixture.** Follow `test_FireFuel.pf`: the patch is a component of the `@TestCase` type,
+  seeded in `setUp`, with no `tearDown` (nothing to undo — the host scalars are module
+  variables that `setUp` rewrites on every test, which is the reason `test_FireFuel.pf`
+  gives for doing it there).
+
+  `setUp` seeds all four patch members with **distinct negative markers** —
+  `marker_fwet = -1`, `marker_soil = -2`, `marker_canopy = -3`, `marker_scaler = -4` — so
+  that "never written" and "written from the wrong source" are both visible, and so that no
+  marker can be confused with an expected value (every expected value is in `[0,1]`).
+  Uninitialized-variable checking is off in this build, so an unseeded scalar reads as
+  whatever the stack held; the markers are not optional.
+
+  **Host scalars are deliberately not the namelist defaults**, and the file says so in the
+  wording `test_FireFuel.pf` already uses for its own coefficients — the tests must not
+  depend on values the host may retune. Two different thresholds are used on purpose, so
+  that replacing `hlm_moss_vcmax_fwet_thresh` with a literal fails somewhere:
+
+  | Constant | Value | Used by | Note |
+  |---|---|---|---|
+  | `test_vcmax_thresh` | `0.5` | the `UpdateMossFwet` cases | namelist default is 0.6 |
+  | `test_vcmax_thresh_scaler` | `0.25` | the scaler trio | second value kills a hardcoded threshold |
+  | `test_co2_film_min` | `4.0e-6` | the film cases | namelist default is 1.0e-6 |
+  | `test_co2_film_min_tiny` | `1.0e-15` | the inner-clamp case only | below `0.1**12`, the only regime the inner clamp acts in |
+
+  **`nearzero` is not imported.** The guard's threshold is pinned from outside by a fixed
+  pair that brackets it, `watsat_below_nearzero = 2.5e-31_r8` and
+  `watsat_above_nearzero = 2.0e-30_r8` — a quarter of `nearzero` and twice it — each with a
+  comment saying where it sits relative to `FatesConstantsMod`'s `nearzero` and that the
+  tightness is the point.
+  Importing `nearzero` and deriving a value from it would make the test follow the constant
+  wherever it moved, which is the opposite of pinning it.
+  The sentinel **is** a named constant, `watsat_sentinel = -999.0_r8`, with a comment naming
+  `wrap_btran` in `src/utils/clmfates_interfaceMod.F90` as its writer.
+
+  **Case table for `UpdateMossFwet`** — `hlm_moss_vcmax_fwet_thresh = test_vcmax_thresh`
+  (0.5) throughout. Every value is dyadic, so every expected result is exact; the
+  `tolerance=tol` on each assert is slack, not a fudge. Each case asserts all four members.
+
+  | Test name | `fwet_veg` | `h2o_vol_top` | `watsat_top` | → soil | canopy | proxy | scaler |
+  |---|---|---|---|---|---|---|---|
+  | `UpdateMossFwet_SoilWetterThanCanopy_ProxyTakesSoil` | 0.125 | 0.1875 | 0.5 | 0.375 | 0.125 | 0.375 | 0.75 |
+  | `UpdateMossFwet_CanopyWetterThanSoil_ProxyTakesCanopy` | 0.3125 | 0.0625 | 0.5 | 0.125 | 0.3125 | 0.3125 | 0.625 |
+  | `UpdateMossFwet_WaterAtPorosity_SoilSaturationIsOne` | 0.0625 | 0.375 | 0.375 | 1.0 | 0.0625 | 1.0 | 1.0 |
+  | `UpdateMossFwet_WaterAbovePorosity_SoilSaturationClampedToOne` | 0.0625 | 0.375 | 0.25 | 1.0 | 0.0625 | 1.0 | 1.0 |
+  | `UpdateMossFwet_NegativeSoilWater_SoilSaturationClampedToZero` | 0.1875 | -0.125 | 0.5 | 0.0 | 0.1875 | 0.1875 | 0.375 |
+  | `UpdateMossFwet_SentinelPorosity_GuardZeroesSoilIngredient` | 0.4375 | -999.0 | -999.0 | 0.0 | 0.4375 | 0.4375 | 0.875 |
+  | `UpdateMossFwet_PorosityBelowNearzero_GuardZeroesSoilIngredient` | 0.4375 | 0.75 | 2.5e-31 | 0.0 | 0.4375 | 0.4375 | 0.875 |
+  | `UpdateMossFwet_PorosityAboveNearzero_GuardAdmitsSoilIngredient` | 0.0625 | 5.0e-31 | 2.0e-30 | 0.25 | 0.0625 | 0.25 | 0.5 |
+
+  Four things about that table are load-bearing and belong in the tests' detailed
+  descriptions:
+
+  1. **The sentinel case carries the sentinel in `h2o_vol_top` as well**, which is what
+     `wrap_btran` writes into both fields in its else branch. This is not decoration. With a
+     valid positive `h2o_vol_top` beside a sentinel `watsat_top`, deleting the guard yields
+     a negative ratio that the lower clamp returns to zero — the same answer the guard
+     gives — and the case passes with the guard gone. Both fields sentinel makes the ratio
+     exactly 1, so a deleted or inverted guard shows up as `1.0` against an expected `0.0`.
+  2. **The sub-`nearzero` case is the only one that pins the threshold as positive.**
+     Changing `nearzero` to a bare `0.0` leaves the sentinel case unmoved (`-999` fails
+     either test) and is caught here alone. It is beyond the minimum this step asked for and
+     is included for that reason.
+  3. **`WaterAtPorosity` cannot pin the upper clamp**, because a setup already at the limit
+     behaves the same whether the limit is enforced or absent; it pins that saturation reads
+     as exactly 1. `WaterAbovePorosity` is its twin and is the one that catches a dropped
+     clamp. The two differ in `watsat_top` and nothing else. Say so in both, and note that
+     soil, proxy and scaler all read `1.0` in both, so a swapped-member write is caught in
+     those two cases only by `fwet_moss_canopy` and the markers. Note also that this case
+     holds `h2o_vol_top` and `watsat_top` equal, which is what puts it at the limit but also
+     makes it blind to a transposition of the two arguments; the other cases catch that.
+  4. **The two `Nearzero` cases are a pair, and the above case is the one that has to grow
+     into acceptance.** The five ordinary cases sit 28 or more orders of magnitude above
+     `nearzero`, so on their own they leave the guard's threshold pinned only to lie
+     somewhere below the smallest of them: replacing `nearzero` with `1.0e-3` passes all of
+     them. `watsat_above_nearzero` is twice `nearzero`, so it is the case that constrains
+     the threshold from above, and its expected soil saturation is exactly `0.25` because
+     `5.0e-31` and `2.0e-30` differ by a power of two. Its twin below is the case that
+     constrains the threshold from below, and it alone catches `nearzero` replaced by a bare
+     `0.0`. Name the twin in both descriptions, and say that the bracket is deliberately
+     tight: at a quarter of `nearzero` below and twice it above, the two together pin the
+     threshold to within a factor of eight, where a merely "far below" rejection case would
+     leave ten orders of magnitude of it free.
+
+  **Case table for `UpdateMossWetnessScaler`** — `hlm_moss_vcmax_fwet_thresh =
+  test_vcmax_thresh_scaler` (0.25). Each test sets `patch%fwet_moss` directly and calls the
+  routine, which is how restart and patch fusion call it.
+
+  | Test name | `fwet_moss` | → scaler |
+  |---|---|---|
+  | `UpdateMossWetnessScaler_ProxyBelowThreshold_ScalesLinearly` | 0.125 | 0.5 |
+  | `UpdateMossWetnessScaler_ProxyAtThreshold_ReachesFullCapacity` | 0.25 | 1.0 |
+  | `UpdateMossWetnessScaler_ProxyAboveThreshold_ClampedToFullCapacity` | 0.625 | 1.0 |
+
+  This step asked for three results that are mutually distinct. **They cannot be**: at and
+  above the threshold both give exactly 1, which is what the clamp is for. Ruling: keep all
+  three, and have each detailed description say what its case pins — the below case is the
+  only one whose result is not 1, and the above case is the only one that catches a dropped
+  `min`. The at case pins nothing the other two do not: `min` encodes no boundary that could
+  be inclusive or exclusive, so at a ratio of exactly 1 it returns the same value whether it
+  is there or not. Its description must say that it documents the design intent at the
+  threshold — the namelist describes it as the value "at and above which" moss performs
+  fully — and must not claim it pins an inclusive boundary.
+
+  Each of the three also asserts that `fwet_moss_soil` and `fwet_moss_canopy` still hold
+  their `setUp` markers: the routine must leave the two ingredients alone, and the restart
+  and fusion callers depend on that. It does **not** assert that `fwet_moss` is unchanged,
+  and the descriptions must not claim the trio shows the routine "writes the scaler and
+  nothing else" — a clobber of `fwet_moss` itself is caught instead by the proxy assertion
+  in every `UpdateMossFwet` case, which is read after the refresh call. Say that, and name
+  where the coverage lives, rather than adding a fourth assertion here that would owe its
+  own mutation.
+
+  **Case table for `MossCO2FilmFactor`** — `lb_params%moss_co2_film_min = test_co2_film_min`
+  (4.0e-6) except where noted. At that floor the outer crossover sits at `fwet = 0.6450`.
+
+  | Test name | `fwet_moss` | floor | → expected |
+  |---|---|---|---|
+  | `MossCO2FilmFactor_DryMoss_NoAttenuation` | 0.0 | 4.0e-6 | 1.0 |
+  | `MossCO2FilmFactor_BelowOuterFloorCrossover_PowerLawSets` | 0.375 | 4.0e-6 | 3.5527136788005009e-3 |
+  | `MossCO2FilmFactor_AboveOuterFloorCrossover_OuterFloorSets` | 0.75 | 4.0e-6 | 4.0e-6 |
+  | `MossCO2FilmFactor_FloorBelowInnerClamp_InnerClampSets` | 0.9375 | 1.0e-15 | 1.0e-12 |
+
+  Ruling on which clamp is pinned: **both**. The outer one is pinned by the second and third
+  cases, which bracket the crossover; the third asserts the floor's actual value, so a
+  hardcoded `1.0e-6` in the source fails it. The inner one cannot be pinned at any floor the
+  host would really set — that is the header's own claim — so the fourth case drops the
+  floor below `0.1**12` deliberately, which the header names as the sole regime in which the
+  inner clamp has any effect. Without it the inner `max` is dead code as far as this suite
+  knows, and its removal would pass everything.
+
+  Two notes for the implementer on that table: `0.375` rather than `0.5` in the second case,
+  because `0.5` is symmetric under `1-fwet` and would not catch that flip; and the fourth
+  case needs its own tolerance, `tol_film_inner = 1.0e-24_r8`, because the file's
+  `tol = 1.e-13_r8` is only a tenth of its expected value of `1.0e-12` — an absolute
+  tolerance that is generous slack everywhere else in the file is a relative bound of 0.1
+  here, where `1.0e-24` restores a relative bound comparable to the rest. (An earlier
+  version of this ruling said `tol` was a hundred times the expected value and would let the
+  case pass against zero; both halves were wrong — the hundredfold ratio is between `tol`
+  and the *floor* the case sets, `1.0e-15`, which the inner clamp overrides. The tolerance
+  value was right for the wrong reason.) `3.5527136788005009e-3` is
+  `0.625**12` and is exact in binary; give it as a literal with that provenance in the
+  comment rather than recomputing the power in the test.
+
+  **Naming.** Follow the local convention in `test_FireFuel.pf` —
+  `<Routine>_<Condition>_<Branch>`, CamelCase, no `test_` prefix — which already carries the
+  condition and the branch that `designing-unit-test-cases` requires.
+
+  **The binding limit is 63 characters, not 90.** The `pfunit-tests` skill documents a
+  90-character budget on the mangled global symbol `<module>_mp_<PROCEDURE>`, overflow of
+  which is only `warning #5462`. What stops the build first is Fortran's 63-character limit
+  on the bare subroutine name — `ifx error #6439`, a hard error — which bites 27 characters
+  earlier. So the budget is 63 on the test name alone. Under it,
+  `UpdateMossWetnessScaler_ProxyAboveThreshold_ClampedToFullCapacity` (65) does not compile
+  and is named `UpdateMossWetnessScaler_ProxyAboveThreshold_HeldAtFullCapacity` (62)
+  instead; every other name in both tables fits. Carry the skill correction to Task 5.
+- [x] **Step 0b (orchestrator):** This task's review round adds a **third reviewer**,
+  because `writing-tests-before-the-implementer` requires it and this task's Step 7 does
+  not satisfy it on its own. All of this task's coverage is retrofitted to code that
+  already landed, so there is no red-first evidence anywhere in it, and for that case the
+  skill splits the mutation duty: the test author mutates every assertion it lands, **and
+  a reviewer independently mutates, choosing its own mutations rather than re-running the
+  author's**. A test that catches only the mutation its author had in mind reads as
+  coverage without being coverage — and this Step 0 block prescribes most of the author's
+  mutations, which makes the point sharper here, not softer.
+
+  Mechanics, so this costs no commits and risks nothing: the mutation reviewer edits the
+  source in place and **restores by editing back** — never `git checkout`, `git restore`,
+  `git stash` or `git clean`, per the Global Constraints — and finishes by showing
+  `git status` clean and `git diff` empty in `src/fates`. The orchestrator re-checks that
+  before proceeding. It runs **alone**, after the spec-compliance and code reviewers have
+  returned, so that no other agent is reading a tree it is transiently mutating. Sam's
+  budget of seven FATES commits for this task is therefore unaffected.
+- [x] **Step 1: make `MossCO2FilmFactor` public**, with a short comment saying a unit test
   needs it and that restating its arithmetic in the test would let the two drift — the
   same justification `FatesFuelMod` already carries for `MoistureOfExtinction` and
   `max_grass_frac`. Match that wording rather than inventing a new one.
-- [ ] **Step 2: generate the test directory** and confirm all four registration points
+- [x] **Step 2: generate the test directory** and confirm all four registration points
   landed: the directory, its `CMakeLists.txt`, the `add_subdirectory` line under
   `## Unit tests` in `testing/CMakeLists.txt`, and the `[moss_fwet]` section in
   `config/unit.cfg` with `test_dir = fates_moss_fwet_utest`.
-- [ ] **Step 3: write the tests** per the Step 0 table. Set the host scalars in `setUp`,
+- [x] **Step 3: write the tests** per the Step 0 table. Set the host scalars in `setUp`,
   and reset them there too — they are module variables that persist across tests, which is
   why `test_FireFuel.pf` resets its own. Write asserts in pFUnit's `assertEqual(expected,
   actual)` order even though most existing FATES tests do the reverse.
-- [ ] **Step 4: run and prove they ran.** `./run_unit_tests.py -t moss_fwet`. The runner's
+- [x] **Step 4: run and prove they ran.** `./run_unit_tests.py -t moss_fwet`. The runner's
   `out of 1` summary is not evidence; run
   `src/fates/_build/testing/fates_moss_fwet_utest/MossFwet -v` and read its `(N tests)`
   line and the test names.
-- [ ] **Step 5: build check.** This task edits a non-test FATES source file, so run the
+- [x] **Step 5: build check.** This task edits a non-test FATES source file, so run the
   CTSM build in `test-bld-adrianna-moss-grass-pft/`. Do not pipe `qcmd -- ./case.build`
   into `tail`/`head` — the exit status becomes the pager's. Redirect to a file, echo `$?`,
   and grep for `MODEL BUILD HAS FINISHED SUCCESSFULLY`. If it fails for a git-related
   reason, do not touch git state: stop and ask Sam.
-- [ ] **Step 6: reviews, then commit the tests in `src/fates/` only.** Hold the CTSM
+- [x] **Step 6: reviews, then commit the tests in `src/fates/` only.** Hold the CTSM
   pointer bump until Step 9 — the mutation round below adds more FATES commits, and the
   pointer should land on the last of them.
-- [ ] **Step 7: mutation-check every assertion, one commit per routine.** The
+- [x] **Step 7: mutation-check every assertion, one commit per routine.** The
   implementation predates these tests, so a green first run is not evidence: an assertion
   counts only once it has been seen failing. Do one mutation/revert pair per routine under
   test — `UpdateMossFwet`, `UpdateMossWetnessScaler`, `MossCO2FilmFactor` — so three pairs.
@@ -324,11 +516,32 @@ mistake, and proving each assertion catches one.
   value a second perturbation could coincidentally restore — split that single assertion
   into its own pair rather than leaving it unproven. Record which perturbation each
   assertion caught.
-- [ ] **Step 8: close any gap the mutation round exposed.** An assertion that no mutation
+
+  **Step 0 ruling — one split is known in advance.** Every `UpdateMossFwet` case asserts
+  `moss_wetness_scaler`, which pins that `UpdateMossFwet` refreshes the scaler at all. In
+  the combined mutation that assertion is unattributable: a broken `soil_saturation` and a
+  deleted `call this%UpdateMossWetnessScaler()` both redden it. So budget a **fourth**
+  pair whose only perturbation is deleting that call. Its proof is two-sided — the scaler
+  assertions must fail while the soil, canopy and proxy assertions in the same tests all
+  still pass. That is the "one more pair" the Git choreography already allows for, taking
+  this task to nine FATES commits rather than seven.
+
+  Add to the perturbation lists the plan sketches: for `UpdateMossWetnessScaler`, drop the
+  `min` and separately replace `hlm_moss_vcmax_fwet_thresh` with a literal `0.5` (the
+  second is why the scaler trio runs at a different threshold from the `UpdateMossFwet`
+  cases); for `MossCO2FilmFactor`, drop each `max` in turn, flip `1.0_r8 - fwet_moss` to
+  `fwet_moss`, and change the exponent.
+
+  Finish with the anti-retrofit check from `writing-tests-before-the-implementer`, run
+  from the `src/fates` root so the pathspec is not silently scoped to a subdirectory:
+  `git diff <test-commit>..HEAD -- ':(top)testing/tests/unit/moss_fwet_test/'` must come
+  back empty. If Step 8 forces a test to change, that is a finding: its own commit, and
+  the reason in the hand-off.
+- [x] **Step 8: close any gap the mutation round exposed.** An assertion that no mutation
   reaches is not a test — replace it, and re-run its mutation. If a mutation the tests
   *should* catch passes even after that, stop and report: per the Process section that is
   a capability that does not work, not a note to file.
-- [ ] **Step 9: bump the CTSM submodule pointer and `.gitmodules` fxtag** in one CTSM
+- [x] **Step 9: bump the CTSM submodule pointer and `.gitmodules` fxtag** in one CTSM
   commit, then present.
 
 ---
