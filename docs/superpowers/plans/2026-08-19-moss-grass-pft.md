@@ -2293,7 +2293,7 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 ### Task 12: Final integration, science sanity, and test-suite consolidation
 
 **Files:**
-- Modify: `cime_config/testdefs/testlist_clm.xml` (fill any gaps; the full `fates_moss`
+- Modify: `cime_config/testdefs/testlist_clm.xml` (fill any gaps; the full `fates_nvp`
   category)
 - Modify: `cime_config/testdefs/ExpectedTestFails.xml` (only if genuinely needed)
 - **Delete: `cime_config/testdefs/testmods_dirs/clm/FatesMossParams/`** (Sam, 2026-08-24).
@@ -2311,7 +2311,7 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 - [ ] **Step 0 (orchestrator):** Review accumulated test coverage from Tasks 0, 5–11
   against spec §10; list gaps. Ask Sam: any additional history variables or tests
   wanted before calling the implementation complete?
-- [ ] **Step 1: consolidate the suite.** Ensure the `fates_moss` category contains the
+- [ ] **Step 1: consolidate the suite.** Ensure the `fates_nvp` category contains the
   ALP2 baselines (Task 0) and the moss SMS + ERS tests (Task 5); run the full category on
   the target machine — all PASS with fatal conservation checks.
 - [ ] **Step 2: b4b-off final sweep.** Re-run the Task 0 baseline compare and (if the

@@ -15,9 +15,9 @@
 !     hist_fincl1 += 'FATES_SOME_MOSS_VARIABLE'
 ! A plain `hist_fincl1 = ...` would REPLACE, not extend. CIME applies testmods in order and
 ! later ones win (cime/CIME/user_mod_support.py), and the nocomp test composes this testmod
-! after clm/Fates, which sets hist_empty_htapes plus the ~23-variable FATES list. Assigning
-! here would silently wipe FATES_FUEL_AMOUNT, FATES_BURNFRAC and the rest -- on the only
-! test that runs SPITFIRE. It would look harmless on the SP tests, which do not include
+! after clm/Fates, which sets hist_empty_htapes plus the 71-variable FATES list. Assigning
+! here would silently wipe FATES_FUEL_AMOUNT, FATES_BURNFRAC and the rest -- on the only two
+! tests that run SPITFIRE. It would look harmless on the SP tests, which do not include
 ! clm/Fates.
 
 use_fates_moss = .true.
@@ -30,3 +30,51 @@ hist_fincl1 += 'FATES_MOSS_FWET_SOIL'
 hist_fincl1 += 'FATES_MOSS_FWET_CANOPY'
 hist_fincl1 += 'FATES_MOSS_WETNESS_SCALER'
 hist_fincl1 += 'FATES_MOSS_HEIGHT'
+
+! Existing FATES per-PFT and per-fuel-class diagnostics that the moss science
+! checks need read out for the moss PFT and for fuel classes 7 (live moss) and 8 (dead
+! moss). They are not moss-specific variables, which is why they are not covered by the
+! block above.
+!
+! They are requested here because the two SPITFIRE-enabled tests -- the I2000Clm60Fates
+! nocomp entries, the only ones where fire runs at all -- set hist_empty_htapes via
+! clm/Fates, and clm/Fates's hist_fincl1 lists none of these. Without these lines those
+! two tests emit nothing usable for moss fuel loading, moss fuel moisture, moss GPP or
+! moss mortality.
+!
+! FATES_LEAFC_PF and FATES_CROWNAREA_PF are here for the moss leaf-biomass allometry:
+! leaf carbon per m2 land area, and the crown area that converts it to per m2 crown
+! area.
+!
+! On the FATES-SP tests these come back as zeros -- the fire ones because SP mode cannot
+! run SPITFIRE (build-namelist makes fates_spitfire_mode > 0 fatal under use_fates_sp),
+! the mortality ones because SP bypasses the demographic paths. hist_fincl1 wins over
+! hist_fexcl1, so the fire entries appear on the SP tapes despite fates_sp excluding
+! them. Zeros there are the correct reading, not a defect.
+!
+! FATES_NOCOMP_PATCHAREA_PF is registered only when nocomp is on (nocomp_if in
+! FatesHistoryInterfaceMod). Every test composing this testmod today has nocomp on -- SP
+! forces it, and the fire tests compose FatesColdNoCompFixedBioGeo. If this testmod is
+! ever composed with full competition, drop that line: naming an unregistered field in
+! hist_fincl1 is a hard endrun, not a warning.
+
+hist_fincl1 += 'FATES_FUEL_MOISTURE_FC'
+hist_fincl1 += 'FATES_FUEL_AMOUNT_FC'
+hist_fincl1 += 'FATES_FUEL_BURNT_BURNFRAC_FC'
+hist_fincl1 += 'FATES_GPP_PF'
+hist_fincl1 += 'FATES_LEAFC_PF'
+hist_fincl1 += 'FATES_CROWNAREA_PF'
+hist_fincl1 += 'FATES_NOCOMP_PATCHAREA_PF'
+hist_fincl1 += 'FATES_MORTALITY_HYDRAULIC_PF'
+hist_fincl1 += 'FATES_MORTALITY_TERMINATION_PF'
+
+! Moss leaf and stem area index. Each is the per-PFT sum of ccohort%treelai (resp.
+! ccohort%treesai) times ccohort%c_area*AREA_INV over every cohort of the PFT, in
+! every canopy layer and size class.
+!
+! Note the normalization: these are per m2 LAND area. Dividing FATES_LAI_PF by
+! FATES_CROWNAREA_PF recovers ccohort%treelai itself, per m2 CROWN area, which is the
+! quantity the moss leaf-biomass allometry is reasoned about in.
+
+hist_fincl1 += 'FATES_LAI_PF'
+hist_fincl1 += 'FATES_SAI_PF'
