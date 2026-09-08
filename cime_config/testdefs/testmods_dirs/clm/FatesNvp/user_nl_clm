@@ -78,3 +78,37 @@ hist_fincl1 += 'FATES_MORTALITY_TERMINATION_PF'
 
 hist_fincl1 += 'FATES_LAI_PF'
 hist_fincl1 += 'FATES_SAI_PF'
+
+! Instrumentation for the moss-extinction diagnosis: in the ALP2 nocomp run the moss
+! cohort is culled while still holding a large fraction of its peak leaf carbon, and
+! nothing recruits behind it. These read out, per PFT, the moss carbon pools, the
+! productivity feeding them, every mortality term that could remove the cohort, and the
+! whole seed/seedling/recruitment chain that would replace it. FATES_ELONG_FACTOR_PF is
+! here in case partial abscission, rather than mortality, is what empties the leaves.
+!
+! Every name below is registered unconditionally inside the hlm_hist_level_dynam > 1
+! block of FatesHistoryInterfaceMod (if_dyn1), which the default
+! fates_history_dimlevel = 2,2 satisfies and which no testmod composed with this one
+! overrides. Several are registered use_default='inactive'; that does not matter here,
+! because hist_fincl1 activates them.
+!
+! FATES_MORTALITY_CSTARV_PF is the per-PFT sum of FATES_MORTALITY_CSTARV_SZPF, so it
+! includes termination-by-C-starvation. FATES_MORTALITY_TERMINATION_PF, requested above,
+! deliberately excludes that same term, so the two do not double-count.
+
+hist_fincl1 += 'FATES_NPLANT_PF'
+hist_fincl1 += 'FATES_STOREC_PF'
+hist_fincl1 += 'FATES_VEGC_PF'
+hist_fincl1 += 'FATES_NPP_PF'
+hist_fincl1 += 'FATES_MORTALITY_CSTARV_CFLUX_PF'
+hist_fincl1 += 'FATES_MORT_CSTARV_CONT_CFLUX_PF'
+hist_fincl1 += 'FATES_MORTALITY_CSTARV_PF'
+hist_fincl1 += 'FATES_MORTALITY_PF'
+hist_fincl1 += 'FATES_MORTALITY_CFLUX_PF'
+hist_fincl1 += 'FATES_SEED_BANK_PF'
+hist_fincl1 += 'FATES_SEEDS_IN_PF'
+hist_fincl1 += 'FATES_SEEDLING_POOL_PF'
+hist_fincl1 += 'FATES_UNGERM_SEED_BANK_PF'
+hist_fincl1 += 'FATES_RECRUITMENT_PF'
+hist_fincl1 += 'FATES_RECRUITMENT_CFLUX_PF'
+hist_fincl1 += 'FATES_ELONG_FACTOR_PF'
