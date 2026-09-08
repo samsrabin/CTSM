@@ -2303,6 +2303,11 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 - **Delete: `make_moss_pft4_fsurdat.py`** at the CTSM repo root (Sam, 2026-08-24) — a
   project-local helper that must not go upstream. The fsurdats it generated live in
   `$INPUTDATA` and are unaffected.
+- **Delete: `verify_moss_history.py`** at the CTSM repo root (Sam, 2026-09-07) — same
+  reason. It checks a moss run's history against the verify steps of Tasks 6–10b and
+  Task 12 Step 3, so it is useful for as long as this branch is being developed and
+  has no place upstream. Anything it establishes that should outlive the branch has to
+  be written down before it goes.
 
 **Interfaces:**
 - Consumes: everything.
@@ -2327,7 +2332,44 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   surface-concentrated rooting profile makes its `btran_ft` a top-soil index, so moss
   crosses `hf_sm_threshold` and takes hydraulic-failure mortality
   (`EDMortalityFunctionsMod.F90:193`) whenever the top layer dries. Watch
-  `FATES_MORTALITY_HYDRAULIC_SZPF` for the moss PFT and judge whether the rate is credible.
+  `FATES_MORTALITY_HYDRAULIC_PF` for the moss PFT and judge whether the rate is credible.
+
+  **Established 2026-09-07, from the first suite run to carry the moss diagnostics**
+  (`fates_nvp` at CTSM `e3f12fa18`; checked with `verify_moss_history.py`). Read this
+  before spending time on the questions above, because it changes several of them:
+
+  - **Moss goes extinct, and it is removed rather than starved out.** In the 2-year
+    nocomp run, moss `FATES_LEAFC_PF` peaks on day 1 and falls on all 400 day-to-day
+    steps it exists for — zero rises — at a median of 3.9e-11 kg m-2 per day. But it
+    does not decay to zero: on day 401 it still holds **44.2% of its peak biomass**,
+    and on day 402 (2001-02-07) it is exactly 0, a single step 324x the median, with
+    `FATES_NCOHORTS` stepping 2 to 1 the same day. That is a discontinuous cohort
+    removal at a substantial standing biomass, not the arrival of a decay tail, and it
+    is the sharpest clue in this finding. **Nothing recruits it back**: the moss patch
+    keeps its prescribed 0.5 area with no plants in it for the remaining year.
+    Identical under intel and gnu, so there is no compiler dependence to chase.
+  - **It never grew at all.** `FATES_MOSS_HEIGHT` is exactly 0.02 m — the recruit
+    height — on every day moss exists, and `FATES_LAI_PF/FATES_CROWNAREA_PF` never
+    exceeds 0.0065, which Step 3d derives as the value at *recruit* size. Moss crown
+    area peaks at 1.2e-4 m2 m-2, 0.024% of the patch it owns. Grass in the same run
+    grows 6.8x over the same period, so this is moss-specific rather than the site or
+    the forcing.
+  - **Nothing on the tape records the death.** `FATES_MORTALITY_TERMINATION_PF` is
+    identically zero for every PFT on every day, day 402 included, and the hydraulic
+    mortality that does fire (19 days) is nowhere near it. Whatever removes the cohort
+    is not reaching a mortality diagnostic.
+  - **No fire occurred.** `FATES_BURNFRAC` is zero on every day, so every burn-side
+    diagnostic in this run is structurally zero and says nothing about the moss burn
+    path. The perturbed-coefficient comparison this step asks for has nothing to
+    measure until moss fuel can carry fire; patch-level live-moss effective moisture
+    is at or above extinction on 100% of days.
+  - **The GPP-versus-`FATES_MOSS_FWET` shape is seasonal, not the wetness hump Step 3b
+    describes.** Moss GPP is nonzero only on days 190-360, which is when the soil is
+    driest, so the apparent peak in the lowest `fwet` decile is confounded by season.
+    The productive window *is* visited (46.7% of days) and yields nothing, because
+    there is almost no moss present to photosynthesize.
+
+  Diagnosing the extinction is **Step 3e**, and it gates Steps 3b, 3c and 3d.
 - [ ] **Step 3a: give moss photosynthesis a sub-daily wetness signal (carried forward from
   Task 10, 2026-09-01).** As shipped by Task 10, moss GPP is **constant across the diurnal
   cycle**, which is a science defect to fix, not a limitation to accept. The cause is that
@@ -2434,6 +2476,56 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   wide, so at LAI 0.61 moss occupies a single leaf layer and the clumping index of 10 has
   nothing to redistribute — raise moss LAI past 1.0 and the concave-light-response penalty
   that step describes switches on.
+- [ ] **Step 3e: diagnose why moss goes extinct (2026-09-07).** Step 3 established that
+  the moss cohort declines monotonically from cold start and is gone by day 402 with no
+  recruitment behind it. Find out why, and fix it. This is the central science question
+  the branch now faces: a moss PFT that cannot hold the patch it is given does not have a
+  fuel-loading or fuel-moisture problem yet.
+
+  **Ordering is load-bearing: this runs before Steps 3b, 3c and 3d.** Each of those tunes
+  a parameter against diagnosed moss — the wetness window against moss GPP, height against
+  `FATES_MOSS_HEIGHT`, leaf allometry against moss LAI. Run them first and every number
+  they read comes from a single recruit-size cohort that is starving, or from days when no
+  moss exists at all, so they would be tuned against an artifact and the tuning would have
+  to be redone once establishment works. Step 3a (the sub-daily wetness signal) is
+  independent and may run in either order.
+
+  A standalone handoff brief for this step, with the tape numbers, the code citations, the
+  per-PFT diagnostics to add and how to build a case that restarts just before the cull,
+  is at `docs/superpowers/briefs/2026-09-08-moss-extinction-diagnosis.md`.
+
+  Places to look, most diagnostic first:
+  - **What actually removes the cohort — narrowed to carbon-starvation termination
+    (2026-09-08).** `FATES_MORTALITY_TERMINATION_PF` reading zero on day 402 is not
+    evidence that no termination happened: `FATES_MORTALITY_TERMINATION_SZPF`, which
+    the `_PF` variant sums, is accumulated from `i_term_mort_type_canlev` upward
+    (`FatesHistoryInterfaceMod.F90:4374-4377`) and so excludes
+    `i_term_mort_type_cstarv = 1` (`FatesConstantsMod.F90:379-381`), as its own long
+    name says. The two types it does cover are exactly zero, and
+    `FATES_MORTALITY_CFLUX_CANOPY` spikes on day 402 by the whole cohort's carbon,
+    from a path only `terminate_cohort` writes
+    (`EDCohortDynamicsMod.F90:468`). So the cohort went through `terminate_cohorts`
+    level 2 on one of the two absolute per-plant carbon thresholds at
+    `EDCohortDynamicsMod.F90:367-375`. Confirm which — `FATES_MORTALITY_CSTARV_CFLUX_PF`
+    minus `FATES_MORT_CSTARV_CONT_CFLUX_PF` isolates the event per PFT — and hold open
+    that a 1e-10 kg threshold chosen for trees may simply be too large for a moss
+    individual, which would make the fix size-relative rather than about growth.
+  - **Recruitment.** Nothing replaces the cohort after day 402, which is the more
+    diagnostic half of the finding — a starving cohort that is continuously replaced looks
+    very different from one that is not replaced at all. Spec §3's reproduction fix (drop
+    the dbh reproduction threshold to ~0 so moss sits on the mature branch and collects
+    `seed_alloc_mature`) is the thing to confirm is actually firing: check
+    `FATES_SEED_BANK_PF`, `FATES_SEEDS_IN_PF` and `FATES_RECRUITMENT_PF` for the moss PFT.
+    If the seed bank is empty, the fix did not take; if it is full and nothing germinates,
+    the germination or establishment gate is the problem.
+  - **Carbon balance.** Whether moss is net-negative from day 1, and if so which term
+    dominates — the leaf maintenance respiration that Task 10 chose to scale by the
+    wetness scaler (spec §5, a deliberate divergence from the NVP branch) is a candidate,
+    as is growth respiration against near-zero GPP.
+
+  Diagnosing this was out of scope for the session that found it (Sam, 2026-09-07), not
+  out of scope for the plan.
+
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
   source. They now sit at intercept 0, slope 0.7 for **both** classes, chosen for simplicity
