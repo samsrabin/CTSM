@@ -2582,11 +2582,11 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   site conductance move first. Moss changes are not b4b-isolable for grass in this
   configuration, so a grass difference is not by itself evidence of a leak.
 
-- [ ] **Step 3f: put moss's rooting profile in the top soil layer, with optional moss
-  dormancy (Sam, 2026-09-08).** Two things, in one step because the second exists to make
-  the first safe: get moss's soil-water uptake genuinely into layer 1 — exactly 1.0 there
-  and 0.0 below — and add dormancy so moss is not killed by hydraulic-failure mortality
-  when that layer dries. Make the dormancy optional on the CTSM namelist, default on.
+- [ ] **Step 3f: put moss's rooting profile in the top soil layer, and switch off moss's
+  hydraulic-failure mortality (Sam, 2026-09-08).** Two things, in that order because the
+  second exists to make the first safe: get moss's soil-water uptake genuinely into layer 1
+  — exactly 1.0 there and 0.0 below — and stop moss being killed by hydraulic-failure
+  mortality when that layer dries.
 
   Spec §3 says moss's uptake is already concentrated at the surface. It is not: moss
   carries `fates_allom_fnrt_prof_mode = 3` with `fates_allom_fnrt_prof_a` raised from
@@ -2595,23 +2595,31 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   0.5 m e-folding depth: only 24.5% of moss uptake sits in the top 2 cm, and below 0.5 m
   moss and grass are numerically indistinguishable. Raising `a` alone cannot fix it.
 
-  Dormancy is needed because moss is evergreen and so never qualifies for FATES's existing
-  deciduous-dormant exemption from hydraulic-failure mortality. Concentrating uptake in a
-  2 cm layer does **not** risk a water-balance failure — an earlier version of this step
-  claimed it did, and the brief records why that was wrong — but it does make every warm
-  dry spell a 0.6/yr mortality event, which is enough to undo Step 3e. Freezing is already
-  exempt and needs no new machinery, so dormancy is for one case only: layer 1 desiccated
-  while thawed.
+  The mortality half is needed because moss is evergreen and so never qualifies for FATES's
+  existing deciduous-dormant exemption. Concentrating uptake in a 2 cm layer does **not**
+  risk a water-balance failure — an earlier version of this step claimed it did, and the
+  brief records why that was wrong — but it does make every warm dry spell a 0.6/yr
+  mortality event, which is enough to undo Step 3e. **Sam, 2026-09-08: this is done by
+  zeroing moss's `fates_mort_scalar_hydrfailure`, not by building a dormancy state.** For
+  moss, btran feeds only soil-water extraction and `hmort` — `fates_leaf_agross_btran_model
+  = 0` keeps it out of moss capacity entirely — so the non-hydro hydraulic-failure proxy is
+  a vascular mechanism with no moss counterpart, and once uptake is in layer 1 a dormancy
+  flag triggered on "layer 1 desiccated while thawed" would be true on exactly the days
+  `hmort` fires. There is no `fates_moss_dormancy` namelist variable, no new Fortran state
+  and no restart field. A genuine quiescent state would have to key on `fwet_moss`, which is
+  Step 3b's knob; the sub-plan records why.
 
   **Ordering is load-bearing: this runs before Step 3b, for the same reason Step 3e did.**
   3b tunes the wetness window against the distribution of `FATES_MOSS_FWET`, and this step
   changes which soil layer moss draws from and therefore that distribution. Run 3b first
   and its tuning is against a wetness signal this step then moves.
 
-  A standalone handoff brief for this step — the code citations, the trap that makes the
-  obvious steep-exponential approach silently useless, what dormancy does and does not need
-  to do, the restart question, the case to run and what the run can and cannot establish —
-  is at `docs/superpowers/briefs/2026-09-08-moss-top-layer-roots-and-dormancy.md`.
+  This step has its own implementation plan, two tasks with a review gate between them, at
+  `docs/superpowers/plans/2026-09-08-moss-top-layer-roots.md`. The handoff brief it grew
+  from — code citations, the trap that makes the obvious steep-exponential approach
+  silently useless, the case to run and what the run can and cannot establish — is at
+  `docs/superpowers/briefs/2026-09-08-moss-top-layer-roots-and-dormancy.md`; its dormancy
+  section is superseded by the sub-plan, which also cuts two of its claims as false.
 
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
