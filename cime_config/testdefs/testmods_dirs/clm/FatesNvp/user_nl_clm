@@ -78,3 +78,21 @@ hist_fincl1 += 'FATES_MORTALITY_TERMINATION_PF'
 
 hist_fincl1 += 'FATES_LAI_PF'
 hist_fincl1 += 'FATES_SAI_PF'
+
+! RAIN is a CLM field rather than a FATES one, and the only non-FATES variable this
+! testmod asks for. It is here because the moss wetness proxy's canopy ingredient is
+! CTSM's fwet_veg, which exists only because rain was intercepted by the canopy: whether
+! that ingredient is event-driven, and whether its events are rain events, cannot be
+! asked at all unless the forcing that drives it is on the same tape.
+!
+! 'RAIN' and not 'RAIN_FROM_ATM': RAIN is forc_rain_downscaled_col, the rain remaining
+! after rain/snow repartitioning by temperature (biogeophys/Wateratm2lndType.F90:184),
+! which is what actually reaches the canopy. RAIN_FROM_ATM is the pre-repartitioning
+! flux, and at an arctic site the difference between the two is most of the year.
+!
+! RAIN is registered active by default, so this line changes nothing on the FATES-SP
+! tests, which do not compose clm/Fates and so carry the full default CLM field list
+! already. It is the I2000Clm60Fates nocomp entries that need it: clm/Fates sets
+! hist_empty_htapes there, which drops every default CLM field including this one.
+
+hist_fincl1 += 'RAIN'
