@@ -2583,122 +2583,35 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   configuration, so a grass difference is not by itself evidence of a leak.
 
 - [ ] **Step 3f: put moss's rooting profile in the top soil layer, with optional moss
-  dormancy (Sam, 2026-09-08).** Spec §3 says moss's uptake profile is concentrated at the
-  surface. It is not. Moss carries `fates_allom_fnrt_prof_mode = 3` with
-  `fates_allom_fnrt_prof_a` raised from grass's 11.0 to 30.0, while
-  `fates_allom_fnrt_prof_b` was left at the grass value of 2.0. Mode 3
-  (`exponential_2p_root_profile`, `FatesAllometryMod.F90:2860-2911`) is a half-and-half sum
-  of two exponentials, so the `b` limb carries exactly half the profile with an e-folding
-  depth of 0.5 m: 24.5% of moss uptake sits in the top 2 cm, and below 0.5 m moss and grass
-  are numerically indistinguishable. **Raising `a` alone cannot fix this** — with `b = 2.0`
-  held, no value of `a` puts more than 52% in the top 2 cm.
+  dormancy (Sam, 2026-09-08).** Two things, in one step because the second exists to make
+  the first safe: get moss's soil-water uptake genuinely into layer 1 — exactly 1.0 there
+  and 0.0 below — and add dormancy so moss is not killed by hydraulic-failure mortality
+  when that layer dries. Make the dormancy optional on the CTSM namelist, default on.
 
-  **Do not do this by making the exponentials steep.** That is the obvious cheap route and
-  it silently defeats the step. `set_root_fraction` normalizes, then forces the sum to
-  exactly 1 by adding the residual to the largest layer (`FatesAllometryMod.F90:2849-2851`),
-  so a profile with large `a` *and* large `b` still leaves order 1e-14 in the deep layers.
-  That normalizes to a valid profile and keeps `btran_ft(moss) > 0` whenever *any* layer has
-  liquid water above the frozen threshold — so moss goes on drinking from a metre down
-  whenever its own layer is unavailable, which is the behaviour this step exists to remove.
-  Getting moss's uptake genuinely into layer 1 means exactly 1.0 there and exactly 0.0
-  elsewhere, which needs a new `fnrt_prof_mode`, not new coefficients for mode 3. The NVP
-  branch's mode 4 is the wrong thing to copy: that is no-roots, this is all-in-first-layer.
+  Spec §3 says moss's uptake is already concentrated at the surface. It is not: moss
+  carries `fates_allom_fnrt_prof_mode = 3` with `fates_allom_fnrt_prof_a` raised from
+  grass's 11.0 to 30.0, but `fates_allom_fnrt_prof_b` left at the grass value of 2.0. That
+  mode sums two exponentials half and half, so the `b` limb keeps half the profile at a
+  0.5 m e-folding depth: only 24.5% of moss uptake sits in the top 2 cm, and below 0.5 m
+  moss and grass are numerically indistinguishable. Raising `a` alone cannot fix it.
 
-  **What the first version of this step got wrong, recorded so it is not resurrected.** It
-  claimed the live risk was a fatal CTSM water-balance error from unallocated transpiration
-  demand, on the grounds that moss's conductance is floored at `gsmin0` and so never stops
-  transpiring. The demand half of that is wrong. CTSM gates transpiration on btran —
-  `if (efpot > 0._r8 .and. btran(p) > btran0)` with `btran0 = 0.0`, else
-  `qflx_tran_veg(p) = 0._r8` (`CanopyFluxesMod.F90:279, 1233, 1358`) — and under nocomp
-  fixed biogeography a moss patch's `btran_pa` *is* `btran_ft(moss)` bit-exactly, because
-  recruitment restricts each patch to its label PFT (`EDPhysiologyMod.F90:2546`). The
-  condition that produces an all-zero uptake profile therefore also produces
-  `btran_pa == 0`, and CTSM contributes nothing to `rootr_col` or `qflx_tran_veg_col`. The
-  floored conductance is real but inert: moss's demand is order 1e-7 mm per timestep even
-  when btran is positive, against `error_thresh = 1e-5` mm (`BalanceCheckMod.F90:65`).
-
-  One genuine threshold mismatch survives, benign for moss but worth knowing: FATES zeroes
-  `root_resis` at `btran_ft <= nearzero = 1e-30` (`EDBtranMod.F90:182`) while CTSM's gate is
-  `btran(p) > 0.0`, leaving a window with an all-zero profile and nonzero demand. At moss's
-  conductance that demand is still two orders below the threshold.
-
-  **The real risk is hydraulic-failure mortality — and only in the dry-but-thawed case.**
-  `hmort` fires only when three conditions hold together
-  (`EDMortalityFunctionsMod.F90:192-195`): the cohort is not deciduous-dormant, `btran_ft`
-  is at or below `hf_sm_threshold`, and the soil layers holding the first 75% of root
-  biomass are all warmer than `soil_tfrz_thresh`. Moss fails the first exemption
-  permanently, because `is_decid_dormant` requires a deciduous habit and moss is
-  `fates_phen_leaf_habit = 1`. With `fates_mort_hf_sm_threshold = 1e-06` and
-  `fates_mort_scalar_hydrfailure = 0.6`, a btran at zero on thawed soil buys the full
-  0.6/yr — enough to undo Step 3e's fix. `FATES_MORTALITY_HYDRAULIC_PF` was already nonzero
-  on 19 of moss's 401 days in the pre-3e reference run.
-
-  **The frozen case is already handled, so do not build for it.** That third clause is
-  exactly the frozen-soil exemption, and `soil_tfrz_thresh`'s own declaration comment says
-  so: "Soil temperature threshold below which hydraulic failure mortality is off (non-hydro
-  only)" (`EDParamsMod.F90:74`). Better still, this step improves it: `get_thaw_layer_index`
-  (`EDMortalityFunctionsMod.F90:412-451`) walks the root profile to the layer holding 75% of
-  root biomass, so moss is currently exempt only when everything down to roughly 0.4 m is at
-  or below -2 degC, whereas with the profile in layer 1 the exemption becomes precisely
-  "layer 1 is frozen" — the right physics, arrived at for free.
-
-  **So dormancy exists for one case: layer 1 desiccated while thawed.** Scope it that
-  narrowly. It does **not** need to zero transpiration, because the btran gate above already
-  does. It does **not** need to suppress respiration: leaf maintenance respiration is
-  already scaled by `moss_wetness_scaler`, which is zero at fwet = 0, and fine-root
-  maintenance respiration went to zero with Step 3e's `fates_allom_l2fr = 0`. Verify both of
-  those rather than assuming them, and say so in the review — but resist adding machinery
-  for either.
-
-  **Make it optional on the CTSM namelist, default on (Sam, 2026-09-08).** Per Global
-  Constraints a scalar switch goes in `clm_inparm` and through `set_fates_ctrlparms` as an
-  `hlm_*` variable, never on the FATES parameter file, following the naming of the moss
-  switches already there (`hlm_moss_scale_resp_by_fwet`, `hlm_moss_vcmax_fwet_thresh`).
-  Default `.true.`; the off setting exists so the review can measure what dormancy buys.
-
-  **Trap in defining the trigger.** `check_layer_water` is the natural predicate and is
-  `public` (`EDBtranMod.F90:36-57`), testing `h2o_liq_vol > 0` and
-  `tempk > soil_tfrz_thresh + tfrz`. But **its arguments mean different things depending on
-  when it is called.** The daily dynamics sequence fills `bc_in%h2o_liqvol_sl` with
-  `h2osoi_vol_col`, which is *total* water including ice
-  (`clmfates_interfaceMod.F90:1251-1257`); only the sub-daily `wrap_btran` fills it with
-  liquid only (`:2574-2575`). A dormancy flag set in the daily sequence from this predicate
-  therefore degenerates to a pure temperature test and misses the desiccated case — which is
-  the only case dormancy is for. Also note `soil_tfrz_thresh = -2.0` is a hard-coded Fortran
-  `parameter` (`EDParamsMod.F90:74`), not per-PFT and not on any input file, so a
-  moss-specific threshold would be a code change; say why if one is wanted.
-
-  **Restart.** Whether the flag needs a restart field turns on whether it is consumed before
-  it is computed within a timestep: derived freshly from `bc_in` and consumed downstream in
-  the same call, none is needed; set daily and consumed sub-daily, one is; any hysteresis or
-  running memory needs one unconditionally, plus a patch-fusion rule. The branch already has
-  the pattern — `fates_fwet_moss` is a restart field while `moss_wetness_scaler` deliberately
-  is not, being recomputed on restart read, and `FatesPatchMod.F90:944-977` explains why all
-  three call sites are needed.
-
-  **Run the experiment even though it cannot settle the question (Sam, 2026-09-08).** With
-  moss's uptake genuinely at 1.0 in layer 1, run 730 days at ALP2 and see whether the
-  all-zero-profile path is reached at all and whether the water balance complains. **A clean
-  run is not evidence that the path is safe** — one site over two years does not bound the
-  behaviour, and the first version of this step shows how readily a code reading of this area
-  goes wrong in either direction. What the run buys is knowing whether this configuration
-  exercises the path at all, which decides whether dormancy can be tested here or needs a
-  contrived case.
+  Dormancy is needed because moss is evergreen and so never qualifies for FATES's existing
+  deciduous-dormant exemption from hydraulic-failure mortality. Concentrating uptake in a
+  2 cm layer does **not** risk a water-balance failure — an earlier version of this step
+  claimed it did, and the brief records why that was wrong — but it does make every warm
+  dry spell a 0.6/yr mortality event, which is enough to undo Step 3e. Freezing is already
+  exempt and needs no new machinery, so dormancy is for one case only: layer 1 desiccated
+  while thawed.
 
   **Ordering is load-bearing: this runs before Step 3b, for the same reason Step 3e did.**
   3b tunes the wetness window against the distribution of `FATES_MOSS_FWET`, and this step
-  changes which soil layer moss draws from and therefore that distribution. Run 3b first and
-  its tuning is against a wetness signal this step then moves.
+  changes which soil layer moss draws from and therefore that distribution. Run 3b first
+  and its tuning is against a wetness signal this step then moves.
 
-  Expect one coupled consequence and report it: concentrating withdrawal in the top 2 cm
-  dries the layer that sets `FATES_MOSS_FWET_SOIL` (`FatesPatchMod.F90:925-931`), and because
-  the moss CO2 film factor wants *low* fwet, that should raise moss GPP — a useful
-  interaction with 3b rather than a problem.
-
-  The Step 3e case is reusable as-is: `/glade/derecho/scratch/samrabin/mosscull`, 730 days
-  from cold start in about 17 minutes, with the `l2fr = 0` run as the comparison baseline.
-  Moss changes are **not** isolable from grass here (see Step 3e's outcome), so a grass
-  difference is not by itself a bug.
+  A standalone handoff brief for this step — the code citations, the trap that makes the
+  obvious steep-exponential approach silently useless, what dormancy does and does not need
+  to do, the restart question, the case to run and what the run can and cannot establish —
+  is at `docs/superpowers/briefs/2026-09-08-moss-top-layer-roots-and-dormancy.md`.
 
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
