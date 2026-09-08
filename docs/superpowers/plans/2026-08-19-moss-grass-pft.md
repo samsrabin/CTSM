@@ -2476,7 +2476,7 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   wide, so at LAI 0.61 moss occupies a single leaf layer and the clumping index of 10 has
   nothing to redistribute — raise moss LAI past 1.0 and the concave-light-response penalty
   that step describes switches on.
-- [ ] **Step 3e: diagnose why moss goes extinct (2026-09-07).** Step 3 established that
+- [x] **Step 3e: diagnose why moss goes extinct — COMPLETE (2026-09-08).** Step 3 established that
   the moss cohort declines monotonically from cold start and is gone by day 402 with no
   recruitment behind it. Find out why, and fix it. This is the central science question
   the branch now faces: a moss PFT that cannot hold the patch it is given does not have a
@@ -2525,6 +2525,109 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 
   Diagnosing this was out of scope for the session that found it (Sam, 2026-09-07), not
   out of scope for the plan.
+
+  **OUTCOME (2026-09-08). Route confirmed, cause found, fixed.** The cohort was removed by
+  termination-by-C-starvation through the `store_c < 1e-10_r8` disjunct at
+  `EDCohortDynamicsMod.F90:368`. A new per-PFT diagnostic settles it:
+  `FATES_MORTALITY_CSTARV_PF` spikes to 49.89 m-2 yr-1 on day 402 — the whole cohort in one
+  step — while `FATES_MORTALITY_TERMINATION_PF` stays zero, as its "excluding
+  C-starvation" long name requires.
+
+  **The "1e-10 kg is too large for a moss individual" hypothesis is dead, not merely
+  unproven.** Moss per-plant live biomass at the cull was ~1.7e-7 kgC, 1700x the threshold,
+  and its recruit live biomass is 2500x it. More decisively,
+  `PRTAllometricCarbonMod.F90:564-596` drives `store_c` to *exactly* 0.0 in one step once
+  it can no longer fund the prioritized replacement of turnover, so any strictly positive
+  threshold — absolute or size-relative — fires on the same day. A size-relative criterion
+  would not have saved this cohort.
+
+  **The cause was maintenance respiration on fictitious fine roots.** For a non-woody PFT
+  `resp_m_tstep = froot_mr + rdark` (`FatesPlantRespPhotosynthMod.F90:1129-1132`), and
+  `rdark` is largely cancelled by GPP on days with exposed leaf, so `froot_mr` — charged
+  every day of the year — was essentially the whole daily deficit. **Fix:**
+  `fates_allom_l2fr = 0` for the moss column (FATES `522ec26b5`, outer `b3298d1e8`), which
+  removes the fine-root turnover-replacement demand along with the respiration. Moss now
+  survives 730 days with no cull, and its NPP is *exactly* zero on all 402 zero-GPP days:
+  with no fine roots and `fates_woody = 0` there is no maintenance respiration left to pay
+  while leaves are unexposed. The winter bleed did not shrink, it vanished. Spec §3 amended
+  2026-09-08; the availability of `l2fr = 0` was verified first, and the water pathway is
+  untouched because the root profile is built from the profile mode and stomatal
+  conductance, never from root biomass.
+
+  **Residual, and Sam's call.** Moss no longer dies but is still in slow decline: crown
+  area falls from 0.024% to 0.018% of its 0.5 patch over two years, storage ends at 36% of
+  its day-1 value, and chronic mild C-starvation mortality on 599 of 730 days erodes 25% of
+  plant density. Moss also produces no seed at all — its best day yields ~5e-10 kgC/plant
+  against the `calloc_abs_error = 1e-9` gate on reproductive allocation
+  (`PRTAllometricCarbonMod.F90:718`), short by roughly a factor of two. **Sam, 2026-09-08:
+  "no longer culled" in a two-year run is this step's deliverable and is met; the residual
+  decline goes to Step 3b**, whose CO2-film / wetness-window question is what still pins
+  moss GPP. Spec §3's `dbh_repro_threshold = 0.001` override is correct but not yet
+  observable — recorded and left, not chased.
+
+  **Three facts in the 2026-09-08 handoff brief are wrong, and are corrected here.** Site
+  `FATES_NPP` is not negative every day — it is positive on 182 of 730; what is negative
+  every day is `FATES_NEP`, driven by heterotrophic respiration integrating to 236x total
+  GPP, i.e. cold-start soil rather than vegetation. `FATES_SEED_BANK` is not identically
+  zero — it is zero for 610 days, then grass seeds and recruits nine cohorts, which
+  reconciles with grass collecting `seed_alloc_mature` only above its 3 cm
+  `dbh_repro_threshold`. And `FATES_NCOHORTS` does not stay at 1 after the cull; it reaches
+  9. Relatedly, grass is **not** a healthy control on this tape: it is 100-200x short of a
+  closed alpine sward on annual GPP, peak LAI and peak leaf carbon, and is still
+  establishing at day 730.
+
+  **The two nocomp patches are hydrologically coupled.** A moss-column-only parameter
+  change moved grass from day 61 onward through the shared CTSM soil column — moss
+  quantities move on day 1, no grass quantity until day 61, and `FATES_MOSS_FWET_SOIL` and
+  site conductance move first. Moss changes are not b4b-isolable for grass in this
+  configuration, so a grass difference is not by itself evidence of a leak.
+
+- [ ] **Step 3f: put moss's rooting profile in the top soil layer (Sam, 2026-09-08).**
+  Spec §3 says moss's uptake profile is concentrated at the surface. It is not. Moss
+  carries `fates_allom_fnrt_prof_mode = 3` with `fates_allom_fnrt_prof_a` raised from
+  grass's 11.0 to 30.0, while `fates_allom_fnrt_prof_b` was left at the grass value of 2.0.
+  Mode 3 (`exponential_2p_root_profile`, `FatesAllometryMod.F90:2896-2900`) is a
+  half-and-half sum of two exponentials, so the `b` limb carries exactly half the profile
+  with an e-folding depth of 0.5 m: 24.5% of moss uptake sits in the top 2 cm, and below
+  0.5 m moss and grass are numerically indistinguishable. **Raising `a` alone cannot fix
+  this** — with `b = 2.0` held, no value of `a` puts more than 52% in the top 2 cm. Both
+  parameters have to rise.
+
+  **Verify the freeze/dry case first, and treat a negative result as a stop rather than a
+  caveat.** `EDBtranMod.F90:157` gates every layer on
+  `check_layer_water(h2o_liqvol_sl(j), tempk_sl(j))` and zeroes `root_resis` for any layer
+  that is frozen or holds no liquid water. With the whole profile in layer 1, a frozen or
+  dry top layer leaves the moss patch with an all-zero uptake profile while moss keeps
+  transpiring — moss stomatal conductance is floored at `gsmin0` on its own path
+  (`LeafBiophysicsMod.F90:1190`), so its transpiration is never exactly zero. That is
+  precisely the unallocated-demand route into CTSM's fatal water-balance check
+  (`SoilWaterPlantSinkMod.F90:397,418`; `BalanceCheckMod.F90:598,658`, with
+  `error_thresh = 1e-5` mm), and FATES declines to renormalize an all-zero profile
+  (`EDBtranMod.F90:241`). **This step is what would create that exposure** — today's
+  75%-below-layer-1 profile is what has been covering it — and ALP2 is an alpine site whose
+  top layer freezes, so the risk is live rather than theoretical. If a run aborts in the
+  water balance, stop and report it: do not soften the profile to get past it and do not
+  write it up as a known limitation. Whether to accept a shallower-but-not-total profile,
+  add a floor, or do something else needs the failure in hand.
+
+  Expect two coupled consequences and say in the review whether they appeared.
+  Concentrating withdrawal in the top 2 cm dries the very layer that sets
+  `FATES_MOSS_FWET_SOIL`, which is top-layer effective saturation
+  (`FatesPatchMod.F90:925-931`) — and because the moss CO2 film factor wants *low* fwet,
+  drying that layer should raise moss GPP. It also makes `btran_ft(moss)` the top layer's
+  stress alone, and btran drives moss hydraulic-failure mortality even though
+  `fates_leaf_agross_btran_model = 0` keeps it out of photosynthesis, so
+  `FATES_MORTALITY_HYDRAULIC_PF` may rise.
+
+  **Ordering is load-bearing: this runs before Step 3b, for the same reason Step 3e did.**
+  3b tunes the wetness window against the distribution of `FATES_MOSS_FWET`, and this step
+  changes where moss draws water from and therefore that distribution. Run 3b first and its
+  tuning is against a wetness signal this step then moves, so it would have to be redone.
+
+  The Step 3e case is reusable as-is: `/glade/derecho/scratch/samrabin/mosscull`, 730 days
+  from cold start in about 17 minutes, with the `l2fr = 0` run as the comparison baseline.
+  Note that moss changes are **not** isolable from grass here (see Step 3e's outcome), so a
+  grass difference is not by itself a bug.
 
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a

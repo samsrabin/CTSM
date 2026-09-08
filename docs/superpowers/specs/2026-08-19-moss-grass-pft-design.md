@@ -102,12 +102,35 @@ etc.), with these deliberate settings:
   termination floors (`store_c` and number-density minima, which apply in all modes, not
   just full competition) actually cull moss in testing; watch the termination-mortality
   history diagnostics (`FATES_MORTALITY_TERMINATION_*`).
-- **Shallow grass-style roots, NOT the NVP branch's no-root profile mode 4.** Water
-  conservation requires it: moss transpiration is extracted from soil through the
-  FATES-supplied root profile (`rootr`); an all-zero profile would break the water budget
-  in this layerless design. Concentrate the rooting profile in soil layer 1
-  (`fnrt_prof_mode`/params) so moss water status tracks surface moisture — the right
-  signal through an admittedly fictitious pathway.
+- **A shallow rooting profile with ZERO root carbon, and still NOT the NVP branch's
+  no-root profile mode 4.** Moss transpiration is extracted from soil through the
+  FATES-supplied root profile (`rootr`), so moss needs a rooting *profile*. It does not
+  need a fine-root *carbon* pool: `fates_allom_l2fr = 0` for the moss column, so moss
+  builds and maintains no fine roots at all. Mode 4 remains deliberately unused, because
+  that mode hands the HLM an all-zero profile — which is the thing that would actually
+  break the water budget in this layerless design. The profile itself is set by
+  `fates_allom_fnrt_prof_mode` and its shape parameters, and the intent is that it be
+  concentrated in the top soil layer so moss water status tracks surface moisture — the
+  right signal through an admittedly fictitious pathway. **As parameterized today it is
+  not:** moss carries mode 3 with `fates_allom_fnrt_prof_a` raised to 30.0 but
+  `fates_allom_fnrt_prof_b` left at grass's 2.0, and because that mode is a half-and-half
+  sum of two exponentials, the `b` limb carries half the profile with a 0.5 m e-folding
+  depth — 24.5% of uptake sits in the top 2 cm and moss is numerically indistinguishable
+  from grass below 0.5 m. Closing that is the plan's Task 12 Step 3f.
+
+  *(Amended 2026-09-08. The original text said "Shallow grass-style roots", left
+  `fates_allom_l2fr` at the inherited grass value of 0.67, and attributed the water-budget
+  constraint to roots in general. Two corrections. First, the profile and the carbon pool
+  are independent: FATES builds `bc_out%rootr_pasl` in `btran_ed` from the profile mode
+  and its parameters, PFT-weighted by leaf-area-weighted stomatal conductance, with
+  fine-root biomass entering nowhere (`EDBtranMod.F90:151-214`,
+  `FatesAllometryMod.F90:2759`). Zero root carbon therefore leaves the water pathway
+  bit-for-bit unchanged, and the water-budget argument attaches only to
+  `fnrt_prof_mode = 4`. Second, the inherited root carbon was fatal: maintenance
+  respiration on fictitious fine roots, charged every day of the year including the ~400
+  days with no exposed leaf, drained moss storage to exactly zero and got the cohort
+  terminated by C-starvation on day 402 of an ALP2 nocomp run. See the plan's Task 12
+  Step 3e.)*
 - Standard grass allometry modes otherwise (`allom_lmode=5`, `allom_amode=5`,
   `allom_smode=2`, `allom_dmode=1`). The resulting "sapwood" pool is a labeled carbon
   pool only; harmless without plant hydraulics, and it correctly burns as live fuel.
