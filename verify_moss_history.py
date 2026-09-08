@@ -30,8 +30,8 @@ Each check prints one of:
                 tallies and it does not move the exit code; every warning raised is
                 reprinted in the closing verdict block, where it cannot be missed.
 
-One check here can FAIL for a reason that is not about the diagnostics. The moss-population
-check (Task 12 Step 3) fails when moss never carries any biomass at all, and when it carries
+One check here can FAIL for a reason that is not about the diagnostics. The moss-survival
+check in section 5 fails when moss never carries any biomass at all, and when it carries
 some, reaches zero and is never recruited back. Both are science findings about the model
 configuration, not broken identities, and both still drive exit code 1 -- which a caller will
 read as "the diagnostics are broken". It is deliberately left that way, because it is the one
@@ -39,6 +39,22 @@ result here that must not be scrolled past. On a run in which moss persists that
 INFO and does not move the exit code at all. A caller that wants only the identity checks has
 to read the labels rather than the exit code. The rest of the scheme is under "Exit codes",
 at the end of this docstring.
+
+Two conventions the output follows throughout, both of which change how a number reads:
+
+  * NUMBERS ARE MOSS-NATIVE. Almost every moss diagnostic reaches the history tape as a
+    patch-area weighted site mean, so the tape's number is diluted by area fractions that
+    have nothing to do with moss. What is printed as the headline number is the site value
+    divided back out by whichever fraction dilutes it, which is what moss itself carries;
+    where the tape's own value is still worth seeing it follows in brackets, marked "on the
+    tape". Only the DISPLAY is converted -- every identity was checked against the
+    site-level values, since that is what the tape holds and converting first would add a
+    division that buys nothing and perturbs the deviations. Which divisor belongs to which
+    quantity is under "Three families of moss diagnostic" below.
+
+  * A PARAMETER IS NEVER A BARE NUMBER. Any figure that came off a parameter file or a
+    namelist is written as `name = value (where it came from)`. A bare decimal in this
+    output is therefore, by construction, something the run produced.
 
 Usage
 -----
@@ -58,29 +74,44 @@ the directory you invoked the script from.
 
 What each check establishes
 ---------------------------
-  Task 8   FATES_MOSS_FWET is exactly the wetter of its two ingredients, and never below
-           either. Also reports how often the canopy ingredient actually sets the proxy.
-  Task 10  FATES_MOSS_WETNESS_SCALER is the shipped wetness map, in the two halves the
-           area weighting splits it into: below the plateau the weight cancels and the
-           scaler is exactly fwet/threshold, which is what pins the threshold; on the
-           plateau it is exactly the non-bareground area fraction, and the naive
-           min(1, fwet/threshold) is wrong there by that factor. Also how much of the run
-           sits on the plateau.
-  Task 6   The live-moss fuel class carries the live-moss biomass FATES_LIVEMOSS_FUEL
-           reports, and live grass and live moss are reported side by side.
-  Task 7   The dead-moss fuel class carries the dead-moss litter FATES_MOSS_FINES reports,
-           and that pool is nonzero and accumulates.
-  Task 9   Both moss fuel classes' moisture is an exact linear function of the moss
-           wetness proxy and of nothing else, with the fitted slope pinned against the
-           shipped map and against a moisture of extinction that does not come out of the
-           fit, and the crossing point pinned against the shipped intercept -- which at the
-           shipped intercept of zero says only that there is no offset; the non-moss classes
-           still track the Nesterov index. Also how often moss sits at or above its
-           moisture of extinction.
-  Task 10b Moss leaf and stem area, per unit land and per unit crown area, and moss crown
-           area against the prescribed nocomp patch area where the tape carries one.
-  Task 12  Prescribed cover, moss mortality, whether any fire occurred, and -- the part
-           worth the most attention -- what the moss population actually did over the run.
+The output is grouped into five sections, each opening with a plain-language note on what
+the quantity is and why it matters for moss. The plan coordinates the checks were written
+against survive only as trailing parentheticals, for a reader who has the plan.
+
+  1. THE WETNESS PROXY -- WHAT MOSS FEELS.
+     FATES_MOSS_FWET is exactly the wetter of its two ingredients, and never below either.
+     Also reports how often the canopy ingredient actually sets the proxy, and states once
+     the branch-uniformity precondition that this section's and section 2's identities both
+     rest on.
+
+  2. MOSS PHOTOSYNTHETIC RESPONSE TO WETNESS.
+     FATES_MOSS_WETNESS_SCALER is the configured wetness map applied to the proxy, in the two
+     halves the map's kink splits it into: below the threshold the scaler is exactly
+     proxy/threshold, which is what pins the threshold; above it the scaler sits at exactly
+     1 in moss-native units, which on the tape is the non-bareground area fraction and is
+     where the naive site-level min(1, fwet/threshold) goes wrong. Then how much of the run
+     sits on each side, what moss produced there, and whether the productive window is
+     visited at all.
+
+  3. MOSS FUEL LOADING.
+     The live-moss fuel class carries the live-moss biomass FATES_LIVEMOSS_FUEL reports,
+     and the dead-moss class carries the dead-moss litter FATES_MOSS_FINES reports, one day
+     stale. That litter pool is nonzero and accumulates.
+
+  4. MOSS FUEL MOISTURE AND FLAMMABILITY.
+     Both moss fuel classes' moisture is an exact linear function of the moss wetness proxy
+     and of nothing else, with the fitted slope pinned against the configured map and against
+     a moisture of extinction that does not come out of the fit, and the crossing point
+     pinned against the configured intercept -- which at the configured intercept of zero says
+     only that there is no offset; the non-moss classes still track the Nesterov index.
+     Then how often moss sits at or above its moisture of extinction, whether any fire
+     occurred, and how much moss fuel burned.
+
+  5. MOSS SIZE, STRUCTURE AND SURVIVAL.
+     Moss leaf and stem area per unit crown area and per unit moss patch, moss height, moss
+     crown area against the prescribed nocomp patch area where the tape carries one,
+     prescribed cover, mortality, and -- the part worth the most attention -- what the moss
+     population actually did over the run.
 
 What this script CANNOT establish
 ---------------------------------
@@ -88,16 +119,27 @@ Two of the things the verification plan asks for are not answerable from one run
 by any script, and this script says so rather than substituting a proxy. Neither is a
 property of the run in front of it, so neither can be redeemed by a better run:
 
-  * Anything that is a comparison between two runs. That moss fuel loading MOVED out of the
-    live-grass class rather than being added alongside it is a statement about the
-    difference between this run and a pre-Task-6 run (Task 6). That perturbing the moss
-    fuel-moisture coefficients changes fire behaviour is a statement about the difference
-    between this run and one with different coefficients (Task 12 Step 3). A single tape
-    holds one side of each.
+  * Anything that is a comparison between two runs. Two of the plan's questions are of
+    that kind, and no single tape answers either.
 
-  * An error in FATES's own moisture-of-extinction formula. The Task 9 slope has to be
-    checked against an MEF that does not come out of the fit, and the only one available is
-    the one this script computes by reproducing MoistureOfExtinction
+    The first is whether moss biomass was RELOCATED into the live-moss fuel class or
+    DUPLICATED into it. Before this branch, UpdateLiveNonwoody summed every non-woody
+    cohort's aboveground biomass into one accumulator, `livegrass`, which feeds the
+    live-grass fuel class; moss, had it existed, would have been counted there. The branch
+    splits that loop on `vascular` (biogeochem/FatesPatchMod.F90:855-875) so non-vascular
+    cohorts go to a new `livemoss` accumulator instead. If the split works, the same carbon
+    that used to land in live grass now lands in live moss; if it is wrong, moss is counted
+    in both and the site's total fuel is overstated. Deciding which needs the live-grass
+    loading from a run built before the split, on the same forcing, to difference against
+    (Task 6). One tape holds one side of that subtraction.
+
+    The second is that perturbing the moss fuel-moisture coefficients changes fire
+    behaviour, which likewise compares this run against one with different coefficients
+    (Task 12 Step 3).
+
+  * An error in FATES's own moisture-of-extinction formula. The moss fuel-moisture slope
+    has to be checked against an MEF that does not come out of the fit, and the only one
+    available is the one this script computes by reproducing MoistureOfExtinction
     (fire/FatesFuelMod.F90:367-374). That is what the duplication costs: a checker that
     reproduces a formula cannot catch a mistake in that formula. Were FATES's MEF wrong,
     this script would be wrong the same way and the slope would still PASS. What the check
@@ -128,51 +170,92 @@ What actually degrades the script is not full competition but a nocomp+fixed-bio
 whose FATES_NOCOMP_PATCHAREA_PF was left out of hist_fincl1, or a run with no readable
 lnd_in to say which configuration it is. Then the fraction is genuinely unknown: the script
 does not abort, but runs every check that does not need it, SKIPs the ones that do, and
-WARNs saying which and why. What is lost is the plateau half of the Task 10 scaler identity,
-the crossing-point half of Task 9 where the shipped intercept is nonzero (at the shipped
-intercept of zero that half constrains nothing extra whatever the area fraction is, and the
-check says so at runtime), the patch-level readings of moss extinction and of the canopy
-ceiling, and the prescribed-cover report. What survives is every identity whose area
-weighting cancels -- Tasks 6, 7, 8, the sub-plateau half of Task 10, the Task 9 slope,
-Task 10b and Task 12.
+WARNs saying which and why. What is lost is the above-threshold half of the section 2
+scaler identity, the crossing-point half of each section 4 moisture check where the configured
+intercept is nonzero (at the configured intercept of zero that half constrains nothing extra
+whatever the area fraction is, and the check says so at runtime), the patch-level readings
+of moss extinction and of the canopy ceiling, and the prescribed-cover report. What survives
+is every identity whose area weighting cancels -- all of section 1 and section 3, the
+below-threshold half of section 2, the moisture slope, and section 5. A tape without the
+patch area also loses the moss-native DISPLAY of everything it dilutes: those numbers fall
+back to site units, each with a one-line note saying so, rather than being dropped.
 
-Two conversion factors between tape and check
---------------------------------------------
+Three families of moss diagnostic
+---------------------------------
+Which divisor turns a site-level number moss-native depends on which patches the quantity
+lives on, and there is no single factor. Each is verified against the FATES source rather
+than assumed, and each is printed in the preamble with where it came from.
+
+  A. PATCH PROPERTIES, diluted only by bareground. Divisor: the non-bareground area
+     fraction. FATES_MOSS_FWET, FATES_MOSS_FWET_SOIL, FATES_MOSS_FWET_CANOPY,
+     FATES_MOSS_WETNESS_SCALER, and FATES_FUEL_MOISTURE_FC at the two moss classes.
+     UpdateMossFwet runs on every patch whose label is not nocomp_bareground
+     (main/EDMainMod.F90:231-234), so the proxy and everything derived from it per patch
+     carries the same value on a grass patch as on a moss patch, and only bareground
+     contributes zero to the site mean.
+
+  B. MOSS-ONLY QUANTITIES. Divisor: the moss patch area fraction, NOT the non-bareground
+     one. FATES_LIVEMOSS_FUEL, FATES_MOSS_FINES, and FATES_FUEL_AMOUNT_FC at the moss
+     classes. cpatch%livemoss sums only the non-vascular cohorts of that patch
+     (biogeochem/FatesPatchMod.F90:855-875) and moss_fines_in is fed only by non-vascular
+     cohorts (biogeochem/EDPhysiologyMod.F90:367, :2965, :3065), so both are zero on a
+     grass patch and the site value is the moss-patch value times the moss patch area.
+     FATES_FUEL_AMOUNT_FC follows them: frac_loading for a class with no loading in the
+     patch is zero, so those columns get nothing from a grass patch either.
+
+  C. PER-PFT QUANTITIES AT THE MOSS INDEX. FATES_GPP_PF, FATES_LEAFC_PF,
+     FATES_CROWNAREA_PF, FATES_LAI_PF, FATES_SAI_PF and the per-PFT mortality rates are all
+     "per m2 land area" and have two defensible native denominators. Anything physiological
+     or allometric is headlined per m2 of moss CROWN area, which is what a moss measurement
+     would be compared against and which for LAI is already FATES's own treelai, with the
+     per-moss-patch value beside it for the "did moss fill the patch it was given" reading.
+     Crown area is itself reported per moss patch, since dividing it by itself says nothing.
+     Moss crown area is exactly zero on every day moss is absent, so every crown-native
+     number is guarded and reported as undefined on those days rather than as inf or nan.
+
+FATES_MOSS_HEIGHT belongs to none of the three. It is accumulated as a crown-area weighted
+sum and then divided by the MOSS CROWN AREA rather than by land area
+(main/FatesHistoryInterfaceMod.F90:3070-3074, :3122-3123), so it is already a height and
+must not be converted again.
+
+FATES_FUEL_BURNT_BURNFRAC_FC is a fourth case and not a class-B one, despite sitting on the
+same fuel axis as FATES_FUEL_AMOUNT_FC. frac_burnt is a function of a class's moisture and
+not of its loading (fire/FatesFuelMod.F90:471-497), so a patch with no moss fuel at all
+still contributes a moss column; and the value is a product with the patch's burnt
+fraction. Dividing by the site's burnt area turns it back into a fraction, and it is
+undefined -- said so in words -- on a run in which nothing burned.
+
+Its own long name says to divide by FATES_BURNFRAC and stop there, and that instruction is
+dimensionally wrong: FATES_BURNFRAC carries a /sec_per_day and units='s-1'
+(main/FatesHistoryInterfaceMod.F90:2769, :6839) that FATES_FUEL_BURNT_BURNFRAC_FC, at
+units='1' (:4302-4303, :7885), does not, so the bare quotient is in seconds and reads
+86400x too large. What is divided by here is sec_per_day*FATES_BURNFRAC, which is the plain
+burnt-area fraction, and the reason is restated at the conversion because a reader checking
+it against the long name will find that the two disagree.
+
+Two things the identities encode
+-------------------------------
 Both are commented again at the check that uses them, because both will read as arbitrary
 to anyone who has not been told why they are there.
 
-  1. Almost every site-level moss diagnostic is area-weighted over patches with bareground
-     contributing zero, so a site-level value is the patch value times the non-bareground
-     area fraction (0.8, say, in a bare+grass+moss nocomp configuration -- the factor is
-     read from FATES_NOCOMP_PATCHAREA_PF, or is 1.0 on a run whose configuration gives it
-     no bareground patch, and either way it is printed in the preamble with its source and
-     never assumed). Any identity between two site-level quantities that is nonlinear in
-     the patch value (the proxy's max(), the wetness scaler's min(), the "is moss above its
-     moisture of extinction" threshold) has to account for that.
-
-     Neither max() nor min() commutes with an area-weighted sum in general. Pushing the
-     area weight through one of them is therefore a PRECONDITION of those identities, not
-     an observation about any run: they hold only while the same branch is taken on every
-     vegetated patch -- the same ingredient wins on all of them, or all of them sit on the
-     same side of the threshold. A site-level tape cannot test that, since it has already
-     summed the patches away. What it can do is watch the one quantity that decides it. The
-     proxy's two ingredients are asymmetric: the soil one is a column-level saturation and
-     is therefore the same number on every patch of the site, while the canopy one is
-     CTSM's per-patch fwet_veg, hard-capped at maximum_leaf_wetted_fraction
+  1. Neither max() nor min() commutes with an area-weighted sum in general, and both the
+     proxy and the wetness scaler are built out of one. Pushing the area weight through one
+     of them is therefore a PRECONDITION of those identities, not an observation about any
+     run: they hold only while the same branch is taken on every vegetated patch -- the same
+     ingredient wins on all of them, or all of them sit on the same side of the threshold. A
+     site-level tape cannot test that, since it has already summed the patches away. What it
+     can do is watch the one quantity that decides it. The proxy's two ingredients are
+     asymmetric: the soil one is a column-level saturation and is therefore the same number
+     on every patch of the site, while the canopy one is CTSM's per-patch fwet_veg,
+     hard-capped at maximum_leaf_wetted_fraction
      (src/fates/biogeochem/FatesPatchMod.F90:907-914). So while the soil ingredient stays
      clear of that cap, the proxy is identical on every vegetated patch, both branches are
-     uniform by construction, and both identities are safe. Each check reports that margin,
-     and WARNs when it narrows to where per-patch divergence becomes possible.
+     uniform by construction, and both identities are safe. The margin is reported once at
+     the head of section 1, and WARNed about when it narrows to where per-patch divergence
+     becomes possible.
 
      A FAIL on one of those identities is much more likely to be branches that diverged
      across patches than a model defect, and each of them says so in its own FAIL text.
-
-     FATES_MOSS_HEIGHT is the exception to the area weighting. It is accumulated as a
-     crown-area weighted sum and then divided by the MOSS CROWN AREA rather than by land
-     area (main/FatesHistoryInterfaceMod.F90:3068-3074, :3120-3124), so it is already a
-     height and must not be given the factor. Nothing is computed wrong either way; the
-     point is only that the factor is not universal, and this is the paragraph a reader
-     would otherwise use to decide that it is.
 
   2. FATES_FUEL_AMOUNT_FC and the moss pools it is checked against report fuel loading
      under two different conventions: with mineral content removed, and with it included.
@@ -187,8 +270,8 @@ to anyone who has not been told why they are there.
      FATES_FUEL_AMOUNT_FC[trunks] is identically zero by construction and no convention
      applies to it. FATES_LIVEMOSS_FUEL and FATES_MOSS_FINES carry mineral content still in
      them, so the checks against them encode the factor 1 - fates_fire_miner_total, read
-     from the run's own parameter file and printed by the check. See the Task 6 check for
-     the file:line.
+     from the run's own parameter file and printed by the check. See the live-moss loading
+     check in section 3 for the file:line.
 
      Two things about that relationship are worth stating here. First, no long name says
      which convention its variable uses: FATES_FUEL_AMOUNT_FC is "spitfire fuel-class level
@@ -243,17 +326,40 @@ import json
 import os
 import re
 import sys
+import textwrap
 import traceback
 
 import netCDF4
 import numpy as np
 
-# The exit-code scheme is written down once, as the last section of the module docstring.
-# --help gets that section as its epilog -- after the options, which is where a reader
-# hunting for it will be -- rather than a second copy of it inside the description.
-_DESCRIPTION, _EXIT_HEADING, _EXIT_BODY = __doc__.partition("Exit codes\n----------\n")
-HELP_DESCRIPTION = _DESCRIPTION.rstrip()
-HELP_EPILOG = _EXIT_HEADING + _EXIT_BODY
+# --help is for someone who already knows what this does and wants the flags, so it carries
+# the shortest thing that lets them run it and read the exit code. Everything else -- the
+# physics, the unit conventions, what a given run cannot establish -- lives in the module
+# docstring above for a reader of the source, and in the output itself next to the check it
+# bears on, which is where it is actually needed.
+HELP_DESCRIPTION = """Check the moss diagnostics on a finished CTSM-FATES moss run.
+
+The argument is the CIME case's run/ directory. Reads the daily history tape plus that
+run's own FATES and CLM parameter files and lnd_in, and prints PASS / FAIL / SKIP / INFO
+per check, WARN for anything about this particular run that a reader must not scroll past,
+and a closing verdict. Numbers are reported moss-native; the identities are checked
+against the site-level values on the tape.
+
+Needs netCDF4 and numpy, plus matplotlib unless --no-plots. The module docstring at the
+top of this file explains the physics, the conventions and the limits."""
+
+HELP_EPILOG = """exit codes:
+  0  nothing FAILed and the moss PFT index was confirmed. INFO and SKIP do not bear on
+     this, and a PASS that could not pin all its constraints is counted separately in the
+     verdict line
+  1  at least one check FAILed. A moss-population FAIL is a finding about the model
+     configuration rather than about the diagnostics, and still exits 1 deliberately
+  2  no trustworthy verdict: pointed at the wrong thing, told the wrong thing about it, or
+     unable to confirm which PFT is moss. Outranks 1
+  3  an unexpected error inside the script; a traceback is printed. Says nothing about the
+     run
+
+No WARN moves any of these."""
 
 EXIT_OK = 0
 EXIT_CHECK_FAILED = 1
@@ -342,7 +448,8 @@ DIVERGENCE_FIRST_SUSPECT = (
     "BEFORE READING THIS AS A MODEL DEFECT: this identity assumes every vegetated patch "
     "takes the same branch, which a site-level tape cannot check. A branch that differs "
     "between two patches of this site breaks the identity with nothing whatever wrong in "
-    "the model, and is the first thing to suspect. See the margin reported below."
+    "the model, and is the first thing to suspect. See the precondition line at the foot "
+    "of this check, and the margin it refers to at the head of section 1."
 )
 
 # The two treelai values Task 12 Step 3d predicts for a recruit and for a maximum-size moss
@@ -391,6 +498,11 @@ TREELAI_PREDICTION_PARAMS = {
 # SP tape report ndcmpy or numpft multiples of it rather than zero. Any value this negative
 # is that sentinel showing through, not a physical number.
 FATES_UNSET_R8 = -1.0e36
+
+# FatesConstantsMod.F90's sec_per_day. Needed for exactly one conversion, and only because
+# two variables on the same fuel axis disagree about whether they carry it: see
+# check_fuel_burnt.
+SEC_PER_DAY = 86400.0
 
 # Categorical slots 1-3 of the default plotting palette. The three panels are independent
 # forms rather than a stack, so the palette is doing nothing more than keeping them apart.
@@ -508,6 +620,23 @@ class HistoryContentError(ValueError):
     """The history output is not shaped the way this script requires."""
 
 
+def emit_detail(detail, indent=5):
+    """Print a check's message, one bullet per statement.
+
+    A message is several statements joined by newlines, and without a marker it is not
+    obvious where one ends and the next begins -- several of them run long enough to wrap
+    in a terminal. A line that already begins with whitespace is a deliberate continuation
+    of the statement above it (the second half of an identity, a figure aligned under its
+    label), so it is indented to match rather than given a bullet of its own.
+    """
+    pad = " " * indent
+    for line in str(detail).splitlines():
+        if line.strip() and not line[:1].isspace():
+            print(f"{pad}• {line}")
+        else:
+            print(f"{pad}  {line}")
+
+
 class Reporter:
     """Accumulates check outcomes so the run can end with a one-line verdict."""
 
@@ -531,8 +660,7 @@ class Reporter:
         """
         self.warnings.append((label, str(detail)))
         print(f"[WARN] {label}")
-        for line in str(detail).splitlines():
-            print(f"       {line}")
+        emit_detail(detail)
         print()
 
     def __call__(self, status, label, detail, unconstrained=None):
@@ -548,8 +676,7 @@ class Reporter:
         if unconstrained:
             self.unconstrained.append((label, unconstrained))
         print(f"[{status:4s}] {label}")
-        for line in str(detail).splitlines():
-            print(f"       {line}")
+        emit_detail(detail)
         print()
 
     def verdict(self):
@@ -566,18 +693,17 @@ class Reporter:
         )
         for label, why in self.unconstrained:
             print(f"  not fully constrained -- {label}")
-            print(f"       {why}")
+            emit_detail(why, indent=7)
         if self.warnings:
             print()
             print(
                 f"{len(self.warnings)} WARNING(S) about this run. None of them bears on the "
                 "tallies above or on the exit code; each says that something the labels "
-                "above appear to claim was not actually established here."
+                "above appear to claim was not actually established here. Search the "
+                "headline above to read one in full."
             )
-            for label, detail in self.warnings:
+            for label, _ in self.warnings:
                 print(f"  [WARN] {label}")
-                for line in detail.splitlines():
-                    print(f"         {line}")
         return EXIT_CHECK_FAILED if c["FAIL"] else EXIT_OK
 
 
@@ -672,8 +798,14 @@ def load_history(run_dir, cache_dir=None):
         # ERS test rewrites the tail of the run's h0a files in place without changing how
         # many there are, so a count-only key would serve a stale first-leg cache.
         stamp = "".join(f"|{os.path.basename(f)}:{os.path.getmtime(f):.0f}" for f in files)
-        key = hashlib.md5(f"{os.path.abspath(run_dir)}:{stamp}".encode()).hexdigest()
-        cache_path = os.path.join(cache_dir, f"moss_hist_{key[:16]}.npz")
+        key = hashlib.md5(f"{os.path.abspath(run_dir)}:{stamp}".encode()).hexdigest()[:16]
+        # The case name is here so a stray cache file can be traced back to its run by
+        # reading it; the digest stays because it is what INVALIDATES the cache, and the
+        # mtimes it carries cannot be put in a filename.
+        suffix = f"_{key}.npz"
+        cache_path = os.path.join(
+            cache_dir, case_tag(run_dir, reserve=len(suffix)) + suffix
+        )
         if os.path.exists(cache_path):
             with np.load(cache_path) as z:
                 return {k: z[k] for k in z.files}, files
@@ -724,7 +856,7 @@ def load_history(run_dir, cache_dir=None):
 def read_lnd_in(run_dir):
     """Scalar settings from the run's lnd_in, so the checks test what this run configured.
 
-    Returns {} if lnd_in is absent, in which case the caller falls back to the shipped
+    Returns {} if lnd_in is absent, in which case the caller falls back to the configured
     defaults and says so. Only simple `name = value` scalars are parsed; the multi-line
     list variables (hist_fincl1 and friends) are not needed here.
     """
@@ -1139,6 +1271,218 @@ def span(values, fmt="{:.4f}"):
     return f"{fmt.format(lo)} - {fmt.format(hi)}"
 
 
+def named(value, name, source, fmt="{:g}"):
+    """A parameter written the only way this script writes one: name = value (source).
+
+    A bare decimal in this output is a run output, by construction. That is only true while
+    every number that came off a parameter file or a namelist goes through here, so this is
+    a rule rather than a convenience: `0.05` on the screen means the run reached it, while
+    `maximum_leaf_wetted_fraction = 0.05 (this run's CLM parameter file)` means it was
+    configured. Nothing else distinguishes the two, and the difference between a realized
+    maximum and a ceiling is exactly the thing a reader has to be able to see at a glance.
+    """
+    return f"{name} = {fmt.format(value)} ({source})"
+
+
+# ---------------------------------------------------------------------------------------
+# Moss-native display units
+# ---------------------------------------------------------------------------------------
+
+
+class NativeUnits:
+    """The divisors that turn a site-level moss diagnostic into a moss-native one.
+
+    Nothing here is applied to a CHECK. The tape is site-level, every identity below is
+    checked against the values the tape holds, and converting before comparing would add a
+    division that buys nothing and perturbs the deviations. This exists so that the numbers
+    a reader is asked to judge -- what moss's wetness proxy reached, how much fuel a moss
+    mat carries, what a moss cohort produced -- are the numbers moss itself carries, rather
+    than those numbers diluted by area fractions belonging to the rest of the gridcell.
+
+    Three families, three divisors, each traced to the FATES source rather than assumed:
+
+      PATCH   a property diagnosed on every non-bareground patch, so only bareground
+              dilutes it. UpdateMossFwet is called on every patch whose label is not
+              nocomp_bareground (main/EDMainMod.F90:231-234), which makes the proxy, its
+              two ingredients, the wetness scaler and the moss classes' fuel moisture all
+              the same number on the grass patch as on the moss patch. Divisor: the
+              non-bareground area fraction.
+
+      MOSS    a quantity that exists only where moss does. cpatch%livemoss sums only the
+              non-vascular cohorts of its own patch (biogeochem/FatesPatchMod.F90:855-875),
+              and moss_fines is fed only by non-vascular cohorts
+              (biogeochem/EDPhysiologyMod.F90:367, :2965, :3065), so both are identically
+              zero on a grass patch. Divisor: the MOSS patch area, which is not the
+              non-bareground fraction and is smaller than it.
+
+      CROWN   a per-PFT quantity at the moss index, which the tape reports per m2 land.
+              Divisor: moss crown area, giving the per-plant quantity a moss measurement
+              would be compared against. Crown area is exactly zero on every day moss is
+              absent, so this one is undefined on those days and says so.
+
+    A divisor that is not available on a run does not cost the number: it falls back to the
+    tape's site value with a one-line note saying which fraction was missing. The only run
+    that reaches that is a nocomp+fixed-biogeog one whose FATES_NOCOMP_PATCHAREA_PF was
+    left out of hist_fincl1, or one with no readable lnd_in -- under full competition there
+    is no bareground patch and moss is in every patch, so both area divisors are 1.0 and
+    nothing whatever is lost.
+    """
+
+    # The denominator each family's native value is per. Substituted for the word "land" in
+    # the tape's own units string, so that "kg m-2 land" becomes "kg m-2 of moss patch" and
+    # a dimensionless quantity is simply called moss-native.
+    DENOM = {
+        "patch": "vegetated patch",
+        "moss": "moss patch",
+        "crown": "moss crown",
+    }
+
+    def __init__(self, data, veg_frac, veg_frac_source, no_veg_frac_reason, patch_area, moss):
+        self.divisor = {"patch": veg_frac}
+        self.source = {"patch": veg_frac_source}
+        self.missing = {"patch": no_veg_frac_reason}
+
+        if patch_area is not None:
+            self.divisor["moss"] = patch_area[:, moss]
+            self.source["moss"] = "FATES_NOCOMP_PATCHAREA_PF at the moss index on this tape"
+            self.missing["moss"] = None
+        elif veg_frac is not None:
+            # The only way to get here is a run FATES gave no bareground patch, where
+            # veg_frac is 1.0 exactly. Moss is then in every patch rather than confined to
+            # one, so "per m2 of moss patch" and "per m2 land" are the same statement.
+            self.divisor["moss"] = veg_frac
+            self.source["moss"] = veg_frac_source + ", and moss is in every patch"
+            self.missing["moss"] = None
+        else:
+            self.divisor["moss"] = None
+            self.source["moss"] = None
+            self.missing["moss"] = no_veg_frac_reason
+
+        crown = data.get("FATES_CROWNAREA_PF")
+        self.divisor["crown"] = None if crown is None else crown[:, moss]
+        self.source["crown"] = (
+            None if crown is None else "FATES_CROWNAREA_PF at the moss index on this tape"
+        )
+        self.missing["crown"] = (
+            None
+            if crown is not None
+            else "FATES_CROWNAREA_PF is not on this tape, so moss crown area is unknown here"
+        )
+
+    # The full reason a divisor is missing is a paragraph, and it is already printed twice
+    # -- in the preamble and in the WARN that says which checks are degraded. Repeating it
+    # under every number it touches is the same crime as the precondition paragraph that
+    # used to print three times, only worse: a run without a patch area carries a dozen such
+    # numbers. Each of those gets this instead, and the paragraph stays where it was said.
+    SHORT_MISSING = {
+        "patch": "no non-bareground area fraction on this run; see the WARN above",
+        "moss": "no moss patch area on this run; see the WARN above",
+        "crown": "FATES_CROWNAREA_PF is not on this tape",
+    }
+
+    def has(self, kind):
+        return self.divisor[kind] is not None
+
+    def native(self, values, kind):
+        """values in moss-native units, or None where the divisor is not available.
+
+        NaN, not inf, on a day whose divisor is zero -- a day moss is absent has no crown
+        area to divide by, and there is no moss-native number for it to have.
+        """
+        if self.divisor[kind] is None:
+            return None
+        return divide_by_fraction(values, self.divisor[kind])
+
+    def undefined_because(self, kind):
+        return (
+            "moss carries no crown area on those days"
+            if kind == "crown"
+            else "the area fraction is zero on those days"
+        )
+
+    def units_of(self, kind, site_units):
+        """What the converted number is per, phrased from the tape's own units string."""
+        if not site_units:
+            return "moss-native"
+        return site_units.replace(" land", " of " + self.DENOM[kind])
+
+    def spans(self, values, kind, fmt="{:.4f}", site_units="kg m-2 land"):
+        """"lo - hi" moss-native, with the tape's own value after it in brackets."""
+        values = np.asarray(values, dtype=float)
+        site = "on the tape " + span(values, fmt) + (f" {site_units}" if site_units else "")
+        converted = self.native(values, kind)
+        if converted is None:
+            return (
+                span(values, fmt)
+                + (f" {site_units}" if site_units else "")
+                + f", on the tape ({self.SHORT_MISSING[kind]})"
+            )
+        if not np.any(np.isfinite(converted)):
+            return f"undefined ({self.undefined_because(kind)}); {site}"
+        blank = int(np.sum(~np.isfinite(converted)))
+        tail = (
+            f"; undefined on {blank} of {values.shape[0]} days "
+            f"({self.undefined_because(kind)})"
+            if blank
+            else ""
+        )
+        return (
+            f"{span(converted, fmt)} {self.units_of(kind, site_units)}   ({site}){tail}"
+        )
+
+    def value(self, number, kind, fmt="{:.4g}", site_units="kg m-2 land"):
+        """One scalar converted, or a phrase where it cannot be."""
+        if self.divisor[kind] is None:
+            return (
+                fmt.format(number)
+                + (f" {site_units}" if site_units else "")
+                + f", on the tape ({self.SHORT_MISSING[kind]})"
+            )
+        scale = float(np.nanmean(self.divisor[kind]))
+        if not np.isfinite(scale) or scale <= 0:
+            return f"undefined ({self.undefined_because(kind)})"
+        return f"{fmt.format(number / scale)} {self.units_of(kind, site_units)}"
+
+    def preamble(self):
+        """What the reader needs to read every number below, said once."""
+        lines = [NATIVE_NOTE]
+        for kind, what in (
+            ("patch", "non-bareground area fraction"),
+            ("moss", "moss patch area fraction"),
+            ("crown", "moss crown area"),
+        ):
+            divisor = self.divisor[kind]
+            if divisor is None:
+                lines.append(f"  {what}: NOT AVAILABLE -- {self.missing[kind]}")
+                continue
+            values = np.asarray(divisor, dtype=float)
+            lo, hi = float(np.nanmin(values)), float(np.nanmax(values))
+            # A divisor that never moves is one number, not a range. Printing "0.8 - 0.8"
+            # invites a reader to look for the variation that is not there.
+            shown = f"{lo:.4g}" if lo == hi else f"{lo:.4g} - {hi:.4g}"
+            zero = int(np.sum(values <= 0))
+            lines.append(
+                f"  {what}: {shown} (from {self.source[kind]})"
+                + (
+                    f"; zero on {zero} of {values.size} days, on which no moss-native "
+                    "number can be formed"
+                    if zero
+                    else ""
+                )
+            )
+        return "\n".join(lines)
+
+
+NATIVE_NOTE = (
+    "Numbers below are MOSS-NATIVE: the tape's site means divided back out by the area\n"
+    "fraction that dilutes each one, so they read as what moss itself carries. Where the\n"
+    "tape's own number is still worth seeing it follows in brackets, marked \"on the "
+    "tape\".\n"
+    "The identities were checked against the site-level values on the tape; only the\n"
+    "display is converted. Three divisors are in play, and they are not interchangeable:"
+)
+
+
 def dates(data, nday, files):
     """YYYYMMDD per sample from mcdate, or a 1-based day index if mcdate is absent.
 
@@ -1394,6 +1738,109 @@ def validate_pft_grass(pft_names, params, grass, npft):
 
 
 # ---------------------------------------------------------------------------------------
+# Sections
+# ---------------------------------------------------------------------------------------
+#
+# The checks are grouped by the concept they test rather than by the plan task that asked
+# for them, and each group opens with a note saying what that concept is. The reader this
+# is written for is fluent in land-surface science and has never seen this branch, so a
+# label like "Task 12 Step 3b" is an index into a document they do not have; it survives
+# only as a trailing parenthetical, for whoever does have it.
+
+SECTIONS = (
+    (
+        "THE WETNESS PROXY -- WHAT MOSS FEELS",
+        """Moss in this design carries no water store of its own, so one diagnostic quantity
+stands in for how wet the moss mat is: FATES_MOSS_FWET, the wetter of the top soil
+layer's saturation and the canopy's wetted fraction. Everything moss-specific
+downstream reads it -- photosynthetic capacity, leaf respiration, and both moss fuel
+classes' moisture -- so a proxy built wrong makes every moss number below wrong with
+it. The checks here ask only whether it is the quantity it claims to be: the larger of
+its two ingredients on every day of the run, and never smaller than either.""",
+    ),
+    (
+        "MOSS PHOTOSYNTHETIC RESPONSE TO WETNESS",
+        """Moss photosynthesis is throttled by wetness through a single scaler on
+photosynthetic capacity, which rises linearly with the proxy up to a threshold and is
+flat at full capacity above it. That threshold is the knob deciding how wet moss has to
+be before it works at all, so a scaler keyed off the wrong quantity, or off the right
+one with the wrong threshold, would put moss's productive window in the wrong place
+without anything else looking amiss. The checks pin the map, and then report where in
+it this run actually sat and what moss produced there.""",
+    ),
+    (
+        "MOSS FUEL LOADING",
+        """SPITFIRE sorts surface fuel into classes, and this branch adds two: live moss, fed
+by the standing moss mat, and dead moss, fed by the moss litter (duff) pool. Each has
+to carry the pool it is drawn from and only that pool. Before this branch every
+non-woody cohort's biomass went into one accumulator feeding the live-grass class, so
+what the split has to achieve is that moss biomass MOVES into the new classes rather
+than being counted in both; that this run cannot check, and the docstring says why.
+Two bookkeeping offsets separate a fuel class from its pool and both
+are structural rather than approximate: fuel loading is reported with mineral content
+removed while the pools are not, and the dead class is read a day before the litter pool
+is advanced.""",
+    ),
+    (
+        "MOSS FUEL MOISTURE AND FLAMMABILITY",
+        """Every fuel class in SPITFIRE has a MOISTURE OF EXTINCTION, abbreviated MEF below:
+the moisture content above which fuel of that kind is too damp to carry fire at all.
+FATES derives each class's MEF from that class's surface-area-to-volume ratio, a
+parameter-file quantity, and then reports the class's moisture ALREADY DIVIDED BY it.
+So FATES_FUEL_MOISTURE_FC is dimensionless, and a value at or above 1 means that class
+cannot burn. Calling it "effective moisture" below is a reminder that it is a ratio and
+not a water content.
+
+Where a class's moisture comes from is what this branch changes. Every other class takes
+it from fire weather, through the Nesterov index, which climbs as the air stays warm and
+dry and is reset by rain. The two moss classes instead take it from the wetness proxy of
+section 1, through a straight line -- max(0, intercept + slope * fwet) -- whose intercept
+and slope this run sets in its namelist, because a moss mat is wet when the GROUND is wet
+rather than when the air has lately been dry.
+
+That division by MEF is why the checks below do not compare against the configured slope
+directly. If FATES applied the line correctly, the moisture reported for a moss class is
+the line divided by that class's MEF, so a straight-line fit through the run should
+recover slope/MEF and not slope. The MEF used to form that expectation is rebuilt here
+from the run's own parameter file rather than taken from the fit, so the two sides are
+independent. The checks ask whether each moss class really follows that line and nothing
+else, whether the non-moss classes still follow fire weather, and how much of the run
+moss spends too wet to burn.""",
+    ),
+    (
+        "MOSS SIZE, STRUCTURE AND SURVIVAL",
+        """The last group is about the moss cohort itself: how much leaf and stem area it
+carries, how tall it stands, how much of the ground it was given it actually covers, and
+whether it lasts the run. Almost none of it is an identity -- one tape holds nothing to
+check a diagnosed height against -- so these are numbers reported for judgement, to be
+read against the allometry parameters the run was given. Persistence is the exception:
+moss that is handed a patch and reaches zero biomass in it, or never carries any, is a
+finding about the model configuration rather than about the diagnostics, and it is
+reported as a failure so that it cannot be scrolled past.""",
+    ),
+)
+
+
+def print_section(number, extra=None):
+    """Open a section, so its boundary is visible rather than inferred from the labels.
+
+    The explainers are hand-wrapped in SECTIONS; `extra` is assembled at runtime and is
+    wrapped here, so that a paragraph carrying this run's numbers does not arrive as one
+    300-character line in the middle of prose that is not.
+    """
+    title, explainer = SECTIONS[number - 1]
+    print("=" * 79)
+    print(f"SECTION {number} OF {len(SECTIONS)}.  {title}")
+    print("=" * 79)
+    print(explainer)
+    if extra:
+        print()
+        for paragraph in extra.splitlines():
+            print(textwrap.fill(paragraph, 79))
+    print()
+
+
+# ---------------------------------------------------------------------------------------
 # Checks
 # ---------------------------------------------------------------------------------------
 
@@ -1418,7 +1865,11 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
     the site-level soil value is used instead: it is the patch value times a fraction no
     greater than 1, so it understates the true clearance and the watch stays conservative.
 
-    Returns (headline, warning or None).
+    Returns (the paragraph to print once at the head of section 1, the one line each check
+    that rests on the precondition carries, the warning or None). It used to return only the
+    paragraph, which then printed in full under three separate checks across two sections;
+    a reader met the same nine lines three times and had no way to tell that it was the same
+    statement rather than three related ones.
     """
     soil = data["FATES_MOSS_FWET_SOIL"]
     canopy = data["FATES_MOSS_FWET_CANOPY"]
@@ -1426,13 +1877,13 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
     if veg_frac is None:
         floor = float(np.nanmin(soil))
         floor_units = (
-            "site units, a lower bound on the patch value because the non-bareground area "
-            "fraction is not on this tape"
+            "site units, a lower bound on the moss-native value, because the "
+            "non-bareground area fraction is not on this tape"
         )
         observed_ceiling = float(np.nanmax(canopy))
     else:
         floor = float(np.nanmin(divide_by_fraction(soil, veg_frac)))
-        floor_units = "patch units"
+        floor_units = "moss-native"
         observed_ceiling = float(np.nanmax(divide_by_fraction(canopy, veg_frac)))
 
     # The comparison carries a tolerance because the observed ceiling has been through a
@@ -1440,8 +1891,9 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
     # run comes back a few ulps above it.
     if leaf_cap is not None and observed_ceiling <= float(leaf_cap) * (1.0 + TOL_RELATIVE):
         ceiling, ceiling_what = float(leaf_cap), (
-            f"CTSM's maximum_leaf_wetted_fraction, {leaf_cap:g} ({leaf_cap_source}), which "
-            "no patch's canopy ingredient can exceed"
+            "its ceiling of "
+            + named(leaf_cap, "maximum_leaf_wetted_fraction", leaf_cap_source)
+            + ", which no patch's canopy ingredient can exceed"
         )
     elif leaf_cap is not None:
         # The cap is only a bound while it describes the run. A canopy ingredient reported
@@ -1449,9 +1901,9 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
         # variable that is not what this script takes it for -- and the tape wins.
         ceiling, ceiling_what = observed_ceiling, (
             f"the largest canopy value this run reached, {observed_ceiling:.4f}, which is "
-            f"ABOVE the maximum_leaf_wetted_fraction of {leaf_cap:g} read from "
-            f"{leaf_cap_source}. That cap does not describe this tape, so it is not trusted "
-            "as a bound here"
+            "ABOVE "
+            + named(leaf_cap, "maximum_leaf_wetted_fraction", leaf_cap_source)
+            + ". That cap does not describe this tape, so it is not trusted as a bound here"
         )
     else:
         ceiling, ceiling_what = observed_ceiling, (
@@ -1470,34 +1922,47 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
         if ceiling <= 0.0
         else f"That is a factor of {ratio:.1f}, so"
     )
-    headline = (
-        f"PRECONDITION (of the identity, not an observation about this run): the branch "
-        f"the area weight is pushed through has to be the same on every vegetated patch, "
-        f"and a site-level tape cannot test that. What is watched instead: the soil "
-        f"ingredient of the proxy never falls below "
-        f"{floor:.4f} ({floor_units}), against a canopy ingredient bounded by "
-        f"{ceiling_what}. {margin} the soil ingredient wins on "
-        f"every patch and the proxy is uniform across them."
-        if clear
-        else (
-            f"PRECONDITION (of the identity, not an observation about this run): the branch "
-            f"the area weight is pushed through has to be the same on every vegetated "
-            f"patch, and a site-level tape cannot test that. The margin that would make it "
-            f"safe has NARROWED here -- see the WARN."
+    preamble = (
+        "PRECONDITION shared by the identities in this section and the next (it is a "
+        "condition ON them, not an observation about this run): each pushes an area weight "
+        "through a max() or a min(), which is valid only while every vegetated patch takes "
+        "the same branch -- the same ingredient wins on all of them, or all of them sit on "
+        "the same side of the threshold. A site-level tape has already summed the patches "
+        "away and cannot test it. What it can watch is the one quantity that decides it. "
+        "The soil ingredient comes from the column and is the same number on every patch of "
+        "the site; the canopy ingredient is CTSM's per-patch fwet_veg, which the host caps. "
+        "While the soil ingredient stays clear of that cap the proxy is identical on every "
+        "vegetated patch and both branches are uniform by construction.\n"
+        + (
+            f"On this run: the soil ingredient never falls below {floor:.4f} "
+            f"({floor_units}), against a canopy ingredient bounded by {ceiling_what}. "
+            f"{margin} the soil ingredient wins on every patch and the proxy is uniform "
+            "across them."
+            if clear
+            else "On this run the margin that would make it safe has NARROWED -- see the "
+            "WARN below."
         )
     )
+    reference = (
+        f"Rests on the branch-uniformity precondition stated at the head of section 1; on "
+        f"this run the soil ingredient clears the canopy ceiling by a factor of {ratio:.1f}."
+        if clear
+        else "Rests on the branch-uniformity precondition stated at the head of section 1, "
+        "whose margin has narrowed on this run -- see the WARN."
+    )
     if clear:
-        return headline, None
-    return headline, (
+        return preamble, reference, None
+    return preamble, reference, (
         f"The moss wetness proxy's soil ingredient no longer stays clear of its canopy one "
         f"in this run: the soil ingredient falls to {floor:.4f} ({floor_units}) while the "
         f"canopy ingredient is bounded only by {ceiling_what}. That is a ratio of "
         f"{ratio:.2f}.\n"
         "Two site-level identities are built on those never crossing on any single patch -- "
-        "Task 8's max() and Task 10's min(), neither of which commutes with the area-"
-        "weighted sum that puts these quantities on the tape. While the soil ingredient is "
-        "clear of the canopy ceiling the proxy is the same number on every vegetated patch "
-        "and both identities are safe by construction. That clearance is now inside the "
+        "the proxy's max() in section 1 and the wetness scaler's min() in section 2, "
+        "neither of which commutes with the area-weighted sum that puts these quantities on "
+        "the tape. While the soil ingredient is clear of the canopy ceiling the proxy is "
+        "the same number on every vegetated patch and both identities are safe by "
+        "construction. That clearance is now inside the "
         f"factor of {COMMUTATION_MARGIN_FACTOR:g} this script asks for, so a day on which "
         "the branch differs between two patches of this site is no longer implausible.\n"
         "Nothing here says either identity DID break -- read their PASS/FAIL above. What it "
@@ -1506,8 +1971,8 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
     )
 
 
-def check_task8_proxy(report, data, veg_frac, commutation, leaf_cap, leaf_cap_source):
-    """Task 8: the proxy is the wetter of its two ingredients, and never below either."""
+def check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_source):
+    """The proxy is the wetter of its two ingredients, and never below either (Task 8)."""
     fwet = data["FATES_MOSS_FWET"]
     soil = data["FATES_MOSS_FWET_SOIL"]
     canopy = data["FATES_MOSS_FWET_CANOPY"]
@@ -1516,21 +1981,22 @@ def check_task8_proxy(report, data, veg_frac, commutation, leaf_cap, leaf_cap_so
     ok = deviation < TOL_EXACT
     report(
         "PASS" if ok else "FAIL",
-        "Task 8: FATES_MOSS_FWET == max(FATES_MOSS_FWET_SOIL, FATES_MOSS_FWET_CANOPY)",
+        "Is the moss wetness proxy the wetter of its two ingredients? (Task 8)",
         ("" if ok else DIVERGENCE_FIRST_SUSPECT + "\n")
+        + "identity: FATES_MOSS_FWET == max(FATES_MOSS_FWET_SOIL, FATES_MOSS_FWET_CANOPY)\n"
         + f"max |deviation| = {deviation:.3e}\n"
-        f"proxy  {np.nanmin(fwet):.4f} - {np.nanmax(fwet):.4f}\n"
-        f"soil   {np.nanmin(soil):.4f} - {np.nanmax(soil):.4f}\n"
-        f"canopy {np.nanmin(canopy):.4f} - {np.nanmax(canopy):.4f}"
+        f"proxy  {units.spans(fwet, 'patch', site_units='')}\n"
+        f"soil   {units.spans(soil, 'patch', site_units='')}\n"
+        f"canopy {units.spans(canopy, 'patch', site_units='')}"
         + coverage_note(len(fwet), fwet, soil, canopy)
         + "\n"
-        + commutation,
+        + precondition,
     )
 
     below = int(np.sum((fwet < soil - TOL_EXACT) | (fwet < canopy - TOL_EXACT)))
     report(
         "PASS" if below == 0 else "FAIL",
-        "Task 8: the proxy is never below either ingredient",
+        "Does the proxy stay at or above both of its ingredients, every day? (Task 8)",
         f"days below one of its ingredients: {below} of {len(fwet)}\n"
         "Unlike the identity above this one is structural: a sum of max(a_p, b_p) weighted "
         "by non-negative areas is at least the same sum of a_p, and at least the same sum "
@@ -1540,38 +2006,57 @@ def check_task8_proxy(report, data, veg_frac, commutation, leaf_cap, leaf_cap_so
 
     canopy_binds = int(np.sum(canopy > soil))
     canopy_max = float(np.nanmax(canopy))
-    soil_lo, soil_hi = float(np.nanmin(soil)), float(np.nanmax(soil))
     at_max = int(np.sum(np.isclose(canopy, canopy_max)))
+    native_canopy_max = float(np.nanmax(units.native(canopy, "patch"))) if units.has(
+        "patch"
+    ) else canopy_max
+    # Whether the canopy ingredient is sitting on its structural ceiling or merely at the
+    # largest value this run happened to reach is the difference between "the design pins
+    # it here" and "the weather put it here", and it is not something a reader should have
+    # to work out by comparing two decimals several lines apart.
+    at_ceiling = leaf_cap is not None and native_canopy_max >= float(leaf_cap) * (
+        1.0 - TOL_RELATIVE
+    )
     lines = [
         f"canopy sets the proxy (canopy > soil) on {canopy_binds} of {len(fwet)} days",
-        f"canopy is nonzero on {100 * np.mean(canopy > 0):.0f}% of days and sits at its own "
-        f"maximum ({canopy_max:.4f}) on {at_max} of them",
-    ]
-    if veg_frac is not None:
-        lines.append(
-            f"in patch units that maximum is {canopy_max / float(np.mean(veg_frac)):.4f}; "
-            f"the site value is that times the non-bareground area fraction "
-            f"{float(np.mean(veg_frac)):.4f}"
+        f"canopy is nonzero on {100 * np.mean(canopy > 0):.0f}% of days and "
+        + (
+            "reaches its ceiling of "
+            + named(leaf_cap, "maximum_leaf_wetted_fraction", leaf_cap_source)
+            if at_ceiling
+            else f"tops out at {native_canopy_max:.4f}"
+            + (
+                ", short of its ceiling of "
+                + named(leaf_cap, "maximum_leaf_wetted_fraction", leaf_cap_source)
+                if leaf_cap is not None
+                else ""
+            )
         )
+        + f" on {at_max} of {len(fwet)} days",
+    ]
     canopy_spike, soil_spike = spikiness(canopy), spikiness(soil)
     lines.append(
-        f"day-to-day |delta| max/mean: canopy {canopy_spike:.1f}, soil {soil_spike:.1f}"
+        "largest daily change / mean daily change (1.0 = perfectly steady, high = "
+        f"event-driven): canopy {canopy_spike:.1f}, soil {soil_spike:.1f}"
         if np.isfinite(canopy_spike) and np.isfinite(soil_spike)
-        else "day-to-day |delta| max/mean: not defined on this tape -- there are no "
-        "day-to-day steps to take a ratio of"
+        else "largest daily change / mean daily change: not defined on this tape -- "
+        "there are no day-to-day steps to take a ratio of"
     )
 
-    # Task 8 Step 4 asks for a correlation between the canopy ingredient and rain events.
-    # Whether that is worth computing is a question about THIS run, not about the model: it
-    # turns on whether the canopy ingredient ever wins, which turns on where CTSM's
-    # maximum_leaf_wetted_fraction sits relative to this site's soil saturation. That
+    # The verification plan asks for a correlation between the canopy ingredient and rain
+    # events. Whether that is worth computing is a question about THIS run, not about the
+    # model: it turns on whether the canopy ingredient ever wins, which turns on where
+    # CTSM's maximum_leaf_wetted_fraction sits relative to this site's soil saturation. That
     # parameter is a global scalar on the host parameter file and a tuning candidate on this
     # branch, so the conclusion is stated against the value the run actually used.
     cap_phrase = (
-        f"CTSM's maximum_leaf_wetted_fraction, {leaf_cap:g} ({leaf_cap_source})"
+        named(leaf_cap, "maximum_leaf_wetted_fraction", leaf_cap_source)
         if leaf_cap is not None
         else "CTSM's maximum_leaf_wetted_fraction, which could not be read from this run"
     )
+    native_soil = span(units.native(soil, "patch"), "{:.4f}") if units.has(
+        "patch"
+    ) else span(soil, "{:.4f}") + " in site units"
     if canopy_binds == 0:
         # Whether RAIN is on the tape is a fact about this tape, so it is read off the tape
         # rather than asserted from what a FATES-SP field list usually carries.
@@ -1579,18 +2064,20 @@ def check_task8_proxy(report, data, veg_frac, commutation, leaf_cap, leaf_cap_so
             "Nothing is blocking the correlation itself -- RAIN is on this tape."
             if "RAIN" in data
             else "RAIN is not on this tape either, so the correlation could not have been "
-            "computed here in any case; put RAIN in hist_fincl1 if the ceiling below is "
-            "ever raised."
+            "computed here in any case; put RAIN in hist_fincl1 if that ceiling is ever "
+            "raised."
         )
+        # The ceiling is named before the note that points at it. It used to be the other
+        # way round, with the note saying "the ceiling below" and the ceiling arriving a
+        # sentence later -- a pointer that only worked while the two sat in a fixed order.
         lines.append(
-            f"RAIN EVENTS (Task 8 Step 4): the canopy ingredient tops out at "
-            f"{canopy_max:.4f} against a soil ingredient spanning {soil_lo:.4f} - "
-            f"{soil_hi:.4f}, so it never "
-            "sets the proxy in this run and a correlation between it and rain would say "
-            f"nothing about the proxy here. {rain_note} What makes it "
-            f"pointless is the ceiling, which is {cap_phrase}. Raise that above this site's "
-            "soil saturation floor and the limitation dissolves, so this is a statement "
-            "about the run in front of you and not one about the design."
+            f"AGAINST RAIN (Task 8 Step 4): the canopy ingredient tops out at "
+            f"{native_canopy_max:.4f} against a soil ingredient spanning {native_soil}, so "
+            "it never sets the proxy in this run and a correlation between it and rain "
+            "would say nothing about the proxy here. What makes it pointless is the "
+            f"ceiling, {cap_phrase}: raise that above this site's soil saturation floor and "
+            "the limitation dissolves, so this is a statement about the run in front of you "
+            f"and not one about the design. {rain_note}"
         )
     else:
         rain = (
@@ -1599,43 +2086,52 @@ def check_task8_proxy(report, data, veg_frac, commutation, leaf_cap, leaf_cap_so
             else " RAIN is not on this tape, so it is not computed here."
         )
         lines.append(
-            f"RAIN EVENTS (Task 8 Step 4): the canopy ingredient DOES set the proxy, on "
+            f"AGAINST RAIN (Task 8 Step 4): the canopy ingredient DOES set the proxy, on "
             f"{canopy_binds} of {len(fwet)} days, so unlike a run in which it is pinned "
-            f"below the soil ingredient by {cap_phrase}, the rain-event correlation this "
-            "step asks for is meaningful on this tape and worth computing." + rain
+            f"below the soil ingredient by {cap_phrase}, a rain-event correlation is "
+            "meaningful on this tape and worth computing." + rain
         )
     report(
         "INFO",
-        "Task 8: is the canopy ingredient event-driven, and does it ever matter?",
+        "Is the canopy ingredient event-driven, and does it ever matter? (Task 8)",
         "\n".join(lines) + coverage_note(len(fwet), fwet, soil, canopy),
     )
 
     # An ingredient that never wins is exactly the class of thing the WARN channel exists
     # for: a path this run never exercised, which no PASS above can carry, and which is a
     # property of the run rather than of the design. Raised after the INFO so the numbers it
-    # refers to are already on the screen.
+    # refers to are already on the screen. Its headline stays declarative: a warning exists
+    # to state something that must not be scrolled past, and a question form buries it.
     if canopy_binds == 0:
         report.warn(
             "The canopy ingredient never sets the moss wetness proxy in this run",
-            f"FATES_MOSS_FWET_CANOPY tops out at {canopy_max:.4f} while "
-            f"FATES_MOSS_FWET_SOIL spans {soil_lo:.4f} - {soil_hi:.4f}, so on all "
+            f"FATES_MOSS_FWET_CANOPY tops out at {native_canopy_max:.4f} while "
+            f"FATES_MOSS_FWET_SOIL spans {native_soil}, so on all "
             f"{len(fwet)} days of this run the proxy is the soil ingredient and nothing "
             "else.\n"
-            "The Task 8 identity above therefore PASSes on max(a, b) == a: the canopy branch "
+            "The identity above therefore PASSes on max(a, b) == a: the canopy branch "
             "of UpdateMossFwet was never taken, and neither the canopy ingredient's own "
-            "arithmetic nor its effect on anything downstream of the proxy -- the Task 10 "
-            "scaler, moss GPP -- is under test here at all. Task 8 Step 4's rain-event "
-            "correlation is untestable for the same reason.\n"
+            "arithmetic nor its effect on anything downstream of the proxy -- the wetness "
+            "scaler in section 2, moss GPP -- is under test here at all. A correlation "
+            "between the canopy ingredient and rain events, which the plan also asks for "
+            "(Task 8 Step 4), is untestable for the same reason: an ingredient that never "
+            "sets the proxy cannot be shown to drive it.\n"
             f"The ceiling that does it is {cap_phrase}. That is a property of THIS run: "
             "raise it above this site's soil saturation floor, or run a drier site, and the "
             "canopy branch starts being exercised with nothing else changed.",
         )
 
 
+SCALER_BELOW = (
+    "Below the threshold, is the wetness scaler the proxy over the threshold? (Task 10)"
+)
+SCALER_ABOVE = "Above the threshold, does the wetness scaler sit at exactly 1? (Task 10)"
+
+
 def check_task10_scaler(
-    report, data, veg_frac, threshold, threshold_source, commutation, no_veg_frac_reason
+    report, data, units, threshold, threshold_source, precondition, no_veg_frac_reason
 ):
-    """Task 10: the wetness scaler is the shipped wetness map, in its two halves.
+    """The wetness scaler is the configured wetness map, in its two halves (Task 10).
 
     The area weighting is the whole subtlety here. Per patch the scaler is
     min(1, fwet_patch/threshold). Both the scaler and the proxy reach history as
@@ -1674,17 +2170,18 @@ def check_task10_scaler(
     sum. See commutation_watch for what decides that and what is watched in its place.
     """
     if absent(data, "FATES_MOSS_WETNESS_SCALER"):
-        for label in (
-            "Task 10: below the plateau the scaler is FATES_MOSS_FWET / threshold",
-            "Task 10: on the plateau the scaler is the non-bareground area fraction",
-        ):
+        for label in (SCALER_BELOW, SCALER_ABOVE):
             report("SKIP", label, "FATES_MOSS_WETNESS_SCALER is not on this tape.")
         return
 
+    veg_frac = units.divisor["patch"]
     scaler = data["FATES_MOSS_WETNESS_SCALER"]
     fwet = data["FATES_MOSS_FWET"]
     nday = len(fwet)
     ratio = fwet / threshold
+    threshold_named = named(
+        threshold, "fates_moss_vcmax_fwet_thresh", threshold_source
+    )
 
     if veg_frac is None:
         bound = float(np.nanmax(scaler)) if np.any(np.isfinite(scaler)) else 0.0
@@ -1692,10 +2189,7 @@ def check_task10_scaler(
             # The lower bound on the area fraction is the largest scaler the run reached, so
             # a scaler that never leaves zero leaves no bound and no day that can be called
             # sub-plateau. That is a check that could not be made, not one that failed.
-            for label in (
-                "Task 10: below the plateau the scaler is FATES_MOSS_FWET / threshold",
-                "Task 10: on the plateau the scaler is the non-bareground area fraction",
-            ):
+            for label in (SCALER_BELOW, SCALER_ABOVE):
                 report(
                     "SKIP",
                     label,
@@ -1706,26 +2200,27 @@ def check_task10_scaler(
                 )
             return
         bound_note = (
-            f"below-the-kink days are the {{n}} on which fwet/{threshold} falls under "
-            f"{bound:.4f}, the largest scaler this run reached, which is a lower bound on "
-            "the non-bareground area fraction (the scaler is at most that fraction every "
-            "day). The area fraction itself is not on this tape"
+            "below-the-threshold days are the {n} on which the site-level proxy over the "
+            f"threshold falls under {bound:.4f}, the largest scaler this run reached, which "
+            "is a lower bound on the non-bareground area fraction (the scaler is at most "
+            "that fraction every day). The area fraction itself is not on this tape, so "
+            "moss-native numbers below fall back to site units"
         )
         sub = ratio < bound * (1.0 - TOL_RELATIVE)
     else:
         bound_note = (
-            f"below-the-kink days are the {{n}} on which fwet/{threshold} falls under the "
-            f"non-bareground area fraction, {np.mean(veg_frac):.4f}"
+            "below-the-threshold days are the {n} on which the moss-native proxy is under "
+            + threshold_named
         )
         sub = ratio < veg_frac * (1.0 - TOL_RELATIVE)
 
     if not sub.any():
         report(
             "SKIP",
-            "Task 10: below the plateau the scaler is FATES_MOSS_FWET / threshold",
-            "This run never leaves the plateau of the wetness map: FATES_MOSS_FWET is at or "
-            f"above threshold x the area fraction on all {nday} days, so there is no day on "
-            "which the sub-plateau branch of min(1, fwet/threshold) was taken and nothing "
+            SCALER_BELOW,
+            "This run never leaves the flat top of the wetness map: the moss-native proxy "
+            f"is at or above {threshold_named} on all {nday} days, so there is no day on "
+            "which the rising branch of min(1, proxy/threshold) was taken and nothing "
             "here pins the threshold. A drier run would.",
         )
     else:
@@ -1733,33 +2228,35 @@ def check_task10_scaler(
         ok = deviation < TOL_RELATIVE
         report(
             "PASS" if ok else "FAIL",
-            "Task 10: below the plateau the scaler is FATES_MOSS_FWET / threshold",
+            SCALER_BELOW,
             ("" if ok else DIVERGENCE_FIRST_SUSPECT + "\n")
-            + f"identity: scaler == FATES_MOSS_FWET/{threshold} on the days below the "
-            "kink, where the area weighting cancels out of both sides\n"
+            + "identity: scaler == FATES_MOSS_FWET / threshold on the days below the "
+            "threshold, where the area weighting cancels out of both sides and the site "
+            "value and the moss-native value give the same test\n"
+            f"with {threshold_named}\n"
             f"max relative deviation = {deviation:.3e} over {int(sub.sum())} of {nday} days\n"
             + bound_note.format(n=int(sub.sum()))
             + "\n"
-            f"threshold from {threshold_source}\n"
             "This is the half that pins the threshold: it is the only quantity in it, and "
             "it holds whether or not the area fraction is known and whether or not it "
             "varies in time."
             + coverage_note(nday, fwet, scaler)
             + "\n"
-            + commutation,
+            + precondition,
         )
 
     if veg_frac is None:
         report(
             "SKIP",
-            "Task 10: on the plateau the scaler is the non-bareground area fraction",
+            SCALER_ABOVE,
             f"{no_veg_frac_reason}\n"
-            "On the plateau the scaler IS the area fraction -- min(veg_frac, "
-            "fwet/threshold) picks the first branch -- so this half is the area weighting "
-            "and nothing else, and there is no weaker version of it left to test. It is "
-            "also the only place the naive unweighted min(1, fwet/threshold) differs: on "
-            "the plateau it is wrong by exactly the missing factor, while below the kink it "
-            "agrees with the identity, which is why the half above still runs.",
+            "Moss-native, the claim is that the scaler saturates at exactly 1. On the tape "
+            "that reads as the scaler being exactly the non-bareground area fraction, so "
+            "this half is the area weighting and nothing else and there is no weaker "
+            "version of it left to test. It is also the only place the naive unweighted "
+            "min(1, fwet/threshold) differs: above the threshold it is wrong by exactly the "
+            "missing factor, while below it agrees with the identity, which is why the half "
+            "above still runs.",
         )
         return
 
@@ -1768,33 +2265,89 @@ def check_task10_scaler(
     if not plateau.any():
         report(
             "SKIP",
-            "Task 10: on the plateau the scaler is the non-bareground area fraction",
-            f"FATES_MOSS_FWET never reaches threshold x the area fraction "
-            f"({threshold} x {np.mean(veg_frac):.4f}) on any of the {nday} days of this "
-            "run, so the plateau branch of the map was never taken and there is nothing "
-            "here to test it on. A wetter run would.",
+            SCALER_ABOVE,
+            f"The moss-native proxy never reaches {threshold_named} on any of the {nday} "
+            "days of this run, so the flat branch of the map was never taken and there is "
+            "nothing here to test it on. A wetter run would.",
         )
         return
     deviation = relative_deviation(scaler[plateau], veg_frac[plateau])
     ok = deviation < TOL_RELATIVE
     report(
         "PASS" if ok else "FAIL",
-        "Task 10: on the plateau the scaler is the non-bareground area fraction",
+        SCALER_ABOVE,
         ("" if ok else DIVERGENCE_FIRST_SUSPECT + "\n")
-        + f"identity: scaler == veg_frac = {np.mean(veg_frac):.4f} on the plateau days\n"
+        + "identity: moss-native, the scaler saturates at exactly 1 on the "
+        "days above the threshold, which on the site-level tape it was checked against "
+        f"reads as scaler == the non-bareground area fraction, {np.mean(veg_frac):.4f}\n"
         f"max relative deviation = {deviation:.3e} over {int(plateau.sum())} of {nday} days "
         f"({100.0 * plateau.mean():.1f}% of the run)\n"
-        f"scaler {np.nanmin(scaler):.4f} - {np.nanmax(scaler):.4f}\n"
-        f"for contrast, the unweighted min(1, fwet/{threshold}) form misses by "
-        f"{naive:.3e} -- that is the area weighting, and this half is where it shows"
+        f"scaler {units.spans(scaler, 'patch', site_units='')}\n"
+        "for contrast, reading the tape's site values straight into the unweighted "
+        f"min(1, fwet/threshold) form misses by {naive:.3e} -- that is the area weighting, "
+        "and this half is where it shows"
         + coverage_note(nday, fwet, scaler, veg_frac)
         + "\n"
-        + commutation,
+        + precondition,
     )
 
 
-def check_task6_livemoss(report, data, fuel_amount, miner_total, miner_source):
-    """Task 6: the live-moss fuel class carries the live-moss biomass.
+LIVE_MOSS_LOADING = "Does the live-moss fuel class carry the live moss biomass? (Task 6)"
+def livemoss_divisor_note(data, units, livemoss, moss):
+    """Whether this tape can rule out the wrong divisor for FATES_LIVEMOSS_FUEL, and say so.
+
+    The class assignments elsewhere in this script are traced to the FATES source and taken
+    on that authority. Two of them the tape can also falsify, and where it can, saying so
+    turns an assumption into a check. This is the second: the moss fuel-moisture slope is
+    the other.
+
+    cpatch%livemoss is the leaf PLUS sapwood PLUS structural carbon of the patch's
+    non-vascular cohorts (biogeochem/FatesPatchMod.F90:855-875), while FATES_LEAFC_PF at the
+    moss index is the leaf carbon alone. Whatever divisor is right, live moss biomass cannot
+    come out BELOW moss leaf carbon -- so if the two are given divisors that differ, and the
+    ratio lands under 1, the assignment is refuted. It is the impossibility that settles it,
+    not how close the ratio is to any particular number.
+
+    Returns "" when the tape cannot discriminate: no leaf carbon on it, no moss ever, or a
+    configuration in which the two candidate divisors are the same number and there is
+    nothing to tell apart.
+    """
+    leafc = data.get("FATES_LEAFC_PF")
+    veg, moss_area = units.divisor["patch"], units.divisor["moss"]
+    if leafc is None or veg is None or moss_area is None:
+        return ""
+    ratio = float(np.mean(moss_area)) / float(np.mean(veg))
+    if abs(ratio - 1.0) <= TOL_RELATIVE:
+        # Full competition, or nocomp without a bareground patch: both divisors are the same
+        # number, so there are not two assignments here to tell apart.
+        return ""
+    leaf = leafc[:, moss]
+    both = (leaf > 0) & np.isfinite(livemoss) & np.isfinite(leaf)
+    if not both.any():
+        return ""
+    with np.errstate(invalid="ignore", divide="ignore"):
+        observed = livemoss[both] / leaf[both]
+    if not np.any(np.isfinite(observed)):
+        return ""
+    return (
+        "\nThat this variable takes the MOSS patch area as its divisor, and not the "
+        "non-bareground area fraction, is a claim this tape can settle rather than one you "
+        "have to take on trust: live moss biomass is leaf plus sapwood plus structural "
+        "carbon, so it cannot fall below moss leaf carbon, and "
+        f"against FATES_LEAFC_PF at the moss index it runs {span(observed, '{:.4f}')}. Had "
+        "it been a vegetated-patch quantity while leaf carbon stayed a moss-patch one, the "
+        f"same two columns would give {span(ratio * observed, '{:.4f}')} -- live moss "
+        "biomass below its own leaf carbon, which is impossible. The impossibility settles "
+        "it; the closeness of the first number to 1 does not. (The two are read a day apart "
+        "in the daily sequence, so the ratio carries a fraction of a percent of drift that "
+        "is not tissue.)"
+    )
+
+
+def check_task6_livemoss(
+    report, data, units, moss, fuel_amount, miner_total, miner_source
+):
+    """The live-moss fuel class carries the live-moss biomass (Task 6).
 
     The two variables report the same biomass under different conventions, and the factor
     below is the relationship between them.
@@ -1830,14 +2383,15 @@ def check_task6_livemoss(report, data, fuel_amount, miner_total, miner_source):
 
     report(
         "PASS" if deviation < TOL_RELATIVE and nonzero else "FAIL",
-        "Task 6: live-moss fuel loading agrees with FATES_LIVEMOSS_FUEL",
+        LIVE_MOSS_LOADING,
         f"identity: FATES_FUEL_AMOUNT_FC[live_moss] == "
         f"(1 - fates_fire_miner_total) * FATES_LIVEMOSS_FUEL\n"
-        f"          = {damping:.6f} * FATES_LIVEMOSS_FUEL   "
-        f"(miner_total {miner_total} from {miner_source})\n"
-        f"max relative deviation = {deviation:.3e}\n"
-        f"FATES_LIVEMOSS_FUEL {np.nanmin(reference):.4e} - {np.nanmax(reference):.4e} "
-        f"kg m-2, nonzero on {int(np.sum(reference > 0))} of {len(reference)} days\n"
+        f"          = {damping:.6f} * FATES_LIVEMOSS_FUEL, with "
+        + named(miner_total, "fates_fire_miner_total", miner_source)
+        + f"\nmax relative deviation = {deviation:.3e}\n"
+        f"FATES_LIVEMOSS_FUEL {units.spans(reference, 'moss', '{:.4e}', 'kg m-2 land')}"
+        f"\n                    nonzero on {int(np.sum(reference > 0))} of "
+        f"{len(reference)} days\n"
         + (
             ""
             if nonzero
@@ -1848,20 +2402,8 @@ def check_task6_livemoss(report, data, fuel_amount, miner_total, miner_source):
         + "The factor is the mineral-content convention: FATES_FUEL_AMOUNT_FC is "
         "mineral-free (SFMainMod.F90:315), FATES_LIVEMOSS_FUEL is not, and no long name "
         "says which is which."
+        + livemoss_divisor_note(data, units, reference, moss)
         + coverage_note(len(reference), reference, live_moss),
-    )
-
-    live_grass = fuel_amount[:, FUEL_CLASSES["live_grass"] - 1]
-    report(
-        "INFO",
-        "Task 6: live-grass and live-moss fuel loading side by side",
-        f"live grass  {np.nanmin(live_grass):.4e} - {np.nanmax(live_grass):.4e} kg m-2 "
-        f"(mean {np.nanmean(live_grass):.4e})\n"
-        f"live moss   {np.nanmin(live_moss):.4e} - {np.nanmax(live_moss):.4e} kg m-2 "
-        f"(mean {np.nanmean(live_moss):.4e})\n"
-        "Confirming that moss loading MOVED out of the live-grass class rather than being "
-        "double-counted alongside it requires the pre-Task-6 baseline. One run cannot "
-        "supply it, and nothing on this tape stands in for it.",
     )
 
 
@@ -1880,21 +2422,26 @@ def check_mossfines_sentinel(report, data):
         return False
     report(
         "INFO",
-        "Task 7: FATES_MOSS_FINES carries the FATES-SP unset-litter sentinel",
+        "Is FATES_MOSS_FINES a litter pool here, or the FATES-SP unset sentinel? (Task 7)",
         f"FATES_MOSS_FINES is {np.nanmax(fines):.4e} kg m-2 on {n_unset} of {len(fines)} "
         "days, which is ndcmpy x fates_unset_r8 (3 x -1e36) showing through rather than a "
-        "physical value.\n"
+        "physical value. It is left in site units deliberately: a sentinel is not a "
+        "quantity, and dividing it by an area fraction would dress it up as one.\n"
         "Under FATES-SP, EDInitMod.F90:863-868 initializes the litter and seed pools to "
         "fates_unset_r8 rather than to zero, so this is the same convention "
         "FATES_SEEDLING_POOL and FATES_UNGERM_SEED_BANK already follow on an SP tape -- "
         "not moss-specific, and not a netCDF fill value. There is no litter state in SP "
-        "mode for the Task 7 checks to test.",
+        "mode for the dead-moss checks below to test.",
     )
     return True
 
 
-def check_task7_mossfines(report, data, fuel_amount, miner_total):
-    """Task 7: the dead-moss fuel class carries the dead-moss litter, one day stale.
+DEAD_MOSS_LOADING = "Does the dead-moss fuel class carry the moss litter pool? (Task 7)"
+DEAD_MOSS_ACCUMULATES = "Does the moss litter pool accumulate over the run? (Task 7)"
+
+
+def check_task7_mossfines(report, data, units, fuel_amount, miner_total, miner_source):
+    """The dead-moss fuel class carries the dead-moss litter, one day stale (Task 7).
 
     Two offsets between the two variables, both structural:
 
@@ -1928,7 +2475,7 @@ def check_task7_mossfines(report, data, fuel_amount, miner_total):
         # here; there was nothing to compare.
         report(
             "SKIP",
-            "Task 7: dead-moss fuel loading agrees with FATES_MOSS_FINES",
+            DEAD_MOSS_LOADING,
             f"this tape holds {nday} day, and the identity compares "
             "FATES_FUEL_AMOUNT_FC[dead_moss] on one day against FATES_MOSS_FINES on the "
             "day before it. Two days of output would be enough.",
@@ -1936,12 +2483,13 @@ def check_task7_mossfines(report, data, fuel_amount, miner_total):
     else:
         report(
             "PASS" if deviation < TOL_RELATIVE and nonzero else "FAIL",
-            "Task 7: dead-moss fuel loading agrees with FATES_MOSS_FINES",
+            DEAD_MOSS_LOADING,
             f"identity: FATES_FUEL_AMOUNT_FC[dead_moss](t) == {damping:.6f} * "
-            f"FATES_MOSS_FINES(t-1)\n"
-            f"max relative deviation = {deviation:.3e}\n"
-            f"FATES_MOSS_FINES {np.nanmin(fines):.4e} - {np.nanmax(fines):.4e} kg m-2, "
-            f"nonzero on {int(np.sum(fines > 0))} of {nday} days\n"
+            f"FATES_MOSS_FINES(t-1), with "
+            + named(miner_total, "fates_fire_miner_total", miner_source)
+            + f"\nmax relative deviation = {deviation:.3e}\n"
+            f"FATES_MOSS_FINES {units.spans(fines, 'moss', '{:.4e}', 'kg m-2 land')}"
+            f"\n                 nonzero on {int(np.sum(fines > 0))} of {nday} days\n"
             + (
                 ""
                 if nonzero
@@ -1958,7 +2506,7 @@ def check_task7_mossfines(report, data, fuel_amount, miner_total):
     if nday < 2:
         report(
             "SKIP",
-            "Task 7: FATES_MOSS_FINES is nonzero and accumulates over the run",
+            DEAD_MOSS_ACCUMULATES,
             f"this tape holds {nday} day, so there is no first half and second half to "
             "compare and no trend over the run to read.",
         )
@@ -1968,10 +2516,14 @@ def check_task7_mossfines(report, data, fuel_amount, miner_total):
     grew = np.nanmax(fines) > 0 and second > first
     report(
         "PASS" if grew else "FAIL",
-        "Task 7: FATES_MOSS_FINES is nonzero and accumulates over the run",
-        f"first-half mean {first:.4e}, second-half mean {second:.4e} kg m-2\n"
-        f"day 1 {fines[0]:.4e} -> day {nday} {fines[-1]:.4e} kg m-2 "
-        f"(peak {np.nanmax(fines):.4e})" + coverage_note(nday, fines),
+        DEAD_MOSS_ACCUMULATES,
+        f"first-half mean {units.value(first, 'moss', '{:.4e}')}, second-half mean "
+        f"{units.value(second, 'moss', '{:.4e}')}\n"
+        f"day 1 {units.value(fines[0], 'moss', '{:.4e}')} -> day {nday} "
+        f"{units.value(fines[-1], 'moss', '{:.4e}')}, peak "
+        f"{units.value(float(np.nanmax(fines)), 'moss', '{:.4e}')}\n"
+        f"on the tape, {span(fines, '{:.4e}')} kg m-2 land"
+        + coverage_note(nday, fines),
     )
 
 
@@ -2005,16 +2557,16 @@ def warn_sav_degeneracy(report, sav, sav_source, task9_ran):
     """
     if sav is None:
         report.warn(
-            "Whether Task 9's moisture of extinction separates moss from the other fuel "
-            "classes could not be examined",
+            "Whether the moisture of extinction separates moss from the other fuel classes "
+            "could not be examined (Task 9)",
             "fates_fire_SAV could not be read from this run's FATES parameter file, so the "
             "moss classes' surface-area-to-volume ratios were never compared against the "
             "other classes'.\n"
             "Where the moss classes share an SAV with a non-moss class they share a moisture "
-            "of extinction, and the Task 9 slope check then cannot tell that FATES reached "
-            "for a moss entry rather than that class's. Whether this run is in that position "
-            "is unknown here, not ruled out. It is settled by giving this script a readable "
-            "fates_paramfile, and nothing about the run has to change.",
+            "of extinction, and the moss moisture-slope check then cannot tell that FATES "
+            "reached for a moss entry rather than that class's. Whether this run is in that "
+            "position is unknown here, not ruled out. It is settled by giving this script a "
+            "readable fates_paramfile, and nothing about the run has to change.",
         )
         return
     known = {
@@ -2039,26 +2591,32 @@ def warn_sav_degeneracy(report, sav, sav_source, task9_ran):
         )
         if twins:
             lines.append(
-                f"fates_fire_SAV[{FUEL_CLASSES[moss_name]}] ({moss_name}) = "
-                f"{known[moss_name]:g}, which is also its value for " + ", ".join(twins)
+                named(
+                    known[moss_name],
+                    f"fates_fire_SAV[{FUEL_CLASSES[moss_name]}] ({moss_name})",
+                    sav_source,
+                )
+                + ", which is also its value for "
+                + ", ".join(twins)
             )
     if not lines:
         return
     report.warn(
-        "Task 9's moisture of extinction does not separate moss from the other fuel classes",
-        "\n".join(lines) + f"\n(fates_fire_SAV from {sav_source})\n"
+        "The moisture of extinction does not separate moss from the other fuel classes "
+        "(Task 9)",
+        "\n".join(lines) + "\n"
         "The MEF this script rebuilds for a moss class is therefore the same number it "
-        "would rebuild for those non-moss classes, and the Task 9 slope check "
+        "would rebuild for those non-moss classes, and the moss moisture-slope check "
         + (
             "would have passed just as well had FATES indexed one of them. What that check "
-            "does establish here is that the shipped moss map was applied to the moss proxy "
-            "with the shipped coefficients; what it CANNOT establish in this run is that "
+            "does establish here is that the configured moss map was applied to the moss proxy "
+            "with the configured coefficients; what it CANNOT establish in this run is that "
             "FATES reached for a moss SAV entry at all rather than a neighbouring class's."
             if task9_ran
             else "could not have separated them either -- though it did not run in this "
             "case at all, so nothing above rests on this. It is recorded because it is a "
             "property of the parameter file this run was given, and it would bite on the "
-            "next run that does reach Task 9."
+            "next run whose fire model produces fuel moisture."
         )
         + "\n"
         "Whether live and dead moss are distinguishable from EACH OTHER is a separate "
@@ -2081,14 +2639,14 @@ def close_enough(a, b, scale=1.0):
 
 
 def warn_live_dead_degeneracy(
-    report, namelist, namelist_source, fuel_moisture, sav, task9_ran
+    report, namelist, namelist_source, fuel_moisture, sav, sav_source, task9_ran
 ):
     """Warn if the dead-moss moisture map is indistinguishable from the live-moss one.
 
     Live and dead moss are separate fuel classes fed by separate pools, and Tasks 6 and 7
     do separate them -- livemoss is patch biomass, moss_fines is litter. What can collapse
     is the Task 9 MOISTURE map: it is the same function of the same proxy for both classes
-    whenever the two shipped coefficient sets agree and the two classes share an SAV, and
+    whenever the two configured coefficient sets agree and the two classes share an SAV, and
     then the dead-moss fit is the live-moss fit computed a second time.
 
     Both halves of that matter, and the SAV half is the one that goes missing. Where there
@@ -2141,13 +2699,18 @@ def warn_live_dead_degeneracy(
         return
 
     lines = [
-        f"shipped map, live moss: slope {live[0]}, intercept {live[1]}",
-        f"shipped map, dead moss: slope {dead[0]}, intercept {dead[1]}   "
-        f"({namelist_source})",
+        "configured map, live moss: "
+        + named(live[0], "fates_moss_fuel_moisture_live_slope", namelist_source)
+        + ", "
+        + named(live[1], "fates_moss_fuel_moisture_live_intercept", namelist_source),
+        "configured map, dead moss: "
+        + named(dead[0], "fates_moss_fuel_moisture_dead_slope", namelist_source)
+        + ", "
+        + named(dead[1], "fates_moss_fuel_moisture_dead_intercept", namelist_source),
     ]
     if same_sav is not None:
         lines.append(
-            f"fates_fire_SAV[{live_index}] and [{dead_index}] "
+            f"fates_fire_SAV[{live_index}] and [{dead_index}] ({sav_source}) "
             + ("agree, so the two classes share a moisture of extinction too"
                if same_sav
                else "differ")
@@ -2159,8 +2722,9 @@ def warn_live_dead_degeneracy(
         )
     if columns is not None:
         lines.append(
-            f"FATES_FUEL_MOISTURE_FC[:, {live_index - 1}] and [:, {dead_index - 1}] differ "
-            f"by at most {columns:.3e} over the whole run"
+            "the live-moss and dead-moss columns of FATES_FUEL_MOISTURE_FC (fuel classes "
+            f"{live_index} and {dead_index}) differ by at most {columns:.3e} over the "
+            "whole run"
         )
     if sav_unexamined:
         verdict = (
@@ -2185,23 +2749,42 @@ def warn_live_dead_degeneracy(
             "proxy, so a dead-moss fit would be the live-moss fit run a second time. "
             "Neither fit ran in this case, so nothing above rests on this; it is recorded "
             "because it is a property of the parameters this run was given, and it would "
-            "bite on the next run that does reach Task 9."
+            "bite on the next run whose fire model produces fuel moisture."
         )
     report.warn(
-        "The dead-moss half of Task 9 adds no coverage in this run",
+        "The dead-moss fuel-moisture check adds no coverage in this run (Task 9)",
         "\n".join(lines) + "\n" + verdict + "\n"
-        "Tasks 6 and 7 are NOT affected: they check the two classes against different pools, "
-        "livemoss and moss_fines, and those are genuinely separate. It is the moisture check "
-        "alone that is duplicated, and it earns its place the day the two coefficient sets "
-        "diverge.",
+        "The fuel-LOADING checks in section 3 are NOT affected: they check the two classes "
+        "against different pools, livemoss and moss_fines, and those are genuinely "
+        "separate. It is the moisture check alone that is duplicated, and it earns its "
+        "place the day the two coefficient sets diverge.",
+    )
+
+
+MOSS_MOISTURE_MAP = (
+    "Is moss fuel moisture a linear function of the moss wetness proxy alone? (Task 9)"
+)
+NESTEROV_CONTRAST = (
+    "Do the non-moss fuel classes still follow fire weather rather than the moss proxy? "
+    "(Task 9)"
+)
+MOSS_EXTINCTION = "How often is live moss too wet to carry fire? (Task 9, Task 12 Step 4)"
+
+
+def moisture_label(index, name):
+    # The class number is the parenthetical, not the subject: a reader who does not already
+    # know FATES's fuel-class ordering cannot be told "fuel class 7" and be any wiser.
+    return (
+        f"Is {name.replace('_', '-')} fuel moisture a linear function of the moss wetness "
+        f"proxy alone? (fuel class {index}, Task 9)"
     )
 
 
 def check_task9_moisture(
     report,
     data,
+    units,
     fuel_moisture,
-    veg_frac,
     namelist,
     namelist_source,
     sav,
@@ -2209,12 +2792,12 @@ def check_task9_moisture(
     no_veg_frac_reason,
     fire_status,
 ):
-    """Task 9: moss fuel moisture is an exact linear map of the proxy; others are not.
+    """Moss fuel moisture is an exact linear map of the proxy; others are not (Task 9).
 
     Three properties of the fit have to be pinned, not merely described:
 
       * the SLOPE. FATES_FUEL_MOISTURE_FC reports EFFECTIVE moisture, moisture/MEF, so the
-        fitted slope is the shipped slope divided by the moss classes' moisture of
+        fitted slope is the configured slope divided by the moss classes' moisture of
         extinction. Recovering MEF from the fitted slope and printing it constrains
         nothing -- a model that halved every moss moisture would fit an equally perfect
         straight line and would only halve the printed number. So the MEF is rebuilt from
@@ -2231,7 +2814,7 @@ def check_task9_moisture(
         a tolerance that can be scaled by the range of fwet the run actually sampled.
 
         This is the one part of the check that needs the area fraction -- but only while the
-        shipped intercept is nonzero. At a shipped intercept of zero, which is the shipped
+        configured intercept is nonzero. At a configured intercept of zero, which is the configured
         default for both moss classes, the expected crossing is zero for EVERY value of
         veg_frac, so the area fraction drops out and the check runs unchanged on a tape that
         has none. It is then still worth running -- a model that offset every moss moisture
@@ -2240,18 +2823,34 @@ def check_task9_moisture(
         and a run in that position is not counted as having lost a constraint.
 
       * the FLOOR. The map is wrapped in max(0, ...) (fire/FatesFuelMod.F90:274-277), so a
-        negative shipped intercept makes it piecewise and it is linear only above the kink.
+        negative configured intercept makes it piecewise and it is linear only above the kink.
         Days on the floor are excluded from the fit and counted, rather than being left to
         drag R^2 below 1 for a legitimate reason.
     """
     fwet = data["FATES_MOSS_FWET"]
+    veg_frac = units.divisor["patch"]
     veg = None if veg_frac is None else float(np.mean(veg_frac))
+    # The one place on this tape where the choice of divisor is falsifiable rather than
+    # merely traced. FATES_FUEL_MOISTURE_FC at a moss class and FATES_MOSS_FWET are fitted
+    # against each other, and the fitted slope depends on which area fraction dilutes each
+    # of them. If the moss moisture column were a moss-patch quantity while the proxy is a
+    # vegetated-patch one, the same configured map would fit a slope smaller by exactly the
+    # ratio of the two areas. Both expectations are printed below where they differ, so the
+    # fit says which family the moisture column belongs to instead of the reader taking it
+    # on trust.
+    moss_area = units.divisor["moss"]
+    area_ratio = (
+        float(np.mean(moss_area)) / veg
+        if veg is not None and moss_area is not None and veg > 0
+        else np.nan
+    )
+    discriminates = np.isfinite(area_ratio) and abs(area_ratio - 1.0) > TOL_RELATIVE
 
     for name, prefix in (("live_moss", "live"), ("dead_moss", "dead")):
         index = FUEL_CLASSES[name]
         moisture = fuel_moisture[:, index - 1]
-        shipped_slope = namelist[f"fates_moss_fuel_moisture_{prefix}_slope"]
-        shipped_intercept = namelist[f"fates_moss_fuel_moisture_{prefix}_intercept"]
+        configured_slope = namelist[f"fates_moss_fuel_moisture_{prefix}_slope"]
+        configured_intercept = namelist[f"fates_moss_fuel_moisture_{prefix}_intercept"]
 
         if veg is None:
             # Where the kink sits cannot be predicted without the area fraction, but it can
@@ -2259,7 +2858,7 @@ def check_task9_moisture(
             # and positive above it, so the reported value locates the kink itself.
             above_floor = moisture > 0
         else:
-            above_floor = shipped_intercept + shipped_slope * (fwet / veg) > 0
+            above_floor = configured_intercept + configured_slope * (fwet / veg) > 0
         floored = int(np.sum(~above_floor))
         obstacle = fit_obstacle(fwet[above_floor], moisture[above_floor], len(fwet))
         if obstacle is not None:
@@ -2267,12 +2866,11 @@ def check_task9_moisture(
             # FAIL printing `nan` puts a short or flat run's shape on the model's account.
             report(
                 "SKIP",
-                f"Task 9: fuel class {index} ({name}) moisture is an exact linear "
-                "function of FATES_MOSS_FWET",
+                moisture_label(index, name),
                 f"the linear fit could not be computed: {obstacle}.\n"
                 + (
                     f"{floored} of {len(fwet)} days sit at or below the max(0, ...) floor "
-                    "of the shipped map and are excluded from the fit before this is "
+                    "of the configured map and are excluded from the fit before this is "
                     "counted.\n"
                     if floored
                     else ""
@@ -2290,20 +2888,20 @@ def check_task9_moisture(
             if sav is not None and len(sav) >= index and sav[index - 1] > 0
             else np.nan
         )
-        implied_mef = shipped_slope / slope if slope else np.nan
+        implied_mef = configured_slope / slope if slope else np.nan
 
-        # A shipped intercept of zero puts the crossing point at zero whatever veg_frac is,
+        # A configured intercept of zero puts the crossing point at zero whatever veg_frac is,
         # so the area fraction cancels out of this half and it runs on any tape. It is not
         # then pinning the area weighting -- there is nothing at zero for the weighting to
         # scale -- which is why it is not counted as a constraint lost when the fraction is
         # missing. It still catches an offset, so it still runs.
-        degenerate_crossing = abs(shipped_intercept) <= TOL_EXACT
+        degenerate_crossing = abs(configured_intercept) <= TOL_EXACT
         crossing = -intercept / slope if slope else np.nan
         expected_crossing = (
             0.0
-            if degenerate_crossing and shipped_slope
-            else -veg * shipped_intercept / shipped_slope
-            if veg is not None and shipped_slope
+            if degenerate_crossing and configured_slope
+            else -veg * configured_intercept / configured_slope
+            if veg is not None and configured_slope
             else np.nan
         )
         ok_crossing = (
@@ -2312,7 +2910,7 @@ def check_task9_moisture(
             and abs(crossing - expected_crossing)
             <= TOL_RELATIVE * max(abs(expected_crossing), span)
         )
-        expected_slope = shipped_slope / mef if np.isfinite(mef) else np.nan
+        expected_slope = configured_slope / mef if np.isfinite(mef) else np.nan
         ok_slope = (
             np.isfinite(slope)
             and np.isfinite(expected_slope)
@@ -2325,58 +2923,76 @@ def check_task9_moisture(
             and (ok_slope or not np.isfinite(expected_slope))
         )
 
+        intercept_named = named(
+            configured_intercept,
+            f"fates_moss_fuel_moisture_{prefix}_intercept",
+            namelist_source,
+        )
+        slope_named = named(
+            configured_slope, f"fates_moss_fuel_moisture_{prefix}_slope", namelist_source
+        )
         if np.isfinite(expected_crossing) and degenerate_crossing:
             crossing_note = (
-                f"crossing point: expected 0 exactly, fitted {crossing:+.6e}. The shipped "
-                f"intercept is {shipped_intercept}, so -veg_frac * intercept / slope is "
-                "zero for EVERY value of the non-bareground area fraction and this half "
-                + (
-                    "needs none"
-                    if veg is None
-                    else f"would be zero at the {veg:.4f} on this tape as at any other"
-                )
-                + ". What it catches at these parameters is a moss moisture offset from "
-                "zero; what it is NOT doing is pinning the area weighting, since at an "
-                "intercept of zero there is nothing for the weighting to scale. Give the "
-                "moss classes a nonzero shipped intercept and this half starts constraining "
-                "the area fraction as well.\n"
+                f"crossing point: expected 0 exactly, fitted {crossing:+.6e}. With "
+                f"{intercept_named} the crossing is zero whatever the area weighting, so "
+                "this half needs no area fraction and would read the same on any tape. What "
+                "it catches at these parameters is a moss moisture offset from zero; what "
+                "it is NOT doing is pinning the area weighting, since at an intercept of "
+                "zero there is nothing for the weighting to scale. Give the moss classes a "
+                "nonzero configured intercept and this half starts constraining the area "
+                "fraction as well.\n"
             )
         elif np.isfinite(expected_crossing):
             crossing_note = (
-                f"crossing point: expected veg_frac * intercept / slope = {veg:.4f} * "
-                f"{shipped_intercept} / {shipped_slope} = {expected_crossing:+.6e} in site "
-                f"units, fitted {crossing:+.6e}\n"
-                f"        (the veg_frac factor is there because the area weighting cancels "
-                f"out of the slope but not out of the intercept)\n"
+                f"crossing point: expected {expected_crossing:+.6e} in the site units the "
+                f"fit was run in, fitted {crossing:+.6e}\n"
+                f"        that is -(non-bareground area fraction {veg:.4f}) x intercept / "
+                f"slope, with {intercept_named} and {slope_named}; the area factor is there "
+                "because the weighting cancels out of the slope but not out of the "
+                f"intercept, and moss-native the crossing is at {crossing / veg:+.6e}\n"
             )
         else:
             crossing_note = (
                 f"crossing point: NOT CONSTRAINED. {no_veg_frac_reason} The fitted "
-                f"intercept is veg_frac * shipped intercept / MEF, so without the area "
+                f"intercept is veg_frac * configured intercept / MEF, so without the area "
                 f"fraction there is no number to check the fitted {crossing:+.6e} against. "
                 "The SLOPE reported above is unaffected: the weighting cancels out of it "
                 "exactly. The R^2 is not quite unaffected -- the days entering the fit are "
                 "the days whose reported moisture is positive rather than the days the "
-                "shipped map predicts above its kink, so a day the model wrongly floored "
+                "configured map predicts above its kink, so a day the model wrongly floored "
                 "drops out of the fit instead of pulling R^2 down, and the survivors still "
                 "fit a perfect line. Read the floored-day count below against what the "
-                "shipped map would predict.\n"
+                "configured map would predict.\n"
             )
 
+        # The slope is the one number in this check that is the same in site units and in
+        # moss-native ones -- both sides of the fit carry the same area weight, so it
+        # cancels exactly -- which is why the fitted slope is quoted without conversion.
+        divisor_note = (
+            f"       that slope is also what says FATES_FUEL_MOISTURE_FC at this class is "
+            f"diluted by the same area fraction FATES_MOSS_FWET is, and not by the moss "
+            f"patch area: had it been a moss-patch quantity the same configured map would have "
+            f"fitted {area_ratio * expected_slope:.6f} instead, which is a factor of "
+            f"{area_ratio:.4f} away and nothing like the deviation above\n"
+            if discriminates and np.isfinite(expected_slope) and ok_slope
+            else ""
+        )
         report(
             "PASS" if ok else "FAIL",
-            f"Task 9: fuel class {index} ({name}) moisture is an exact linear "
-            "function of FATES_MOSS_FWET",
+            moisture_label(index, name),
             f"fit: effective_moisture = {slope:.6f} * fwet {intercept:+.3e}, "
-            f"R^2 = {r2:.10f}\n"
-            f"shipped map is max(0, intercept {shipped_intercept} + slope {shipped_slope} "
-            f"* fwet) ({namelist_source})\n"
+            f"R^2 = {r2:.10f}   (site units, in which the slope is identical to its "
+            "moss-native value: the area weight cancels out of it exactly)\n"
+            f"configured map is max(0, intercept + slope * fwet), with {intercept_named} and "
+            f"{slope_named}\n"
             + (
-                f"slope: expected shipped slope / MEF = {shipped_slope} / {mef:.6f} = "
+                f"slope: expected configured slope / MEF = {configured_slope:g} / {mef:.6f} = "
                 f"{expected_slope:.6f}, fitted {slope:.6f}, relative deviation "
                 f"{abs(slope - expected_slope) / abs(expected_slope):.3e}\n"
-                f"       MEF is rebuilt from fates_fire_SAV[{index}] = {sav[index - 1]:g} "
-                f"({sav_source}), not from this fit\n"
+                f"       MEF is rebuilt from "
+                + named(sav[index - 1], f"fates_fire_SAV[{index}]", sav_source)
+                + ", not from this fit\n"
+                + divisor_note
                 if np.isfinite(expected_slope)
                 else f"slope: NOT CONSTRAINED. fates_fire_SAV could not be read, so the "
                 f"only MEF available is the one implied by this fit, "
@@ -2403,7 +3019,7 @@ def check_task9_moisture(
                     "this too.",
                     None
                     if np.isfinite(expected_crossing)
-                    else "the shipped intercept could not be checked: it survives the area "
+                    else "the configured intercept could not be checked: it survives the area "
                     "weighting and the area fraction is not on this tape. A model that "
                     "offset every moss moisture by a constant would have passed this too.",
                 )
@@ -2415,7 +3031,7 @@ def check_task9_moisture(
     if "FATES_NESTEROV_INDEX" not in data:
         report(
             "SKIP",
-            "Task 9: non-moss fuel classes track the Nesterov index, not the moss proxy",
+            NESTEROV_CONTRAST,
             "FATES_NESTEROV_INDEX is not on this tape. That says nothing about whether fire "
             "ran: FATES registers it unconditionally with use_default='active' "
             "(main/FatesHistoryInterfaceMod.F90:6754), so it is on any tape whose "
@@ -2444,7 +3060,7 @@ def check_task9_moisture(
         if obstacles:
             report(
                 "SKIP",
-                "Task 9: non-moss fuel classes track the Nesterov index, not the moss proxy",
+                NESTEROV_CONTRAST,
                 "at least one of the correlations this contrast is made of could not be "
                 "computed:\n  " + "\n  ".join(obstacles[:6])
                 + (f"\n  ... and {len(obstacles) - 6} more" if len(obstacles) > 6 else "")
@@ -2464,7 +3080,7 @@ def check_task9_moisture(
             )
             report(
                 "PASS" if ok else "FAIL",
-                "Task 9: non-moss fuel classes track the Nesterov index, not the moss proxy",
+                NESTEROV_CONTRAST,
                 "classes " + ", ".join(str(c) for c in NESTEROV_DRIVEN) + "\n"
                 "corr with FATES_MOSS_FWET:      "
                 + ", ".join(f"{r:+.3f}" for r in with_proxy)
@@ -2489,7 +3105,7 @@ def check_task9_moisture(
     if veg_frac is None:
         report(
             "SKIP",
-            "Task 9 / Task 12 Step 4: how often live moss cannot carry fire",
+            MOSS_EXTINCTION,
             f"{no_veg_frac_reason}\n"
             f"The site-level FATES_FUEL_MOISTURE_FC value is "
             f"{np.nanmin(site):.4f} - {np.nanmax(site):.4f}, but the extinction threshold "
@@ -2502,27 +3118,36 @@ def check_task9_moisture(
     patch = divide_by_fraction(site, veg_frac)
     report(
         "INFO",
-        "Task 9 / Task 12 Step 4: how often live moss cannot carry fire",
-        f"patch effective moisture {np.nanmin(patch):.4f} - {np.nanmax(patch):.4f}; "
-        f">= 1 (at or past extinction) on {100 * np.mean(patch >= 1.0):.1f}% of days\n"
-        f"the site-level FATES_FUEL_MOISTURE_FC value is this times the non-bareground "
-        f"area fraction {np.mean(veg_frac):.4f}, i.e. "
-        f"{np.nanmin(site):.4f} - {np.nanmax(site):.4f}, and reads >= 1 on "
-        f"{100 * np.mean(site >= 1.0):.1f}% of days -- comparing the site value against 1 "
-        "understates the moss's wetness and is not the right test"
+        MOSS_EXTINCTION,
+        f"effective moisture {units.spans(site, 'patch', site_units='')}\n"
+        f"at or past extinction (moss-native value >= 1) on "
+        f"{100 * np.mean(patch >= 1.0):.1f}% of days; reading the tape's site value "
+        f"against 1 instead would say {100 * np.mean(site >= 1.0):.1f}%, which understates "
+        "the moss's wetness because the threshold belongs to a patch and the site value is "
+        "diluted by everything that is not vegetated"
         + coverage_note(len(site), site, patch),
     )
 
 
-def check_moss_productivity(report, data, moss, grass, fwet):
-    """Task 10 / Task 12 Step 3b: is moss productive, and is the productive window visited?"""
+MOSS_GPP = "Is moss photosynthesizing at all, and how much? (Task 10)"
+MOSS_WINDOW = "Is moss's productive window ever visited? (Task 12 Step 3b)"
+
+
+def check_moss_productivity(report, data, units, patch_area, moss, grass, fwet):
+    """Is moss productive, and is the productive window visited? (Task 10, Task 12 Step 3b)
+
+    Moss GPP is a class-C quantity: the tape reports it per m2 of LAND, and there are two
+    denominators worth having. Per m2 of moss CROWN is what a moss measurement would be
+    compared against, so it leads; per m2 of moss PATCH answers the different question of
+    whether moss filled the ground it was handed, and follows. Grass GPP is here only to
+    give moss GPP a scale, so it is converted to per m2 of grass patch for the same reason
+    grass fuel loading is: a native moss number read against a site-level grass one carries
+    a ratio of two patch areas that has nothing to do with either plant.
+    """
     gone = absent(data, "FATES_GPP_PF")
     if gone:
-        report(
-            "SKIP",
-            "Task 10 / Task 12 Step 3b: moss productivity",
-            f"{', '.join(gone)} is not on this tape.",
-        )
+        for label in (MOSS_GPP, MOSS_WINDOW):
+            report("SKIP", label, f"{', '.join(gone)} is not on this tape.")
         return None
     gpp = data["FATES_GPP_PF"][:, moss]
     grass_gpp = data["FATES_GPP_PF"][:, grass]
@@ -2534,13 +3159,30 @@ def check_moss_productivity(report, data, moss, grass, fwet):
     # about what counts as productive moss, which is not this script's to make. What is
     # printed instead is the number itself next to the grass in the same run, so that
     # whoever does make that judgement has the scale in front of them.
+    grass_area = None if patch_area is None else patch_area[:, grass]
+    if grass_area is not None and float(np.nanmax(grass_area)) > 0:
+        grass_line = (
+            "grass, for scale  "
+            + span(divide_by_fraction(grass_gpp, grass_area), "{:.4e}")
+            + " kg m-2 of grass patch s-1   (on the tape "
+            + span(grass_gpp, "{:.4e}")
+            + " kg m-2 land s-1)"
+        )
+    else:
+        grass_line = (
+            "grass, for scale  "
+            + span(grass_gpp, "{:.4e}")
+            + " kg m-2 land s-1, on the tape (no usable grass patch area on this tape)"
+        )
     report(
         "INFO",
-        "Task 10: is moss FATES_GPP_PF positive, and how large is it?",
-        f"moss  mean {np.nanmean(gpp):.4e}, max {np.nanmax(gpp):.4e} kg m-2 s-1\n"
-        f"grass mean {np.nanmean(grass_gpp):.4e}, max {np.nanmax(grass_gpp):.4e} kg m-2 s-1"
+        MOSS_GPP,
+        f"moss, per crown  {units.spans(gpp, 'crown', '{:.4e}', 'kg m-2 land s-1')}\n"
+        f"moss, per patch  {units.spans(gpp, 'moss', '{:.4e}', 'kg m-2 land s-1')}\n"
+        + grass_line
         + (
-            f"   (moss peaks {np.nanmax(grass_gpp) / np.nanmax(gpp):.3g}x below grass)"
+            f"\nmoss peaks {np.nanmax(grass_gpp) / np.nanmax(gpp):.3g}x below grass, both "
+            "read per m2 land as the tape holds them"
             if np.nanmax(gpp) > 0
             else ""
         )
@@ -2553,12 +3195,39 @@ def check_moss_productivity(report, data, moss, grass, fwet):
     # legitimate thing for a run to have, so it gets a row of its own saying so rather than
     # a blank.
     edges = np.unique(np.nanpercentile(fwet, np.arange(0, 101, 10)))
+    # The bins are chosen on the SITE-level proxy, which is what the tape holds and what
+    # every other check reads, so that converting the display cannot move a day from one bin
+    # to another. What is printed for each bin is the moss-native proxy range the days in it
+    # actually spanned, which is exact rather than a converted edge and does not depend on
+    # the area fraction being constant in time.
+    native_fwet = units.native(fwet, "patch")
+    native_gpp = units.native(gpp, "crown")
+
+    def proxy_range(sel):
+        if native_fwet is None:
+            return f"proxy {span(fwet[sel], '{:.3f}')} (site units)"
+        return f"proxy {span(native_fwet[sel], '{:.3f}')}"
+
+    def gpp_mean(sel):
+        if native_gpp is None or not np.any(np.isfinite(native_gpp[sel])):
+            return (
+                f"mean GPP = {float(np.nanmean(gpp[sel])):.4e} kg m-2 land s-1, on the tape"
+            )
+        return (
+            f"mean GPP = {float(np.nanmean(native_gpp[sel])):.4e} kg m-2 of moss crown s-1"
+        )
+
     rows, means = [], []
     if edges.size < 2:
         rows.append(
-            f"FATES_MOSS_FWET does not vary over this run -- it reads {edges[0]:.6f} on "
-            f"all {len(fwet)} days -- so there are no deciles to bin by. Over the whole "
-            f"run, mean moss GPP = {float(np.nanmean(gpp)):.4e} and GPP > 0 on "
+            "The moss wetness proxy does not vary over this run -- it reads "
+            + (
+                f"{edges[0]:.6f} (site units)"
+                if native_fwet is None
+                else f"{float(np.nanmax(native_fwet)):.6f} moss-native"
+            )
+            + f" on all {len(fwet)} days -- so there are no deciles to bin by. Over the "
+            f"whole run, {gpp_mean(np.ones(len(fwet), dtype=bool))} and GPP > 0 on "
             f"{100 * np.mean(gpp > 0):.1f}% of days."
         )
     for low, high in zip(edges[:-1], edges[1:]):
@@ -2566,25 +3235,26 @@ def check_moss_productivity(report, data, moss, grass, fwet):
         if not sel.sum():
             continue
         mean = float(np.nanmean(gpp[sel]))
-        means.append((mean, low, high))
+        means.append((mean, sel))
         rows.append(
-            f"fwet {low:.3f} - {high:.3f}:  n = {int(sel.sum()):4d}   "
-            f"mean GPP = {mean:.4e}   GPP > 0 on {100 * np.mean(gpp[sel] > 0):5.1f}% of days"
+            f"{proxy_range(sel)}:  n = {int(sel.sum()):4d}   {gpp_mean(sel)}   "
+            f"GPP > 0 on {100 * np.mean(gpp[sel] > 0):5.1f}% of days"
         )
-    peak = max(means) if means else None
+    peak = max(means, key=lambda item: item[0]) if means else None
     report(
         "INFO",
-        "Task 12 Step 3b: moss GPP binned by FATES_MOSS_FWET decile",
+        MOSS_WINDOW,
         "\n".join(rows)
         + (
-            f"\npeak bin: fwet {peak[1]:.3f} - {peak[2]:.3f}, mean GPP {peak[0]:.4e}"
+            f"\npeak bin: {proxy_range(peak[1])}, {gpp_mean(peak[1])}"
             if peak
             else ""
         )
         + (
-            f"\noverall corr(fwet, moss GPP) = {correlation(fwet, gpp):+.3f}\n"
+            f"\noverall corr(proxy, moss GPP) = {correlation(fwet, gpp):+.3f} (a "
+            "correlation is unitless, so it is the same moss-native)\n"
             if fit_obstacle(fwet, gpp, len(fwet), both=True) is None
-            else "\noverall corr(fwet, moss GPP): not computed -- "
+            else "\noverall corr(proxy, moss GPP): not computed -- "
             + fit_obstacle(fwet, gpp, len(fwet), both=True)
             + "\n"
         )
@@ -2615,19 +3285,23 @@ def moss_allometry_reference(moss_params, moss, treelai_mismatch):
     d2h2 = moss_params.get("fates_allom_d2h2")
     dbh_max = moss_params.get("fates_allom_dbh_maxheight")
 
+    source = f"this run's FATES parameter file at PFT {moss + 1}"
     parts = []
     if recruit is not None:
-        parts.append(f"recruit height is {recruit:g} m (fates_recruit_height_min)")
+        parts.append(
+            "recruit height is "
+            + named(recruit, "fates_recruit_height_min", source, "{:g} m")
+        )
     if None not in (d2h1, d2h2, dbh_max) and dbh_max > 0:
         ceiling = float(d2h1) * float(dbh_max) ** float(d2h2)
         parts.append(
-            f"the height power law the moss allometry borrows saturates at {ceiling:.2f} m "
-            f"(fates_allom_d2h1 x fates_allom_dbh_maxheight ** fates_allom_d2h2 = "
-            f"{d2h1:g} x {dbh_max:g} ** {d2h2:g})"
+            f"the height power law the moss allometry borrows saturates at {ceiling:.2f} m, "
+            "which is fates_allom_d2h1 x fates_allom_dbh_maxheight ** fates_allom_d2h2 at "
+            f"fates_allom_d2h1 = {d2h1:g}, fates_allom_dbh_maxheight = {dbh_max:g} and "
+            f"fates_allom_d2h2 = {d2h2:g} ({source})"
         )
     height_line = (
-        "\nFor reference, from this run's own FATES parameter file at PFT "
-        f"{moss + 1}: " + "; and ".join(parts) + "."
+        "\nFor reference: " + "; and ".join(parts) + "."
         if parts
         else "\nNo reference heights: fates_recruit_height_min and the height allometry "
         "coefficients could not be read from this run's FATES parameter file, so there is "
@@ -2636,14 +3310,14 @@ def moss_allometry_reference(moss_params, moss, treelai_mismatch):
 
     if treelai_mismatch is None:
         leaf_line = (
-            f"   Step 3d predicts {TREELAI_AT_RECRUIT} at recruit size and "
-            f"{TREELAI_AT_MAX} at maximum ({TREELAI_PREDICTION_SOURCE}; this run's "
+            f"   for reference, the allometry predicts {TREELAI_AT_RECRUIT} at recruit size "
+            f"and {TREELAI_AT_MAX} at maximum ({TREELAI_PREDICTION_SOURCE}; this run's "
             "parameter file still carries every value at the moss index that those two "
             "were derived from, so they are restated here)\n"
         )
     else:
         leaf_line = (
-            "   No prediction to read these against: the Task 12 Step 3d figures of "
+            "   No prediction to read these against: the allometry figures of "
             f"{TREELAI_AT_RECRUIT} at recruit size and {TREELAI_AT_MAX} at maximum come "
             f"from {TREELAI_PREDICTION_SOURCE}, and this run does not use it -- "
             f"{treelai_mismatch}. They are not restated because they would not be true of "
@@ -2671,9 +3345,15 @@ def treelai_prediction_mismatch(paramfile, moss):
     return None
 
 
+MOSS_AREA = "How much leaf and stem area does moss carry? (Task 10b, Task 12 Step 3d)"
+MOSS_HEIGHT = "How tall does the moss stand? (Task 12 Step 3c)"
+MOSS_COVER = "How much ground was moss given? (Task 12 Step 3)"
+
+
 def check_moss_structure(
     report,
     data,
+    units,
     moss,
     grass,
     pft_moss,
@@ -2683,7 +3363,7 @@ def check_moss_structure(
     moss_params,
     treelai_valid,
 ):
-    """Task 10b / Task 12 Steps 3c, 3d: moss leaf area, crown area and height."""
+    """Moss leaf area, crown area and height (Task 10b, Task 12 Steps 3c and 3d)."""
     # In FATES-SP, LAI, SAI and height are read straight off the surface dataset rather
     # than produced by the allometry, so the numbers below report the fsurdat and say
     # nothing about whether the moss allometry works.
@@ -2698,69 +3378,60 @@ def check_moss_structure(
     )
     gone = absent(data, "FATES_LAI_PF", "FATES_SAI_PF", "FATES_CROWNAREA_PF")
     if gone:
-        report(
-            "SKIP",
-            "Task 10b / Task 12 Step 3d: moss leaf and stem area",
-            f"{', '.join(gone)} not on this tape.",
-        )
+        report("SKIP", MOSS_AREA, f"{', '.join(gone)} not on this tape.")
     else:
         lai = data["FATES_LAI_PF"][:, moss]
         sai = data["FATES_SAI_PF"][:, moss]
         crown = data["FATES_CROWNAREA_PF"][:, moss]
 
-        # FATES_LAI_PF is per m2 of LAND; the allometry is reasoned about per m2 of CROWN,
-        # which is what FATES calls treelai. Dividing recovers it, and Step 3d's predictions
-        # are in those units.
-        with np.errstate(invalid="ignore", divide="ignore"):
-            treelai = np.where(crown > 0, lai / np.where(crown > 0, crown, 1.0), np.nan)
+        # Per m2 of CROWN is FATES's own treelai and treesai, and it is what the allometry
+        # is reasoned about and what a moss measurement would be compared against, so it
+        # leads. Per m2 of moss PATCH answers a different question -- did moss fill the
+        # ground it was handed -- and follows.
+        crown_lai = units.spans(lai, "crown", "{:.6g}", "m2 m-2 land")
+        crown_sai = units.spans(sai, "crown", "{:.6g}", "m2 m-2 land")
+        crown_vai = units.spans(lai + sai, "crown", "{:.6g}", "m2 m-2 land")
 
-        # Everything above is per unit land area or per unit crown area, and neither needs
-        # the prescribed patch area. Only the last line does. Whether that variable is usable
-        # was decided once, in non_bareground_fraction, and handed here -- so that a patch
-        # area present but identically zero cannot come out reported in one place and
-        # skipped in another, with a division by zero between them.
+        # Crown area is the divisor for the two lines above, so dividing it by itself says
+        # nothing; per m2 of moss patch is its native reading. Whether the patch-area
+        # variable is usable was decided once, in non_bareground_fraction, and handed here
+        # -- so that a patch area present but identically zero cannot come out reported in
+        # one place and skipped in another, with a division by zero between them.
         moss_patch = None if patch_area is None else float(np.nanmax(patch_area[:, moss]))
         if moss_patch is not None and moss_patch > 0:
             against_patch = (
-                f"moss crown area {np.nanmin(crown):.4e} - {np.nanmax(crown):.4e} m2 m-2, "
-                f"against a prescribed nocomp patch area of {moss_patch:.4f}\n"
-                f"   moss fills at most {100 * np.nanmax(crown) / moss_patch:.4f}% of the "
-                "patch it was given"
+                "moss crown area  "
+                + units.spans(crown, "moss", "{:.4e}", "m2 m-2 land")
+                + f"\n   moss fills at most {100 * np.nanmax(crown) / moss_patch:.4f}% of "
+                "the patch it was given"
             )
         elif moss_patch is not None:
             against_patch = (
-                f"moss crown area {np.nanmin(crown):.4e} - {np.nanmax(crown):.4e} m2 m-2; "
-                "the prescribed nocomp patch area for moss is zero on every day of this "
-                "run, so there is no patch for the crown to fill a fraction of"
+                f"moss crown area  {span(crown, '{:.4e}')} m2 m-2 land; the prescribed "
+                "nocomp patch area for moss is zero on every day of this run, so there is "
+                "no patch for the crown to fill a fraction of"
             )
         else:
             against_patch = (
-                f"moss crown area {np.nanmin(crown):.4e} - {np.nanmax(crown):.4e} m2 m-2; "
-                "there is no usable prescribed patch area on this tape to read it against"
+                f"moss crown area  {span(crown, '{:.4e}')} m2 m-2 land; there is no usable "
+                "prescribed patch area on this tape to read it against"
             )
 
         report(
             "INFO",
-            "Task 10b / Task 12 Step 3d: moss leaf and stem area",
-            f"FATES_LAI_PF (per m2 land)  {np.nanmin(lai):.4e} - {np.nanmax(lai):.4e}\n"
-            f"FATES_SAI_PF (per m2 land)  {np.nanmin(sai):.4e} - {np.nanmax(sai):.4e}\n"
-            f"VAI = LAI + SAI             {np.nanmin(lai + sai):.4e} - "
-            f"{np.nanmax(lai + sai):.4e}\n"
-            f"LAI / FATES_CROWNAREA_PF (= treelai, per m2 crown)  "
-            + span(treelai, "{:.6f}")
-            + "\n"
+            MOSS_AREA,
+            f"leaf area (treelai)  {crown_lai}\n"
+            f"stem area (treesai)  {crown_sai}\n"
+            f"VAI = LAI + SAI      {crown_vai}\n"
             + leaf_line
+            + f"per moss patch: LAI {units.spans(lai, 'moss', '{:.4e}', 'm2 m-2 land')}\n"
             + against_patch
             + sp_note
             + coverage_note(len(lai), lai, sai, crown),
         )
 
     if absent(data, "FATES_MOSS_HEIGHT"):
-        report(
-            "SKIP",
-            "Task 12 Step 3c: diagnosed moss height",
-            "FATES_MOSS_HEIGHT is not on this tape.",
-        )
+        report("SKIP", MOSS_HEIGHT, "FATES_MOSS_HEIGHT is not on this tape.")
         check_nocomp_cover(report, patch_area, moss, grass, pft_moss, pft_grass)
         return
 
@@ -2777,15 +3448,22 @@ def check_moss_structure(
     )
     report(
         "INFO",
-        "Task 12 Step 3c: diagnosed moss height",
-        f"FATES_MOSS_HEIGHT {np.nanmin(height):.5f} - {np.nanmax(height):.5f} m "
+        MOSS_HEIGHT,
+        f"FATES_MOSS_HEIGHT {span(height, '{:.5f}')} m "
         f"({len(np.unique(np.round(height, 8)))} distinct values)\n"
-        "This one is normalized by moss crown area rather than by land area, so unlike "
-        "every other moss diagnostic here it carries no non-bareground area factor."
+        "Already moss-native and not converted here: FATES normalizes this one by moss "
+        "crown area rather than by land area, so unlike every other moss diagnostic in this "
+        "output it carries no area weight to divide back out."
         + height_line
         + (
-            f"\nEvery day moss is present it stands at exactly {recruit_height:g} m, so "
-            "the cohort never grew past recruit size."
+            "\nEvery day moss is present it stands at exactly its "
+            + named(
+                recruit_height,
+                "fates_recruit_height_min",
+                f"this run's FATES parameter file at PFT {moss + 1}",
+                "{:g} m",
+            )
+            + ", so the cohort never grew past recruit size."
             if pinned
             else ""
         )
@@ -2797,7 +3475,7 @@ def check_moss_structure(
 
 
 def check_nocomp_cover(report, patch_area, moss, grass, pft_moss, pft_grass):
-    """Task 12 Step 3: the prescribed cover the rest of the run is read against.
+    """The prescribed cover the rest of the run is read against (Task 12 Step 3).
 
     Gated on the same decision non_bareground_fraction made, not on a second look at the
     tape: whether that variable is usable is one question, and answering it twice produced a
@@ -2807,7 +3485,7 @@ def check_nocomp_cover(report, patch_area, moss, grass, pft_moss, pft_grass):
     if patch_area is None:
         report(
             "SKIP",
-            "Task 12 Step 3: prescribed nocomp cover",
+            MOSS_COVER,
             "There is no usable FATES_NOCOMP_PATCHAREA_PF on this tape -- see the reason "
             "given with the area-fraction WARN above.\n"
             "A run with no prescribed cover has none for this step to report: what each PFT "
@@ -2817,7 +3495,10 @@ def check_nocomp_cover(report, patch_area, moss, grass, pft_moss, pft_grass):
     area = patch_area
     report(
         "INFO",
-        "Task 12 Step 3: prescribed nocomp cover",
+        MOSS_COVER,
+        "These are already fractions of the site, which is their native reading, so nothing "
+        "is converted here. They are also the divisors the moss-native numbers elsewhere in "
+        "this output are made with.\n"
         f"moss  (PFT {pft_moss}) {np.nanmean(area[:, moss]):.4f}\n"
         f"grass (PFT {pft_grass}) {np.nanmean(area[:, grass]):.4f}\n"
         f"vegetated total {np.nanmean(area.sum(axis=1)):.4f}, "
@@ -2859,10 +3540,10 @@ def warn_fire_status(report, data, config, spitfire_on, gate_note):
             "reader may reasonably be surprised that the moss FIRE work is not under test "
             "in a run whose output is full of moss diagnostics.\n"
             "Untested in this run: fuel loading by class, fuel moisture and its moss map, "
-            "the "
-            "moisture of extinction, and every burn-side quantity. The moss checks that do "
-            "run here are the wetness proxy, the photosynthetic scaler, and moss structure "
-            "and population -- none of which goes near the burn path.",
+            "the moisture of extinction, and every burn-side quantity -- sections 3 and 4. "
+            "The moss checks that do run here are the wetness proxy, the photosynthetic "
+            "scaler, and moss structure and survival -- sections 1, 2 and 5, none of which "
+            "goes near the burn path.",
         )
         return
 
@@ -2883,24 +3564,81 @@ def warn_fire_status(report, data, config, spitfire_on, gate_note):
     if float(np.nanmax(burn)) > 0.0:
         return
     report.warn(
-        "SPITFIRE ran and nothing burned, so the moss burn path is untested here too",
+        "SPITFIRE ran and nothing burned, so nothing here tests how moss burns",
         f"{config.settings_phrase()}, and FATES_BURNFRAC is identically zero on "
         f"all {len(burn)} days of the run." + gate_note + "\n"
         "This is not the same as fire being off, and it is the more surprising of the two: "
-        "the fire model ran, and the fuel loadings and moistures the Task 6, 7 and 9 checks "
-        "above test are real quantities it produced. What never happened is combustion.\n"
+        "the fire model ran, and the fuel loadings and moistures the checks in sections 3 "
+        "and 4 test are real quantities it produced. What never happened is combustion.\n"
         "So every burn-side diagnostic in this run, FATES_FUEL_BURNT_BURNFRAC_FC included, "
         "is structurally zero, and no PASS or number below establishes anything whatever "
         "about how moss burns. To test that, this site has to be driven to ignite.",
     )
 
 
+FUEL_BURNT = "How much of the moss fuel burned? (Task 12)"
+
+# Printed wherever the burnt-fraction normalization is mentioned, because a reader who
+# checks it against the FATES long name will find that they disagree, and the long name is
+# the one that is wrong.
+# How the quantity is named, in every branch that names it. It is one string so that no
+# branch can state the naive form that the note below exists to refute: the correction used
+# to arrive a sentence after the assertion, which read as the output contradicting itself
+# rather than as one consistent definition with an explanation attached.
+BURNT_FRACTION_FORMULA = (
+    "FATES_FUEL_BURNT_BURNFRAC_FC divided by (sec_per_day x FATES_BURNFRAC)"
+)
+
+BURNT_UNITS_NOTE = (
+    "\nWhy sec_per_day is in that denominator: the two variables disagree about whether "
+    "they carry a per-second rate. FATES_BURNFRAC is accumulated with a /sec_per_day and "
+    "registered units='s-1' (main/FatesHistoryInterfaceMod.F90:2769, :6839), while "
+    "FATES_FUEL_BURNT_BURNFRAC_FC is accumulated with no time division and registered "
+    "units='1' (:4302-4303, :7885). Multiplying FATES_BURNFRAC back up by sec_per_day "
+    "recovers the plain burnt-area fraction, which is what this has to be divided by. "
+    "FATES's own long name says to divide by FATES_BURNFRAC and stop there; that "
+    "instruction is dimensionally wrong, and following it leaves a quantity in SECONDS, "
+    "86400x too large to be the fraction it is called."
+)
+
+
 def check_fuel_burnt(report, data, fire_status):
-    """Task 12: report FATES_FUEL_BURNT_BURNFRAC_FC, which the moss testmod asks for.
+    """Report FATES_FUEL_BURNT_BURNFRAC_FC, which the moss testmod asks for (Task 12).
 
     It has no check because there is nothing to check it against on one tape, and because
     it is structurally zero unless something burned. It is reported so that a reader can
     see it was looked at, and told plainly what it is worth.
+
+    This is the one moss-relevant fuel diagnostic that is NOT a moss-patch quantity, despite
+    sitting on the same fuel axis as FATES_FUEL_AMOUNT_FC. frac_burnt is a function of a
+    class's moisture and not of its loading (fire/FatesFuelMod.F90:471-497), so a patch with
+    no moss fuel at all still contributes to the moss columns, and each contribution is
+    multiplied by that patch's own burnt fraction. Normalizing by the site's burnt area is
+    what turns that product back into a fraction, and it is undefined rather than
+    zero-over-zero on a run in which nothing burned.
+
+    THE FACTOR OF sec_per_day IS NOT A MISTAKE, AND THE LONG NAME IS. FATES_FUEL_BURNT_-
+    BURNFRAC_FC's long name says "divide by FATES_BURNFRAC to get burned-area-weighted mean
+    fraction fuel burnt", and that instruction is dimensionally wrong as written. The two
+    variables disagree about whether they carry a per-second rate:
+
+      main/FatesHistoryInterfaceMod.F90:4302-4303 accumulates
+          frac_burnt(i_fuel) * cpatch%frac_burnt * cpatch%area * AREA_INV
+      with no time division, and :7885 registers it units='1'. Write it b*f, for the
+      fraction b of the class's fuel consumed where it burned and the fraction f of the
+      site that burned.
+
+      main/FatesHistoryInterfaceMod.F90:2769 accumulates
+          cpatch%frac_burnt * cpatch%area * AREA_INV / sec_per_day
+      and :6839 registers it units='s-1'. That is f/sec_per_day.
+
+    Their quotient is b*sec_per_day: units of SECONDS, and sec_per_day times too large to be
+    a fraction. What recovers b is dividing by sec_per_day, which is done here by putting
+    the factor on the denominator instead -- sec_per_day*FATES_BURNFRAC is f, the plain
+    burnt-area fraction, and b*f over f is b. Note the direction: "the quotient is 86400x
+    too large" and "multiply the quotient by 86400" cannot both be true, and it is the
+    first. Do not "fix" this back to match the long name; the long name is what needs
+    fixing, upstream.
     """
     burnt = data["FATES_FUEL_BURNT_BURNFRAC_FC"]
     moss_burnt = burnt[:, [FUEL_CLASSES["live_moss"] - 1, FUEL_CLASSES["dead_moss"] - 1]]
@@ -2908,88 +3646,129 @@ def check_fuel_burnt(report, data, fire_status):
     if burn is None:
         # Not "fire is off": FATES_BURNFRAC is registered unconditionally, so its absence is
         # a hist_fincl1 omission. What fire did is taken from the namelist instead.
+        native = (
+            f"The burned-area-weighted fraction of each class burnt is "
+            f"{BURNT_FRACTION_FORMULA}. FATES_BURNFRAC is not on this tape, so it cannot be "
+            "formed here." + BURNT_UNITS_NOTE
+        )
         tail = (
             "FATES_BURNFRAC is not on this tape, so whether anything actually burned cannot "
             "be read here. " + fire_status
         )
     elif float(np.nanmax(burn)) <= 0.0:
+        native = (
+            f"The burned-area-weighted fraction of each class burnt is "
+            f"{BURNT_FRACTION_FORMULA}. FATES_BURNFRAC is zero on every day of this run, so "
+            "it is undefined here rather than zero." + BURNT_UNITS_NOTE
+        )
         tail = (
             "FATES_BURNFRAC is zero on every day of this run, so these are structurally "
             "zero and establish nothing whatever about the moss burn path -- see the WARN "
             "that says so in full."
         )
     else:
+        alive = burn > 0
+        # SEC_PER_DAY on the DENOMINATOR, which is where the missing factor belongs:
+        # FATES_BURNFRAC is the site's burnt-area fraction already divided by sec_per_day,
+        # so multiplying it back up restores the plain fraction this has to be divided by.
+        # The docstring above has the two line numbers and the two units attributes.
+        burnt_area_fraction = SEC_PER_DAY * burn
+        native = (
+            f"burned-area-weighted fraction burnt, {BURNT_FRACTION_FORMULA}: live moss "
+            + span(
+                divide_by_fraction(moss_burnt[:, 0], burnt_area_fraction)[alive], "{:.4f}"
+            )
+            + ", dead moss "
+            + span(
+                divide_by_fraction(moss_burnt[:, 1], burnt_area_fraction)[alive], "{:.4f}"
+            )
+            + f", over the {int(alive.sum())} days something burned" + BURNT_UNITS_NOTE
+        )
         tail = (
             "There is no second run to check these against, so they are reported rather "
             "than tested."
         )
     report(
         "INFO",
-        "Task 12: moss fuel burnt fractions (FATES_FUEL_BURNT_BURNFRAC_FC)",
-        f"live moss {np.nanmin(moss_burnt[:, 0]):.4e} - {np.nanmax(moss_burnt[:, 0]):.4e}, "
-        f"dead moss {np.nanmin(moss_burnt[:, 1]):.4e} - {np.nanmax(moss_burnt[:, 1]):.4e}\n"
+        FUEL_BURNT,
+        native + "\n"
+        f"on the tape: live moss {span(moss_burnt[:, 0], '{:.4e}')}, dead moss "
+        f"{span(moss_burnt[:, 1], '{:.4e}')}\n"
         f"nonzero on {int(np.sum(np.any(moss_burnt != 0.0, axis=1)))} of {len(burnt)} days\n"
         + tail
         + coverage_note(len(burnt), moss_burnt),
     )
 
 
-def check_moss_population(report, data, moss, when, fire_status):
-    """Task 12 Step 3: mortality, fire, and what the moss population actually did.
+FIRE_OCCURRED = "Did any fire occur at all? (Task 12 Step 3)"
+MOSS_MORTALITY = "What is killing moss? (Task 12 Step 3)"
+MOSS_SURVIVAL = "Did moss survive the run? (Task 12 Step 3)"
 
-    This is the check most likely to say something the plan did not anticipate, so it
-    reports the trajectory in enough detail to tell slow decline from seasonality from
-    outright loss, rather than only a first-half/second-half mean.
+
+def check_fire_occurred(report, data, fire_status):
+    """Whether anything burned. Site-level burnt area, and native as it stands (Task 12).
+
+    FATES_BURNFRAC is a fraction of the site's area that burned, per second. It is not a
+    moss diagnostic and carries no moss area weight, so there is nothing to divide out of
+    it; the moss-relevant burnt fractions are reported separately, normalized by this.
     """
-    gone = absent(data, "FATES_MORTALITY_HYDRAULIC_PF", "FATES_MORTALITY_TERMINATION_PF")
-    if gone:
-        report(
-            "SKIP",
-            "Task 12 Step 3: moss mortality rates",
-            f"{', '.join(gone)} not on this tape.",
-        )
-    else:
-        hydraulic = data["FATES_MORTALITY_HYDRAULIC_PF"][:, moss]
-        termination = data["FATES_MORTALITY_TERMINATION_PF"][:, moss]
-        report(
-            "INFO",
-            "Task 12 Step 3: moss mortality rates",
-            f"hydraulic   mean {np.nanmean(hydraulic):.4e} m-2 yr-1, max "
-            f"{np.nanmax(hydraulic):.4e}, nonzero on {int(np.sum(hydraulic > 0))} days\n"
-            f"termination mean {np.nanmean(termination):.4e} m-2 yr-1, max "
-            f"{np.nanmax(termination):.4e}, nonzero on {int(np.sum(termination > 0))} days",
-        )
-
     if "FATES_BURNFRAC" not in data:
         report(
             "SKIP",
-            "Task 12 Step 3: did any fire occur?",
+            FIRE_OCCURRED,
             "FATES_BURNFRAC is not on this tape. That says nothing about whether fire ran: "
             "FATES registers it unconditionally with use_default='active' "
             "(main/FatesHistoryInterfaceMod.F90:6839), so it is on any tape whose "
             "hist_fincl1 does not exclude it.\n" + fire_status,
         )
+        return
+    burn = data["FATES_BURNFRAC"]
+    report(
+        "INFO",
+        FIRE_OCCURRED,
+        f"FATES_BURNFRAC mean {np.nanmean(burn):.3e} s-1, max {np.nanmax(burn):.3e}, "
+        f"nonzero on {int(np.sum(burn > 0))} of {len(burn)} days"
+        + (
+            ""
+            if np.nanmax(burn) > 0
+            else "\nNo fire occurred, so every burn-side diagnostic in this run is "
+            "structurally zero and says nothing about the moss burn path."
+        ),
+    )
+
+
+def check_moss_population(report, data, units, moss, when):
+    """Moss mortality and what the moss population actually did (Task 12 Step 3).
+
+    This is the check most likely to say something the plan did not anticipate, so it
+    reports the trajectory in enough detail to tell slow decline from seasonality from
+    outright loss, rather than only a first-half/second-half mean.
+
+    Leaf carbon is reported both per m2 of moss crown and per m2 of moss patch, because on
+    a declining population those two say different things: crown-native biomass holding
+    steady while the patch-native value falls is cohorts being thinned out, and both falling
+    together is each moss mat shrinking.
+    """
+    gone = absent(data, "FATES_MORTALITY_HYDRAULIC_PF", "FATES_MORTALITY_TERMINATION_PF")
+    if gone:
+        report("SKIP", MOSS_MORTALITY, f"{', '.join(gone)} not on this tape.")
     else:
-        burn = data["FATES_BURNFRAC"]
+        hydraulic = data["FATES_MORTALITY_HYDRAULIC_PF"][:, moss]
+        termination = data["FATES_MORTALITY_TERMINATION_PF"][:, moss]
         report(
             "INFO",
-            "Task 12 Step 3: did any fire occur?",
-            f"FATES_BURNFRAC mean {np.nanmean(burn):.3e} s-1, max {np.nanmax(burn):.3e}, "
-            f"nonzero on {int(np.sum(burn > 0))} of {len(burn)} days"
-            + (
-                ""
-                if np.nanmax(burn) > 0
-                else "\nNo fire occurred, so every burn-side diagnostic in this run is "
-                "structurally zero and says nothing about the moss burn path."
-            ),
+            MOSS_MORTALITY,
+            "These are number densities of individuals lost per year, so the moss patch is "
+            "the denominator that makes them a moss rate; crown area would give deaths per "
+            "unit of living crown, which is a different and less useful quantity.\n"
+            f"hydraulic    {units.spans(hydraulic, 'moss', '{:.4e}', 'm-2 land yr-1')}, "
+            f"nonzero on {int(np.sum(hydraulic > 0))} days\n"
+            f"termination  {units.spans(termination, 'moss', '{:.4e}', 'm-2 land yr-1')}, "
+            f"nonzero on {int(np.sum(termination > 0))} days",
         )
 
     if absent(data, "FATES_LEAFC_PF"):
-        report(
-            "SKIP",
-            "Task 12 Step 3: moss population trajectory over the run",
-            "FATES_LEAFC_PF is not on this tape.",
-        )
+        report("SKIP", MOSS_SURVIVAL, "FATES_LEAFC_PF is not on this tape.")
         return
 
     leafc = data["FATES_LEAFC_PF"][:, moss]
@@ -2999,10 +3778,14 @@ def check_moss_population(report, data, moss, when, fire_status):
     alive = leafc > 0
     peak = float(np.nanmax(leafc))
     lines = [
-        "moss FATES_LEAFC_PF " + span(leafc, "{:.4e}") + " kg m-2",
+        "moss leaf carbon, per crown  "
+        + units.spans(leafc, "crown", "{:.4e}", "kg m-2 land"),
+        "moss leaf carbon, per patch  "
+        + units.spans(leafc, "moss", "{:.4e}", "kg m-2 land"),
         # A first half and a second half need two days to divide between them.
-        f"first-half mean {np.nanmean(leafc[:half]):.4e} -> second-half mean "
-        f"{np.nanmean(leafc[half:]):.4e} kg m-2"
+        f"first-half mean {units.value(float(np.nanmean(leafc[:half])), 'moss', '{:.4e}')} "
+        f"-> second-half mean "
+        f"{units.value(float(np.nanmean(leafc[half:])), 'moss', '{:.4e}')}"
         if half
         else "one day on this tape, so there is no first half and second half to compare",
         f"peak on day {int(np.nanargmax(leafc)) + 1} ({when[int(np.nanargmax(leafc))]})",
@@ -3030,11 +3813,14 @@ def check_moss_population(report, data, moss, when, fire_status):
             lines.append(
                 f"last day with biomass is day {last + 1} ({when[last]}), still holding "
                 f"{100 * frac:.1f}% of peak leaf carbon; day {last + 2} "
-                f"({when[last + 1]}) reads {leafc[last + 1]:.4e} kg m-2"
+                f"({when[last + 1]}) reads "
+                + units.value(float(leafc[last + 1]), "moss", "{:.4e}")
             )
             lines.append(
                 f"that final step is {ratio:.0f}x the median daily step over the "
-                f"{last + 1} days moss is present ({median_step:.4e} kg m-2)"
+                f"{last + 1} days moss is present ("
+                + units.value(median_step, "moss", "{:.4e}")
+                + ")"
                 if np.isfinite(ratio)
                 else "moss took no nonzero daily step at all before it went to zero"
             )
@@ -3144,7 +3930,7 @@ def check_moss_population(report, data, moss, when, fire_status):
 
     report(
         "FAIL" if never_present or lost else "INFO",
-        "Task 12 Step 3: moss population trajectory over the run",
+        MOSS_SURVIVAL,
         "\n".join(lines) + closing + coverage_note(nday, leafc),
     )
 
@@ -3219,20 +4005,26 @@ def make_plots(data, moss, fwet, gpp, out_dir, tag):
 # ---------------------------------------------------------------------------------------
 
 
-def default_tag(run_dir):
-    """A short, filesystem-safe name for this run's outputs.
+def case_tag(run_dir, reserve=0):
+    """The case name, verbatim where the filesystem allows it, for naming this run's outputs.
 
-    CIME test names run to nearly 200 characters, which makes an unwieldy and
-    near-length-limit filename, so the tag is a readable prefix of the case name plus a
-    hash. The hash is of the run directory's full PATH, not of the case name: hashing the
-    case name would add nothing the truncated prefix does not already carry, and two runs of
-    the same case in different scratch directories would then overwrite each other's PNG.
+    An output file has to be traceable to the run that produced it by reading its name, so
+    the tag is the case directory's own name rather than a digest of it. CIME test names are
+    long -- around 160 characters for the moss ALP2 tests -- but a filename component may be
+    255, so the full name normally fits and is kept intact, dots and all. Only characters a
+    path cannot carry are replaced.
+
+    `reserve` is how many characters the caller will append. If the name plus that reserve
+    would not fit, the tag is cut to fit and a digest of the whole name is appended, so the
+    result stays unique; that is a fallback for a pathological case name, not the usual path.
     """
-    run_path = os.path.abspath(run_dir)
-    case = os.path.basename(os.path.dirname(run_path))
-    digest = hashlib.md5(run_path.encode()).hexdigest()[:8]
-    safe = re.sub(r"[^A-Za-z0-9]+", "-", case)[:60].strip("-")
-    return f"{safe}_{digest}"
+    case = os.path.basename(os.path.dirname(os.path.abspath(run_dir)))
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", case).strip("-.") or "case"
+    limit = 255 - reserve
+    if len(safe) <= limit:
+        return safe
+    digest = hashlib.md5(case.encode()).hexdigest()[:8]
+    return f"{safe[: max(0, limit - 9)]}-{digest}"
 
 
 def main():
@@ -3255,10 +4047,11 @@ def main():
         "--pft-grass",
         type=int,
         default=12,
-        help="1-based grass PFT index on the fates_levpft axis. Default: 12, which is a "
-        "property of the ALP2 moss testmods' surface datasets rather than a general one. "
-        "Confirmed against the run's parameter file where that can be read, and WARNed "
-        "about where it cannot; nothing PASSes or FAILs on it.",
+        # Why 12 is not a general default, and what happens when the index cannot be
+        # confirmed, is said by the WARN that fires in that case -- where it is actually
+        # needed -- rather than here.
+        help="1-based grass PFT index on the fates_levpft axis. Default: 12. Nothing "
+        "PASSes or FAILs on it.",
     )
     parser.add_argument(
         "--out-dir",
@@ -3309,7 +4102,7 @@ def main():
 
     namelist = dict(DEFAULT_NAMELIST)
     run_namelist = read_lnd_in(args.run_dir)
-    namelist_source = "shipped namelist defaults (lnd_in not readable)"
+    namelist_source = "configured namelist defaults (lnd_in not readable)"
     if any(key in run_namelist for key in DEFAULT_NAMELIST):
         namelist.update({k: v for k, v in run_namelist.items() if k in DEFAULT_NAMELIST})
         namelist_source = "this run's lnd_in"
@@ -3347,7 +4140,7 @@ def main():
     if miner is not None and miner.size:
         miner_total, miner_source = float(miner[0]), "this run's FATES parameter file"
     else:
-        miner_total, miner_source = DEFAULT_MINER_TOTAL, "the shipped FATES default"
+        miner_total, miner_source = DEFAULT_MINER_TOTAL, "the configured FATES default"
     sav = params.get("fates_fire_SAV")
     sav_source = "this run's FATES parameter file"
 
@@ -3376,25 +4169,31 @@ def main():
         read_pft_names(paramfile, npft), params, grass, npft
     )
 
+    units = NativeUnits(
+        data, veg_frac, veg_frac_source, no_veg_frac_reason, patch_area, moss
+    )
+
     case = os.path.basename(os.path.dirname(os.path.abspath(args.run_dir)))
     when = dates(data, nday, files)
     print(f"{nday} daily history files from")
     print(f"  {case}")
     print(f"  first {when[0]}, last {when[-1]}")
-    print(f"  moss PFT {args.pft_moss}, grass PFT {args.pft_grass}, "
-          + (f"non-bareground area fraction {np.mean(veg_frac):.4f}"
-             if veg_frac is not None
-             else "no non-bareground area fraction available"))
+    print(f"  moss PFT {args.pft_moss}, grass PFT {args.pft_grass}")
     if config.readable:
         print(f"  {config.settings_phrase()}")
     else:
         print("  this run's lnd_in could not be read, so nothing here comes from its "
               "namelist")
-    if veg_frac is not None:
-        print(f"  area fraction from {veg_frac_source}")
     for line in validation:
         print(f"  {line}")
     print(f"  {grass_line}")
+    print()
+    print(units.preamble())
+    print()
+    print(
+        "A number that came off a parameter file or a namelist is always written here as "
+        "name = value\n(source). A bare decimal is therefore something this run produced."
+    )
     print()
     if not pft_confirmed:
         print_warning(unverified_warning(args.pft_moss, pft_reasons))
@@ -3412,9 +4211,9 @@ def main():
             "fates_vascular, so there is no tape witness for it and no equivalent of the "
             "moss abort: --pft-grass is taken on trust. Its default of 12 is a property of "
             "the surface datasets the ALP2 moss testmods use and of nothing more general.\n"
-            "What rests on it: the grass column of the Task 10 GPP comparison, which is "
-            "there to give moss GPP a scale, and the grass line of the Task 12 Step 3 "
-            "prescribed-cover report. Nothing else, and no PASS or FAIL anywhere.",
+            "What rests on it: the grass columns that give moss GPP and moss fuel loading "
+            "a scale, and the grass line of the prescribed-cover report. Nothing else, and "
+            "no PASS or FAIL anywhere.",
         )
     fwet = data["FATES_MOSS_FWET"]
 
@@ -3446,50 +4245,58 @@ def main():
             "No non-bareground area fraction: the area-weighted checks are degraded",
             f"{no_veg_frac_reason}\n"
             "SKIPPED, because the area fraction is the whole content of the identity: the "
-            "plateau half of the Task 10 wetness-scaler identity; the crossing-point half "
-            "of each Task 9 moss moisture check, where the shipped intercept is nonzero; "
-            "the patch-level reading of how often moss sits past its moisture of "
-            "extinction; and the prescribed-cover report.\n"
-            "STILL RUN, because the weighting cancels out of them: Task 8's two proxy "
-            "identities, Tasks 6 and 7's fuel-loading identities, the sub-plateau half of "
-            "Task 10, which is what pins the threshold, the slope and R^2 halves of Task 9, "
-            "the Nesterov contrast, Task 10b's leaf and stem area, and all of Task 12 "
-            "except the cover report.",
+            "above-threshold half of the wetness-scaler identity in section 2; the "
+            "crossing-point half of each moss fuel-moisture check in section 4, where the "
+            "configured intercept is nonzero; the reading of how often moss sits past its "
+            "moisture of extinction; and the prescribed-cover report.\n"
+            "STILL RUN, because the weighting cancels out of them: both proxy identities in "
+            "section 1, both fuel-loading identities in section 3, the below-threshold half "
+            "of section 2, which is what pins the threshold, the slope and R^2 halves of "
+            "the fuel-moisture checks, the fire-weather contrast, and all of section 5.\n"
+            "DEGRADED IN DISPLAY ONLY: every moss-native number below falls back to the "
+            "tape's site value, each carrying a note saying so. Nothing is dropped for it.",
         )
     elif veg_frac_source is not None and "FATES_NOCOMP_PATCHAREA_PF" not in data:
         report(
             "INFO",
-            "The non-bareground area fraction this run's area-weighted checks use",
-            f"veg_frac = {veg_frac_source} ({config.settings_phrase()}). FATES makes a "
-            "bareground patch only under nocomp AND fixed biogeography "
-            "(main/EDInitMod.F90:841), so on this run the patch areas sum to AREA and each "
-            "site value IS the patch value.\n"
+            "Does this run need an area conversion at all?",
+            f"No. The non-bareground area fraction is {veg_frac_source} "
+            f"({config.settings_phrase()}). FATES makes a bareground patch only under "
+            "nocomp AND fixed biogeography (main/EDInitMod.F90:841), so on this run the "
+            "patch areas sum to AREA, moss is in every patch, and each site value IS the "
+            "moss-native value.\n"
             "FATES_NOCOMP_PATCHAREA_PF is not on this tape and does not need to be: every "
             "area-weighted check below runs in full, with the same arithmetic a nocomp tape "
             "gets and the factor equal to one. Nothing is degraded and nothing is skipped "
             "for want of a patch area.",
         )
 
-    commutation, commutation_warning = commutation_watch(
+    precondition_preamble, precondition, commutation_warning = commutation_watch(
         data, veg_frac, leaf_cap, leaf_cap_source
     )
+
+    # ---------------------------------------------------------------------------------
+    print_section(1, precondition_preamble)
     if commutation_warning:
         report.warn(
-            "The max()/min() commutation preconditions of Tasks 8 and 10 are no longer safe",
+            "The branch-uniformity precondition of the proxy and scaler identities is no "
+            "longer safe on this run",
             commutation_warning,
         )
-    check_task8_proxy(report, data, veg_frac, commutation, leaf_cap, leaf_cap_source)
+    check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_source)
+
+    # ---------------------------------------------------------------------------------
+    print_section(2)
     check_task10_scaler(
         report,
         data,
-        veg_frac,
+        units,
         namelist["fates_moss_vcmax_fwet_thresh"],
         namelist_source,
-        commutation,
+        precondition,
         no_veg_frac_reason,
     )
-
-    litter_unset = check_mossfines_sentinel(report, data)
+    gpp = check_moss_productivity(report, data, units, patch_area, moss, grass, fwet)
 
     if fuel_amount is None or fuel_moisture is None:
         reason = "FATES_FUEL_AMOUNT_FC or FATES_FUEL_MOISTURE_FC is not on this tape."
@@ -3500,21 +4307,21 @@ def main():
         )
     else:
         reason = None
-    task9_ran = reason is None
+    moisture_checks_ran = reason is None
 
+    # ---------------------------------------------------------------------------------
+    print_section(3)
+    litter_unset = check_mossfines_sentinel(report, data)
     if reason is not None:
-        report("SKIP", "Task 6: live-moss fuel loading agrees with FATES_LIVEMOSS_FUEL", reason)
-        report("SKIP", "Task 7: dead-moss fuel loading agrees with FATES_MOSS_FINES", reason)
-        report("SKIP", "Task 9: moss fuel moisture is a linear function of the proxy", reason)
+        report("SKIP", LIVE_MOSS_LOADING, reason)
+        report("SKIP", DEAD_MOSS_LOADING, reason)
     else:
         if absent(data, "FATES_LIVEMOSS_FUEL"):
-            report(
-                "SKIP",
-                "Task 6: live-moss fuel loading agrees with FATES_LIVEMOSS_FUEL",
-                "FATES_LIVEMOSS_FUEL is not on this tape.",
-            )
+            report("SKIP", LIVE_MOSS_LOADING, "FATES_LIVEMOSS_FUEL is not on this tape.")
         else:
-            check_task6_livemoss(report, data, fuel_amount, miner_total, miner_source)
+            check_task6_livemoss(
+                report, data, units, moss, fuel_amount, miner_total, miner_source,
+            )
         if litter_unset or absent(data, "FATES_MOSS_FINES"):
             # Two checks go, so two SKIPs are printed. Folding them into one would drop the
             # accumulation check off the tally with no line of its own saying it was not
@@ -3524,46 +4331,52 @@ def main():
                 if litter_unset
                 else "FATES_MOSS_FINES is not on this tape."
             )
-            report("SKIP", "Task 7: dead-moss fuel loading agrees with FATES_MOSS_FINES", why)
-            report("SKIP", "Task 7: FATES_MOSS_FINES is nonzero and accumulates over the "
-                   "run", why)
+            report("SKIP", DEAD_MOSS_LOADING, why)
+            report("SKIP", DEAD_MOSS_ACCUMULATES, why)
         else:
-            check_task7_mossfines(report, data, fuel_amount, miner_total)
+            check_task7_mossfines(
+                report, data, units, fuel_amount, miner_total, miner_source
+            )
+
+    # ---------------------------------------------------------------------------------
+    print_section(4)
+    if reason is not None:
+        report("SKIP", MOSS_MOISTURE_MAP, reason)
+    else:
         check_task9_moisture(
-            report, data, fuel_moisture, veg_frac, namelist, namelist_source, sav,
+            report, data, units, fuel_moisture, namelist, namelist_source, sav,
             sav_source, no_veg_frac_reason, fire_status,
         )
 
-    # What the Task 9 moisture checks were and were not able to distinguish in this run.
+    # What the moss fuel-moisture checks were and were not able to distinguish in this run.
     # Both are properties of the parameters this run was given, so both are asked whether or
     # not the checks themselves ran; the tape columns only settle the second where SPITFIRE
     # actually produced them, and whether the checks ran changes only the wording, since a
     # warning about a fit that is not in the output points the reader at nothing.
-    warn_sav_degeneracy(report, sav, sav_source, task9_ran)
+    warn_sav_degeneracy(report, sav, sav_source, moisture_checks_ran)
     warn_live_dead_degeneracy(
         report,
         namelist,
         namelist_source,
         fuel_moisture if spitfire_on else None,
         sav,
-        task9_ran,
-    )
-
-    gpp = check_moss_productivity(report, data, moss, grass, fwet)
-    check_moss_structure(
-        report, data, moss, grass, args.pft_moss, args.pft_grass,
-        bool(config.use_sp), patch_area, moss_params, treelai_mismatch,
+        sav_source,
+        moisture_checks_ran,
     )
     warn_fire_status(report, data, config, spitfire_on, gate_note)
+    check_fire_occurred(report, data, fire_status)
     if absent(data, "FATES_FUEL_BURNT_BURNFRAC_FC"):
-        report(
-            "SKIP",
-            "Task 12: moss fuel burnt fractions (FATES_FUEL_BURNT_BURNFRAC_FC)",
-            "FATES_FUEL_BURNT_BURNFRAC_FC is not on this tape.",
-        )
+        report("SKIP", FUEL_BURNT, "FATES_FUEL_BURNT_BURNFRAC_FC is not on this tape.")
     else:
         check_fuel_burnt(report, data, fire_status)
-    check_moss_population(report, data, moss, when, fire_status)
+
+    # ---------------------------------------------------------------------------------
+    print_section(5)
+    check_moss_structure(
+        report, data, units, moss, grass, args.pft_moss, args.pft_grass,
+        bool(config.use_sp), patch_area, moss_params, treelai_mismatch,
+    )
+    check_moss_population(report, data, units, moss, when)
 
     if args.no_plots:
         pass
@@ -3571,7 +4384,10 @@ def main():
         print("Skipped the plots: FATES_GPP_PF or FATES_LEAFC_PF is not on this tape.\n")
     else:
         os.makedirs(args.out_dir, exist_ok=True)
-        path = make_plots(data, moss, fwet, gpp, args.out_dir, default_tag(args.run_dir))
+        path = make_plots(
+            data, moss, fwet, gpp, args.out_dir,
+            case_tag(args.run_dir, reserve=len("_moss_gpp_fwet.png")),
+        )
         print(f"Wrote {path}\n")
 
     exit_code = report.verdict()
