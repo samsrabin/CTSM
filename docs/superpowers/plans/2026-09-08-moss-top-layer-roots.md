@@ -66,7 +66,8 @@ biomass entering nowhere (`EDBtranMod.F90:151-214`).
    setting `fates_mort_scalar_hydrfailure = 0.0` in the moss column — one override, no
    Fortran, no `fates_moss_dormancy` namelist variable, no restart field, no history field.
    This supersedes the brief's entire "What dormancy therefore has to be" section, including
-   its namelist switch and its restart discussion. F1–F5 below are why.
+   its namelist switch and its restart discussion. F1-F5 below are why; F3 was
+   subsequently cut as false and replaced by what Step 5 measured.
 3. **A new case directory.** Do not reuse
    `/glade/derecho/scratch/samrabin/mosscull`; it holds the post-3e baseline that Task 1
    compares against. Not a clone of it either — see Step 5 for why, and for why its run is
@@ -92,18 +93,27 @@ inherits.
   as the brief defines it is true on exactly the days `hmort` would fire and false on every
   other day: it is a rename of the exemption, with nothing to restart and nothing
   informative to report.
-- **F3. Moss is *not* quiescent in that state, contrary to the brief.** btran collapses at a
-  matric potential of −2.55 MPa, while `moss_wetness_scaler` is keyed to
-  `h2osoi_vol/watsat` in the top layer. A soil at −2.55 MPa still holds a substantial
-  fraction of saturation — by Clapp-Hornberger, `s = (psi/psi_sat)^(-1/B)`, which for
-  plausible top-layer parameters is roughly 0.2–0.3 — so `fwet_moss_soil` is ~0.2–0.3 and
-  the scaler `fwet/0.6` is ~0.3–0.5. **Those numbers are an estimate, not a result**: they
-  depend on ALP2's actual top-layer `watsat`, `sucsat` and `bsw`, and Task 1's run measures
-  the real value. The direction is robust, though: at btran = 0 moss is still
-  photosynthesizing at a third to a half of capacity and paying the matching leaf
-  maintenance respiration, with transpiration zero. So the state is not "moss is dormant and
-  something kills it anyway"; it is "moss is doing business on its own water metric while a
-  mortality mechanism keyed to a different metric kills it at 0.6/yr".
+- **F3. CUT as a false claim, and replaced by the measurement (2026-09-08).** F3 predicted
+  that at btran = 0 the top layer would still hold roughly 0.2-0.3 of saturation, so moss
+  would sit at a third to a half of photosynthetic capacity — a Clapp-Hornberger estimate
+  from the −2.55 MPa wilting point. **Step 5 measured 0.75-1.00 instead**, and the error was
+  not in the soil physics but in the premise: zero btran here never means dry soil. It means
+  *frozen* soil. `FATES_MOSS_FWET_SOIL` is total water over porosity, ice included by
+  design, while btran counts only layers holding liquid water. So on the zero-btran days the
+  layer is nearly saturated with ice, moss's wetness scaler is capped at 1.0, and moss is at
+  **full** capacity rather than a third of it. The drought route to zero btran is never
+  entered in this configuration at all: on all 335 days when the layer was drier than half
+  saturation, btran was exactly 1.0, and the driest it ever got was 0.399.
+- **F3a. What actually kills moss here is a threshold mismatch between two frozen-soil
+  tests, and it is the only route by which `hmort` fires.** `hmort`'s frozen-soil exemption
+  asks whether layer 1 is warmer than `soil_tfrz_thresh` = −2 °C
+  (`EDMortalityFunctionsMod.F90:192-195`). btran asks, through `check_layer_water`, whether
+  the layer holds liquid water. Between −2 °C and 0 °C both are satisfied at once: the
+  exemption is open because the layer is "thawed" by its threshold, and btran is zero because
+  the water is ice. Moss then takes the full `fates_mort_scalar_hydrfailure` = 0.6/yr for
+  having its water frozen. That is not an edge case here — it is every one of the 37 days
+  `hmort` fires, and it strengthens decision 2 rather than weakening it: the mechanism being
+  switched off is not even about desiccation.
 - **F4. `fates_mort_hf_sm_threshold = 0` would be broken, not merely inelegant.** The gate
   becomes `btran <= 0`, which is reached, and the magnitude then evaluates `(0 - 0)/0`
   (`EDMortalityFunctionsMod.F90:193-195`). That is a NaN mortality rate, very likely trapped
@@ -113,7 +123,7 @@ inherits.
   validates. The threshold is also the response's denominator, so it does double duty as
   trigger point and steepness. The scalar is the knob; use it.
 - **F5. A genuine dormant state would need a threshold on `fwet_moss`, which is Step 3b's
-  knob.** Given F3, a real shutdown — respiration included — has to key on moss's own
+  knob.** A real shutdown — respiration included — has to key on moss's own
   wetness metric, and choosing that threshold here would pre-empt 3b's wetness window with a
   number picked before 3b has any evidence. If moss should have a quiescent state, it belongs
   with 3b, where the distribution of `FATES_MOSS_FWET` is in front of you.
@@ -499,7 +509,7 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
     one about the constants being routine-local. Comment text only: the follow-up commit must
     leave every assertion, test name and test value untouched.
 
-- [ ] **Step 5: run 730 days.** The case is built, at
+- [x] **Step 5: run 730 days — done; see the outcome block below Step 6.** The case is at
   `/glade/derecho/scratch/samrabin/mosstoplayer`. ~17 minutes of model time from cold start.
 
   **It is not a clone of `mosscull`, deliberately.** `mosscull`'s `SRCROOT` is the
@@ -538,7 +548,7 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   tape value divided by moss's patch area, read from `FATES_NOCOMP_PATCHAREA_PF` on the
   same tape rather than assumed. The prescribed nocomp cover fractions live in the
   `FatesALP2BareGrassMoss` testmod's `fsurdat`; do not carry copies of them around.
-- [ ] **Step 6: report what moved, without predicting it.** Concentrating withdrawal in the
+- [x] **Step 6: report what moved, without predicting it.** Concentrating withdrawal in the
   top 2 cm dries the layer that sets `FATES_MOSS_FWET_SOIL`. The effect on moss GPP is
   **not** predictable a priori, and the brief's claim that it must rise is only half right:
   the CO2 film factor wants low fwet, but capacity carries `min(1, fwet/0.6)`, so drying
@@ -546,6 +556,50 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   what the run shows. Also expect grass to move: the two nocomp patches share a CTSM soil
   column, and Step 3e measured grass responding to a moss-column-only change from day 61
   onward, so a grass difference is not by itself evidence of a leak.
+- [x] **Steps 5-6 outcome (2026-09-08).** Run completed clean: `SUCCESSFUL TERMINATION OF
+  CESM`, 730 daily tapes, and **every conservation and balance check passes** — zero hits
+  across all five logs for every balance string either source tree can emit, with checking
+  armed, and max |`FATES_CBALANCE_ERROR`| of 2.24e-20 kg/s. The `PRTCheckParams` range check
+  that had never executed did not abort, and the log confirms mode 3 for PFTs 1-14 and 5 for
+  PFT 15.
+
+  - **(a)** `btran_ft(moss)` is exactly zero on 202 of 730 days, of which `hmort`'s thaw gate
+    is open on 37 (19 in year 1, 18 in year 2). On the other 165 layer 1 is at or below
+    −2 °C. On the 528 non-zero days btran never gets closer to zero than 6.4e-3 and its
+    median is exactly 1.0. Moss was alive every day, so none of this is a missing-cohort
+    artifact.
+  - **(b)** See F3 and F3a, which this measurement rewrote.
+  - **(c)** Hydraulic mortality fires on 37 days at the parameter's full 0.6/yr, and **18 of
+    them are new** — `mosscull` has none in year 2. So **Task 2's stop rule is not
+    triggered**: the mechanism it switches off demonstrably fires here, and the on/off
+    comparison is measurable at this site.
+  - **(e)** Year 1 came back **bit-identical** on all 149 shared time-varying variables
+    across all 365 tapes, with the two expected field-list additions and nothing missing.
+    Identity in fact runs to day 436; the first difference anywhere is day 437, later than
+    the calendar boundary because layer 1 stays frozen until the first thaw. F6's prediction
+    holds exactly, and this is a tighter sentinel for the change than the ALP2 b4b tests.
+  - **(f)** The top layer does dry, in the expected direction and by an amount too small to
+    matter — mean change −3.1e-6 of saturation, largest −5.0e-4 — because moss has almost no
+    leaf area to transpire through. **The GPP question this step was expected to inform is
+    unanswerable from this run:** moss sits at exactly `fates_recruit_height_min` = 0.02 m
+    every single day, LAI 3.8e-7, GPP 5e4× below grass, so year-2 moss GPP differs by 0.01%
+    and there is no amplitude at which the film-factor-versus-capacity tradeoff could appear.
+    The one thing the run says about that tradeoff's shape is within-run and
+    season-confounded: moss GPP peaks in the driest bin visited and correlates −0.66 with the
+    wetness proxy, so down to ~0.40 saturation the film gain still beats the capacity loss.
+    Step 3b inherits that as a hint, not a result. The real year-2 signal is mortality:
+    −2.92% in moss density, with matching shifts in crown area and moss fuel. Grass moved by
+    ≤1e-4 relative and first differs on day 531, not day 61.
+  - **What the run cannot establish.** One arctic site, two years, one cold start, and moss
+    never leaving recruit size. The drought route to zero btran is not exercised at all, so
+    nothing here bounds the behaviour of a productive moss stand. What it does establish is
+    narrower and was the point: this configuration reaches the zero-btran path and fires
+    hydraulic mortality through it, entirely via frozen soil.
+  - **One thing left inferred.** Which term zeroes btran on the 37 gate-open days — no
+    liquid water, or matric potential at `smpsc` — is read from fwet being 0.75-1.00, since
+    the tape carries neither soil temperature nor soil liquid water. Ice is the only physical
+    reading, but it is inference, and F3a rests on it.
+
 - [x] **Step 7: amend spec §3** — done, in §3's own amendment-note style. Says the profile
   is now genuinely in layer 1 and by which mode, why it is numbered 5, and that its shape
   parameters are unread. It also cuts R8: §3 carried the claim that an all-zero profile
