@@ -67,9 +67,10 @@ biomass entering nowhere (`EDBtranMod.F90:151-214`).
    Fortran, no `fates_moss_dormancy` namelist variable, no restart field, no history field.
    This supersedes the brief's entire "What dormancy therefore has to be" section, including
    its namelist switch and its restart discussion. F1–F5 below are why.
-3. **A new case directory, cloned from `mosscull`.** Do not reuse
+3. **A new case directory.** Do not reuse
    `/glade/derecho/scratch/samrabin/mosscull`; it holds the post-3e baseline that Task 1
-   compares against.
+   compares against. Not a clone of it either — see Step 5 for why, and for why its run is
+   still a valid baseline.
 
 ### Findings behind decision 2
 
@@ -124,7 +125,9 @@ inherits.
   state at issue. The brief's companion claim that transpiration needs no zeroing *does*
   hold, via CTSM's `btran(p) > btran0` gate.
 - **"`fates_leaf_stomatal_intercept` is what sets moss's whole-canopy `rssun`/`rssha`."**
-  It is not. `gs0 = max(gsmin0, stomatal_intercept(ft))` (`LeafBiophysicsMod.F90:2237`), and
+  It is not. Moss inherits grass's `fates_leaf_stomatal_btran_model = 1`
+  (`btran_on_gs_gs0`), which selects `gs0 = max(gsmin0, stomatal_intercept(ft)*btran)`
+  (`LeafBiophysicsMod.F90:2234`; the un-btran'd `:2237` is the other branch), and
   moss's intercept is zeroed, so the floor `gsmin0` sets it — which is exactly what
   `LeafBiophysicsMod.F90:1183-1190` says. The comment at `make_moss_params.py:186-192` is
   nonetheless imprecise: the parameter is *read* on the moss path and merely loses to the
@@ -311,18 +314,37 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   `b = 2`, `z = 0.02` the numerator is 0.4903989 and an unbounded column gives 0.2451995.
   A separate observation about `fnrt_prof_mode = 2` ignoring layer thickness is filed in the
   parent plan's upstream-observations section.
-- [ ] **Step 2: add the mode.** A named constant with value 5 along
+- [x] **Steps 2–4 — FATES `d68bee7d1`**, plus an uncommitted CTSM-side `FatesNvp` testmod
+  line that lands with the task's CTSM commit at Step 8. `OK (8 tests)` on the
+  `root_profile` directory and 163 tests green across all eleven FATES unit-test
+  directories; `git diff 6bef63ad6..HEAD -- ':(top)testing/'` empty, so no test file was
+  touched. The sum-to-one assertion's missing evidence was supplied by mutating the
+  residual-correction block (`correction = 1 - sum` → `0.5 - sum`): it reddened in all four
+  tests carrying it, as the first assertion in each, and was edited back. CTSM builds.
+
+  Three things worth keeping:
+
+  - The mode routine writes the profile explicitly and carries a `size(root_fraction) < 1`
+    `endrun` guard, which its siblings do not need — they would hit a zero divisor and trap
+    under `-fpe0`, where an indexed write at `nlevroot == 0` would be an out-of-bounds
+    store instead.
+  - The regenerated moss JSON picked up the amended `long_name` unaided; its only three
+    changed lines are that `long_name`, `fnrt_prof_a` 30.0 → 11.0 and the mode 3 → 5.
+  - The Orientation's stomatal-intercept citation was wrong about which branch moss takes,
+    and is corrected there.
+
+- [x] **Step 2: add the mode.** A named constant with value 5 along
   `exponential_2p_profile_type` and a branch that puts the whole profile in layer 1. Confirm
   — do not assume — that the residual correction after the `select` (`:2849-2851`) is
   exactly zero for this profile. Amend `fates_allom_fnrt_prof_mode`'s `long_name` in the
   default parameter file to name the new mode and to say why 4 is skipped.
-- [ ] **Step 3: put moss on it.** In `make_moss_params.py`: add
+- [x] **Step 3: put moss on it.** In `make_moss_params.py`: add
   `fates_allom_fnrt_prof_mode: 5`; **remove** the now-unread `fates_allom_fnrt_prof_a: 30.0`
   override, so moss reverts to grass's 11.0 rather than carrying an override that does
   nothing; rewrite the NOTE at `:145-151`, whose claims that "our FATES supports modes 1-3"
   and that an all-zero profile breaks the water budget are both now wrong; and fix the
   stomatal-parameter comment at `:186-192` per Orientation. Regenerate the JSON.
-- [ ] **Step 4: get moss's btran onto the tape as `FATES_BTRAN_PF`** (Sam, 2026-09-08, over
+- [x] **Step 4: get moss's btran onto the tape as `FATES_BTRAN_PF`** (Sam, 2026-09-08, over
   the zero-code alternative of putting the existing size-resolved `FATES_BTRAN_SZPF` on the
   testmod). Patch-level `btran_ft` per PFT, registered like its neighbours, plus its
   `hist_fincl1 +=` line in the `FatesNvp` testmod. Say in the review how it is normalized —
@@ -332,9 +354,24 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   together with the testmod line that means every ALP2 baseline shows a field-list
   difference until Sam re-baselines. Report that; do not chase it, and do not reach for
   `inactive` to protect the field lists.
-- [ ] **Step 5: build, then run 730 days.** Clone a new case from
-  `/glade/derecho/scratch/samrabin/mosscull` (do not reuse it — Sam, 2026-09-08). ~17
-  minutes of model time from cold start. Report:
+- [ ] **Step 5: run 730 days.** The case is built, at
+  `/glade/derecho/scratch/samrabin/mosstoplayer`. ~17 minutes of model time from cold start.
+
+  **It is not a clone of `mosscull`, deliberately.** `mosscull`'s `SRCROOT` is the
+  `.worktrees/moss-extinction` worktree, so a `create_clone` would have compiled that tree
+  and resolved `FatesNvp`'s `$SRCROOT/.../fates_params_moss.json` into it, missing every
+  change in this task. It was built with `create_newcase` against the main checkout instead,
+  carrying `mosscull`'s configuration and `xmlchange` sequence. `mosscull` was neither
+  touched nor rebuilt.
+
+  **Its run is still a valid physics baseline, checked rather than assumed.** The worktree
+  tip (`a4df3a3de`) and this branch's pre-change HEAD (`a71785632`) have no differences under
+  CTSM `src/`, and their FATES pointers (`522ec26b5`, `749ac0123`) have identical trees — the
+  latter is a contentless merge. The only run-relevant difference is the `FatesNvp` testmod's
+  `hist_fincl1 += 'RAIN'` line, an output addition. So `mosscull`'s tape simply lacks `RAIN`
+  and `FATES_BTRAN_PF`; nothing about the physics differs.
+
+  Report:
   (a) whether `btran_ft(moss)` reaches zero on thawed days at all, and on how many;
   (b) `FATES_MOSS_FWET_SOIL` on those days — the F3 measurement, which Step 3b inherits;
   (c) whether `FATES_MORTALITY_HYDRAULIC_PF` becomes nonzero for moss, and how often;
