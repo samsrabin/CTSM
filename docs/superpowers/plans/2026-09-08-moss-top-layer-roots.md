@@ -354,6 +354,67 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   together with the testmod line that means every ALP2 baseline shows a field-list
   difference until Sam re-baselines. Report that; do not chase it, and do not reach for
   `inactive` to protect the field lists.
+- [ ] **Review round (2026-09-08).** Two reviewers, run in parallel; both independently
+  found the same blocking defect, which the orchestrator then verified from the code.
+
+  - **R1 (blocking, and it would have killed the run about one model day in).**
+    `set_root_fraction` floors nothing: `nlevroot = min(max_nlevroot, nlevroot)`. CTSM
+    supplies `max_rooting_depth_index_col = min(nlevsoil, altmax_lastyear_indx_col(c))` with
+    no `max(...,1)` (`clmfates_interfaceMod.F90:1270`), and `altmax_lastyear_indx_col` is 0
+    from `InitCold` (`ActiveLayerMod.F90:305`), updated once a year (`:120`, `:132`) from an
+    `altmax_indx` that was itself just reset to 0. So a cold start supplies **0 for its whole
+    first model year**, and permanently for a column that never thaws — confirmed on disk in
+    an existing ALP2 cold-start restart file. Modes 1-3 tolerate it; mode 5's
+    `size(root_fraction) < 1` guard aborts. FATES clamps this same field with `max(...,1)` at
+    two other consumers, so 0 is expected input, not a bug in CTSM.
+    **Ruling: floor `nlevroot` at 1 inside `set_root_fraction`.** That is bit-identical for
+    modes 1-3 — a single-layer profile normalizes to exactly 1.0 and the correction is then
+    exactly 0, where today the correction supplies the same 1.0 — and it makes mode 5 behave
+    like its siblings. Not `max(...,1)` at the twelve call sites, and not a routine that
+    fills layer 1 of the full array regardless of the active column.
+  - **R2.** The new guard has no `return` after `endrun`. Under the unit-test harness
+    `shr_abort_abort` is stubbed to *return*
+    (`share/unit_test_stubs/util/shr_abort_mod.abortthrows.F90`), so execution falls through
+    to an out-of-bounds write that kills the whole executable instead of raising a catchable
+    exception. Harmless in a real build, fatal to the harness.
+  - **R3.** That guard's comment claims the sibling routines would trap at `nlevroot = 0`
+    under `-fpe0`. False: their normalization is a zero-size array assignment, so no division
+    is performed and there is nothing to trap.
+  - **R4 (test side).** The negated-index marker mechanism is inert — `root_fraction(:) = 0`
+    runs before the clamp and before dispatch, so a seeded marker cannot survive — and its
+    comment claims otherwise; a second comment calls `max_nlevroot = 1` "the shallowest
+    active column there is", which is the claim that hid R1; and the "exactly zero below"
+    assertion is not independently reddenable, since pFUnit returns after the first exception
+    and passing the layer-1 assertion already implies the lower layers sum to zero.
+  - **R5.** Nothing anywhere validates `fnrt_prof_mode`'s range — not 0, not 4, not 99. The
+    only check is `case default`, which aborts at the first dynamics call and prints neither
+    the PFT index nor the offending value. `PRTCheckParams` is where the sibling mode
+    parameters get theirs; add it there.
+  - **R6.** The routine's header comment already numbered the modes wrongly — it calls the
+    1-parameter exponential 1 and the beta profile 2, where the constants are the reverse —
+    and this change extended that list rather than correcting it.
+  - **R7 (small).** An all-bareground site reports `FATES_BTRAN_PF = 0` rather than the
+    ignore value, so "no vegetation here" reads identically to "btran genuinely went to
+    zero", which is the measurement the field exists for; match whatever the neighbouring
+    `group_dyna_complx` per-PFT fields do rather than making this one a special case. And the
+    fill comment's "recovers `btran_ft(ft)` itself" is exact only to a few ULP once a site
+    has more than one vegetated patch.
+  - **R8.** The spec still carries the water-balance claim that `make_moss_params.py` now
+    says is false — §3's "mode 4 hands the HLM an all-zero profile, which is the thing that
+    would actually break the water budget", reaffirmed in its own 2026-09-08 amendment. Step
+    7 corrects it, so the spec is not left as the surviving copy of a cut claim.
+
+  **F6, which changes what Step 5 can measure.** Because `max_nlevroot` is 0 for the whole
+  first model year, the residual correction has *already* been collapsing every PFT's profile
+  into layer 1 during year 1 of every cold-start run. Three consequences. The "24.5% of
+  uptake in the top 2 cm" premise of this task describes year 2 onward, not year 1. A 730-day
+  cold-start run therefore carries one year of signal, not two, and year 1 of the before/after
+  comparison should be identical in profile terms. And the Step 3e diagnosis runs had the same
+  collapse in their first year, which bears on how those results read. **Step 5 is held for
+  Sam's decision on the run design** rather than run as scoped — the plan's premise about what
+  two years buys is what changed, and picking a substitute unasked is the move this plan's
+  process forbids.
+
 - [ ] **Step 5: run 730 days.** The case is built, at
   `/glade/derecho/scratch/samrabin/mosstoplayer`. ~17 minutes of model time from cold start.
 
