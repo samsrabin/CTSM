@@ -567,6 +567,36 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   what the run shows. Also expect grass to move: the two nocomp patches share a CTSM soil
   column, and Step 3e measured grass responding to a moss-column-only change from day 61
   onward, so a grass difference is not by itself evidence of a leak.
+- [x] **Follow-up commit — FATES `5c94a9052`.** Carries the fix-round review's comment
+  corrections, `return` after the two other `endrun`s in `set_root_fraction`, the mode
+  constants moved into the module's `public ::` block, the `FATES_BTRAN_PF` comment reworded,
+  and the test file generalized off the moss framing at Sam's instruction (2026-09-08): the
+  four locally-redefined mode codes replaced by the now-public constants, converted with
+  `real(..., r8)` at the assignments since `prt_params%fnrt_prof_mode` is `real(r8)`; five
+  stale sentences rewritten to the post-fix mechanism; no reference to any project document.
+  Whole suite green, `OK (10 tests)`.
+
+  - **The anchor case is kept, with its provenance stated.** Sam's ruling: say that `a = 30`
+    against `b = 2` came from the moss work, and explain why the case is worth keeping
+    anyway — the mode is a half-and-half sum of two exponentials, so the `b` limb owns half
+    the profile on its own depth scale however steep `a` gets, which makes a steep `a`
+    against a shallow `b` the interesting corner of that mode's parameter space for anyone
+    using it. That sentence is now the only occurrence of "moss" in the file, deliberately.
+  - **The test's name carried the framing too**, and the first pass left it on the grounds
+    that at 62 characters there was no room for a better one. That reasoning was wrong — the
+    limit binds on length, not on which words the length is spent on — so it is now
+    `set_root_fraction_exponential2pSteepAShallowB_quarterAboveTwoCm`, naming the condition
+    instead of a project. 63 characters, generated pFUnit symbol 84 of 90, and a forced
+    rebuild confirmed 63 is accepted rather than silently truncated.
+  - **The non-comment diff is 20 lines**, all mechanical: two `use` lines, four deleted mode
+    codes, four `real(..., r8)` conversions, a shape-parameter rename and the test rename. No
+    assertion, tolerance, PFT index, column geometry or parameter value moved.
+  - **This commit was amended**, which `writing-tests-before-the-implementer` warns against
+    near a commit that touches tests. The rule's purpose is intact: the red-evidence commits
+    for these tests are `6bef63ad6` and `a80e32ccb`, both untouched, and what was amended is
+    an unpushed comment-and-rename pass from minutes earlier — not a commit anyone would
+    check out to watch these tests fail.
+
 - [x] **Steps 5-6 outcome (2026-09-08).** Run completed clean: `SUCCESSFUL TERMINATION OF
   CESM`, 730 daily tapes, and **every conservation and balance check passes** — zero hits
   across all five logs for every balance string either source tree can emit, with checking
