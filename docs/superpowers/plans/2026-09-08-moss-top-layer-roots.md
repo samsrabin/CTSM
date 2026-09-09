@@ -378,8 +378,10 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
     `size(root_fraction) < 1` guard aborts. FATES clamps this same field with `max(...,1)` at
     two other consumers, so 0 is expected input, not a bug in CTSM.
     **Ruling: floor `nlevroot` at 1 inside `set_root_fraction`.** That is bit-identical for
-    modes 1-3 — a single-layer profile normalizes to exactly 1.0 and the correction is then
-    exactly 0, where today the correction supplies the same 1.0 — and it makes mode 5 behave
+    modes 1-3 — not because a single-layer profile normalizes to exactly 1.0, though it does,
+    but because the residual correction restores exactly 1.0 from anything within a ULP of
+    it; all the identity needs is that layer 1's raw weight be finite and nonzero — and it
+    makes mode 5 behave
     like its siblings. Not `max(...,1)` at the twelve call sites, and not a routine that
     fills layer 1 of the full array regardless of the active column.
   - **R2.** The new guard has no `return` after `endrun`. Under the unit-test harness
@@ -442,9 +444,10 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
     executable. That is the argument for keeping both the guard and the new `return`.
   - **The floor sits inside the `present(max_nlevroot)` branch**, deliberately: hoisting it
     out would turn a caller passing a genuinely zero-length `root_fraction` with no
-    `max_nlevroot` into an out-of-bounds slice. That case is already broken (`maxloc` of a
-    zero-size array is 0, so the closing correction indexes element 0) and is left as it was
-    rather than widened.
+    `max_nlevroot` into an out-of-bounds slice. That case is already broken — `maxloc` of a
+    zero-size array is 0 by the standard and under `gfortran`, and 1 under `ifx`, so the
+    closing correction indexes out of bounds either way — and is left as it was rather than
+    widened.
   - **The four mode codes moved to module scope and are now public**, so `PRTCheckParams`
     validates against the constants instead of restating `1/2/3/5`. `PRTParamsFATESMod`
     already `use`s `FatesAllometryMod`, so this adds no dependency. One consequence: a
@@ -462,18 +465,25 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
     range check has not been exercised, because it runs at model initialization and the run
     is held. Both belong with Step 5 once its design is settled.
 
-- [ ] **Fix-round review (2026-09-08).** The fix stands; the corrections are to comments,
+- [x] **Fix-round review (2026-09-08).** The fix stands; the corrections are to comments,
   plus two missing `return`s. Held for one follow-up commit, together with the test-file
   sentences, until the run has finished so that the executable and the source stay in step.
 
-  - **The bit-identity claim is true but for the stated reason.** It does not rest on `x/x`
+  - **The bit-identity claim was true but for the wrong reason.** It does not rest on `x/x`
     being exactly 1.0: if layer 1 came back as `1 ± d` at the ULP scale the closing
     correction restores exactly 1.0 anyway, since `1 - (1∓d)` is exact by Sterbenz and
-    adding it back is exact. What it actually requires is only that layer 1's raw value be
-    **finite and nonzero** — a broader guarantee than the comment claims. The "including
-    denormals" half is moot: `-ftz` is in the base Intel flags for every build
-    (`ccs_config/machines/cmake_macros/intel.cmake:16`), so a denormal layer-1 value is
-    flushed to zero and gives NaN, not 1.0. Correct the comment to the true mechanism.
+    adding it back is exact. All the identity needs is that layer 1's raw weight be **finite
+    and nonzero** — a broader guarantee. The denormal case is the one gap and is unreachable:
+    `-ftz` is in the base Intel flags for every build
+    (`ccs_config/machines/cmake_macros/intel.cmake:16`), so a denormal weight flushes to zero
+    and then to NaN, but reaching one takes a shape parameter in the tens of thousands.
+    **Correction to this block, from the round that acted on it:** the reviewer reported this
+    and two other items as *source comments needing correction*, with `FatesAllometryMod.F90`
+    line numbers. No such comments existed. The claims lived in the implementer's report and
+    in this plan; the citations pointed at text that was not there. The right outcome
+    happened anyway — the accurate statement was written into the floor comment, where the
+    safety argument belongs — but that reviewer's file-and-line attributions were not
+    evidence, and were taken as such here.
   - **One geometry does differ, and is unreachable.** A column whose first layer has zero
     thickness (`zi(1) == zi(0)`) with `max_nlevroot <= 0` gives NaN in layer 1 under modes 1
     and 3 where the unfloored code gave exactly 1.0, because both compute layer 1 as a
@@ -491,8 +501,9 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
     where there is one vegetated patch" is also untrue: the `fl(fl(btran·area)/area)` round
     trip is not the identity, measured at 1 ULP on about 12% of random pairs. The accurate
     statement is "within a few ULP in all cases, the single-patch case included".
-  - **Two comments describe things that do not exist.** The negative-`max_nlevroot` check is
-    said to "only run in a debug build", but `debug` is a hardcoded
+  - **Two claims about things that do not exist** — and, per the correction above, neither
+    was a source comment either. The negative-`max_nlevroot` check was said to
+    "only run in a debug build", but `debug` is a hardcoded
     `logical, parameter :: debug = .false.` a developer must edit — the check is dead in
     every build, which strengthens the case for the floor covering negatives. And the floor's
     placement rationale is stated in terms of `maxloc` of a zero-size array giving 0, which
