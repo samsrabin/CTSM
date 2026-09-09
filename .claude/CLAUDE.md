@@ -85,6 +85,9 @@ Dispatching subagents on this project is authorized standing (Sam, 2026-09-04);
 you do not need to ask each time. Where a plan's execution process calls for
 them (a fresh implementer per task, then reviewers):
 
+- **A dispatch is not a stopping point; report only when every agent has
+  returned.** Anything said while one is in flight arrives split across a turn
+  Sam reads and a turn he does not.
 - An implementer receives only its own task's text as amended by that task's
   review gate, the spec path, the harvest-worktree path, the checkout path, and
   the plan's Global Constraints — never the whole plan, never the Self-Review
