@@ -227,6 +227,25 @@ Not defects in our work; things noticed while implementing that upstream may wan
   the profile modes, where a lower bound on layer 1 that looked meaningful turned out to sit
   exactly on that floor and could not be reddened.
 
+- **A zero-deep active soil column silently becomes a top-layer-only root profile, for every
+  PFT.** `set_root_fraction` (`FatesAllometryMod.F90`) clamps `nlevroot = min(max_nlevroot,
+  nlevroot)` with no floor, so `max_rooting_depth_index_col = 0` gives a zero-size profile
+  slice: the mode routines' loops run zero times, their normalization is a zero-size array
+  assignment that performs no division, and the closing residual correction then adds the
+  whole 1.0 to `maxloc` of an all-zero array — layer 1. Nothing errors and nothing is
+  documented. The input is not exotic: CTSM supplies
+  `min(nlevsoil, altmax_lastyear_indx_col(c))` with no `max(...,1)`
+  (`clmfates_interfaceMod.F90:1270`, where CTSM's own other consumer of the same field does
+  clamp, `SoilBiogeochemVerticalProfileMod.F90:145`), and `altmax_lastyear_indx_col` is 0
+  from `InitCold` and updated once a year from a value just reset to 0 — so **every
+  cold-start run has all PFTs drawing water from soil layer 1 alone for its entire first
+  model year**, and so does any column whose prior-year thaw index is 0. FATES clamps this
+  same field with `max(...,1)` at two other consumers, which suggests 0 is understood to be
+  expected input and the profile call sites were simply missed. Noticed because a new
+  top-layer profile mode guarded the zero-size case with an `endrun` and turned the silent
+  behaviour into an abort. Flooring `nlevroot` at 1 is bit-for-bit identical for the three
+  existing modes, verified against the built library.
+
 ## Global Constraints
 
 - **All new scalar settings — switches and science constants — go on the CTSM namelist**

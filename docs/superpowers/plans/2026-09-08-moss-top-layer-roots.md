@@ -415,6 +415,43 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   two years buys is what changed, and picking a substitute unasked is the move this plan's
   process forbids.
 
+- [x] **Fix round (2026-09-08) — FATES `a80e32ccb`** (two tests for the defect, written
+  before the fix) **and `441bf4e12`** (the fix). Whole-suite `OK (10 tests)` on
+  `root_profile`, all eleven FATES unit-test directories green, CTSM rebuilds. R1–R7 are
+  addressed; R8 belongs to Step 7.
+
+  - **The floor is bit-identical for modes 1–3, established empirically rather than argued.**
+    A driver linked against the built `libfates.a` printed raw IEEE-754 bit patterns for all
+    four modes × three soil columns × `max_nlevroot` ∈ {−3, 0, 1, 3, 5, absent}, against
+    builds with and without the floor. Every pattern matches; the only difference between the
+    two runs is the six abort messages the unfloored build emitted. Visible in the output: at
+    `max_nlevroot` of 0 and of 1 the legacy modes both give `3FF0000000000000` in layer 1.
+  - **The fall-through past `endrun` is silent in one build and fatal in another.** In the
+    driver, `root_fraction(1) = 1._r8` on a zero-size dummy wrote through to the caller's
+    layer 1 with `-check bounds` not firing, where the same fall-through kills the unit-test
+    executable. That is the argument for keeping both the guard and the new `return`.
+  - **The floor sits inside the `present(max_nlevroot)` branch**, deliberately: hoisting it
+    out would turn a caller passing a genuinely zero-length `root_fraction` with no
+    `max_nlevroot` into an out-of-bounds slice. That case is already broken (`maxloc` of a
+    zero-size array is 0, so the closing correction indexes element 0) and is left as it was
+    rather than widened.
+  - **The four mode codes moved to module scope and are now public**, so `PRTCheckParams`
+    validates against the constants instead of restating `1/2/3/5`. `PRTParamsFATESMod`
+    already `use`s `FatesAllometryMod`, so this adds no dependency. One consequence: a
+    sentence in the byte-locked test file now describes the old arrangement.
+  - **After the floor, the residual correction is no longer what makes the legacy
+    zero-active-column case pass** — deleting it leaves all ten tests green, because the
+    single-layer normalization already gives exactly 1.0. The mutation that reddens that case
+    against the fixed code is flooring at 2 instead of 1, which fails exactly one test.
+  - **`FATES_BTRAN_PF` stays at 0 for an all-bareground site**, matching every other per-PFT
+    variable in its group: none is ever assigned `hlm_hio_ignore_val`, and the closest
+    intensive analogues leave the zeroed 0 when their input is unavailable. The one field in
+    the module that does flag a zero denominator is site-level and in a different group. The
+    ambiguity is recorded in the fill comment rather than fixed by a lone exception.
+  - **Not yet reviewed.** The fix round has had no reviewer pass, and `PRTCheckParams`'s new
+    range check has not been exercised, because it runs at model initialization and the run
+    is held. Both belong with Step 5 once its design is settled.
+
 - [ ] **Step 5: run 730 days.** The case is built, at
   `/glade/derecho/scratch/samrabin/mosstoplayer`. ~17 minutes of model time from cold start.
 
