@@ -246,6 +246,23 @@ Not defects in our work; things noticed while implementing that upstream may wan
   behaviour into an abort. Flooring `nlevroot` at 1 is bit-for-bit identical for the three
   existing modes, verified against the built library.
 
+- **CTSM-side: a fully-frozen soil layer hands FATES zero liquid water even when it holds
+  liquid, so "no extractable water" and "no water at all" are indistinguishable across the
+  interface.** `calc_effective_soilporosity` forms
+  `eff_por = watsat - min(watsat, h2osoi_ice/(denice*dz))` with no floor, and
+  `calc_volumetric_h2oliq` then caps `vol_liq = min(eff_porosity, h2osoi_liq/(dz*denh2o))`
+  (`SoilMoistStressMod.F90:108-111, 212`), so once a layer's ice reaches `watsat*denice*dz`
+  the volume crossing `bc_in%h2o_liqvol_sl` is exactly zero however much liquid the layer
+  actually holds — while `h2osoi_liq` itself never falls below `watmin` = 0.01 kg/m²
+  (`clm_varcon.F90:81`). Measured at ALP2 over 730 days: on 19 days the top layer held
+  0.79-1.24 kg/m² of liquid, was handed across as zero, and FATES's non-hydro
+  hydraulic-failure mortality fired at its full per-PFT rate on a layer at essentially full
+  saturation. Whether this is a defect or correct bookkeeping is a judgement — ice is less
+  dense than water, so a layer can hold more ice volume than its unfrozen porosity, and
+  clamping is one defensible response — but the consequence for a PFT rooted in the top layer
+  alone is a mortality mechanism firing on frozen-saturated soil. Noticed because moss's
+  profile was moved into layer 1, which made the top layer the only layer its btran sees.
+
 ## Global Constraints
 
 - **All new scalar settings — switches and science constants — go on the CTSM namelist**

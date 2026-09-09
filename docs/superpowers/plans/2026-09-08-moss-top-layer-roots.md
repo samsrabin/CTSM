@@ -104,16 +104,48 @@ inherits.
   **full** capacity rather than a third of it. The drought route to zero btran is never
   entered in this configuration at all: on all 335 days when the layer was drier than half
   saturation, btran was exactly 1.0, and the driest it ever got was 0.399.
-- **F3a. What actually kills moss here is a threshold mismatch between two frozen-soil
-  tests, and it is the only route by which `hmort` fires.** `hmort`'s frozen-soil exemption
-  asks whether layer 1 is warmer than `soil_tfrz_thresh` = −2 °C
-  (`EDMortalityFunctionsMod.F90:192-195`). btran asks, through `check_layer_water`, whether
-  the layer holds liquid water. Between −2 °C and 0 °C both are satisfied at once: the
-  exemption is open because the layer is "thawed" by its threshold, and btran is zero because
-  the water is ice. Moss then takes the full `fates_mort_scalar_hydrfailure` = 0.6/yr for
-  having its water frozen. That is not an edge case here — it is every one of the 37 days
-  `hmort` fires, and it strengthens decision 2 rather than weakening it: the mechanism being
-  switched off is not even about desiccation.
+- **F3a. Moss dies in the −2 °C to 0 °C window, where `hmort`'s frozen-soil exemption is
+  open and its water is nonetheless ice.** Measured, after `TSOI`, `SOILLIQ`, `SOILICE` and
+  `SOILPSI` were put on the tape: layer 1 is sub-freezing on all 202 zero-btran days and all
+  37 mortality days and never at or above 0 °C, and 33 of the 37 have a daily-mean layer 1
+  strictly inside (−2, 0) °C with the other 4 within a degree below. `hmort` asks only
+  whether layer 1 is warmer than `soil_tfrz_thresh` = −2 °C
+  (`EDMortalityFunctionsMod.F90:192-195`), so the exemption is open while the water is
+  frozen, and moss takes the full 0.6/yr for it. **The mechanism being switched off in Task 2
+  is not about desiccation.**
+
+  **Correction to the two-route framing this finding was first written with.** It said btran
+  "asks whether the layer holds liquid water". `check_layer_water` tests liquid water *and*
+  temperature above `soil_tfrz_thresh`, so btran carries its own −2 °C exclusion — which
+  accounts for 162 of the 202 zeros, 98 of them with nothing else true. Those are harmless,
+  because that is the same condition that exempts the mortality. The measurement found three
+  routes, not two, and on the 37 days the mortality actually fires the −2 °C term is
+  essentially absent (4 days) and the zeros split almost evenly:
+
+  - **19 days: the interface hands FATES exactly zero liquid volume while the layer holds
+    liquid.** `calc_effective_soilporosity` forms `eff_por = watsat - min(watsat,
+    h2osoi_ice/(denice*dz))` with no floor, and `calc_volumetric_h2oliq` then caps
+    `vol_liq = min(eff_porosity, h2osoi_liq/(dz*denh2o))`
+    (`SoilMoistStressMod.F90:108-111, 212`), so once layer-1 ice reaches
+    `watsat*denice*dz` = 14.86 kg/m² the liquid volume crossing `bc_in%h2o_liqvol_sl` is zero
+    however much liquid is there — 0.79-1.24 kg/m² on those days. Filed as an upstream
+    observation in the parent plan; it is CTSM-side, not FATES.
+  - **18 days: the residual liquid's suction is past the wilting point.** Genuine, and the
+    only appearance of the drought route anywhere in the run — at 98%-ice saturation rather
+    than in dry soil.
+
+  Layer-1 `SOILLIQ` is never zero: its minimum over 730 days is exactly `watmin` = 0.01 kg/m²
+  (`clm_varcon.F90:81`), CLM's floor. Ice is 87-99.9% of layer-1 water on the zero-btran days.
+  **`SOILPSI` must not be compared with `smpsc` directly** — it normalizes by `watsat` where
+  the root-resistance path uses `eff_porosity`; renormalized, the suction reaches `smpsc` on
+  79 of the 202 days and never once without btran being zero.
+
+  Two smaller corrections. `fates_nonhydro_smpsc = -255000` mm is **−2.499 MPa** on CLM's own
+  9.8e-6 conversion, not the −2.55 used earlier in this plan; nothing turns on it, and the
+  model compares in mm. And three days (411, 435, 689) have no route matching the observed
+  btran: the soil fields are daily means while `FATES_BTRAN_PF` is a once-daily instantaneous
+  sample, which covers 411 and 435 comfortably and 689 only loosely. Left as a 3-in-730
+  residual rather than spending a run on instantaneous sampling.
 - **F4. `fates_mort_hf_sm_threshold = 0` would be broken, not merely inelegant.** The gate
   becomes `btran <= 0`, which is reached, and the magnitude then evaluates `(0 - 0)/0`
   (`EDMortalityFunctionsMod.F90:193-195`). That is a NaN mortality rate, very likely trapped
@@ -224,7 +256,7 @@ shrinking the deliverable without Sam choosing that.
 
 ---
 
-### Task 1: put moss's soil-water uptake in soil layer 1
+### Task 1 (COMPLETE): put moss's soil-water uptake in soil layer 1
 
 **Files:**
 - Modify: `src/fates/biogeochem/FatesAllometryMod.F90` (new mode in `set_root_fraction`)
@@ -650,7 +682,15 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   `error_thresh`. The older amendment note that carried the claim is left in place directly
   below, since the correction names it; the record of what was believed is worth more than a
   tidy page. The 24.5% figure is kept with the year-1 caveat attached.
-- [ ] **Step 8: reviews, then commit.**
+- [x] **Step 8: reviews, then commit.** CTSM `a8ff4a378` carries the testmod, the submodule
+  pointer at FATES `5c94a9052` and the matching `.gitmodules` `fxtag`, plus the diagnostics.
+  Two reviewers covered the implementation and one the fix; the last FATES commit — comment
+  corrections, two `return`s and the test-file generalization — has had no third-party pass,
+  and its content is inspectable as exactly that. The re-run that added the four soil fields
+  is **bit-for-bit identical** to the run before it on all 170 shared fields across all 730
+  days, so the diagnostics perturbed nothing. `SOILPSI` is the only one of the four that is
+  not already default-active in CLM, so it is the only line that changes what a test using
+  this testmod emits.
 
 ---
 
