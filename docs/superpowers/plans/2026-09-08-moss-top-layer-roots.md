@@ -295,8 +295,8 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   the zero-code alternative of putting the existing size-resolved `FATES_BTRAN_SZPF` on the
   testmod). Patch-level `btran_ft` per PFT, registered like its neighbours, plus its
   `hist_fincl1 +=` line in the `FatesNvp` testmod. Say in the review how it is normalized —
-  `_PF` fields are per m2 land area, so under prescribed nocomp a moss value is the tape
-  value divided by moss's 0.5 cover. It registers unconditionally, so the plain
+  `_PF` fields are per m2 land area, so a PFT-relative value needs dividing by that PFT's
+  patch area, which `FATES_NOCOMP_PATCHAREA_PF` reports. It registers unconditionally, so the plain
   `FatesALP2*` tests that are the `use_fates_moss`-off b4b sentinel gain a field too;
   together with the testmod line that means every ALP2 baseline shows a field-list
   difference until Sam re-baselines. Report that; do not chase it, and do not reach for
@@ -316,7 +316,9 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   *finding*, not a stop — but it is the finding that decides whether Task 2 is verifiable
   here, so it goes to the gate rather than into a workaround.
   Remember: `_PF` fields are per m2 **land** area, so a moss-patch-relative value is the
-  tape value divided by 0.5 (prescribed nocomp cover: moss 0.5, grass 0.3, bare 0.2).
+  tape value divided by moss's patch area, read from `FATES_NOCOMP_PATCHAREA_PF` on the
+  same tape rather than assumed. The prescribed nocomp cover fractions live in the
+  `FatesALP2BareGrassMoss` testmod's `fsurdat`; do not carry copies of them around.
 - [ ] **Step 6: report what moved, without predicting it.** Concentrating withdrawal in the
   top 2 cm dries the layer that sets `FATES_MOSS_FWET_SOIL`. The effect on moss GPP is
   **not** predictable a priori, and the brief's claim that it must rise is only half right:
