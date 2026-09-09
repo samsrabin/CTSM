@@ -217,6 +217,16 @@ Not defects in our work; things noticed while implementing that upstream may wan
   top layer means frozen moss, which damps fire — but that is a coincidence of where the proxy
   is computed, not a contract the field offers.
 
+- **`fnrt_prof_mode = 2` ignores soil layer thickness, unlike modes 1 and 3.**
+  `exponential_1p_root_profile` (`FatesAllometryMod.F90`) weights each layer by
+  `exp(-a * midpoint)` with no `dz` factor, where the Jackson-beta and two-parameter
+  exponential profiles both integrate across the layer. One consequence is structural: on an
+  N-layer column, layer 1's share under mode 2 cannot fall below 1/N for any `a`, so the mode
+  cannot express a deep profile on a coarse column and its shape depends on the vertical
+  discretization in a way the other two modes' does not. Noticed while writing unit tests for
+  the profile modes, where a lower bound on layer 1 that looked meaningful turned out to sit
+  exactly on that floor and could not be reddened.
+
 ## Global Constraints
 
 - **All new scalar settings — switches and science constants — go on the CTSM namelist**

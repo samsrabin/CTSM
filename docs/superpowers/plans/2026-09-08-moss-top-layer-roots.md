@@ -272,14 +272,45 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
     all-in-layer-1 case is evidence the new mode does not break this path. Do not build
     anything for it; check in the review that nothing else in that routine reads
     `rootfrac_scr` after the fallback mutates it.
-- [ ] **Step 1: write the unit tests first, in a different agent than the implementer.** A
-  new `.pf` file added to an *existing* pFUnit directory is compiled, linked and never
-  called — the run is green and proves nothing — so create a new directory. Assert that
-  mode 5 gives exactly 1.0 in layer 1 and exactly 0.0 elsewhere, including under
-  `max_nlevroot` compression, and that modes 1–3 are unchanged. Known wrinkle, not solved
-  here: `set_root_fraction` reads `prt_params%fnrt_prof_mode/_a/_b`, so the test must
-  allocate and set those module-level arrays in `setUp`. Commit the tests before the
-  implementation and confirm they fail for the right reason.
+- [x] **Step 1: write the unit tests first, in a different agent than the implementer** —
+  FATES `6bef63ad6`, tests only, a new `testing/tests/unit/root_profile_test/` directory
+  (a new `.pf` file in an *existing* directory is compiled, linked and never called). Eight
+  cases across five PFT slots and three column geometries. Red state observed: 8 run, 4
+  failures, each of the four mode-5 cases throwing from `case default`, with the three
+  legacy-mode cases and the anchor green in the same run. The CTSM submodule pointer bump is
+  deferred to Step 8 so it lands once for the whole task.
+
+  Four things came out of it that later steps need:
+
+  - **`endrun` does not abort this test binary.** `fates_endrun` → `shr_sys_abort` →
+    `shr_abort_abort`, and the harness links
+    `share/unit_test_stubs/util/shr_abort_mod.abortthrows.F90`, which calls pFUnit's
+    `throw`. So driving an error path gives a clean per-test failure, not a dead executable.
+    The dispatch had assumed the opposite.
+  - **An empty `case (top_layer_profile_type)` would pass all eight tests, and no assertion
+    on `set_root_fraction`'s output can tell the difference.** The routine zeroes
+    `root_fraction(:)` up front, and its closing block adds `correction = 1 - sum(...)` to
+    `maxloc(root_fraction)` — which is 1 for an all-zero array. So *any* unhandled mode
+    already emerges as exactly 1.0 in layer 1 and 0.0 below, and the mode-5 cases fail today
+    only on the thrown `endrun`. **Ruling:** the behavioural assertions stand, since the
+    behaviour is what matters and they pin it; but Step 2 must state the profile explicitly
+    in its own routine rather than inherit it from that coincidence, and the reviewers are
+    told to check exactly that. Not worth another test round for a direct call.
+  - **The `sum == 1` assertion has no test-side evidence, and is kept deliberately.** The
+    correction block forces the sum whatever the profile routine returns, so only a mutation
+    of that block can redden it — and the test-writer was scoped out of the source file.
+    Step 2 runs that one mutation as an uncommitted probe and reports the output. It must not
+    edit the test file; the review checks that file is byte-identical to `6bef63ad6`.
+  - **`ifx` enforces the standard 63-character Fortran name limit** (error #6439, caret on
+    `end module`, name truncated in the message), not the 90 characters the `pfunit-tests`
+    skill documents. Cost one build. Whether to correct the skill is a question for the
+    task's gate.
+
+  The 0.245 anchor checked out and was verified independently:
+  `F(z) = (2 - e^{-az} - e^{-bz}) / (2 - e^{-a z_col} - e^{-b z_col})`, so at `a = 30`,
+  `b = 2`, `z = 0.02` the numerator is 0.4903989 and an unbounded column gives 0.2451995.
+  A separate observation about `fnrt_prof_mode = 2` ignoring layer thickness is filed in the
+  parent plan's upstream-observations section.
 - [ ] **Step 2: add the mode.** A named constant with value 5 along
   `exponential_2p_profile_type` and a branch that puts the whole profile in layer 1. Confirm
   — do not assume — that the residual correction after the `select` (`:2849-2851`) is
