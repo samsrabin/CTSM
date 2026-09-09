@@ -130,3 +130,64 @@ hist_fincl1 += 'FATES_UNGERM_SEED_BANK_PF'
 hist_fincl1 += 'FATES_RECRUITMENT_PF'
 hist_fincl1 += 'FATES_RECRUITMENT_CFLUX_PF'
 hist_fincl1 += 'FATES_ELONG_FACTOR_PF'
+
+! Moss's transpiration wetness factor, per PFT. The moss rooting profile is now the
+! top-layer profile mode (FATES fnrt_prof_mode = 5): the whole profile in soil layer 1,
+! exactly nothing below it. So moss's btran is a function of the top layer alone, and the
+! measurement this instruments is "was moss's btran zero on this day, and how wet was the
+! top layer when it was" -- FATES_MOSS_FWET_SOIL, requested above, is the companion.
+!
+! FATES_BTRAN_PF and not FATES_BTRAN_SZPF: the latter is filled from ccohort_hydr%btran
+! and so is identically zero without FATES-Hydro, which use_fates_moss forbids.
+!
+! It is a once-daily sample taken at the dynamics call, not a diurnal mean -- which is
+! also the cadence and the moment at which hydraulic-failure mortality reads btran, so it
+! is the right sample to read FATES_MORTALITY_HYDRAULIC_PF against.
+
+hist_fincl1 += 'FATES_BTRAN_PF'
+
+! Layer soil temperature, liquid water, ice and matric potential. CLM fields rather than
+! FATES ones, like RAIN above, and requested for the same kind of reason: the quantity that
+! decides moss's btran is not on the tape unless it is put there.
+!
+! With the top-layer rooting profile moss's btran is a function of soil layer 1 alone, and
+! it reaches exactly zero by three routes. Only the first of them also exempts
+! hydraulic-failure mortality, so the other two can kill the cohort:
+!
+!   - layer 1 at or below tfrz - 2 K, which drops it from root uptake altogether. FATES
+!     decides that in get_active_suction_layers, and CLM then computes no suction for the
+!     layer at all -- clmfates_interfaceMod fills smp_sl only on the active ones. This is
+!     also the mortality's frozen-soil exemption, so a zero btran here is harmless.
+!   - the liquid volume CLM hands FATES going to zero, which is NOT the same thing as
+!     SOILLIQ going to zero. calc_effective_soilporosity forms
+!     eff_porosity = watsat - vol_ice with no floor, and calc_volumetric_h2oliq then caps
+!     vol_liq = min(eff_porosity, h2osoi_liq/(dz*denh2o)) -- both in
+!     biogeophys/SoilMoistStressMod.F90. So once layer-1 ice reaches watsat*denice*dz,
+!     bc_in%h2o_liqvol_sl(1) is exactly zero however much liquid the layer holds.
+!   - the suction of the liquid that is there reaching fates_nonhydro_smpsc = -255000 mm,
+!     at which btran_ed's max(smpsc, smp) clamp makes the root resistance identically zero.
+!
+! None of the three was separable from the tape before these lines. FATES_MOSS_FWET_SOIL
+! counts total water, ice included, so a layer whose pore space is solid ice reads as wet.
+!
+! SOILPSI is not the suction btran sees and should not be compared with smpsc directly. It
+! divides layer liquid volume by watsat (biogeophys/HydrologyNoDrainageMod.F90) where the
+! root-resistance path divides by eff_porosity, so wherever there is ice SOILPSI is the more
+! negative of the two; and it is clipped to [-15, 0] MPa, with -15 assigned outright
+! wherever liquid water is zero. Reconstructing the form btran uses needs WATSAT, SUCSAT and
+! BSW, which CLM writes to the first history file of a run.
+!
+! All four are daily means while FATES_BTRAN_PF is a once-daily instantaneous sample, so a
+! daily mean can straddle a threshold the sampled value never crossed.
+!
+! TSOI, SOILLIQ and SOILICE are registered active by default, so those three lines change
+! nothing on the FATES-SP tests, which carry the full default CLM field list already; it is
+! the I2000Clm60Fates nocomp entries, where clm/Fates sets hist_empty_htapes, that need them
+! named. SOILPSI is different: it is registered use_default='inactive', and only under
+! use_cn or use_fates (biogeophys/SoilStateType.F90), so its line is what turns it on, on
+! every test composing this testmod.
+
+hist_fincl1 += 'TSOI'
+hist_fincl1 += 'SOILLIQ'
+hist_fincl1 += 'SOILICE'
+hist_fincl1 += 'SOILPSI'
