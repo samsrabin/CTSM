@@ -452,6 +452,53 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
     range check has not been exercised, because it runs at model initialization and the run
     is held. Both belong with Step 5 once its design is settled.
 
+- [ ] **Fix-round review (2026-09-08).** The fix stands; the corrections are to comments,
+  plus two missing `return`s. Held for one follow-up commit, together with the test-file
+  sentences, until the run has finished so that the executable and the source stay in step.
+
+  - **The bit-identity claim is true but for the stated reason.** It does not rest on `x/x`
+    being exactly 1.0: if layer 1 came back as `1 ± d` at the ULP scale the closing
+    correction restores exactly 1.0 anyway, since `1 - (1∓d)` is exact by Sterbenz and
+    adding it back is exact. What it actually requires is only that layer 1's raw value be
+    **finite and nonzero** — a broader guarantee than the comment claims. The "including
+    denormals" half is moot: `-ftz` is in the base Intel flags for every build
+    (`ccs_config/machines/cmake_macros/intel.cmake:16`), so a denormal layer-1 value is
+    flushed to zero and gives NaN, not 1.0. Correct the comment to the true mechanism.
+  - **One geometry does differ, and is unreachable.** A column whose first layer has zero
+    thickness (`zi(1) == zi(0)`) with `max_nlevroot <= 0` gives NaN in layer 1 under modes 1
+    and 3 where the unfloored code gave exactly 1.0, because both compute layer 1 as a
+    difference that cancels and the floored path then divides `0/0`. Not reachable from
+    CTSM: `zi_sisl` comes from `col%zi` and `col%dz(c,1) > 0` always. Recorded, not fixed.
+  - **Two more `endrun`s in the same routine fall through, one of them badly.** The
+    `size(zi) /= size(root_fraction)+1` guard drops into `root_fraction(1:nlevroot)`, which
+    is out of bounds precisely because the sizes disagree — the same failure the new `return`
+    one screen below exists to prevent. The `case default` falls through to the correction
+    block and yields a well-formed layer-1 profile, so a future test asserting that an
+    unknown mode aborts would see a plausible answer instead. Add `return` to both. Scope it
+    to this routine: FATES has no return-after-`endrun` convention to be consistent with —
+    2 of 489 call sites have one.
+  - **The `FATES_BTRAN_PF` reword traded one false exactness claim for another.** "Exactly it
+    where there is one vegetated patch" is also untrue: the `fl(fl(btran·area)/area)` round
+    trip is not the identity, measured at 1 ULP on about 12% of random pairs. The accurate
+    statement is "within a few ULP in all cases, the single-patch case included".
+  - **Two comments describe things that do not exist.** The negative-`max_nlevroot` check is
+    said to "only run in a debug build", but `debug` is a hardcoded
+    `logical, parameter :: debug = .false.` a developer must edit — the check is dead in
+    every build, which strengthens the case for the floor covering negatives. And the floor's
+    placement rationale is stated in terms of `maxloc` of a zero-size array giving 0, which
+    is what the standard requires and what `gfortran` does, but `ifx` returns 1. The
+    placement decision stands; its justification needs to say what it actually prevents.
+  - **The four new constants use an inline `public` attribute** where the module keeps a
+    `public ::` block after a bare `private`. Move them into the block.
+  - **Nothing exercises the hardened guard any more.** The floor routes the one test that
+    reached it past it, so the guard and its `return` are reachable only from a hypothetical
+    external caller. Consistent with the comment's own framing; worth knowing before treating
+    the `return` as covered.
+  - **Four sentences in the test file now describe the pre-fix mechanism** — the zero-size
+    slice, the zero-trip loops, the correction supplying layer 1 — alongside the known-stale
+    one about the constants being routine-local. Comment text only: the follow-up commit must
+    leave every assertion, test name and test value untouched.
+
 - [ ] **Step 5: run 730 days.** The case is built, at
   `/glade/derecho/scratch/samrabin/mosstoplayer`. ~17 minutes of model time from cold start.
 
