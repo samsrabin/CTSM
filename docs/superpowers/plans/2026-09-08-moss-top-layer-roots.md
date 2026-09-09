@@ -226,9 +226,52 @@ shrinking the deliverable without Sam choosing that.
 moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
 `FATES_MOSS_FWET_SOIL` at btran = 0 that F3 estimates and Step 3b needs.
 
-- [ ] **Step 0 (orchestrator):** settle the mode constant's name and the test case table,
-  and confirm that regenerating the moss JSON picks up the default file's amended
-  `long_name` rather than needing a second edit.
+- [x] **Step 0 (orchestrator) — 2026-09-08.** Rulings:
+
+  - **The mode is `top_layer_profile_type = 5`**, implemented as a sibling subroutine
+    `top_layer_root_profile(root_fraction)` beside `exponential_2p_root_profile` and its
+    two siblings, because every existing mode in that file has its own routine and the unit
+    test then has a target.
+  - **`long_name` propagation is confirmed.** `make_moss_params.py` loads the default JSON
+    (`:448`) and mutates only `["data"]` (`_set_last_element(params[key]["data"], value)`,
+    `:495`), so amending the default file's `long_name` propagates on regeneration; no
+    second edit.
+  - **`FATES_BTRAN_PF` is modelled on `FATES_ELONG_FACTOR_PF`, not on
+    `FATES_BTRAN_SZPF`.** The existing `_SZPF` field is filled from `ccohort_hydr%btran` in
+    the `group_hydr_complx` upfreq group — FATES-Hydro only, and
+    `use_fates_moss` + `use_fates_planthydro` is a fatal namelist error, so it is
+    identically zero in every run this project can do. Use `site_pft_r8` in
+    `group_dyna_complx`.
+  - **How to fill it.** `btran_ft` is a *site*-level per-PFT quantity stored redundantly on
+    every patch: `btran_ed` builds it from site-level `bc_in` fields and a root profile that
+    depends only on `ft`, with nothing patch-specific entering (`EDBtranMod.F90:151-190`),
+    and the bareground patch is skipped by `if_bare` so its copy stays at its initialized
+    0.0. So area-weight over non-bareground patches and normalize by that same area, which
+    reduces to `btran_ft(ft)` exactly and spares the reader a divide-by-cover. Two things
+    the `long_name` or a comment must say: it is a once-daily sample taken at the dynamics
+    call, which is the cadence and the moment `hmort` reads it, not a diurnal mean; and it
+    is computed for every PFT whether or not that PFT is present at the site.
+  - **Test cases** (values and layer geometry are the test-writer's, per
+    `designing-unit-test-cases`): mode 5 gives exactly 1.0 in layer 1 and exactly 0.0
+    elsewhere, over a multi-layer column, under `max_nlevroot` compression to 1 and to an
+    intermediate depth, and on a single-layer column; modes 1–3 still sum to 1 and do not
+    put everything in layer 1; and one anchor pinning mode 3 with moss's `a = 30`, `b = 2`
+    at 0.245 of uptake above 0.02 m, so the fact that motivated this change is guarded
+    against future edits to the shared path.
+  - **F6, found while settling this and recorded because Task 1 makes a dead FATES branch
+    live.** The drought-phenology soil-moisture memory deliberately excludes the top soil
+    layer (`rootfrac_notop = sum(rootfrac_scr(2:nlevroot))`,
+    `EDPhysiologyMod.F90:1198-1217`) and carries an explicit "just in case all roots are in
+    the first layer" fallback that sets `rootfrac_scr(2) = 1.0`. That branch is currently
+    unreachable for every PFT; after this task it fires for moss every day, so moss's
+    `smp_memory` and `liqvol_memory` come entirely from layer **2**. It is behaviourally
+    inert — moss is `ievergreen`, and that case sets `elong_factor = 1.0` unconditionally
+    (`:1522-1524`), never consulting the memory — but two consequences carry:
+    `FATES_MEANSMP_DROUGHTPHEN_PF` and `FATES_MEANLIQVOL_DROUGHTPHEN_PF` are **not** usable
+    as layer-1 desiccation diagnostics for moss, and FATES having anticipated the
+    all-in-layer-1 case is evidence the new mode does not break this path. Do not build
+    anything for it; check in the review that nothing else in that routine reads
+    `rootfrac_scr` after the fallback mutates it.
 - [ ] **Step 1: write the unit tests first, in a different agent than the implementer.** A
   new `.pf` file added to an *existing* pFUnit directory is compiled, linked and never
   called — the run is green and proves nothing — so create a new directory. Assert that
@@ -248,14 +291,16 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   nothing; rewrite the NOTE at `:145-151`, whose claims that "our FATES supports modes 1-3"
   and that an all-zero profile breaks the water budget are both now wrong; and fix the
   stomatal-parameter comment at `:186-192` per Orientation. Regenerate the JSON.
-- [ ] **Step 4: get moss's btran onto the tape.** `hist_fincl1 += 'FATES_BTRAN_SZPF'` in the
-  `FatesNvp` testmod. That variable already exists and needs no code; under nocomp moss has
-  one cohort in one size class, so it carries `btran_ft(moss)`. A `FATES_BTRAN_PF` would be
-  the nicer field and is ~4 lines, but registers unconditionally and so changes the field
-  list on the plain `FatesALP2*` tests that are the `use_fates_moss`-off b4b sentinel —
-  raise it at the gate if Sam wants it anyway. Either way the two FatesNvp tests' tapes gain
-  a field, so their baselines will show a field-list difference until Sam re-baselines:
-  report it, do not chase it.
+- [ ] **Step 4: get moss's btran onto the tape as `FATES_BTRAN_PF`** (Sam, 2026-09-08, over
+  the zero-code alternative of putting the existing size-resolved `FATES_BTRAN_SZPF` on the
+  testmod). Patch-level `btran_ft` per PFT, registered like its neighbours, plus its
+  `hist_fincl1 +=` line in the `FatesNvp` testmod. Say in the review how it is normalized —
+  `_PF` fields are per m2 land area, so under prescribed nocomp a moss value is the tape
+  value divided by moss's 0.5 cover. It registers unconditionally, so the plain
+  `FatesALP2*` tests that are the `use_fates_moss`-off b4b sentinel gain a field too;
+  together with the testmod line that means every ALP2 baseline shows a field-list
+  difference until Sam re-baselines. Report that; do not chase it, and do not reach for
+  `inactive` to protect the field lists.
 - [ ] **Step 5: build, then run 730 days.** Clone a new case from
   `/glade/derecho/scratch/samrabin/mosscull` (do not reuse it — Sam, 2026-09-08). ~17
   minutes of model time from cold start. Report:
