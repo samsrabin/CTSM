@@ -106,17 +106,34 @@ etc.), with these deliberate settings:
   no-root profile mode 4.** Moss transpiration is extracted from soil through the
   FATES-supplied root profile (`rootr`), so moss needs a rooting *profile*. It does not
   need a fine-root *carbon* pool: `fates_allom_l2fr = 0` for the moss column, so moss
-  builds and maintains no fine roots at all. Mode 4 remains deliberately unused, because
-  that mode hands the HLM an all-zero profile — which is the thing that would actually
-  break the water budget in this layerless design. The profile itself is set by
-  `fates_allom_fnrt_prof_mode` and its shape parameters, and the intent is that it be
-  concentrated in the top soil layer so moss water status tracks surface moisture — the
-  right signal through an admittedly fictitious pathway. **As parameterized today it is
-  not:** moss carries mode 3 with `fates_allom_fnrt_prof_a` raised to 30.0 but
-  `fates_allom_fnrt_prof_b` left at grass's 2.0, and because that mode is a half-and-half
-  sum of two exponentials, the `b` limb carries half the profile with a 0.5 m e-folding
-  depth — 24.5% of uptake sits in the top 2 cm and moss is numerically indistinguishable
-  from grass below 0.5 m. Closing that is the plan's Task 12 Step 3f.
+  builds and maintains no fine roots at all. Mode 4 remains unused simply because it is the
+  NVP branch's representation and this design does not want it: an all-zero profile is not
+  what moss needs, since the intent is a profile concentrated in the top soil layer so that
+  moss water status tracks surface moisture — the right signal through an admittedly
+  fictitious pathway. **Uptake is now genuinely there:** moss carries
+  `fates_allom_fnrt_prof_mode = 5`, a top-layer profile that is exactly 1.0 in soil layer 1
+  and exactly 0.0 below, added for this purpose. It is numbered 5 rather than 4 to keep the
+  parameter-file encoding free of a collision with NVP's no-roots mode. Its shape parameters
+  `fates_allom_fnrt_prof_a` and `_b` are unread under that mode, and moss's `_a` override
+  was dropped accordingly. See the plan's Task 12 Step 3f, and
+  `docs/superpowers/plans/2026-09-08-moss-top-layer-roots.md`.
+
+  *(Amended 2026-09-08, second amendment. Two things. **The water-budget claim below, and
+  the version of this bullet that carried it, are wrong** — an all-zero profile does not
+  break the water budget. CTSM gates transpiration on `btran(p) > btran0` with
+  `btran0 = 0.0` (`CanopyFluxesMod.F90:279`), and under nocomp fixed biogeography a moss
+  patch's `btran_pa` is `btran_ft(moss)` bit-exactly, so the same condition that produces an
+  all-zero profile also produces `btran_pa == 0`, whereupon CTSM contributes nothing to
+  either `rootr_col` or `qflx_tran_veg_col`. Moss's floored stomatal conductance is real but
+  inert: its demand is order 1e-7 mm per timestep against `error_thresh = 1e-5 mm`
+  (`BalanceCheckMod.F90:65`). So mode 4's disqualification was never a water-budget matter.
+  Second, what the previous version described as the parameterization — mode 3 with `_a` at
+  30.0 and `_b` left at grass's 2.0, putting only 24.5% of uptake in the top 2 cm — was
+  accurate, and is what Step 3f replaced. One caveat on that figure worth carrying: it
+  describes year 2 onward of a cold-start run. FATES's host supplies a zero-deep active soil
+  column for the whole first model year, and at zero depth every profile mode collapses to
+  layer 1 regardless, so year 1 of any cold-start run was already top-layer-only for every
+  PFT.)*
 
   *(Amended 2026-09-08. The original text said "Shallow grass-style roots", left
   `fates_allom_l2fr` at the inherited grass value of 0.67, and attributed the water-budget

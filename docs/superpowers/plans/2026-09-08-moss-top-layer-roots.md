@@ -410,10 +410,10 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   uptake in the top 2 cm" premise of this task describes year 2 onward, not year 1. A 730-day
   cold-start run therefore carries one year of signal, not two, and year 1 of the before/after
   comparison should be identical in profile terms. And the Step 3e diagnosis runs had the same
-  collapse in their first year, which bears on how those results read. **Step 5 is held for
-  Sam's decision on the run design** rather than run as scoped — the plan's premise about what
-  two years buys is what changed, and picking a substitute unasked is the move this plan's
-  process forbids.
+  collapse in their first year, which bears on how those results read. **Settled (Sam,
+  2026-09-08): keep 730 days, and the year-1 collapse does not change how Step 3e's
+  conclusions are read.** So Step 5 carries one post-collapse year of signal, and year 1
+  becomes a control.
 
 - [x] **Fix round (2026-09-08) — FATES `a80e32ccb`** (two tests for the defect, written
   before the fix) **and `441bf4e12`** (the fix). Whole-suite `OK (10 tests)` on
@@ -469,6 +469,12 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   `hist_fincl1 += 'RAIN'` line, an output addition. So `mosscull`'s tape simply lacks `RAIN`
   and `FATES_BTRAN_PF`; nothing about the physics differs.
 
+  **Year 1 is a control, not signal.** Moss's old mode-3 profile and the new mode-5 one both
+  collapse to layer 1 while the active column is zero-deep, so year 1 should come back
+  near-identical to `mosscull`'s archived run — a tighter sentinel for this change than the
+  ALP2 b4b tests. Report anything that is not near-identical there; `mosscull`'s tape simply
+  lacks `RAIN` and `FATES_BTRAN_PF`.
+
   Report:
   (a) whether `btran_ft(moss)` reaches zero on thawed days at all, and on how many;
   (b) `FATES_MOSS_FWET_SOIL` on those days — the F3 measurement, which Step 3b inherits;
@@ -493,9 +499,15 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
   what the run shows. Also expect grass to move: the two nocomp patches share a CTSM soil
   column, and Step 3e measured grass responding to a moss-column-only change from day 61
   onward, so a grass difference is not by itself evidence of a leak.
-- [ ] **Step 7: amend spec §3** to say the profile is now genuinely in layer 1, by which
-  mode, and that mode 4 remains deliberately unused. Keep the amendment note style §3
-  already uses.
+- [x] **Step 7: amend spec §3** — done, in §3's own amendment-note style. Says the profile
+  is now genuinely in layer 1 and by which mode, why it is numbered 5, and that its shape
+  parameters are unread. It also cuts R8: §3 carried the claim that an all-zero profile
+  would break the water budget, and the note replaces it with why it does not — CTSM's
+  `btran(p) > btran0` gate with `btran0 = 0`, a moss patch's `btran_pa` being
+  `btran_ft(moss)` bit-exactly under nocomp, and moss's demand being four orders below
+  `error_thresh`. The older amendment note that carried the claim is left in place directly
+  below, since the correction names it; the record of what was believed is worth more than a
+  tidy page. The 24.5% figure is kept with the year-1 caveat attached.
 - [ ] **Step 8: reviews, then commit.**
 
 ---
