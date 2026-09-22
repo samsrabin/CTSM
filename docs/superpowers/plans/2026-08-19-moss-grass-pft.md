@@ -2450,6 +2450,34 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   the capacity scaler climbs, so the plateau is unreachable and the response is humped.
   Take the actual window from the plotted output below, not from these numbers.
 
+  **One of those estimates has since been replaced by a measurement (Step 3f,
+  2026-09-08).** On the days moss's btran is exactly zero, the moss *patch's* top-layer
+  saturation (total layer-1 water over porosity, ice included by design) measures
+  **0.75-1.00**, not the 0.2-0.3 previously estimated from the wilting point. Zero btran at
+  this site never means dry soil; it means frozen soil, and moss is at full capacity on
+  those days rather than a third of it. The drought route to zero btran is never entered
+  here at all: on all 335 days when the patch's layer was drier than half saturation, btran
+  was exactly 1.0, and the driest it ever got was 0.399. Tune against that distribution,
+  not against the wilting-point estimate.
+
+  **But the history fields are not those patch numbers.** Every `FATES_MOSS_FWET*` variable
+  — including the `FATES_MOSS_FWET` this step plots — is an area-weighted mean over all
+  patches, and bareground, where the proxy is never diagnosed and stays 0, dilutes it
+  (`FatesHistoryInterfaceMod.F90`, at the `hlm_use_moss` block in the patch loop). The soil
+  ingredient is a soil-column quantity, identical on every vegetated patch, so the field is
+  exactly the vegetated area fraction times the patch value; at this site that factor is
+  0.8, and `FATES_MOSS_FWET_SOIL` reads **0.6005-0.8000** on the zero-btran days, bottoms
+  out at **0.3194**, and is below 0.5 on **393** days. Divide by the factor before comparing
+  the field against anything expressed as patch saturation, such as the 0.6 full-capacity
+  threshold or the 0.3-0.4 window above: undivided, the field sits inside that window on 335
+  days of the run, while the patch value it stands for is inside it on one. Read the factor
+  off `FATES_NOCOMP_PATCHAREA_PF` on the same tape (sum over the PFTs present) rather than
+  assuming 0.8 — the prescribed cover fractions are a property of the testmod's `fsurdat`
+  and are not portable to another surface dataset. The canopy ingredient is a per-patch
+  quantity, so for `FATES_MOSS_FWET` and `FATES_MOSS_WETNESS_SCALER` the clean rescaling
+  holds only while the soil ingredient dominates — which it does throughout this run, CTSM
+  capping the canopy wetted fraction at 0.05.
+
   That shape is intended physiology, not a bug — moss photosynthesis does peak at
   intermediate water content. The open question is whether **this** `fwet_moss` ever visits
   the window. Because the cap binds net rather than gross assimilation, wet moss does not
@@ -2628,8 +2656,10 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   site conductance move first. Moss changes are not b4b-isolable for grass in this
   configuration, so a grass difference is not by itself evidence of a leak.
 
-- [ ] **Step 3f: put moss's rooting profile in the top soil layer, and switch off moss's
-  hydraulic-failure mortality (Sam, 2026-09-08).** Two things, in that order because the
+- [x] **Step 3f: put moss's rooting profile in the top soil layer, and switch off moss's
+  hydraulic-failure mortality (Sam, 2026-09-08) — COMPLETE (2026-09-22).** Rooting
+  profile: FATES `5c94a9052`, CTSM `a8ff4a378`. Mortality: FATES `0e7727c86`, CTSM
+  `<CTSM-COMMIT>`. Two things, in that order because the
   second exists to make the first safe: get moss's soil-water uptake genuinely into layer 1
   — exactly 1.0 there and 0.0 below — and stop moss being killed by hydraulic-failure
   mortality when that layer dries.
@@ -2666,6 +2696,26 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   silently useless, the case to run and what the run can and cannot establish — is at
   `docs/superpowers/briefs/2026-09-08-moss-top-layer-roots-and-dormancy.md`; its dormancy
   section is superseded by the sub-plan, which also cuts two of its claims as false.
+
+  **What the mortality half bought, measured on the ALP2 730-day cold start.** Same case,
+  same executable, same namelist, the parameter file the only difference; the hmort-on
+  tapes are preserved at
+  `/glade/derecho/scratch/samrabin/mosstoplayer_run_hmort_on_20260922/` and the comparison
+  is `diagnostics/2026-09-08-moss-top-layer-roots/compare_pft_timeseries.py`. Moss
+  `FATES_MORTALITY_HYDRAULIC_PF` is now exactly zero on all 730 days, against 37 nonzero
+  days and 0.0105 plants/m² removed with it on. Moss ends the run 6.3% larger on every
+  measure — `FATES_NPLANT_PF` 0.1536 against 0.1445, `FATES_LAI_PF` and `FATES_VEGC_PF`
+  the same 6.3% — with two-year GPP up 3.1%. C-starvation mortality takes back about an
+  eighth of what hydraulic failure gave up (0.0412 against 0.0400 plants/m²), so total
+  moss mortality falls 16% rather than 19%. **The decline is not stopped, only shallower:**
+  moss density is still falling monotonically at day 730, ending 23% below day 1 rather
+  than 28%, and LAI and biomass still lose about 62% over the two years. That residual is
+  Step 3b's, as Step 3e already assigned it. Grass moves as the shared soil column implies
+  and no further: its own hydraulic mortality fires on the same two days at the same rate
+  to within 1e-8, its density differs by at most 1e-5 relative, and it ends 0.009% lower
+  in biomass. The run completed cleanly with all balance checks fatal;
+  `FATES_CBALANCE_ERROR` peaks at 2.7e-20 kg/s (2.2e-20 with hmort on) and
+  `FATES_PRIMARY_PATCHFUSION_ERR` is identically zero in both.
 
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a

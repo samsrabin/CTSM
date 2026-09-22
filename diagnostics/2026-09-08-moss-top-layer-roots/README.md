@@ -12,9 +12,11 @@ The measurement needed four CLM fields the tape did not carry: `TSOI`,
 
 ## Running them
 
-Use `/glade/work/samrabin/conda-envs/ctsm_pylib/bin/python3`. Both take a case
-`run/` directory holding daily `*.clm2.h0a.*.nc` files, use `netCDF4` and
-`numpy` only, and have `--help`.
+Use `/glade/work/samrabin/conda-envs/ctsm_pylib/bin/python3`. All three take
+case `run/` directories holding daily `*.clm2.h0a.*.nc` files —
+`compare_runs_bfb.py` and `compare_pft_timeseries.py` take two, `NEW_RUNDIR`
+then `OLD_RUNDIR`, and `btran_zero_routes.py` one — use `netCDF4` and `numpy`
+only, and have `--help`.
 
 ## What each one answers
 
@@ -22,6 +24,7 @@ Use `/glade/work/samrabin/conda-envs/ctsm_pylib/bin/python3`. Both take a case
 |---|---|
 | `compare_runs_bfb.py` | Did adding the four history fields perturb the physics? Compares two run directories field-by-field, day-by-day, requiring exact equality (NaN counted equal to NaN) on every shared field. Lists the fields present in only one run rather than failing on them. |
 | `btran_zero_routes.py` | On the days moss's `btran` is exactly zero, and on the subset where hydraulic mortality fires, which term did it? Attributes each day to one or more of the three routes below, reports layer-1 `TSOI` against the -2 C mortality exemption, and writes a per-day CSV with `--csv`. |
+| `compare_pft_timeseries.py` | When two runs are *expected* to differ, what moved, for which PFT, and by how much? Per-PFT, per-field summary over every shared day: range and mean in each run, how many days differ, the largest difference and where, and the nonzero-day counts. Defaults to moss (PFT 15) and arctic C3 grass (PFT 12) on the four fields the hmort-off comparison needed; `--pft`, `--fields`, `--normalize` and `--csv` generalize it. |
 
 ## The three routes to an exactly-zero btran
 
@@ -86,16 +89,55 @@ patch. `FATES_NOCOMP_PATCHAREA_PF` on the same tape reports the patch area
 a PFT-relative mortality rate is `FATES_MORTALITY_HYDRAULIC_PF` divided by it.
 Moss is PFT 15, arctic C3 grass PFT 12, both 1-based.
 
+The `FATES_MOSS_FWET*` site means are diluted too, but not by moss's own patch
+area. They accumulate area-weighted over **every** patch, and the proxy is
+diagnosed only on vegetated ones (`EDMainMod`, where the `hlm_use_moss` loop
+skips `nocomp_bareground`), so bareground contributes a hard 0 to the mean. The
+soil ingredient is a soil-column quantity and so is identical on the moss and
+grass patches, which makes `FATES_MOSS_FWET_SOIL` exactly the **vegetated** area
+fraction — 0.8 here, moss 0.5 plus grass 0.3 — times the moss patch's own
+saturation: the field's run minimum of 0.3194 is a patch value of 0.3993.
+Divide by the sum of `FATES_NOCOMP_PATCHAREA_PF` over the PFTs present before
+comparing the field with anything expressed as patch saturation, such as the 0.6
+full-capacity threshold. `FATES_MOSS_FWET` and `FATES_MOSS_WETNESS_SCALER` also
+carry the per-patch canopy ingredient, so that clean rescaling holds for them
+only while the soil ingredient dominates — which it does on every day of this
+run, CTSM capping the canopy wetted fraction at 0.05.
+
 `SOILLIQ` and `SOILICE` are on `levsoi`, `TSOI` and `SOILPSI` on `levgrnd`;
 `levsoi` is the first 20 of the 25 `levgrnd` layers, so index 0 is the same layer
 in all four.
 
 ## Runs these were used against
 
-Both under `/glade/derecho/scratch/samrabin/` and therefore subject to purge:
+All three under `/glade/derecho/scratch/samrabin/` and therefore subject to
+purge:
 
-- `mosstoplayer/run` — the 730-day run with the four soil fields added
+- `mosstoplayer/run` — the current contents: the 730-day run with moss's
+  `fates_mort_scalar_hydrfailure` zeroed. This is the `NEW_RUNDIR` argument to
+  `compare_pft_timeseries.py`.
 - `mosstoplayer_run_baseline_20260908/` — the 730 daily tapes from the same case
   *before* the fields were added, copied out of `mosstoplayer/run` so the re-run
   could not overwrite them, plus both runs' `lnd_in` and `lnd.log`. This is the
   `OLD_RUNDIR` argument to `compare_runs_bfb.py`.
+- `mosstoplayer_run_hmort_on_20260922/` — the 730 daily tapes from the same case
+  with the four soil fields present and moss's hydraulic-failure mortality still
+  at its grass-inherited 0.6/yr, copied out for the same reason, plus that run's
+  `lnd_in` (as `lnd_in.hmort_on`), `lnd.log` and `cesm.log`. This is the
+  `OLD_RUNDIR` argument to `compare_pft_timeseries.py`. Nothing but the
+  parameter file differs between it and the current `mosstoplayer/run`: same
+  executable, same namelist, same cold start.
+
+**`compare_runs_bfb.py`'s `NEW_RUNDIR` is no longer `mosstoplayer/run`.** The
+fields-vs-no-fields check was run while `mosstoplayer/run` still held the
+hmort-on run; the hmort-off re-run has since overwritten that directory. Those
+tapes are `mosstoplayer_run_hmort_on_20260922/`, so the check as documented is
+now
+
+```
+compare_runs_bfb.py mosstoplayer_run_hmort_on_20260922 mosstoplayer_run_baseline_20260908
+```
+
+Pointed at `mosstoplayer/run` it would instead compare a parameter-changed run
+against the pre-fields baseline, and report that adding history fields perturbed
+the physics.

@@ -73,6 +73,16 @@ biomass entering nowhere (`EDBtranMod.F90:151-214`).
    compares against. Not a clone of it either — see Step 5 for why, and for why its run is
    still a valid baseline.
 
+### Decisions taken at the Task 1 gate (Sam, 2026-09-22)
+
+4. **The CTSM effective-porosity clamp stays an upstream observation.** The interface
+   handing FATES exactly zero liquid volume for a frozen, near-saturated layer — F3a's 19
+   days — is left as the entry already filed in the parent plan's "Upstream FATES
+   observations". It is not raised as a CTSM issue here and not fixed on this branch. Task 2
+   therefore proceeds as scoped, which means it suppresses all 37 mortality days: the 19
+   clamp-driven ones along with the 18 genuine wilting-point ones, by a route that says
+   nothing about the clamp.
+
 ### Findings behind decision 2
 
 Recorded because they are not recoverable from the diff, and because F3 is what Step 3b
@@ -98,12 +108,35 @@ inherits.
   would sit at a third to a half of photosynthetic capacity — a Clapp-Hornberger estimate
   from the −2.55 MPa wilting point. **Step 5 measured 0.75-1.00 instead**, and the error was
   not in the soil physics but in the premise: zero btran here never means dry soil. It means
-  *frozen* soil. `FATES_MOSS_FWET_SOIL` is total water over porosity, ice included by
-  design, while btran counts only layers holding liquid water. So on the zero-btran days the
+  *frozen* soil. The quantity is total layer-1 water over porosity, ice included by design,
+  while btran counts only layers holding liquid water. So on the zero-btran days the
   layer is nearly saturated with ice, moss's wetness scaler is capped at 1.0, and moss is at
   **full** capacity rather than a third of it. The drought route to zero btran is never
   entered in this configuration at all: on all 335 days when the layer was drier than half
   saturation, btran was exactly 1.0, and the driest it ever got was 0.399.
+
+  **Correction (2026-09-22): those are the moss *patch* values, and `FATES_MOSS_FWET_SOIL`
+  does not report them.** The history field is accumulated area-weighted over every patch,
+  and bareground — where the proxy is never diagnosed and stays 0 — dilutes the site mean;
+  the comment at `FatesHistoryInterfaceMod.F90:2786-2788` says exactly this. At this site
+  moss is 0.5 of the gridcell and grass 0.3, so the field reads 0.8x the patch value:
+  **0.6005-0.8000** on the 202 zero-btran days, run minimum **0.3194**, and **393** days
+  below half saturation. Dividing by 0.8 reproduces the patch numbers above to four
+  decimals. The physics conclusion is unaffected — it is the field attribution that was
+  wrong — but the undivided field lands inside the stated 0.3-0.4 productive window on 335
+  days, where the patch value it stands for lands there on exactly one, so the dilution
+  factor has to travel with the number.
+
+  Two things the correction has to carry with it. **The divisor is the vegetated area
+  fraction, not moss's own cover.** `UpdateMossFwet` runs for every patch that is not
+  bareground (`EDMainMod.F90:229-236`) and the soil ingredient is a soil-column quantity, so
+  the moss and grass patches carry bit-identical values and the factor is 0.5 + 0.3, not
+  0.5. Read the areas off `FATES_NOCOMP_PATCHAREA_PF` on the same tape rather than assuming
+  them; the prescribed cover fractions belong to the testmod's `fsurdat`. **And Step 3b
+  names `FATES_MOSS_FWET`, not the `_SOIL` field.** The two are bit-identical on all 730
+  days here — CTSM's `maximum_leaf_wetted_fraction` cap of 0.05 keeps the canopy ingredient
+  under the soil one — so the same 0.8 applies, but only while the soil ingredient
+  dominates. `FATES_MOSS_WETNESS_SCALER` is diluted the same way (0.5323-0.8000 as a field).
 - **F3a. Moss dies in the −2 °C to 0 °C window, where `hmort`'s frozen-soil exemption is
   open and its water is nonetheless ice.** Measured, after `TSOI`, `SOILLIQ`, `SOILICE` and
   `SOILPSI` were put on the tape: layer 1 is sub-freezing on all 202 zero-btran days and all
@@ -700,19 +733,45 @@ moss; a 730-day ALP2 run that is the *off* case for Task 2; and the measured
 - Modify: `src/fates/tools/make_moss_params.py`, then regenerate `fates_params_moss.json`
 - Modify: `docs/superpowers/specs/2026-08-19-moss-grass-pft-design.md` §12
 - Modify: `docs/superpowers/plans/2026-08-19-moss-grass-pft.md` (tick Step 3f)
+- Modify: `diagnostics/2026-09-08-moss-top-layer-roots/README.md`
+- Create: `diagnostics/2026-09-08-moss-top-layer-roots/compare_pft_timeseries.py`
 
 **Produces:** moss immune to FATES's non-hydro hydraulic-failure proxy, and the on/off
 comparison against Task 1's run.
 
-- [ ] **Step 0 (orchestrator):** confirm from Task 1's run that the mechanism actually fires,
-  and settle what the comparison reports.
-- [ ] **Step 1: zero it.** `fates_mort_scalar_hydrfailure: 0.0` in `MOSS_PFT_OVERRIDES`
+- [x] **Step 0 (orchestrator):** done 2026-09-22.
+  - **The mechanism fires.** Moss's `FATES_MORTALITY_HYDRAULIC_PF` is nonzero on 37 of the
+    730 tapes, 19 of them in year 1 and 18 in year 2, peaking at 0.1198. Step 2's stop rule
+    is not triggered.
+  - **And it is not cosmetic.** Moss `FATES_NPLANT_PF` falls from 0.1997 to 0.1445 over the
+    730 days, so there is a population-level effect to measure, not a rounding difference.
+    **Correction (2026-09-22):** this bullet first said "and stays there", inferred from the
+    run's minimum and its final value being the same number. They are the same number because
+    the decline is strictly monotonic — no day rises — and the minimum *is* the last day; it
+    drops another 0.0075 over the final 30 days alone. There is no plateau, and Step 3b must
+    not read one here.
+  - **There is no bit-identical prefix, and the comparison must not go looking for one.**
+    hmort already fires on the very first daily tape (2000-01-02), so every field may
+    legitimately differ from day 1; an early divergence is evidence of nothing.
+  - **Task 1's tapes must be moved before the re-run overwrites them.** `mosstoplayer` has
+    `DOUT_S = FALSE`, so its 730 `*.clm2.h0a.*.nc` files sit in `run/` and the re-run is the
+    same case over the same dates. Copy them to
+    `/glade/derecho/scratch/samrabin/mosstoplayer_run_hmort_on_20260922/` first (75 MB),
+    with that run's `lnd_in` and `lnd.log`, following the convention the Step 3e diagnostics
+    README already records for `mosstoplayer_run_baseline_20260908/`.
+  - **No rebuild — confirmed, not assumed.** The case's `SRCROOT` is this checkout, and
+    `RUN_TYPE = startup`, `CONTINUE_RUN = FALSE`, `REST_OPTION = never`, so the re-run is a
+    clean cold start that reads the regenerated JSON straight from the work tree.
+  - **Grass is not a control.** Grass's own hmort fires on 2 days in Task 1's run, and the
+    two nocomp patches share a CTSM soil column, so grass moving is expected. Report what it
+    does; do not treat a change there as a defect.
+- [x] **Step 1: zero it.** `fates_mort_scalar_hydrfailure: 0.0` in `MOSS_PFT_OVERRIDES`
   (from the inherited 0.6), with a comment giving the reason in two sentences — btran feeds
   only soil extraction and `hmort` for moss because `fates_leaf_agross_btran_model = 0`, so
   the proxy is a vascular mechanism with no moss counterpart — and pointing here for the
   rest. Leave `fates_mort_hf_sm_threshold` at 1e-6; F4 says why. Regenerate the JSON. No
   Fortran, no namelist entry, no restart field, no history field.
-- [ ] **Step 2: rerun and compare.** Same case, no rebuild needed. Against Task 1's run:
+- [x] **Step 2: rerun and compare.** Same case, no rebuild needed. Against Task 1's run:
   `FATES_MORTALITY_HYDRAULIC_PF` must be identically zero for moss, and report what the
   change does to moss `FATES_NPLANT_PF`, `FATES_LAI_PF` and `FATES_VEGC_PF` over the 730
   days, and to grass.
@@ -720,12 +779,12 @@ comparison against Task 1's run.
   moss, this change is unverifiable at this site. That is a capability failure: stop and
   report it. Do not build a contrived case, and do not record the change as verified by the
   absence of a difference.
-- [ ] **Step 3: record the limitation.** Add a line to spec §12: moss carries no
+- [x] **Step 3: record the limitation.** Add a line to spec §12: moss carries no
   hydraulic-failure mortality at any dryness, because FATES's non-hydro proxy is keyed to
   btran, which moss otherwise ignores; if moss should be killable by drying, that mechanism
   has to be built on moss's own wetness metric, and it belongs with the wetness window in
   Step 3b.
-- [ ] **Step 4: close Step 3f** in the parent plan — tick the box, record both commits, and
+- [x] **Step 4: close Step 3f** in the parent plan — tick the box, record both commits, and
   carry F3's measured number forward into the Step 3b entry so 3b tunes against a number
   rather than an estimate.
-- [ ] **Step 5: reviews, then commit.**
+- [x] **Step 5: reviews, then commit.**
