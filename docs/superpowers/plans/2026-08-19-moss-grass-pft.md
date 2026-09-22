@@ -2659,7 +2659,7 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 - [x] **Step 3f: put moss's rooting profile in the top soil layer, and switch off moss's
   hydraulic-failure mortality (Sam, 2026-09-08) — COMPLETE (2026-09-22).** Rooting
   profile: FATES `5c94a9052`, CTSM `a8ff4a378`. Mortality: FATES `0e7727c86`, CTSM
-  `<CTSM-COMMIT>`. Two things, in that order because the
+  `3f275604b`. Two things, in that order because the
   second exists to make the first safe: get moss's soil-water uptake genuinely into layer 1
   — exactly 1.0 there and 0.0 below — and stop moss being killed by hydraulic-failure
   mortality when that layer dries.
