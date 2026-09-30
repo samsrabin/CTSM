@@ -106,17 +106,34 @@ etc.), with these deliberate settings:
   no-root profile mode 4.** Moss transpiration is extracted from soil through the
   FATES-supplied root profile (`rootr`), so moss needs a rooting *profile*. It does not
   need a fine-root *carbon* pool: `fates_allom_l2fr = 0` for the moss column, so moss
-  builds and maintains no fine roots at all. Mode 4 remains deliberately unused, because
-  that mode hands the HLM an all-zero profile — which is the thing that would actually
-  break the water budget in this layerless design. The profile itself is set by
-  `fates_allom_fnrt_prof_mode` and its shape parameters, and the intent is that it be
-  concentrated in the top soil layer so moss water status tracks surface moisture — the
-  right signal through an admittedly fictitious pathway. **As parameterized today it is
-  not:** moss carries mode 3 with `fates_allom_fnrt_prof_a` raised to 30.0 but
-  `fates_allom_fnrt_prof_b` left at grass's 2.0, and because that mode is a half-and-half
-  sum of two exponentials, the `b` limb carries half the profile with a 0.5 m e-folding
-  depth — 24.5% of uptake sits in the top 2 cm and moss is numerically indistinguishable
-  from grass below 0.5 m. Closing that is the plan's Task 12 Step 3f.
+  builds and maintains no fine roots at all. Mode 4 remains unused simply because it is the
+  NVP branch's representation and this design does not want it: an all-zero profile is not
+  what moss needs, since the intent is a profile concentrated in the top soil layer so that
+  moss water status tracks surface moisture — the right signal through an admittedly
+  fictitious pathway. **Uptake is now genuinely there:** moss carries
+  `fates_allom_fnrt_prof_mode = 5`, a top-layer profile that is exactly 1.0 in soil layer 1
+  and exactly 0.0 below, added for this purpose. It is numbered 5 rather than 4 to keep the
+  parameter-file encoding free of a collision with NVP's no-roots mode. Its shape parameters
+  `fates_allom_fnrt_prof_a` and `_b` are unread under that mode, and moss's `_a` override
+  was dropped accordingly. See the plan's Task 12 Step 3f, and
+  `docs/superpowers/plans/2026-09-08-moss-top-layer-roots.md`.
+
+  *(Amended 2026-09-08, second amendment. Two things. **The water-budget claim below, and
+  the version of this bullet that carried it, are wrong** — an all-zero profile does not
+  break the water budget. CTSM gates transpiration on `btran(p) > btran0` with
+  `btran0 = 0.0` (`CanopyFluxesMod.F90:279`), and under nocomp fixed biogeography a moss
+  patch's `btran_pa` is `btran_ft(moss)` bit-exactly, so the same condition that produces an
+  all-zero profile also produces `btran_pa == 0`, whereupon CTSM contributes nothing to
+  either `rootr_col` or `qflx_tran_veg_col`. Moss's floored stomatal conductance is real but
+  inert: its demand is order 1e-7 mm per timestep against `error_thresh = 1e-5 mm`
+  (`BalanceCheckMod.F90:65`). So mode 4's disqualification was never a water-budget matter.
+  Second, what the previous version described as the parameterization — mode 3 with `_a` at
+  30.0 and `_b` left at grass's 2.0, putting only 24.5% of uptake in the top 2 cm — was
+  accurate, and is what Step 3f replaced. One caveat on that figure worth carrying: it
+  describes year 2 onward of a cold-start run. FATES's host supplies a zero-deep active soil
+  column for the whole first model year, and at zero depth every profile mode collapses to
+  layer 1 regardless, so year 1 of any cold-start run was already top-layer-only for every
+  PFT.)*
 
   *(Amended 2026-09-08. The original text said "Shallow grass-style roots", left
   `fates_allom_l2fr` at the inherited grass value of 0.67, and attributed the water-budget
@@ -131,6 +148,10 @@ etc.), with these deliberate settings:
   days with no exposed leaf, drained moss storage to exactly zero and got the cohort
   terminated by C-starvation on day 402 of an ALP2 nocomp run. See the plan's Task 12
   Step 3e.)*
+- **No hydraulic-failure mortality:** `fates_mort_scalar_hydrfailure = 0` for the moss
+  column, with `fates_mort_hf_sm_threshold` left at its inherited 1e-6. §12 has the
+  reasoning for the pair, what actually fired the term in the run that measured it, and
+  what moss thereby loses.
 - Standard grass allometry modes otherwise (`allom_lmode=5`, `allom_amode=5`,
   `allom_smode=2`, `allom_dmode=1`). The resulting "sapwood" pool is a labeled carbon
   pool only; harmless without plant hydraulics, and it correctly burns as live fuel.
@@ -213,9 +234,11 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
 - **btran** comes through the standard shallow-root pathway (§3); no override needed. What
   removes btran from moss photosynthesis is a parameter, not Fortran:
   `fates_leaf_agross_btran_model = 0` stops btran multiplying moss vcmax/jmax, so the fwet
-  scaler above is the sole water limitation and nothing is double-counted. btran still
-  drives moss's hydraulic-failure mortality, and a surface-concentrated rooting profile
-  makes that sensitive to top-soil drying (§9 validation).
+  scaler above is the sole water limitation and nothing is double-counted. That leaves
+  btran two consumers for moss: soil-water extraction, and hydraulic-failure mortality.
+  The mortality is switched off for moss by a second parameter, so a zero btran under the
+  surface-concentrated rooting profile now costs moss nothing (§9 validation), and what
+  moss consequently cannot do is recorded in §12.
 - Plant hydraulics is unsupported for moss (pre-existing FATES divide-by-zero for PFTs
   under ~10 cm); `use_fates_moss` + `use_fates_planthydro` is a fatal namelist error.
 
@@ -330,12 +353,17 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Standard per-PFT biomass/GPP/crown-area variables come automatically.
 - Validation target: observed fractional cover of two moss species at boreal sites; plus
   qualitative fuel-load and fuel-moisture behavior.
-- Two moss-specific things to check rather than assume, both consequences of design choices
-  made elsewhere in this spec: moss hydraulic-failure mortality
-  (`FATES_MORTALITY_HYDRAULIC_SZPF`), because the shallow rooting profile of §3 makes moss
-  btran a top-soil index that crosses the mortality threshold whenever the surface dries;
-  and the diurnal cycle of moss GPP, which the daily fwet proxy of §5 flattens entirely
-  until the proxy is given a sub-daily path.
+- Two moss-specific things to check rather than assume, both consequences of design
+  choices made elsewhere in this spec.
+  - **Moss hydraulic-failure mortality** (`FATES_MORTALITY_HYDRAULIC_SZPF`) — checked, and
+    now moot. The shallow rooting profile of §3 makes moss's btran a top-soil index, which
+    can carry moss over the mortality threshold, and at ALP2 it did: the term fired on 37
+    of 730 days, 18 of them attributable to the profile. Every one of the 37 had a
+    sub-freezing layer 1, and not one was because the surface had dried. The term is now
+    switched off by parameter, so the field reads zero for moss whatever the soil does;
+    §12 records what fired it and what switching it off costs.
+  - **The diurnal cycle of moss GPP** — still open. The daily fwet proxy of §5 flattens it
+    entirely, and will until that proxy is given a sub-daily path.
 
 ## 10. Testing
 
@@ -350,7 +378,7 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 
 ## 11. Later extensions (explicitly out of scope now)
 
-- fwet proxy upgrades: standing water, water-table depth (new `bc_in` fields via the
+- fwet proxy upgrades: per-timestep instead of daily; standing water; water-table depth (new `bc_in` fields via the
   standard 4-touch recipe).
 - Moss temperature proxy (`t_grnd`/top-soil temperature) for gas parameters, consuming
   the per-cohort gas-parameter separation pattern.
@@ -442,12 +470,45 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   but at a tropical site it would silently convert broadleaf evergreen tropical tree into
   moss. HLM 4 is chosen over the NVP branch's HLM 12 so that `arctic_c3_grass` keeps its
   mapping and a grass-only surface dataset stays a grass run under either parameter file.
+- **Moss carries no hydraulic-failure mortality, at any dryness.**
+  `fates_params_moss.json` sets moss's `fates_mort_scalar_hydrfailure` to zero (§3).
+  FATES's non-hydro hydraulic-failure term is a proxy keyed to `btran`, and moss's
+  `fates_leaf_agross_btran_model = 0` keeps `btran` out of moss's photosynthetic
+  capacity entirely (§5), so `btran` reaches moss through soil-water extraction and this
+  one mortality term and nowhere else — a vascular mechanism with no moss counterpart.
+  It is not inert if left alone: it fired on 37 of the 730 days of the ALP2 run, at
+  moss's grass-inherited 0.6/yr, leaving moss 5.9% smaller in density, LAI and biomass at
+  day 730 than with it off. What it
+  responded to there was ice, not drought: on 19 of those days CTSM's effective-porosity
+  clamp handed FATES exactly zero liquid volume for a near-saturated frozen layer still
+  holding 0.79-1.24 kg/m² of liquid, and on the other 18 the wilting point was reached
+  with 98% or more of the layer's water already frozen. Layer-1 temperature was below
+  freezing on all 37 days (-3.0 to -0.4 C), and on the 335 days the layer was drier than
+  half saturation `btran` was exactly 1.0.
+  **Only 18 of the 37 belong to the layer-1 rooting profile; the other 19 predate it.**
+  The run from before the profile change fires on the same 19 days, every one of them in
+  year 1, and on none in year 2 — year 1's column has no thawed depth on record yet, so
+  the older profile was already confined to layer 1 there, and the two runs are
+  bit-identical through day 436. Year 2 is the first time the older profile would have
+  reached deeper water, so confining moss to layer 1 is what exposed it, and all 18 of
+  the days it added are of the effective-porosity-clamp kind, falling in the final three
+  weeks of the run. Not one of the wilting-point days is attributable to the profile.
+  Nothing replaces it, so drying cannot kill
+  moss *directly* here; it still suppresses moss through the fwet scalers on capacity and
+  on the CO₂ film, and C-starvation — now moss's only mortality term, 0.0412 plants/m²
+  over the two years — is the route by which sustained suppression still kills it. If
+  moss should be killable by drying, that mortality has to be built on moss's own
+  wetness metric rather than on `btran`, and it belongs with the wetness
+  window rather than with the rooting profile. `fates_mort_hf_sm_threshold` is left at
+  its inherited 1e-6 rather than also zeroed: the gate is `btran <= threshold`, which
+  moss's exactly-zero `btran` still satisfies at a zero threshold, and the magnitude
+  `(threshold − btran)/threshold` would then evaluate 0/0.
 
 ## 13. Harvest list from `ctsm5.4.028_nvp`
 
 | Piece | Location (NVP branch) | Use |
 |---|---|---|
-| Moss PFT parameter column | `fates_params_default_moss.json` | §3, adapted (roots, repro) |
+| Moss PFT parameter column | `fates_params_default_moss.json` | §3, adapted (roots, repro, mortality) |
 | `fates_vascular` per-PFT flag | parameter files (unread there) | §3, wired up as moss identifier |
 | `NVP_allom` leaf-C ↔ LAI/thickness | `FatesAllometryMod` | **Not harvested** — mat thickness abandoned (§4) |
 | `vcmax × min(1, fwet/0.6)` | `FatesPlantRespPhotosynthMod` | §5 |
