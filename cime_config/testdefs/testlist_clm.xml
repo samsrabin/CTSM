@@ -5029,7 +5029,7 @@
       <machine name="izumi" compiler="nag" category="fates_nvp_long"/>
     </machines>
     <options>
-      <option name="wallclock">00:30:00</option>
+      <option name="wallclock">01:00:00</option>
       <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+grass+moss</option>
     </options>
   </test>
@@ -5065,7 +5065,7 @@
       <machine name="izumi" compiler="nag" category="fates_nvp_long_nonvp"/>
     </machines>
     <options>
-      <option name="wallclock">00:30:00</option>
+      <option name="wallclock">01:00:00</option>
       <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare ground only, no moss; use_fates_moss defaults to false, so this is the long-duration b4b sentinel for the moss-enabled tests</option>
     </options>
   </test>
@@ -5089,7 +5089,7 @@
       <machine name="izumi" compiler="nag" category="fates_nvp_long_nonvp"/>
     </machines>
     <options>
-      <option name="wallclock">00:30:00</option>
+      <option name="wallclock">01:00:00</option>
       <option name="comment">2-year test of FATES at ALP2 (GSWP3v1 climate) in SP mode, bare+grass only, no moss; use_fates_moss defaults to false, so this is the long-duration b4b sentinel for the moss-enabled tests</option>
     </options>
   </test>
