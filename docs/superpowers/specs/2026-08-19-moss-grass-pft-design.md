@@ -474,15 +474,24 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   `fates_leaf_agross_btran_model = 0` keeps `btran` out of moss's photosynthetic
   capacity entirely (§5), so `btran` reaches moss through soil-water extraction and this
   one mortality term and nowhere else — a vascular mechanism with no moss counterpart.
-  It is not inert if left alone: with the rooting profile wholly in soil layer 1 it
-  fired on 37 of the 730 days of the ALP2 run, at moss's grass-inherited 0.6/yr, leaving
-  moss 5.9% smaller in density, LAI and biomass at day 730 than with it off. What it
+  It is not inert if left alone: it fired on 37 of the 730 days of the ALP2 run, at
+  moss's grass-inherited 0.6/yr, leaving moss 5.9% smaller in density, LAI and biomass at
+  day 730 than with it off. What it
   responded to there was ice, not drought: on 19 of those days CTSM's effective-porosity
   clamp handed FATES exactly zero liquid volume for a near-saturated frozen layer still
   holding 0.79-1.24 kg/m² of liquid, and on the other 18 the wilting point was reached
   with 98% or more of the layer's water already frozen. Layer-1 temperature was below
   freezing on all 37 days (-3.0 to -0.4 C), and on the 335 days the layer was drier than
-  half saturation `btran` was exactly 1.0. Nothing replaces it, so drying cannot kill
+  half saturation `btran` was exactly 1.0.
+  **Only 18 of the 37 belong to the layer-1 rooting profile; the other 19 predate it.**
+  The run from before the profile change fires on the same 19 days, every one of them in
+  year 1, and on none in year 2 — year 1's column has no thawed depth on record yet, so
+  the older profile was already confined to layer 1 there, and the two runs are
+  bit-identical through day 436. Year 2 is the first time the older profile would have
+  reached deeper water, so confining moss to layer 1 is what exposed it, and all 18 of
+  the days it added are of the effective-porosity-clamp kind, falling in the final three
+  weeks of the run. Not one of the wilting-point days is attributable to the profile.
+  Nothing replaces it, so drying cannot kill
   moss *directly* here; it still suppresses moss through the fwet scalers on capacity and
   on the CO₂ film, and C-starvation — now moss's only mortality term, 0.0412 plants/m²
   over the two years — is the route by which sustained suppression still kills it. If
