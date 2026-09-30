@@ -378,7 +378,7 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 
 ## 11. Later extensions (explicitly out of scope now)
 
-- fwet proxy upgrades: standing water, water-table depth (new `bc_in` fields via the
+- fwet proxy upgrades: per-timestep instead of daily; standing water; water-table depth (new `bc_in` fields via the
   standard 4-touch recipe).
 - Moss temperature proxy (`t_grnd`/top-soil temperature) for gas parameters, consuming
   the per-cohort gas-parameter separation pattern.
