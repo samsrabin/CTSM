@@ -353,15 +353,17 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 - Standard per-PFT biomass/GPP/crown-area variables come automatically.
 - Validation target: observed fractional cover of two moss species at boreal sites; plus
   qualitative fuel-load and fuel-moisture behavior.
-- Two moss-specific things to check rather than assume, both consequences of design choices
-  made elsewhere in this spec: moss hydraulic-failure mortality
-  (`FATES_MORTALITY_HYDRAULIC_SZPF`), because the shallow rooting profile of §3 makes moss
-  btran a top-soil index and so can put moss over the mortality threshold — measured at
-  ALP2, where it fired on 37 of 730 days, every one of them with a sub-freezing layer 1 and
-  not one of them because the surface had dried, and now switched off by parameter, so the
-  field is zero for moss by construction and §12 records both what fired it and what
-  switching it off costs; and the diurnal cycle of moss GPP, which the daily fwet proxy of
-  §5 flattens entirely until the proxy is given a sub-daily path.
+- Two moss-specific things to check rather than assume, both consequences of design
+  choices made elsewhere in this spec.
+  - **Moss hydraulic-failure mortality** (`FATES_MORTALITY_HYDRAULIC_SZPF`) — checked, and
+    now moot. The shallow rooting profile of §3 makes moss's btran a top-soil index, which
+    can carry moss over the mortality threshold, and at ALP2 it did: the term fired on 37
+    of 730 days, 18 of them attributable to the profile. Every one of the 37 had a
+    sub-freezing layer 1, and not one was because the surface had dried. The term is now
+    switched off by parameter, so the field reads zero for moss whatever the soil does;
+    §12 records what fired it and what switching it off costs.
+  - **The diurnal cycle of moss GPP** — still open. The daily fwet proxy of §5 flattens it
+    entirely, and will until that proxy is given a sub-daily path.
 
 ## 10. Testing
 
