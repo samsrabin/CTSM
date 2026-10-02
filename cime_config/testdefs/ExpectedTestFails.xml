@@ -318,4 +318,295 @@
       <issue>#3507</issue>
     </phase>
   </test>  
+
+  <!-- other tests -->
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2Bare">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+    <phase name="RUN">
+      <status>FAIL</status>
+      <comment>Divide-by-zero in snow thermal conductivity calculation due to running with use_nvp true but no NVP present</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2BareGrass">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+    <phase name="RUN">
+      <status>FAIL</status>
+      <comment>Divide-by-zero in snow thermal conductivity calculation due to running with use_nvp true but no NVP present</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_gnu.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2Bare">
+    <phase name="RUN">
+      <status>FAIL</status>
+      <comment>Divide-by-zero in snow thermal conductivity calculation due to running with use_nvp true but no NVP present</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_gnu.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2BareGrass">
+    <phase name="RUN">
+      <status>FAIL</status>
+      <comment>Divide-by-zero in snow thermal conductivity calculation due to running with use_nvp true but no NVP present</comment>
+    </phase>
+  </test>
+
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvpOff--clm-FatesALP2BareGrass">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvpOff--clm-FatesALP2BareGrass">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60Fates.derecho_intel.clm-FatesColdNoCompFixedBioGeo--clm-FatesNvp--clm-FatesALP2BareGrassMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60Fates.derecho_intel.clm-FatesColdNoCompFixedBioGeo--clm-FatesNvp--clm-FatesALP2BareGrassMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2BareGrassMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2BareMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+    <test name="ERS_D_Ld7_Mmpi-serial.1x1_smallvilleIA.IHistClm50BgcCropRs.derecho_intel.clm-decStart1851_noinitial">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_D_Mmpi-serial_Ld5.5x5_amazon.I2000Clm60FatesRs.derecho_intel.clm-FatesCold">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ld1600_Mmpi-serial.1x1_numaIA.I2000Clm50BgcCropQianRs.derecho_intel.clm-cropMonthlyNoinitial">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ld1640_Mmpi-serial.1x1_numaIA.I2000Clm50BgcCrop.derecho_intel.clm-ciso_monthly_matrixcn_spinup">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ly20_Mmpi-serial.1x1_numaIA.I2000Clm50BgcCropQianRs.derecho_intel.clm-cropMonthlyNoinitial">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ly20_Mmpi-serial.1x1_numaIA.I2000Clm50BgcCropQianRs.derecho_intel.clm-cropMonthlyNoinitial--clm-matrixcnOn">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ly6_Mmpi-serial.1x1_smallvilleIA.IHistClm50BgcCropQianRs.derecho_intel.clm-cropMonthOutput">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ly6_Mmpi-serial.1x1_smallvilleIA.IHistClm50BgcCropQianRs.derecho_intel.clm-cropMonthOutput--clm-matrixcnOn_ignore_warnings">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_D_Ld1_Mmpi-serial.ne3_ne3_mg37.I2000Clm50SpRs.derecho_intel.clm-ptsRLA">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_D_Ly6_Mmpi-serial.1x1_smallvilleIA.IHistClm45BgcCropQianRs.derecho_intel.clm-cropMonthOutput">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld10_D_Mmpi-serial.CLM_USRDAT.I1PtClm60Fates.derecho_intel.clm-FatesFireLightningPopDens--clm-NEON-FATES-NIWO">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld10_D_Mmpi-serial.CLM_USRDAT.I1PtClm60SpRs.derecho_intel.clm-default--clm-NEON-TOOL--clm-nofireemis">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Lm3_D_Mmpi-serial.1x1_brazil.I2000Clm50FatesCruRsGs.derecho_intel.clm-FatesColdHydro">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly1_Mmpi-serial.1x1_brazil.IHistClm60BgcQianRs.derecho_intel.clm-output_bgc_highfreq">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly5_Mmpi-serial.1x1_brazil.IHistClm50BgcQianRs.derecho_intel.clm-newton_krylov_spinup">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SSPMATRIXCN_Ly5_Mmpi-serial.1x1_numaIA.I2000Clm60BgcCropQianRs.derecho_intel.clm-ciso_monthly">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SUBSETDATAPOINT_Ld5_D_Mmpi-serial.CLM_USRDAT.I2000Clm60BgcCropCrujra.derecho_intel.clm-default">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SUBSETDATAREGION_Ld5_D_Mmpi-serial.CLM_USRDAT.I2000Clm60BgcCropCrujra.derecho_intel.clm-default">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_D_Mmpi-serial_Ld5.1x1_brazil.I2000Clm50FatesCruRsGs.lawrencium-lr3_intel.clm-FatesCold">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesALP2Bare">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesALP2BareGrass">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesALP2Bare--clm-FatesMossParams">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesALP2BareGrass--clm-FatesMossParams">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2BareMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2BareGrassMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60Fates.derecho_intel.clm-FatesColdNoCompFixedBioGeo--clm-FatesNvp--clm-FatesALP2BareGrassMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesALP2Bare">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="SMS_Ly2_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesALP2BareGrass">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ld731_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesNvp--clm-FatesALP2BareMoss">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+  <test name="ERS_Ld5_D_Mmpi-serial.1x1_ALP2.I2000Clm60FatesSpRsGs.derecho_intel.clm-FatesColdSatPhen--clm-FatesALP2BareGrass">
+    <phase name="SETUP">
+        <status>FAIL</status>
+        <issue>3798</issue>
+        <comment>Bug in ESMF</comment>
+    </phase>
+  </test>
+
+
 </expectedFails>
