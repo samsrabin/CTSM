@@ -218,9 +218,15 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
   photosynthesis — a permanent dry-period carbon drain. The threshold (0.6) is a CTSM
   namelist scalar (§8), not a hard-coded constant, and the respiration half is switchable
   from the namelist so the divergence can be tested against NVP's behaviour.
-- **fwet proxy:** `fwet = max(top-soil-layer effective saturation, canopy wetted
-  fraction)` for the moss patch. The soil part comes from moisture fields already present
-  in `bc_in` (used by btran); the canopy wetted fraction is one new `bc_in` field (§7).
+- **fwet proxies:** `fwet = max(top-soil-layer saturation, canopy wetted fraction)` for
+  the moss patch, in two variants that differ only in the soil ingredient's water phase
+  (Sam, 2026-10-02; design in `2026-10-02-moss-fwet-subdaily-design.md`). The **liquid**
+  proxy drives the capacity and respiration scaler: frozen moss is inactive. The **total**
+  (liquid + ice) proxy drives the CO₂ water-film term and moss fuel moisture (§6). Both are
+  refreshed every timestep ahead of photosynthesis on exposed patches; the total proxy is
+  also refreshed in the daily sequence ahead of fire. The liquid soil part comes from the
+  liquid water already in `bc_in`, the total soil part from a new total-water `bc_in`
+  field; the canopy wetted fraction is a new `bc_in` field too (§7).
 - **Interception supplies the thallus-wetness signal.** Moss interception comes free and
   unchanged from CTSM (`CanopyHydrologyMod`, no FATES branch): intercepted water enters
   the patch canopy store (`liqcan`/`snocan`, capacity ~ LAI+SAI) and exits only by
@@ -269,7 +275,8 @@ All in FATES `fire/` plus the biomass routing points:
   turnover routes there instead of `leaf_fines`; the `moss_fines` pool feeds the
   dead-moss fuel class; fragmentation feeds the same CTSM-BGC decomposition flux as leaf
   fines, so carbon conservation holds end to end.
-- **Moss fuel moisture is diagnostic from the fwet proxy** (§5), not the Nesterov index,
+- **Moss fuel moisture is diagnostic from the total-water fwet proxy** (§5), read
+  instantaneously at the daily fire call, not from the Nesterov index,
   via moss branches in `UpdateFuelMoisture`. Initial functional form: a simple monotonic
   mapping `moisture = a + b·fwet`, with separate coefficient pairs for the live-moss and
   dead-moss classes (all four on the CTSM namelist, §8); refinable if a better-supported
@@ -292,12 +299,16 @@ All in FATES `fire/` plus the biomass routing points:
 
 ## 7. CTSM–FATES interface
 
-One new coupler field: the per-patch canopy wetted fraction (CTSM's `fwet_patch`)
-enters FATES as a new `bc_in` field via the standard 4-touch recipe (declare in
-`FatesInterfaceTypesMod`, allocate in `allocate_bcin`, flush in `zero_bcs`, fill in
-`clmfates_interfaceMod`), supplying the thallus-wetness half of the fwet proxy (§5).
-Soil-moisture inputs already cross in `bc_in`. New scalar controls cross via the
-existing `set_fates_ctrlparms` mechanism.
+Two new coupler fields, each a new `bc_in` field via the standard 4-touch recipe (declare
+in `FatesInterfaceTypesMod`, allocate in `allocate_bcin`, flush in `zero_bcs`, fill in
+`clmfates_interfaceMod`): the per-patch canopy wetted fraction (CTSM's `fwet_patch`),
+supplying the thallus-wetness half of the fwet proxies (§5); and per-layer total
+volumetric soil water (CTSM's `h2osoi_vol_col`, liquid plus ice), which gives the
+total-water proxy its soil ingredient (`2026-10-02-moss-fwet-subdaily-design.md`). Both
+are filled daily and sub-daily. That design also brings in ESCOMP/CTSM#4198, which makes
+`bc_in%h2o_liqvol_sl` liquid-only at both of its host fills, with a local fix that keeps
+the daily fill valid on snow-buried columns. New scalar controls cross
+via the existing `set_fates_ctrlparms` mechanism.
 
 ## 8. CTSM namelist
 
@@ -339,13 +350,15 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   `fates_history_dimlevel(2) >= 2`) and become the emergent-cover variables under full
   competition later.
 - New history variables for debugging and evaluation, at minimum:
-  - `FATES_MOSS_FWET` — the fwet proxy (patch-level), plus its two ingredients
-    (top-soil-layer saturation and canopy wetted fraction as seen by FATES) so proxy
-    behavior can be decomposed;
-  - `FATES_MOSS_WETNESS_SCALER` — the `min(1, fwet/threshold)` wetness scalar actually
+  - `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_FWET_TOT` — the two fwet proxies (§5), plus
+    their ingredients `FATES_MOSS_FWET_SOIL_LIQ`, `FATES_MOSS_FWET_SOIL_TOT` and
+    `FATES_MOSS_FWET_CANOPY`, so proxy behavior can be decomposed. These are
+    high-frequency history fields, since the proxies change every timestep
+    (`2026-10-02-moss-fwet-subdaily-design.md` §3.4);
+  - `FATES_MOSS_WETNESS_SCALER` — the `min(1, fwet_liq/threshold)` wetness scalar actually
     applied to photosynthetic capacity and to leaf maintenance respiration. Its long name
-    must also say it is *not* applied to moss fuel moisture, which has its own map (§6):
-    one proxy, three consumers, two of them governed by this scalar;
+    must also say it is *not* applied to moss fuel moisture or the CO₂ film, which read the
+    total-water proxy;
   - fuel load and fuel moisture for the live-moss and dead-moss classes
     (fuel-class-dimensioned history variables extend automatically when the dimension
     grows to 8);
@@ -362,14 +375,18 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
     sub-freezing layer 1, and not one was because the surface had dried. The term is now
     switched off by parameter, so the field reads zero for moss whatever the soil does;
     §12 records what fired it and what switching it off costs.
-  - **The diurnal cycle of moss GPP** — still open. The daily fwet proxy of §5 flattens it
-    entirely, and will until that proxy is given a sub-daily path.
+  - **The diurnal cycle of moss GPP** — still open. The daily fwet proxy holds moss's
+    wetness limitation constant through each day, so only light varies it. `2026-10-02-moss-fwet-subdaily-design.md` gives the proxies a sub-daily path;
+    check the cycle once that lands.
 
 ## 10. Testing
 
 - Existing balance checks (C/N/water/energy) remain fatal and must pass with `use_fates_moss`
   on and off.
-- `use_fates_moss = .false.` must be bit-for-bit with baseline (all changes gated).
+- `use_fates_moss = .false.` must be bit-for-bit with baseline (all changes gated). One
+  deliberate exception: ESCOMP/CTSM#4198, brought in by
+  `2026-10-02-moss-fwet-subdaily-design.md`, changes answers for every FATES run. From
+  then on, "baseline" means one generated after that change.
 - `use_fates_moss = .true.` with a parameter file lacking a moss PFT must abort cleanly.
 - Site-level smoke/exact-restart tests in nocomp-fixedbiogeo with a moss parameter file;
   new testmods dir + ExpectedTestFails hygiene.
@@ -378,8 +395,16 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
 
 ## 11. Later extensions (explicitly out of scope now)
 
-- fwet proxy upgrades: per-timestep instead of daily; standing water; water-table depth (new `bc_in` fields via the
-  standard 4-touch recipe).
+- fwet proxy upgrades: standing water; water-table depth (new `bc_in` fields via the
+  standard 4-touch recipe). (Per-timestep refresh is no longer a later extension; see
+  `2026-10-02-moss-fwet-subdaily-design.md`.)
+- **Moss fuel moisture from a daily mean of the total-water proxy** (Sam, 2026-10-02).
+  Every other fuel class's moisture comes from the fire-weather index, which is fed 24-hour
+  running means (`tveg24`, `precip24_pa`, `relhumid24_pa`, `wind24_pa`; `UpdateFireWeather`
+  in `SFMainMod`). Moss fuel moisture instead reads the total-water proxy at one instant at
+  the daily fire call. Once the proxy is refreshed every timestep, a 24-hour running mean
+  of it (one more running-mean patch member, restarted and fused like `tveg24`) would put
+  moss on the same footing as the other classes.
 - Moss temperature proxy (`t_grnd`/top-soil temperature) for gas parameters, consuming
   the per-cohort gas-parameter separation pattern.
 - Full competition: revisit `nclmax`, strict-PPA demotion, `comp_excln` weighting,

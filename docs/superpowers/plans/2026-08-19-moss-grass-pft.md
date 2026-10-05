@@ -14,7 +14,12 @@ soil/canopy wetness proxy.
 `moss_fines` litter pool, and moss physiology (no stomatal solve, wetness-scaled vcmax).
 Moss keeps the grass height allometry. CTSM-side changes: namelist plumbing and one
 new `bc_in` field (canopy wetted fraction). Spec:
-`docs/superpowers/specs/2026-08-19-moss-grass-pft-design.md`.
+`docs/superpowers/specs/2026-08-19-moss-grass-pft-design.md`. The moss wetness proxy's
+liquid/total split, its sub-daily refresh, a second `bc_in` field (total soil water) and
+the ESCOMP/CTSM#4198 cherry-pick are a separate spec and plan
+(`docs/superpowers/specs/2026-10-02-moss-fwet-subdaily-design.md`,
+`docs/superpowers/plans/2026-10-02-moss-fwet-subdaily.md`), which replace Task 12 Step 3a
+and run before Task 12 Step 3b.
 
 **Tech Stack:** Fortran (CTSM + FATES submodule), CTSM build-namelist (Perl/XML), FATES
 functional tests (CMake/Python, `src/fates/testing/`). The FATES parameter file is
@@ -215,7 +220,12 @@ Not defects in our work; things noticed while implementing that upstream may wan
   is hard to defend for a field named `liqvol`. Noticed because Task 8's moss wetness proxy
   reads this field in the daily path: total water is the behaviour that task wants — a frozen
   top layer means frozen moss, which damps fire — but that is a coincidence of where the proxy
-  is computed, not a contract the field offers.
+  is computed, not a contract the field offers. **Resolved on the CTSM side by
+  ESCOMP/CTSM#4198** (issue #4197), which makes the daily fill liquid-only too. It is brought
+  onto this branch by Task A of `docs/superpowers/plans/2026-10-02-moss-fwet-subdaily.md`,
+  where the moss proxy gets its total water from a separate total-water field instead.
+  That task also fixes a defect in the PR: its daily fill reads `h2osoi_liqvol_col`, which
+  is NaN or stale on columns with no snow-free vegetated patch.
 
 - **`fnrt_prof_mode = 2` ignores soil layer thickness, unlike modes 1 and 3.**
   `exponential_1p_root_profile` (`FatesAllometryMod.F90`) weights each layer by
@@ -269,7 +279,10 @@ Not defects in our work; things noticed while implementing that upstream may wan
   (`clm_inparm` → `set_fates_ctrlparms` `hlm_*`), never the FATES parameter file. Only
   array parameters (per-PFT, per-litterclass) go on the FATES parameter file. (Spec §8.)
 - **`use_fates_moss = .false.` must be bit-for-bit with baseline**, including unchanged restart
-  and history file shapes with a standard 6-litterclass parameter file. (Spec §10.)
+  and history file shapes with a standard 6-litterclass parameter file. (Spec §10.) The one
+  deliberate exception is the ESCOMP/CTSM#4198 cherry-pick (Task A of
+  `2026-10-02-moss-fwet-subdaily.md`), which changes answers for every FATES run; after it,
+  "baseline" means one generated after that change.
 - **All existing CTSM/FATES conservation (balance) checks remain fatal** and must pass
   with `use_fates_moss` on and off. (Spec §5, §10.)
 - `use_fates_moss` + `use_fates_planthydro` is a fatal namelist error. (Spec §5.)
@@ -2367,9 +2380,13 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   the target machine — all PASS with fatal conservation checks.
 - [ ] **Step 2: b4b-off final sweep.** Re-run the Task 0 baseline compare and (if the
   machine has an aux_clm baseline) a broader no-moss FATES test against baseline —
-  bit-for-bit.
+  bit-for-bit. Against baselines generated after the ESCOMP/CTSM#4198 cherry-pick
+  (`2026-10-02-moss-fwet-subdaily.md` Task A): the Task 0 baselines predate a deliberate
+  answer change and will not match.
 - [ ] **Step 3: science sanity.** In the moss run's history: moss GPP > 0 and responds
-  to `FATES_MOSS_FWET` — but see Step 3b before judging that response, because it is
+  to `FATES_MOSS_FWET` (after `2026-10-02-moss-fwet-subdaily.md`: to
+  `FATES_MOSS_FWET_LIQ` through capacity and `FATES_MOSS_FWET_TOT` through the CO₂ film)
+  — but see Step 3b before judging that response, because it is
   **humped, not monotonic**, and a negative correlation above `fwet ~ 0.35` is the
   expected result rather than a failure; `FATES_LIVEMOSS_FUEL` and `FATES_MOSS_FINES` nonzero and
   seasonal; fire behavior responds to moss moisture (compare two short runs with
@@ -2417,7 +2434,13 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 
   Diagnosing the extinction is **Step 3e**, and it gates Steps 3b, 3c and 3d.
 - [ ] **Step 3a: give moss photosynthesis a sub-daily wetness signal (carried forward from
-  Task 10, 2026-09-01).** As shipped by Task 10, moss GPP is **constant across the diurnal
+  Task 10, 2026-09-01) — SUPERSEDED (Sam, 2026-10-02)** by
+  `docs/superpowers/specs/2026-10-02-moss-fwet-subdaily-design.md` and its plan
+  `docs/superpowers/plans/2026-10-02-moss-fwet-subdaily.md`. That design splits the
+  proxy into liquid (capacity, respiration) and total (CO₂ film, fuel moisture), refreshes
+  both sub-daily, and brings in ESCOMP/CTSM#4198. It answers the consumer question
+  below: fuel moisture stays a daily read. The original text follows for the record.
+  As shipped by Task 10, moss GPP is **constant across the diurnal
   cycle**, which is a science defect to fix, not a limitation to accept. The cause is that
   `currentPatch%fwet_moss` is diagnosed once a day: Task 8 confined `UpdateMossFwet` to the
   daily dynamics sequence because `wrap_btran` overwrites `bc_in%h2o_liqvol_sl(1)` with
@@ -2496,8 +2519,13 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   right quantity to feed a relation calibrated against thallus water content — the NVP
   branch feeds the same two relations a host-supplied `fwet_nvp` describing thallus water
   status, which is not the same variable. Decide against the plotted distribution, not in
-  the abstract. Pairs with Step 3a: a sub-daily wetness signal changes the distribution this
-  step measures, so run 3a first if both are being done.
+  the abstract. Pairs with Step 3a, now superseded by
+  `2026-10-02-moss-fwet-subdaily.md`, which runs first: it changes the distribution this
+  step measures, and it splits the single proxy above into two. Capacity reads
+  `FATES_MOSS_FWET_LIQ` and the film reads `FATES_MOSS_FWET_TOT`, so the window is set by
+  two variables that diverge on frozen days, not one. In particular, Step 3f's frozen-day
+  saturation of 0.75-1.00 is a total-water figure. Under the liquid proxy those days read
+  near-dry.
 - [ ] **Step 3c: settle moss height parametrization (carried forward from Task 11,
   2026-09-02).** Moss keeps the grass power law — `fates_allom_hmode = 3` with
   `d2h1 = 0.1812`, `d2h2 = 0.6384` — and grass's `fates_allom_dbh_maxheight = 20` cm,
