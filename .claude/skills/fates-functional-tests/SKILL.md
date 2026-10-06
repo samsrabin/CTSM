@@ -1,6 +1,6 @@
 ---
 name: fates-functional-tests
-description: Use when running the FATES standalone functional tests with src/fates/testing/run_functional_tests.py, when adding or modifying a functional test driver under src/fates/testing/tests/functional/, or when a newly added test builds but never runs.
+description: Use when running the FATES standalone functional tests with src/fates/testing/run_functional_tests.py, when adding or modifying a functional test driver under src/fates/testing/tests/functional/, or when a newly added test builds but never runs. Also use when finding which FATES tests call a routine whose signature or behaviour you are changing, or when you come across src/fates/functional_unit_testing/.
 ---
 
 # FATES functional tests
@@ -18,6 +18,20 @@ These are not the pFUnit unit tests, which live in
 `src/fates/testing/tests/unit/` and run the same way via `./run_unit_tests.py`
 from the same directory. Those have their own skill, `pfunit-tests`; its
 `fates-harness.md` covers the parts of the build these two share.
+
+### `src/fates/functional_unit_testing/` is effectively dead
+
+FATES also carries an older set of harnesses in `src/fates/functional_unit_testing/`
+(`hydro`, `leaf_biophys`, `parteh`, `radiation`, `shared`). Each builds FATES
+modules into standalone objects and calls them from Python through ctypes.
+Nothing in the tree builds or runs them, and ctypes does not check argument
+lists, so a signature change to a routine they bind breaks them without any
+compile error.
+
+**Treat them as dead code (Sam, 2026-10-06): do not update or fix them**, and a
+call into a changed routine from there is not a reason to stop or re-plan. When
+searching for the tests that exercise a routine, the live ones are under
+`src/fates/testing/`; a hit in `functional_unit_testing/` can be noted and left.
 
 ## Running
 
