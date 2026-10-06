@@ -34,6 +34,7 @@ and holds in either harness.
 | Build is green and reports every test passing, but your new test never ran | You added a `.pf` **file** to an existing test directory; the driver object is stale | Delete the stale driver object — see below, and your harness companion for its path |
 | `undefined reference to <module>_suite_` at link time | You *removed* a `.pf` from an existing test directory; same stale driver object | Same |
 | `warning #5462: Global name too long, shortened from:` | `<module>_mp_<PROCEDURE>` exceeds 90 characters | Shorten the module name or the test name |
+| `error #6439: This symbol has too many characters` | A test name (or any identifier) exceeds Fortran's 63-character limit, which binds before the 90-character one above | Keep every test name to 63 characters or fewer |
 | `forrtl: error (65): floating invalid`, with no assertion reported | `-fpe0` trapped arithmetic on a signalling NaN — often a fixture component nothing ever set | Treat the abort as the failure and find the unset value; it is not a crash to debug |
 | `forrtl: error (73): floating divide by zero` | `-fpe0` trapped a division a fixture left with a zero divisor | Same — the abort *is* the result, so read it as one |
 | A compiler warning you expected is nowhere in the build log | Both runners print compiler output only when the build fails | Run `make` yourself in the build directory |
