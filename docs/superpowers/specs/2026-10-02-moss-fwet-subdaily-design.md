@@ -142,7 +142,7 @@ fill's water phase (`clmfates_interfaceMod.F90` `dynamics_driv`).
   `CanopyFluxes` computed it, before that timestep's soil hydrology. Both use the same
   routines and the same clamp, so the difference is one timestep of hydrology on exposed
   columns.
-- **Moss's wetness limitation varies within the day** (Task C), following sub-daily soil
+- **Moss's wetness limitation varies within the day** (Task D), following sub-daily soil
   liquid and canopy wetting.
 - **Frozen moss stops photosynthesizing.** The main plan's Step 3f measured the moss
   patch's total-water saturation at 0.75-1.00 on the zero-btran (frozen) days, which put
@@ -150,11 +150,11 @@ fill's water phase (`clmfates_interfaceMod.F90` `dynamics_driv`).
   Task 12 Step 3b's productive-window analysis must be read against the two proxies, not
   against the old single one.
 - **Fuel moisture is unchanged in meaning** (total water, end-of-day instantaneous).
-  Between Task A and Task B it is temporarily liquid-based (§5).
+  Between Task A and Task C it is temporarily liquid-based (§5).
 
 ## 5. Work breakdown
 
-Three tasks, strictly in order.
+Four tasks, strictly in order.
 
 - **Task A: bring in ESCOMP/CTSM#4198 and fix its off-filter defect.** Two commits:
   1. Cherry-pick `9040710b0` unchanged.
@@ -185,35 +185,41 @@ Three tasks, strictly in order.
   accepted interim state: one daily proxy, liquid-only and valid on every column, feeding
   all four consumers.
 - **Task B: add the total-water field and split the proxy into liquid and total**, both
-  still refreshed daily. It opens with two bit-for-bit commits: the `fwet_moss_tot`
-  rename, then the `is_moss` logical (§3.1). It closes with a separate commit adding an
-  12-hourly history tape to the `FatesNvp` testmod, for Task C's diurnal check (Sam,
-  2026-10-05). The total-water field is filled at both host sites (§3.2).
-  Capacity and respiration read the liquid proxy; the film and fuel moisture read the total
-  proxy. History and restart are renamed and extended (§3.4), still in the daily group.
-  Check, on the moss ALP2 tape:
+  still refreshed daily, with every consumer still reading the liquid proxy so the split
+  can be shown to change no answers (Sam, 2026-10-06). It opens with two bit-for-bit
+  commits: the `fwet_moss_tot` rename, then the `is_moss` logical (§3.1). The total-water
+  field is filled at both host sites (§3.2). History and restart are renamed and extended
+  (§3.4), still in the daily group, and the `FatesNvp` testmod gains an instantaneous
+  `H2OSOI`. Check, on the moss ALP2 tape:
+  - every history field shared with the post-Task-A baseline is bit-for-bit;
   - `FATES_MOSS_FWET_SOIL_TOT` equals `min(1, H2OSOI/WATSAT)` for layer 1, times the
     vegetated area fraction the main plan's Step 3b describes. It reads the same CTSM
     field, so the match is exact.
   - `FATES_MOSS_FWET_SOIL_LIQ` ≤ `FATES_MOSS_FWET_SOIL_TOT` on every day, with equality on
     thawed days.
-- **Task C: refresh both proxies sub-daily**: the sub-daily `fwet_veg_pa` fill, the gated
+- **Task C: move the CO₂ film and fuel moisture to the total proxy.** Capacity and
+  respiration stay on the liquid proxy. This is the answer-changing half of the split. It
+  closes with a separate commit adding a 12-hourly history tape to the `FatesNvp` testmod,
+  for Task D's diurnal check (Sam, 2026-10-05).
+- **Task D: refresh both proxies sub-daily**: the sub-daily `fwet_veg_pa` fill, the gated
   call at the top of `FatesPlantRespPhotosynthDrive` (§3.3), the daily call reduced to the
   total proxy, and the move to the high-frequency history group. Step 0 must verify that
   CTSM's `fwet_patch` has been updated for the current timestep when FATES photosynthesis
   runs, and that FATES's high-frequency history is written after photosynthesis within the
   timestep. If either is false, stop and report. A one-step lag is a design change for
-  Sam, not something to adopt silently. Check: on the 12-hourly tape Task B adds, the two
+  Sam, not something to adopt silently. Check: on the 12-hourly tape Task C adds, the two
   daily records of `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_WETNESS_SCALER` differ on some
-  snow-free days, where under Task B they were always equal.
+  snow-free days, where under Task C they were always equal.
 
 **Why A comes before B is load-bearing:** before #4198 the daily fill of `h2o_liqvol_sl`
 carries total water, so B's liquid proxy would be fed total water at the daily call and
-the split would be meaningless. **B before C** is the project's strict-ordering convention
-rather than a dependency. Splitting the proxies first lets B's checks isolate the
-liquid/total semantics before C changes when they are sampled.
+the split would be meaningless. **B before C** is load-bearing too: B's bit-for-bit check
+is the evidence that the split changes nothing, and it can only be made before C changes
+answers. **C before D** is the project's strict-ordering convention, and D's diurnal check
+reads C's tape. Finishing the split first lets its checks isolate the liquid/total
+semantics before D changes when the proxies are sampled.
 
-**Failed verifications are stops.** In particular: Task B's two checks and Task C's two
+**Failed verifications are stops.** In particular: Task B's three checks and Task D's two
 timing checks (above). If the total ingredient does not match `H2OSOI`, the new field is
 not what §3.2 says. Do not document any of these as a limitation and carry on.
 

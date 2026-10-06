@@ -29,11 +29,13 @@ Task 12 Step 3b.
 
 ## Global Constraints
 
-- **Tasks run strictly in order: A, then B, then C.** A before B is load-bearing. Before
+- **Tasks run strictly in order: A, B, C, then D.** A before B is load-bearing. Before
   #4198 the daily fill of `h2o_liqvol_sl` carries total water, so if B ran first, its liquid
   proxy would be fed total water at the daily call and the split would be meaningless. B
-  before C is the project's ordering convention. It also lets B's checks isolate the
-  liquid/total semantics before C changes when the proxies are sampled.
+  before C is load-bearing too: B's bit-for-bit check is the evidence that the split itself
+  changes nothing, and it can only be made before C changes answers. C before D is the
+  project's ordering convention. It also lets C's checks isolate the liquid/total semantics
+  before D changes when the proxies are sampled, and D's diurnal check reads C's tape.
 - **`use_fates_moss = .false.` must be bit-for-bit with baseline**, including unchanged
   restart and history file shapes with a standard 6-litterclass parameter file. The one
   exception is Task A, which changes answers for every FATES run. From Task A on,
@@ -55,7 +57,7 @@ Task 12 Step 3b.
   file.** Uncommitted plan and spec edits in the CTSM tree are intentional. To undo your own
   edit, edit it back.
 - **Two repositories.** FATES changes are committed in `src/fates/` (branch
-  `adrianna-moss-grass-pft`) first. The CTSM commit then moves the `src/fates` pointer **and**
+  `daily-wetness-proxy`, from Task B on; Sam, 2026-10-05) first. The CTSM commit then moves the `src/fates` pointer **and**
   edits `[submodule "fates"] fxtag` in `.gitmodules` to the same hash, in the same commit.
   These two must print the same hash before every CTSM commit:
   `git ls-tree HEAD src/fates` and `git config -f .gitmodules submodule.fates.fxtag`.
@@ -95,11 +97,11 @@ Task 12 Step 3b.
    a snow-covered period.*
 2. **A buried patch on a partly exposed column.** The column is in `wrap_btran`'s filter but
    the patch is not in the photosynthesis filter. Its proxies must keep their last values
-   sub-daily, not be refreshed from the column's soil. *Task C, verify step.*
+   sub-daily, not be refreshed from the column's soil. *Task D, verify step.*
 3. **Moss off.** No proxy routine runs, the restart variables stay unregistered, and the
-   history fields exist and read zero. *Tasks B and C, b4b in moss-off tests.*
+   history fields exist and read zero. *Tasks B, C and D, b4b in moss-off tests.*
 4. **The canopy-flux iteration calling photosynthesis several times in one timestep.** The
-   sub-daily refresh must give the same proxies however many times it runs. *Task C: the
+   sub-daily refresh must give the same proxies however many times it runs. *Task D: the
    refresh reads only inputs that are fixed within the timestep; the reviewer confirms it.*
 5. **A porosity at or below `nearzero` (including the -999 sentinel), or water above
    porosity.** Each proxy's soil ingredient is clamped to [0, 1], and the porosity guard
@@ -142,7 +144,7 @@ The task makes three commits, in this order:
   and valid on every FATES column at the daily fill. The moss proxy (still the single
   `fwet_moss`, still daily) is therefore liquid-based until Task B.
 
-- [ ] **Step 0 (orchestrator):**
+- [x] **Step 0 (orchestrator):**
   - Confirm the cherry-pick still applies cleanly, without touching the working tree:
     `git merge-tree --write-tree --merge-base 9040710b0^ HEAD 9040710b0`. Conflict markers
     in the output are a stop.
@@ -153,9 +155,9 @@ The task makes three commits, in this order:
 
     Search all of `src` outside `src/fates` for `h2osoi_liqvol`. If any of these is false,
     stop and report: the fix below assumes them.
-- [ ] **Step 1: cherry-pick.** `git cherry-pick -x 9040710b0`. Commit as-is. The `-x` line
+- [x] **Step 1: cherry-pick.** `git cherry-pick -x 9040710b0`. Commit as-is. The `-x` line
   records the upstream source.
-- [ ] **Step 2: comment corrections (FATES).** After Step 1, three comments state that the
+- [x] **Step 2: comment corrections (FATES).** After Step 1, three comments state that the
   daily fill carries total water. Make each state what is now true, and nothing about
   later tasks:
   - `EDMainMod.F90`, above the `UpdateMossFwet` call: `h2o_liqvol_sl` holds liquid water at
@@ -167,7 +169,7 @@ The task makes three commits, in this order:
 
   The CTSM comment in `dynamics_driv` is corrected in Step 3, because Step 3 rewrites the
   fill it sits on. Commit in `src/fates/`.
-- [ ] **Step 3: local fix (CTSM).** In `dynamics_driv`:
+- [x] **Step 3: local fix (CTSM).** In `dynamics_driv`:
 
   Add to the module `use` block (alongside the existing `denice` line):
   ```fortran
@@ -238,7 +240,7 @@ The task makes three commits, in this order:
   If `dynamics_driv` declares `s` only after the point where the loop needs it, or uses a
   different site count than `this%fates(nc)%nsites`, follow the routine's existing
   conventions. If `f2hmap(nc)%fcolumn` does not cover every site, stop and report.
-- [ ] **Step 4: build.** Claude builds CTSM-FATES. A build failure is fixed in Step 3's code,
+- [x] **Step 4: build.** Claude builds CTSM-FATES. A build failure is fixed in Step 3's code,
   not worked around.
 - [ ] **Step 5: verify (Sam, during review).** Tests expected to change:
   - **Every FATES test against its baseline: DIFF.** Daily `smp_sl` and `h2o_liqvol_sl` are
@@ -250,7 +252,7 @@ The task makes three commits, in this order:
     Moss GPP on those days should fall with it.
   - **Moss ALP2 ERS test: PASS.** This exercises Review Focus 1 when the restart falls in a
     snow-covered period. If it fails, that is a stop.
-- [ ] **Step 6: reviews, then commit.** The spec-compliance and code reviewers see the
+- [x] **Step 6: reviews, then commit.** The spec-compliance and code reviewers see the
   cherry-pick, the FATES comment commit and the local fix together. Commit the local fix
   with the FATES pointer bump and matching `fxtag`.
 
@@ -258,8 +260,9 @@ The task makes three commits, in this order:
 
 ### Task B: Add the total-water field and split the proxy into liquid and total
 
-Both proxies are still refreshed once a day in this task. Capacity and respiration read the
-liquid proxy. The CO₂ film and fuel moisture read the total proxy.
+Both proxies are refreshed once a day. This task adds them with every consumer still
+reading the liquid proxy, so the split can be shown to change no answers (Sam, 2026-10-06).
+Task C then moves the CO₂ film and fuel moisture to the total proxy.
 
 Before the split, two refactoring commits tidy the argument that carries the proxy into
 the moss CO₂ solve:
@@ -267,15 +270,13 @@ the moss CO₂ solve:
 - replacing its sign encoding with an explicit logical, which takes away the reason the
   sentinel existed.
 
-The task ends with a 12-hourly history tape, so Task C's diurnal check has something to read.
-
 Commit order:
 1. **FATES:** the rename.
 2. **FATES:** the logical argument.
 3. **FATES:** the split's tests.
-4. **FATES:** the split.
-5. **CTSM:** the split's host changes, testmod rename, FATES pointer bump and `fxtag`.
-6. **CTSM:** the 12-hourly tape.
+4. **FATES:** the split, with every consumer on the liquid proxy.
+5. **CTSM:** the split's host changes, testmod rename (plus `H2OSOI:I`), FATES pointer bump
+   and `fxtag`. Bit-for-bit in every shared history field.
 
 Each commit goes through the main plan's review loop before it is made.
 
@@ -302,8 +303,7 @@ Each commit goes through the main plan's review loop before it is made.
   - replace `UpdateMossFwet`, near lines 881-940;
   - `UpdateMossWetnessScaler`, near line 975.
 - Modify (FATES): `main/EDMainMod.F90` (daily call, near line 233)
-- Modify (FATES): `fire/SFMainMod.F90` (near line 182), `fire/FatesFuelMod.F90`
-  (`UpdateFuelMoisture` dummy argument and comments, near lines 224-277)
+- Modify (FATES): `fire/SFMainMod.F90` (near line 182)
 - Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (index declarations near line 486;
   registration near lines 6961-7000; fill near lines 2785-2797)
 - Modify (FATES): `main/FatesRestartInterfaceMod.F90` (index declarations near line 218;
@@ -313,9 +313,8 @@ Each commit goes through the main plan's review loop before it is made.
   and in `wrap_btran`; `wrap_btran` gains a `waterstatebulk_inst` argument)
 - Modify: `src/biogeophys/CanopyFluxesMod.F90` (the `wrap_btran` call, near line 878: pass
   `waterstatebulk_inst`)
-- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm`:
-  - field renames at lines 28-30, and in the comments near lines 138 and 170;
-  - the 12-hourly tape.
+- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (field renames at
+  lines 28-30, and in the comments near lines 138 and 170; `H2OSOI:I`)
 - Test (FATES): `testing/tests/unit/moss_fwet_test/test_MossFwet.pf`
 
 **Interfaces:**
@@ -348,7 +347,8 @@ Each commit goes through the main plan's review loop before it is made.
     (`group_dyna_simple` in this task).
   - Restart: `fates_fwet_moss_liq`, `fates_fwet_moss_tot`, `fates_fwet_moss_soil_liq`,
     `fates_fwet_moss_soil_tot`, `fates_fwet_moss_canopy`.
-  - A second history tape (`h1`), 12-hourly, in every test that composes `FatesNvp`.
+  - Every consumer (capacity, respiration, the CO₂ film argument, fuel moisture) reads
+    `fwet_moss_liq`.
 
 - [ ] **Step 0 (orchestrator):**
   - Confirm that no unit or functional test calls `CiFunc`, `CiBisection` or
@@ -360,8 +360,8 @@ Each commit goes through the main plan's review loop before it is made.
   - Confirm that `h2osoi_vol_col` is CTSM's history field `H2OSOI`
     (`WaterStateType.F90:222`).
   - Confirm that the moss ALP2 tape carries layer-1 porosity (`WATSAT`) and `H2OSOI`, which
-    Step 10's check needs. If either is missing, ask Sam how Step 10 should get it before
-    dispatching. Do not pick a substitute.
+    Step 9's check needs. Settled 2026-10-06: `WATSAT` is time-constant in the first
+    history file, and `H2OSOI` was absent, so Step 4 adds `H2OSOI:I` (Sam's choice).
 - [ ] **Step 1: rename (FATES; implementer agent).** A pure rename, bit-for-bit:
   - in `LeafBiophysicsMod`, the dummy argument `fwet_moss` becomes `fwet_moss_tot` in
     `MossCO2FilmFactor`, `CiFunc`, `CiBisection` and `LeafLayerPhotosynthesis`;
@@ -434,10 +434,13 @@ Each commit goes through the main plan's review loop before it is made.
     `bc_in%fwet_veg_pa(currentPatch%patchno)`. In the comment above the call, keep "this is
     the only writer". The reason becomes that each proxy reads a field whose water phase is
     the same at both host fills.
-  - **Fire:** `SFMainMod` passes `currentPatch%fwet_moss_tot`. Rename `UpdateFuelMoisture`'s
-    dummy argument `fwet_moss` to `fwet_moss_tot`, with matching comments.
+  - **Consumers stay on the liquid proxy in this step.** Every consumer reads
+    `fwet_moss_liq`, so this step changes no answers. Task C moves the film and fuel
+    moisture.
+  - **Fire:** `SFMainMod` passes `currentPatch%fwet_moss_liq`.
   - **Photosynthesis:**
-    - `fwet_moss_tot_arg = currentPatch%fwet_moss_tot` for moss.
+    - `fwet_moss_tot_arg = currentPatch%fwet_moss_liq` for moss, with a one-line comment
+      that a later change switches it to the total proxy. Task C removes the comment.
     - `moss_wetness_scaler_arg = currentPatch%moss_wetness_scaler` stays as it is.
     - The NaN check tests both `currentPatch%fwet_moss_tot` and `currentPatch%fwet_moss_liq`,
       and its message names the one that was never set (Sam, 2026-10-05).
@@ -451,7 +454,8 @@ Each commit goes through the main plan's review loop before it is made.
     - `FATES_MOSS_FWET_CANOPY`: `'canopy wetted fraction ingredient of both moss wetness proxies'`
     - `FATES_MOSS_WETNESS_SCALER`: `'moss wetness scaler from the liquid-water proxy, applied to photosynthetic capacity and, unless hlm_moss_scale_resp_by_fwet is false, leaf maintenance respiration; not to CO2 film or fuel moisture'`
 
-    Update the comment above the scaler's registration to match.
+    These long names describe the consumers as they stand after Task C. Until then,
+    `FATES_MOSS_FWET_TOT`'s name overstates what it drives. That is accepted. Update the comment above the scaler's registration to match.
   - **Restart:** five variables, still inside `if (hlm_use_moss == itrue)`. On read, restore
     all five, then `call cpatch%UpdateMossWetnessScaler()`. The moss-off branch zeroes all
     five and the scaler. Restart files written before this task do not carry the new names.
@@ -468,8 +472,11 @@ Each commit goes through the main plan's review loop before it is made.
     `'FATES_MOSS_FWET_SOIL'` with `_LIQ`, `_TOT`, `_SOIL_LIQ` and `_SOIL_TOT` entries. Keep
     `_CANOPY` and the scaler. Update the field names in the comments near lines 138 and
     170. Line 170 refers to the soil ingredient the Task 10b work measured, which was total
-    water, so it becomes `FATES_MOSS_FWET_SOIL_TOT`. The agent touching this file invokes
-    `ctsm-system-tests`.
+    water, so it becomes `FATES_MOSS_FWET_SOIL_TOT`. Also add `hist_fincl1 += 'H2OSOI:I'`
+    (Sam, 2026-10-06), with a comment saying it is the instantaneous total soil water
+    `FATES_MOSS_FWET_SOIL_TOT` is checked against. The empty-tapes setting from `clm/Fates`
+    removes it otherwise, and a daily mean would not match the FATES field's once-daily
+    value. The agent touching this file invokes `ctsm-system-tests`.
 - [ ] **Step 5: unit tests.** `run_unit_tests.py -t moss_fwet` and `-t fire_fuel` both pass,
   with the test files untouched since Step 3.
 - [ ] **Step 6: functional test.**
@@ -479,7 +486,65 @@ Each commit goes through the main plan's review loop before it is made.
 - [ ] **Step 8: reviews, then commit the split.** The reviewers see the union of the Step 3
   test commit and the implementation, and confirm the test file is unchanged since Step 3.
   Commit FATES, then CTSM with the pointer bump and `fxtag`.
-- [ ] **Step 9: 12-hourly history tape (CTSM; implementer agent).** The agent invokes
+- [ ] **Step 9: verify (Sam, during review).** Tests expected to change:
+  - **Moss and vascular, Steps 1-2: b4b.** The rename and the logical argument change no
+    answers.
+  - **The split commit (Step 8's CTSM commit): b4b against post-Task-A baselines** in every
+    history field the two share, for moss and moss-off tests alike. The field list differs,
+    with renamed and new moss fields and `H2OSOI`. A value difference in any shared field is
+    a stop: the split was meant to change nothing.
+  - **The total ingredient reads the CTSM field it is filled from.** On the moss ALP2 tape,
+    `FATES_MOSS_FWET_SOIL_TOT` equals `min(1, H2OSOI/WATSAT)` for layer 1 times the vegetated
+    area fraction, exactly. Use the instantaneous `H2OSOI` added in Step 4. `WATSAT` is a
+    time-constant field in the run's first history file. The vegetated area fraction is
+    the sum of `FATES_NOCOMP_PATCHAREA_PF` over the PFTs present, as main plan Task 12 Step
+    3b describes. Not yet confirmed: that the instantaneous `H2OSOI` sample and the FATES
+    daily call fall in the same timestep. If they differ by a constant one-step offset on
+    every day, report that rather than calling it a mismatch. Any other mismatch is a stop:
+    `h2o_totvol_sl` is then not what the spec says.
+  - **Liquid never exceeds total.** `FATES_MOSS_FWET_SOIL_LIQ` ≤ `FATES_MOSS_FWET_SOIL_TOT`
+    on every day, with equality on days layer 1 is thawed. A violation is a stop.
+  - **Moss-off FATES tests: b4b against post-Task-A baselines**, except for history field
+    lists, where the renamed moss fields appear and read zero.
+
+---
+
+### Task C: Move the CO₂ film and fuel moisture to the total proxy
+
+The answer-changing half of the split: the two consumers that represent water in any phase
+switch from the liquid proxy to the total one. The task ends with a 12-hourly history tape,
+so Task D's diurnal check has something to read.
+
+Commit order:
+1. **FATES:** the CO₂ film and fuel moisture switch to the total proxy.
+2. **CTSM:** FATES pointer bump and `fxtag`. Answer-changing for moss.
+3. **CTSM:** the 12-hourly tape.
+
+**Files:**
+- Modify (FATES): `fire/SFMainMod.F90` (near line 182), `fire/FatesFuelMod.F90`
+  (`UpdateFuelMoisture` dummy argument and comments, near lines 224-277)
+- Modify (FATES): `biogeophys/FatesPlantRespPhotosynthMod.F90` (where `fwet_moss_tot_arg` is
+  set for moss)
+- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm` (the 12-hourly tape)
+
+**Interfaces:**
+- Consumes: the patch members `fwet_moss_liq` and `fwet_moss_tot`, and the history field
+  names (Task B).
+- Produces:
+  - the CO₂ film argument and fuel moisture read `fwet_moss_tot`; capacity and respiration
+    still read the liquid proxy through `moss_wetness_scaler`;
+  - a second history tape (`h1`), 12-hourly, in every test that composes `FatesNvp`.
+
+- [ ] **Step 1: switch the CO₂ film and fuel moisture to the total proxy (FATES;
+  implementer agent).**
+  - `SFMainMod` passes `currentPatch%fwet_moss_tot` to `UpdateFuelMoisture`. Rename that
+    routine's dummy argument `fwet_moss` to `fwet_moss_tot`, with matching comments.
+  - In `FatesPlantRespPhotosynthMod`, `fwet_moss_tot_arg = currentPatch%fwet_moss_tot` for
+    moss. Remove Task B's interim comment there.
+
+  Run `run_unit_tests.py -t moss_fwet` and `-t fire_fuel`, and the `fuel` functional test,
+  then build. Review, commit FATES, then commit the CTSM pointer bump and `fxtag`.
+- [ ] **Step 2: 12-hourly history tape (CTSM; implementer agent).** The agent invokes
   `ctsm-system-tests` first. In `FatesNvp/user_nl_clm`, add a second, 12-hourly tape
   (Sam, 2026-10-05: small files, still enough to see sub-daily change) carrying the moss
   wetness fields and moss GPP:
@@ -502,29 +567,18 @@ Each commit goes through the main plan's review loop before it is made.
 
   If either is false, that is a stop. `hist_mfilt(2) = 730` puts one model year in each
   file. Add a comment saying the tape exists to check that the moss wetness proxies change
-  within the day. Until Task C, the wetness fields hold their daily values through each
+  within the day. Until Task D, the wetness fields hold their daily values through each
   day, so the two 12-hour records of a day are equal. Review, and commit in CTSM.
-- [ ] **Step 10: verify (Sam, during review).** Tests expected to change:
-  - **Moss and vascular, Steps 1-2: b4b.** The rename and the logical argument change no
-    answers.
-  - **Moss ALP2 tests: DIFF from the Task A baseline.** The CO₂ film and fuel moisture
-    move back to total water. `FATES_FUEL_MOISTURE_FC` for classes 7-8 rises on frozen days
-    compared with Task A. The history field list changes, per the testmod edit.
-  - **The total ingredient reads the CTSM field it is filled from.** On the moss ALP2 tape,
-    `FATES_MOSS_FWET_SOIL_TOT` equals `min(1, H2OSOI/WATSAT)` for layer 1 times the vegetated
-    area fraction, exactly. The vegetated area fraction is the sum of
-    `FATES_NOCOMP_PATCHAREA_PF` over the PFTs present, as main plan Task 12 Step 3b
-    describes. A mismatch is a stop: `h2o_totvol_sl` is then not what the spec says.
-  - **Liquid never exceeds total.** `FATES_MOSS_FWET_SOIL_LIQ` ≤ `FATES_MOSS_FWET_SOIL_TOT`
-    on every day, with equality on days layer 1 is thawed. A violation is a stop.
+- [ ] **Step 3: verify (Sam, during review).** Tests expected to change:
+  - **Moss ALP2 tests after Step 1: DIFF from Task B.** The CO₂ film and fuel moisture move
+    to total water. `FATES_FUEL_MOISTURE_FC` for classes 7-8 rises on frozen days.
   - **Every test composing `FatesNvp` gains a 12-hourly `h1` file**, which baselines generated
-    before Step 9 lack.
-  - **Moss-off FATES tests: b4b against post-Task-A baselines**, except for history field
-    lists, where the renamed moss fields appear and read zero.
+    before Step 2 lack.
+  - **Moss-off FATES tests: b4b against Task B.**
 
 ---
 
-### Task C: Refresh both proxies every timestep
+### Task D: Refresh both proxies every timestep
 
 The sub-daily refresh runs at the top of `FatesPlantRespPhotosynthDrive`, only for patches
 `wrap_photosynthesis` has flagged as exposed. The daily call keeps only the total proxy, so
@@ -615,12 +669,12 @@ high-frequency group.
   - it reads nothing that changes between canopy-flux iterations (Review Focus 4);
   - the daily call no longer touches the liquid proxy.
 - [ ] **Step 5: verify (Sam, during review).** Tests expected to change:
-  - **Moss ALP2 tests: DIFF from the Task B baseline.** Moss photosynthesis now sees same-day
+  - **Moss ALP2 tests: DIFF from the Task C baseline.** Moss photosynthesis now sees same-day
     wetness. The six `FATES_MOSS_*` wetness fields are high-frequency fields now. On a
     daily tape they become daily means rather than end-of-day snapshots.
-  - **The wetness proxies change within the day,** on the 12-hourly `h1` tape Task B
+  - **The wetness proxies change within the day,** on the 12-hourly `h1` tape Task C
     added. On snow-free days, the two 12-hour records of `FATES_MOSS_FWET_LIQ` and
-    `FATES_MOSS_WETNESS_SCALER` differ on at least some days. Under Task B they were equal.
+    `FATES_MOSS_WETNESS_SCALER` differ on at least some days. Under Task C they were equal.
     If they are still equal on every snow-free day, that is a stop. Moss `FATES_GPP_PF` is
     on the tape for context but is not the test. It varies with light regardless of the
     proxy. ALP2 is at 7.28°E, so the history's UTC 00-12/12-24 split falls about half an
