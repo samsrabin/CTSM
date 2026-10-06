@@ -541,9 +541,15 @@ Commit order:
     routine's dummy argument `fwet_moss` to `fwet_moss_tot`, with matching comments.
   - In `FatesPlantRespPhotosynthMod`, `fwet_moss_tot_arg = currentPatch%fwet_moss_tot` for
     moss. Remove Task B's interim comment there.
+  - In `verify_moss_history.py` (CTSM), set `FUEL_MOISTURE_PROXY = "FATES_MOSS_FWET_TOT"`
+    and reword the prose that says fuel moisture or "every moss consumer" reads the liquid
+    proxy: the module docstring's section 4 bullet, the section 1 and section 4
+    explainers, the `check_task8_proxy` docstring, and the comment on
+    `FUEL_MOISTURE_PROXY`. The scaler, canopy and productivity checks stay on liquid.
 
   Run `run_unit_tests.py -t moss_fwet` and `-t fire_fuel`, and the `fuel` functional test,
-  then build. Review, commit FATES, then commit the CTSM pointer bump and `fxtag`.
+  then build. Review, commit FATES, then commit the CTSM pointer bump and `fxtag`, with the
+  `verify_moss_history.py` change.
 - [ ] **Step 2: 12-hourly history tape (CTSM; implementer agent).** The agent invokes
   `ctsm-system-tests` first. In `FatesNvp/user_nl_clm`, add a second, 12-hourly tape
   (Sam, 2026-10-05: small files, still enough to see sub-daily change) carrying the moss
