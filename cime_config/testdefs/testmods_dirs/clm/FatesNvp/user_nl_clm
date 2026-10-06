@@ -25,11 +25,18 @@ fates_paramfile = '$SRCROOT/src/fates/parameter_files/fates_params_moss.json'
 
 hist_fincl1 += 'FATES_LIVEMOSS_FUEL'
 hist_fincl1 += 'FATES_MOSS_FINES'
-hist_fincl1 += 'FATES_MOSS_FWET'
-hist_fincl1 += 'FATES_MOSS_FWET_SOIL'
+hist_fincl1 += 'FATES_MOSS_FWET_LIQ'
+hist_fincl1 += 'FATES_MOSS_FWET_TOT'
+hist_fincl1 += 'FATES_MOSS_FWET_SOIL_LIQ'
+hist_fincl1 += 'FATES_MOSS_FWET_SOIL_TOT'
 hist_fincl1 += 'FATES_MOSS_FWET_CANOPY'
 hist_fincl1 += 'FATES_MOSS_WETNESS_SCALER'
 hist_fincl1 += 'FATES_MOSS_HEIGHT'
+
+! Instantaneous total (liquid plus ice) soil water, the CTSM field FATES_MOSS_FWET_SOIL_TOT is
+! checked against. The empty-tapes setting from clm/Fates removes it otherwise, and a daily
+! mean would not match the FATES field's once-daily value.
+hist_fincl1 += 'H2OSOI:I'
 
 ! Existing FATES per-PFT and per-fuel-class diagnostics that the moss science
 ! checks need read out for the moss PFT and for fuel classes 7 (live moss) and 8 (dead
@@ -135,7 +142,7 @@ hist_fincl1 += 'FATES_ELONG_FACTOR_PF'
 ! top-layer profile mode (FATES fnrt_prof_mode = 5): the whole profile in soil layer 1,
 ! exactly nothing below it. So moss's btran is a function of the top layer alone, and the
 ! measurement this instruments is "was moss's btran zero on this day, and how wet was the
-! top layer when it was" -- FATES_MOSS_FWET_SOIL, requested above, is the companion.
+! top layer when it was" -- FATES_MOSS_FWET_SOIL_LIQ, requested above, is the companion.
 !
 ! FATES_BTRAN_PF and not FATES_BTRAN_SZPF: the latter is filled from ccohort_hydr%btran
 ! and so is identically zero without FATES-Hydro, which use_fates_moss forbids.
@@ -167,7 +174,7 @@ hist_fincl1 += 'FATES_BTRAN_PF'
 !   - the suction of the liquid that is there reaching fates_nonhydro_smpsc = -255000 mm,
 !     at which btran_ed's max(smpsc, smp) clamp makes the root resistance identically zero.
 !
-! None of the three was separable from the tape before these lines. FATES_MOSS_FWET_SOIL
+! None of the three was separable from the tape before these lines. FATES_MOSS_FWET_SOIL_TOT
 ! counts total water, ice included, so a layer whose pore space is solid ice reads as wet.
 !
 ! SOILPSI is not the suction btran sees and should not be compared with smpsc directly. It

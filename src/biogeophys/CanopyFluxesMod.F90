@@ -876,7 +876,7 @@ bioms:   do f = 1, fn
       
       if(use_fates)then
          call clm_fates%wrap_btran(nc, fn, filterc_tmp(1:fn), soilstate_inst, &
-               waterdiagnosticbulk_inst, temperature_inst, energyflux_inst, soil_water_retention_curve)
+               waterstatebulk_inst, waterdiagnosticbulk_inst, temperature_inst, energyflux_inst, soil_water_retention_curve)
          
       else
          

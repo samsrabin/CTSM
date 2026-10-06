@@ -1288,6 +1288,11 @@ module CLMFatesInterfaceMod
          this%fates(nc)%bc_in(s)%h2o_liqvol_sl(1:nlevsoil)  = &
                h2osoi_liqvol(c,1:nlevsoil)
 
+         ! h2o_totvol_sl is the matching total (liquid plus ice) volumetric water, also valid
+         ! for every FATES column and refilled by wrap_btran during the canopy flux steps.
+         this%fates(nc)%bc_in(s)%h2o_totvol_sl(1:nlevsoil)  = &
+               waterstatebulk_inst%h2osoi_vol_col(c,1:nlevsoil)
+
          ! wrap_btran is otherwise the only writer of watsat_sl, and it sets this to -999
          ! for columns outside the exposed-vegetation filter, so the moss wetness proxy --
          ! diagnosed in the daily dynamics call -- needs a valid porosity here. Gated on
@@ -2529,7 +2534,7 @@ module CLMFatesInterfaceMod
    ! ====================================================================================
 
    subroutine wrap_btran(this,nc,fn,filterc,soilstate_inst, &
-                         waterdiagnosticbulk_inst, temperature_inst, energyflux_inst,  &
+                         waterstatebulk_inst, waterdiagnosticbulk_inst, temperature_inst, energyflux_inst,  &
                          soil_water_retention_curve)
 
       ! ---------------------------------------------------------------------------------
@@ -2549,6 +2554,7 @@ module CLMFatesInterfaceMod
       integer                , intent(in)            :: filterc(fn) ! This is a list of
                                                                         ! columns with exposed veg
       type(soilstate_type)   , intent(inout)         :: soilstate_inst
+      type(waterstatebulk_type)       , intent(in)            :: waterstatebulk_inst
       type(waterdiagnosticbulk_type)  , intent(in)            :: waterdiagnosticbulk_inst
       type(temperature_type) , intent(in)            :: temperature_inst
       type(energyflux_type)  , intent(inout)         :: energyflux_inst
@@ -2607,6 +2613,7 @@ module CLMFatesInterfaceMod
               do j = 1,nlevsoil
                  this%fates(nc)%bc_in(s)%tempk_sl(j)         = t_soisno(c,j)
                  this%fates(nc)%bc_in(s)%h2o_liqvol_sl(j)    = h2osoi_liqvol(c,j)
+                 this%fates(nc)%bc_in(s)%h2o_totvol_sl(j)    = waterstatebulk_inst%h2osoi_vol_col(c,j)
                  this%fates(nc)%bc_in(s)%eff_porosity_sl(j)  = eff_porosity(c,j)
                  this%fates(nc)%bc_in(s)%watsat_sl(j)        = watsat(c,j)
               end do
@@ -2615,6 +2622,7 @@ module CLMFatesInterfaceMod
               this%fates(nc)%bc_in(s)%filter_btran = .false.
               this%fates(nc)%bc_in(s)%tempk_sl(:)         = -999._r8
               this%fates(nc)%bc_in(s)%h2o_liqvol_sl(:)    = -999._r8
+              this%fates(nc)%bc_in(s)%h2o_totvol_sl(:)    = -999._r8
               this%fates(nc)%bc_in(s)%eff_porosity_sl(:)  = -999._r8
               this%fates(nc)%bc_in(s)%watsat_sl(:)        = -999._r8
            end if
