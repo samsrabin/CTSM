@@ -350,7 +350,7 @@ Each commit goes through the main plan's review loop before it is made.
   - Every consumer (capacity, respiration, the CO₂ film argument, fuel moisture) reads
     `fwet_moss_liq`.
 
-- [ ] **Step 0 (orchestrator):**
+- [x] **Step 0 (orchestrator):**
   - Confirm that no unit or functional test calls `CiFunc`, `CiBisection` or
     `LeafLayerPhotosynthesis`, or names `fwet_moss_vascular`. Search
     `src/fates/testing`. If one does, Steps 1-2 would need a test change, which only a
@@ -362,7 +362,7 @@ Each commit goes through the main plan's review loop before it is made.
   - Confirm that the moss ALP2 tape carries layer-1 porosity (`WATSAT`) and `H2OSOI`, which
     Step 9's check needs. Settled 2026-10-06: `WATSAT` is time-constant in the first
     history file, and `H2OSOI` was absent, so Step 4 adds `H2OSOI:I` (Sam's choice).
-- [ ] **Step 1: rename (FATES; implementer agent).** A pure rename, bit-for-bit:
+- [x] **Step 1: rename (FATES; implementer agent).** A pure rename, bit-for-bit:
   - in `LeafBiophysicsMod`, the dummy argument `fwet_moss` becomes `fwet_moss_tot` in
     `MossCO2FilmFactor`, `CiFunc`, `CiBisection` and `LeafLayerPhotosynthesis`;
   - in `FatesPlantRespPhotosynthMod`, the local `fwet_moss_arg` becomes `fwet_moss_tot_arg`.
@@ -371,7 +371,7 @@ Each commit goes through the main plan's review loop before it is made.
   wetness proxy. The patch member `currentPatch%fwet_moss` keeps its name in this step; the
   split renames it. Leave the sentinel alone: Step 2 deletes it. Build, run
   `run_unit_tests.py -t moss_fwet`, review, and commit in `src/fates/`.
-- [ ] **Step 2: logical argument instead of the sign sentinel (FATES; implementer agent).**
+- [x] **Step 2: logical argument instead of the sign sentinel (FATES; implementer agent).**
   Bit-for-bit for moss and vascular PFTs.
   - **`LeafBiophysicsMod`:**
     - Add `logical, intent(in) :: is_moss ! true for a moss (non-vascular) cohort` to
@@ -392,7 +392,7 @@ Each commit goes through the main plan's review loop before it is made.
       logical.
 
   Build, run `run_unit_tests.py -t moss_fwet`, review, and commit in `src/fates/`.
-- [ ] **Step 3: the split's tests first (test-writing agent, dispatched before the
+- [x] **Step 3: the split's tests first (test-writing agent, dispatched before the
   implementer).** The agent invokes `writing-tests-before-the-implementer`, `pfunit-tests`
   and `designing-unit-test-cases` first. It receives this task's text up to the end of
   **Interfaces**, plus the spec. It is given no description of how the implementation will
@@ -422,7 +422,7 @@ Each commit goes through the main plan's review loop before it is made.
   green-throughout, as the skill requires. The suite does not compile against the current
   API, which is the red evidence for every test that names the new routines or members.
   Commit the test file alone in `src/fates/`.
-- [ ] **Step 4: implement the split (implementer agent; must not edit any test file).** The
+- [x] **Step 4: implement the split (implementer agent; must not edit any test file).** The
   implementer invokes `pfunit-tests` first. It makes the remaining Files entries match the
   Interfaces block:
   - **Patch:** add the members, set to NaN in `NanValues` and 0 in `ZeroValues`. Replace
@@ -477,13 +477,13 @@ Each commit goes through the main plan's review loop before it is made.
     `FATES_MOSS_FWET_SOIL_TOT` is checked against. The empty-tapes setting from `clm/Fates`
     removes it otherwise, and a daily mean would not match the FATES field's once-daily
     value. The agent touching this file invokes `ctsm-system-tests`.
-- [ ] **Step 5: unit tests.** `run_unit_tests.py -t moss_fwet` and `-t fire_fuel` both pass,
+- [x] **Step 5: unit tests.** `run_unit_tests.py -t moss_fwet` and `-t fire_fuel` both pass,
   with the test files untouched since Step 3.
-- [ ] **Step 6: functional test.**
+- [x] **Step 6: functional test.**
   `MPLBACKEND=Agg <python> run_functional_tests.py --save-figs -t fuel` passes. Its driver
   passes the proxy positionally, so it needs no change.
-- [ ] **Step 7: build.** Claude builds CTSM-FATES.
-- [ ] **Step 8: reviews, then commit the split.** The reviewers see the union of the Step 3
+- [x] **Step 7: build.** Claude builds CTSM-FATES.
+- [x] **Step 8: reviews, then commit the split.** The reviewers see the union of the Step 3
   test commit and the implementation, and confirm the test file is unchanged since Step 3.
   Commit FATES, then CTSM with the pointer bump and `fxtag`.
 - [ ] **Step 9: verify (Sam, during review).** Tests expected to change:
