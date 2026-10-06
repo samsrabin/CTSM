@@ -9,6 +9,7 @@ of the same rule and are worth confirming against your own suite before relying 
 | | Test files | Test-side code the glob does **not** match |
 |---|---|---|
 | pFUnit (CTSM) | `':(top)*.pf'` | `src/unit_test_shr/*.F90` — the shared fixture harnesses; a test directory's `CMakeLists.txt` |
+| FATES (pFUnit and functional) | `':(top)*.pf'`, run in `src/fates` (`git -C src/fates diff ...`): it is a submodule, so a diff from the CTSM root sees none of its files | `src/fates/testing/tests/fortran_shr/*.F90` — the shared fixtures (`FatesFactoryMod`, `SyntheticPatchTypes`, …); each test directory's `CMakeLists.txt`, `src/fates/testing/CMakeLists.txt`, `config/unit.cfg` and `config/functional.cfg`; the functional tests' Fortran drivers under `tests/functional/`, which assert nothing, so "passes" means "ran to completion" and an edit to the driver can make it pass |
 | pytest | `':(top)test_*.py'`, `':(top)*_test.py'` | `conftest.py`, fixture and factory modules, test data files |
 
 **The cwd trap, observed here:** run from inside one test directory, `git diff <base>..HEAD --
