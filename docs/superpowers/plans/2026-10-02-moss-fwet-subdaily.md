@@ -737,7 +737,7 @@ and the only answer-changing step is last and isolated.
 
   Run `-t moss_fwet` and `-t fire_fuel`, then build. Review, commit FATES, then CTSM
   (pointer bump and `fxtag`).
-- [ ] **Step 6: canopy rename, tests first (FATES; test-writing agent).** Same skills.
+- [x] **Step 6: canopy rename, tests first (FATES; test-writing agent).** Same skills.
   `fwet_moss_canopy` becomes `fwet_moss_canopy_tot` throughout `test_MossFwet.pf`,
   including `marker_canopy` (now `marker_canopy_tot`) and comments. Red. Commit the test
   file alone.
