@@ -752,7 +752,7 @@ and the only answer-changing step is last and isolated.
 
   The agent touching the testmod invokes `ctsm-system-tests`. Run, build, review, commit
   FATES, then CTSM.
-- [ ] **Step 8: liquid-only canopy ingredient, tests first (FATES; test-writing agent).**
+- [x] **Step 8: liquid-only canopy ingredient, tests first (FATES; test-writing agent).**
   Same skills. Against the Produces signatures:
   - `UpdateMossFwetLiq` cases pass `fwet_veg_liq` and assert `fwet_moss_canopy_liq`;
   - every `UpdateMossFwetLiq` case also asserts `fwet_moss_canopy_tot` still holds its
