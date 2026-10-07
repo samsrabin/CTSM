@@ -664,9 +664,10 @@ and the only answer-changing step is last and isolated.
     that no step provides.
   - List every reference to `fwet_moss_canopy` and `FATES_MOSS_FWET_CANOPY` outside
     `docs/` against the Files list. Untracked logs are left alone.
-  - Confirm `BulkDiag_FracWet` is the only writer of `fwet_patch`, and that `fwet_patch`
-    is not a restart variable. If it is restarted, the new liquid fraction must be too,
-    which Step 9 does not provide: stop and report.
+  - Confirm `BulkDiag_FracWet` is the only writer of `fwet_patch`. (Settled 2026-10-07:
+    `fwet_patch` is a restart variable, `FWET`, for `SurfaceAlbedo`'s sake. The new liquid
+    fraction gets none, because its only readers run after `BulkDiag_FracWet` in the same
+    timestep; see Step 9.)
 - [ ] **Step 1: correct the comments Task C left stale (FATES; implementer agent).** Three
   comments still say the CO₂ film and fuel moisture read the liquid proxy, or will move
   "in a later change". Make each state what is now true:
@@ -768,7 +769,12 @@ and the only answer-changing step is last and isolated.
     and has no restart variable and no history field. Its declaration comment says it is
     the liquid-only counterpart of `fwet_patch`, which is computed from canopy snow plus
     liquid. `fwet_patch` keeps its name and is not touched, and there is no
-    `fwet_tot_patch` (Sam, 2026-10-07).
+    `fwet_tot_patch` (Sam, 2026-10-07). No restart variable (Sam, 2026-10-07): in
+    `clm_driver.F90`, `CanopyInterceptionAndThroughfall` (which calls `BulkDiag_FracWet`)
+    runs before both readers, `CanopyFluxes` (`wrap_btran`, Task D) and the daily
+    `dynamics_driv`, in every timestep including the first after a restart. A restart
+    variable would also change the restart file shape of every CTSM run. Say this in a
+    short comment at the declaration.
   - **CTSM, `BulkDiag_FracWet`:** beside `fwet`, set
     `fwet_liq(p) = min((liqcan(p)/(vegt*params_inst%liq_canopy_storage_scalar))**0.666666666666_r8, params_inst%maximum_leaf_wetted_fraction)`
     when `liqcan(p) > 0`, else 0. That is the same expression, exponent and cap as
@@ -809,6 +815,9 @@ and the only answer-changing step is last and isolated.
 
     A violation of the inequality is a stop: the new field is then not what this step
     says.
+  - **Moss ALP2 ERS tests: PASS.** If one fails from Step 9 on, check first that
+    `fwet_liq_patch` really is written before it is read after a restart. It has no
+    restart variable, by the call-order argument in Step 9 (Sam, 2026-10-07).
 
 ---
 
