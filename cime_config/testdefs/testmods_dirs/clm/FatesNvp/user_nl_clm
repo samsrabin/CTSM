@@ -198,3 +198,22 @@ hist_fincl1 += 'TSOI'
 hist_fincl1 += 'SOILLIQ'
 hist_fincl1 += 'SOILICE'
 hist_fincl1 += 'SOILPSI'
+
+! Second history tape (written as h1), 12-hourly with one model year per file, to check
+! that the moss wetness proxies change within the day. Until the proxies are sampled
+! sub-daily they hold their daily values through each day, so the two records of a day
+! are equal.
+!
+! Only the fields named below land on tape 2: only tape 1 has a default-active field set,
+! and fields reach any other tape solely through its hist_fincl, with or without
+! hist_empty_htapes. These use `+=` like every other line here.
+
+hist_nhtfrq(2) = -12
+hist_mfilt(2)  = 730
+hist_fincl2 += 'FATES_GPP_PF'
+hist_fincl2 += 'FATES_MOSS_FWET_LIQ'
+hist_fincl2 += 'FATES_MOSS_FWET_TOT'
+hist_fincl2 += 'FATES_MOSS_FWET_SOIL_LIQ'
+hist_fincl2 += 'FATES_MOSS_FWET_SOIL_TOT'
+hist_fincl2 += 'FATES_MOSS_FWET_CANOPY'
+hist_fincl2 += 'FATES_MOSS_WETNESS_SCALER'
