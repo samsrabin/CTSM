@@ -696,7 +696,7 @@ and the only answer-changing step is last and isolated.
 
   Green throughout: no implementation changes. Run `run_unit_tests.py -t moss_fwet`.
   Review, commit the test file alone.
-- [ ] **Step 3: reshape the scaler tests on the current API (FATES; test-writing agent).**
+- [x] **Step 3: reshape the scaler tests on the current API (FATES; test-writing agent).**
   Same skills. Every expected scaler is derived from the threshold its test sets
   (`test_vcmax_thresh_scaler` in the scaler cases), never written as a literal:
   - `UpdateMossWetnessScaler_ProxyBelowThreshold_ScalesLinearly` becomes a three-member
