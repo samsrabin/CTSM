@@ -190,12 +190,12 @@ than assumed, and each is printed in the preamble with where it came from.
 
   A. PATCH PROPERTIES, diluted only by bareground. Divisor: the non-bareground area
      fraction. FATES_MOSS_FWET_LIQ, FATES_MOSS_FWET_TOT, FATES_MOSS_FWET_SOIL_LIQ,
-     FATES_MOSS_FWET_SOIL_TOT, FATES_MOSS_FWET_CANOPY_TOT, FATES_MOSS_WETNESS_SCALER, and
-     FATES_FUEL_MOISTURE_FC at the two moss classes. UpdateMossFwetLiq and
-     UpdateMossFwetTot run on every patch whose label is not nocomp_bareground
-     (main/EDMainMod.F90:232-237), so the proxies and everything derived from them per patch
-     carry the same value on a grass patch as on a moss patch, and only bareground
-     contributes zero to the site mean.
+     FATES_MOSS_FWET_SOIL_TOT, FATES_MOSS_FWET_CANOPY_TOT, FATES_MOSS_FWET_CANOPY_LIQ,
+     FATES_MOSS_WETNESS_SCALER, and FATES_FUEL_MOISTURE_FC at the two moss classes.
+     UpdateMossFwetLiq and UpdateMossFwetTot run on every patch whose label is not
+     nocomp_bareground (main/EDMainMod.F90:232-237), so the proxies and everything derived
+     from them per patch carry the same value on a grass patch as on a moss patch, and only
+     bareground contributes zero to the site mean.
 
   B. MOSS-ONLY QUANTITIES. Divisor: the moss patch area fraction, NOT the non-bareground
      one. FATES_LIVEMOSS_FUEL, FATES_MOSS_FINES, and FATES_FUEL_AMOUNT_FC at the moss
@@ -1872,9 +1872,10 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
     ingredient wins on every patch, the proxy is identical on every patch, and both
     branches are uniform whatever the threshold is. That is what makes the identities
     safe, and losing it is what would make them fail for a reason that is not a model
-    defect. The two proxies share the canopy ingredient and differ only in the soil one, so
-    the watch takes the lower of the two soil ingredients on each day: a margin that holds
-    for it holds for both proxies.
+    defect. The watch takes the lower of the two soil ingredients on each day and the total
+    proxy's canopy ingredient, FATES_MOSS_FWET_CANOPY_TOT, which is never below the liquid
+    proxy's (it adds canopy snow to the same capped expression): a margin that holds for
+    that pair holds for both proxies.
 
     The margin is reported in PATCH units, since that is where the cap lives, and the site
     value is the patch value times the non-bareground area fraction. Without that fraction
@@ -1994,20 +1995,34 @@ def check_proxy_identity(report, data, units, precondition, water, suffix):
     """One proxy is the wetter of its two ingredients, and never below either (Task 8).
 
     `water` names the proxy in the labels ("liquid-water", "total-water"); `suffix` picks
-    its fields, FATES_MOSS_FWET_<suffix> and FATES_MOSS_FWET_SOIL_<suffix>.
+    its fields, FATES_MOSS_FWET_<suffix>, FATES_MOSS_FWET_SOIL_<suffix> and
+    FATES_MOSS_FWET_CANOPY_<suffix>.
     """
     fwet_name, soil_name = f"FATES_MOSS_FWET_{suffix}", f"FATES_MOSS_FWET_SOIL_{suffix}"
+    canopy_name = f"FATES_MOSS_FWET_CANOPY_{suffix}"
+    identity_label = (
+        f"Is the {water} moss wetness proxy the wetter of its two ingredients? (Task 8)"
+    )
+    bound_label = (
+        f"Does the {water} proxy stay at or above both of its ingredients, every day? "
+        "(Task 8)"
+    )
+    gone = absent(data, canopy_name)
+    if gone:
+        for label in (identity_label, bound_label):
+            report("SKIP", label, f"{', '.join(gone)} is not on this tape.")
+        return
     fwet = data[fwet_name]
     soil = data[soil_name]
-    canopy = data["FATES_MOSS_FWET_CANOPY_TOT"]
+    canopy = data[canopy_name]
 
     deviation = float(np.nanmax(np.abs(fwet - np.maximum(soil, canopy))))
     ok = deviation < TOL_EXACT
     report(
         "PASS" if ok else "FAIL",
-        f"Is the {water} moss wetness proxy the wetter of its two ingredients? (Task 8)",
+        identity_label,
         ("" if ok else DIVERGENCE_FIRST_SUSPECT + "\n")
-        + f"identity: {fwet_name} == max({soil_name}, FATES_MOSS_FWET_CANOPY_TOT)\n"
+        + f"identity: {fwet_name} == max({soil_name}, {canopy_name})\n"
         + f"max |deviation| = {deviation:.3e}\n"
         f"proxy  {units.spans(fwet, 'patch', site_units='')}\n"
         f"soil   {units.spans(soil, 'patch', site_units='')}\n"
@@ -2020,8 +2035,7 @@ def check_proxy_identity(report, data, units, precondition, water, suffix):
     below = int(np.sum((fwet < soil - TOL_EXACT) | (fwet < canopy - TOL_EXACT)))
     report(
         "PASS" if below == 0 else "FAIL",
-        f"Does the {water} proxy stay at or above both of its ingredients, every day? "
-        "(Task 8)",
+        bound_label,
         f"days below one of its ingredients: {below} of {len(fwet)}\n"
         "Unlike the identity above this one is structural: a sum of max(a_p, b_p) weighted "
         "by non-negative areas is at least the same sum of a_p, and at least the same sum "
@@ -2033,18 +2047,26 @@ def check_proxy_identity(report, data, units, precondition, water, suffix):
 def check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_source):
     """Each proxy is the wetter of its two ingredients, and never below either (Task 8).
 
-    The two proxies share the canopy ingredient and differ in the soil one: top-layer
-    liquid saturation for FATES_MOSS_FWET_LIQ, liquid plus ice for FATES_MOSS_FWET_TOT.
-    Both identities are checked. The report on the canopy ingredient that follows is about
-    the liquid proxy, the one the wetness scaler reads; the CO2 water film and fuel moisture
-    read the total one.
+    The two proxies differ in both ingredients. The soil one is top-layer liquid saturation
+    for FATES_MOSS_FWET_LIQ and liquid plus ice for FATES_MOSS_FWET_TOT; the canopy one is
+    CTSM's canopy wetted fraction from canopy liquid alone (FATES_MOSS_FWET_CANOPY_LIQ) and
+    from canopy snow plus liquid (FATES_MOSS_FWET_CANOPY_TOT) respectively. Both identities
+    are checked. The report on the canopy ingredient that follows is about the liquid
+    proxy, the one the wetness scaler reads; the CO2 water film and fuel moisture read the
+    total one.
     """
     for water, suffix in (("liquid-water", "LIQ"), ("total-water", "TOT")):
         check_proxy_identity(report, data, units, precondition, water, suffix)
 
+    canopy_label = "Is the canopy ingredient event-driven, and does it ever matter? (Task 8)"
+    gone = absent(data, "FATES_MOSS_FWET_CANOPY_LIQ")
+    if gone:
+        report("SKIP", canopy_label, f"{', '.join(gone)} is not on this tape.")
+        return
+
     fwet = data["FATES_MOSS_FWET_LIQ"]
     soil = data["FATES_MOSS_FWET_SOIL_LIQ"]
-    canopy = data["FATES_MOSS_FWET_CANOPY_TOT"]
+    canopy = data["FATES_MOSS_FWET_CANOPY_LIQ"]
 
     canopy_binds = int(np.sum(canopy > soil))
     canopy_max = float(np.nanmax(canopy))
@@ -2137,7 +2159,7 @@ def check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_sour
         )
     report(
         "INFO",
-        "Is the canopy ingredient event-driven, and does it ever matter? (Task 8)",
+        canopy_label,
         "\n".join(lines) + coverage_note(len(fwet), fwet, soil, canopy),
     )
 
@@ -2149,7 +2171,7 @@ def check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_sour
     if canopy_binds == 0:
         report.warn(
             "The canopy ingredient never sets the liquid moss wetness proxy in this run",
-            f"FATES_MOSS_FWET_CANOPY_TOT tops out at {native_canopy_max:.4f} while "
+            f"FATES_MOSS_FWET_CANOPY_LIQ tops out at {native_canopy_max:.4f} while "
             f"FATES_MOSS_FWET_SOIL_LIQ spans {native_soil}, so on all "
             f"{len(fwet)} days of this run the liquid proxy is its soil ingredient and "
             "nothing else.\n"

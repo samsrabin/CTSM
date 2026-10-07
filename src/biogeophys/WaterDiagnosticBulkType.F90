@@ -76,6 +76,11 @@ module WaterDiagnosticBulkType
      real(r8), pointer :: wf_col                 (:)   ! col soil water as frac. of whc for top 0.05 m (0-1) 
      real(r8), pointer :: wf2_col                (:)   ! col soil water as frac. of whc for top 0.17 m (0-1) 
      real(r8), pointer :: fwet_patch             (:)   ! patch canopy fraction that is wet (0 to 1)
+     ! Liquid-only counterpart of fwet_patch, which is computed from canopy snow plus liquid.
+     ! Deliberately not a restart variable: BulkDiag_FracWet sets it in
+     ! CanopyInterceptionAndThroughfall, which runs before its readers (CanopyFluxes and the
+     ! daily FATES dynamics_driv) in every timestep, including the first after a restart.
+     real(r8), pointer :: fwet_liq_patch         (:)   ! patch fraction of canopy that is wet from canopy liquid alone (0 to 1)
      real(r8), pointer :: fcansno_patch          (:)   ! patch canopy fraction that is snow covered (0 to 1)
      real(r8), pointer :: fdry_patch             (:)   ! patch canopy fraction of foliage that is green and dry [-] (new)
 
@@ -230,6 +235,7 @@ contains
     allocate(this%wf_col                 (begc:endc))                     ; this%wf_col                 (:)   = nan
     allocate(this%wf2_col                (begc:endc))                     ; this%wf2_col                (:)   = nan
     allocate(this%fwet_patch             (begp:endp))                     ; this%fwet_patch             (:)   = nan
+    allocate(this%fwet_liq_patch         (begp:endp))                     ; this%fwet_liq_patch         (:)   = nan
     allocate(this%fcansno_patch          (begp:endp))                     ; this%fcansno_patch          (:)   = nan
     allocate(this%fdry_patch             (begp:endp))                     ; this%fdry_patch             (:)   = nan
     allocate(this%qflx_prec_intr_patch   (begp:endp))                     ; this%qflx_prec_intr_patch   (:)   = nan
@@ -730,6 +736,7 @@ contains
       this%frac_h2osfc_col(bounds%begc:bounds%endc) = 0._r8
 
       this%fwet_patch(bounds%begp:bounds%endp) = 0._r8
+      this%fwet_liq_patch(bounds%begp:bounds%endp) = 0._r8
       this%fdry_patch(bounds%begp:bounds%endp) = 0._r8
       this%fcansno_patch(bounds%begp:bounds%endp) = 0._r8
 

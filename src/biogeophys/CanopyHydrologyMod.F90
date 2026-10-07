@@ -427,6 +427,7 @@ contains
           liqcan         = b_waterstate_inst%liqcan_patch(begp:endp), &
           ! Outputs
           fwet           = b_waterdiagnostic_inst%fwet_patch(begp:endp), &
+          fwet_liq       = b_waterdiagnostic_inst%fwet_liq_patch(begp:endp), &
           fdry           = b_waterdiagnostic_inst%fdry_patch(begp:endp), &
           fcansno        = b_waterdiagnostic_inst%fcansno_patch(begp:endp))
 
@@ -1119,7 +1120,7 @@ contains
    !-----------------------------------------------------------------------
    subroutine BulkDiag_FracWet(bounds, num_soilp, filter_soilp, &
         frac_veg_nosno, elai, esai, snocan, liqcan, &
-        fwet, fdry, fcansno)
+        fwet, fwet_liq, fdry, fcansno)
      !
      ! !DESCRIPTION:
      ! Determine fraction of vegetated surfaces which are wet and
@@ -1128,6 +1129,8 @@ contains
      ! stem area which contribute to evaporation. The variable ``fdry''
      ! is the fraction of elai which is dry because only leaves
      ! can transpire.  Adjusted for stem area which does not transpire.
+     ! ``fwet_liq'' is computed the same way as ``fwet'' but from canopy
+     ! liquid alone, leaving out canopy snow.
      !
      ! ! USES:
      use clm_varcon         , only : tfrz
@@ -1142,6 +1145,7 @@ contains
      real(r8) , intent(in)    :: snocan( bounds%begp: )         ! canopy snow water (mm H2O)
      real(r8) , intent(in)    :: liqcan( bounds%begp: )         ! canopy liquid water (mm H2O)
      real(r8) , intent(inout) :: fwet( bounds%begp: )           ! fraction of canopy that is wet (0 to 1)
+     real(r8) , intent(inout) :: fwet_liq( bounds%begp: )       ! fraction of canopy that is wet from canopy liquid alone (0 to 1)
      real(r8) , intent(inout) :: fdry( bounds%begp: )           ! fraction of foliage that is green and dry [-]
      real(r8) , intent(inout) :: fcansno( bounds%begp: )        ! fraction of canopy that is snow covered (0 to 1)
      !
@@ -1157,6 +1161,7 @@ contains
      SHR_ASSERT_FL((ubound(snocan, 1) == bounds%endp), sourcefile, __LINE__)
      SHR_ASSERT_FL((ubound(liqcan, 1) == bounds%endp), sourcefile, __LINE__)
      SHR_ASSERT_FL((ubound(fwet, 1) == bounds%endp), sourcefile, __LINE__)
+     SHR_ASSERT_FL((ubound(fwet_liq, 1) == bounds%endp), sourcefile, __LINE__)
      SHR_ASSERT_FL((ubound(fdry, 1) == bounds%endp), sourcefile, __LINE__)
      SHR_ASSERT_FL((ubound(fcansno, 1) == bounds%endp), sourcefile, __LINE__)
 
@@ -1169,6 +1174,11 @@ contains
               vegt    = frac_veg_nosno(p)*(elai(p) + esai(p))
               fwet(p) = (h2ocan / (vegt * params_inst%liq_canopy_storage_scalar))**0.666666666666_r8
               fwet(p) = min (fwet(p),params_inst%maximum_leaf_wetted_fraction)   ! Check for maximum limit of fwet
+              if (liqcan(p) > 0._r8) then
+                 fwet_liq(p) = min((liqcan(p)/(vegt*params_inst%liq_canopy_storage_scalar))**0.666666666666_r8, params_inst%maximum_leaf_wetted_fraction)
+              else
+                 fwet_liq(p) = 0._r8
+              end if
               if (snocan(p) > 0._r8) then
                  fcansno(p) = (snocan(p) / (vegt * params_inst%snow_canopy_storage_scalar))**0.15_r8 ! must match snocanmx 
                  fcansno(p) = min (fcansno(p),1.0_r8)
@@ -1177,11 +1187,13 @@ contains
               end if
            else
               fwet(p) = 0._r8
+              fwet_liq(p) = 0._r8
               fcansno(p) = 0._r8
            end if
            fdry(p) = (1._r8-fwet(p))*elai(p)/(elai(p)+esai(p))
         else
            fwet(p) = 0._r8
+           fwet_liq(p) = 0._r8
            fdry(p) = 0._r8
         end if
      end do

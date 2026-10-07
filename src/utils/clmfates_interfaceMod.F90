@@ -1344,6 +1344,9 @@ module CLMFatesInterfaceMod
             this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = &
                   waterdiagnosticbulk_inst%fwet_patch(p)
 
+            this%fates(nc)%bc_in(s)%fwet_veg_liq_pa(ifp) = &
+                  waterdiagnosticbulk_inst%fwet_liq_patch(p)
+
          end do
 
          ! Here we use the same logic as the pft_areafrac initialization to get an array with values for each pft

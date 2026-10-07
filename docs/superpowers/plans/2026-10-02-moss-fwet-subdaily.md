@@ -761,7 +761,7 @@ and the only answer-changing step is last and isolated.
   - The "leaves the other proxy alone" cases cover both canopy members.
 
   Red. Commit the test file alone.
-- [ ] **Step 9: liquid-only canopy ingredient (CTSM and FATES; implementer agent).**
+- [x] **Step 9: liquid-only canopy ingredient (CTSM and FATES; implementer agent).**
   Answer-changing for moss.
   - **CTSM, `WaterDiagnosticBulkType`:** a new patch field
     `fwet_liq_patch(:)` ("fraction of canopy that is wet from canopy liquid alone, 0 to
