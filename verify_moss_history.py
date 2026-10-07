@@ -101,7 +101,7 @@ against survive only as trailing parentheticals, for a reader who has the plan.
 
   4. MOSS FUEL MOISTURE AND FLAMMABILITY.
      Both moss fuel classes' moisture is an exact linear function of the moss wetness proxy
-     it reads (the liquid one, in this model version) and of nothing else, with the fitted
+     it reads (the total-water one) and of nothing else, with the fitted
      slope pinned against the configured map and against a moisture of extinction that does
      not come out of the fit, and the crossing point pinned against the configured intercept
      -- which at the configured intercept of zero says only that there is no offset; the
@@ -402,10 +402,9 @@ NESTEROV_DRIVEN = [
 
 # The moss wetness proxy that moss fuel moisture reads (fire/SFMainMod.F90, the
 # UpdateFuelMoisture call). FATES keeps two proxies, one from liquid soil water and one from
-# liquid plus ice; in this model version fuel moisture still reads the liquid one, and it is
-# due to move to the total one, FATES_MOSS_FWET_TOT. The wetness scaler always follows the
-# liquid proxy, so section 2 reads FATES_MOSS_FWET_LIQ directly.
-FUEL_MOISTURE_PROXY = "FATES_MOSS_FWET_LIQ"
+# liquid plus ice; fuel moisture reads the total one, FATES_MOSS_FWET_TOT. The wetness scaler
+# follows the liquid proxy, so section 2 reads FATES_MOSS_FWET_LIQ directly.
+FUEL_MOISTURE_PROXY = "FATES_MOSS_FWET_TOT"
 
 # Shipped namelist defaults, used only when the run's lnd_in cannot be read. The script
 # prefers the run's own values and says which it used.
@@ -1764,10 +1763,10 @@ SECTIONS = (
 stands in for how wet the moss mat is: the wetter of the top soil layer's saturation and
 the canopy's wetted fraction. It comes in two versions that differ only in the soil
 water counted. FATES_MOSS_FWET_LIQ counts liquid water, so a frozen top layer reads dry;
-FATES_MOSS_FWET_TOT counts liquid plus ice. In this model version everything
-moss-specific downstream reads the liquid one -- photosynthetic capacity, leaf
-respiration, and both moss fuel classes' moisture -- so a proxy built wrong makes every
-moss number below wrong with it. The checks here ask only whether each is the quantity
+FATES_MOSS_FWET_TOT counts liquid plus ice. Photosynthetic capacity and leaf
+respiration read the liquid one, while the CO2 water film and both moss fuel classes'
+moisture read the total one, so a proxy built wrong makes the moss numbers below wrong
+with it. The checks here ask only whether each is the quantity
 it claims to be: the larger of its two ingredients on every day of the run, and never
 smaller than either.""",
     ),
@@ -1807,7 +1806,7 @@ not a water content.
 Where a class's moisture comes from is what this branch changes. Every other class takes
 it from fire weather, through the Nesterov index, which climbs as the air stays warm and
 dry and is reset by rain. The two moss classes instead take it from a wetness proxy of
-section 1 (the liquid one, in this model version), through a straight line --
+section 1 (the total-water one), through a straight line --
 max(0, intercept + slope * fwet) -- whose intercept and slope this run sets in its
 namelist, because a moss mat is wet when the GROUND is wet rather than when the air has
 lately been dry.
@@ -2037,8 +2036,8 @@ def check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_sour
     The two proxies share the canopy ingredient and differ in the soil one: top-layer
     liquid saturation for FATES_MOSS_FWET_LIQ, liquid plus ice for FATES_MOSS_FWET_TOT.
     Both identities are checked. The report on the canopy ingredient that follows is about
-    the liquid proxy, the one the wetness scaler and, in this model version, every other
-    moss consumer read.
+    the liquid proxy, the one the wetness scaler reads; the CO2 water film and fuel moisture
+    read the total one.
     """
     for water, suffix in (("liquid-water", "LIQ"), ("total-water", "TOT")):
         check_proxy_identity(report, data, units, precondition, water, suffix)
