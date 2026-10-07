@@ -535,7 +535,7 @@ Commit order:
     still read the liquid proxy through `moss_wetness_scaler`;
   - a second history tape (`h1`), 12-hourly, in every test that composes `FatesNvp`.
 
-- [ ] **Step 1: switch the CO₂ film and fuel moisture to the total proxy (FATES;
+- [x] **Step 1: switch the CO₂ film and fuel moisture to the total proxy (FATES;
   implementer agent).**
   - `SFMainMod` passes `currentPatch%fwet_moss_tot` to `UpdateFuelMoisture`. Rename that
     routine's dummy argument `fwet_moss` to `fwet_moss_tot`, with matching comments.
