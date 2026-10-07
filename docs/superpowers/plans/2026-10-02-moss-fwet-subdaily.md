@@ -29,13 +29,16 @@ Task 12 Step 3b.
 
 ## Global Constraints
 
-- **Tasks run strictly in order: A, B, C, then D.** A before B is load-bearing. Before
+- **Tasks run strictly in order: A, B, C, R, then D.** A before B is load-bearing. Before
   #4198 the daily fill of `h2o_liqvol_sl` carries total water, so if B ran first, its liquid
   proxy would be fed total water at the daily call and the split would be meaningless. B
   before C is load-bearing too: B's bit-for-bit check is the evidence that the split itself
   changes nothing, and it can only be made before C changes answers. C before D is the
   project's ordering convention. It also lets C's checks isolate the liquid/total semantics
-  before D changes when the proxies are sampled, and D's diurnal check reads C's tape.
+  before D changes when the proxies are sampled, and D's diurnal check reads C's tape. R
+  before D is load-bearing: D's sub-daily refresh calls `UpdateMossFwetLiq` with the
+  liquid canopy field R adds, and D's history move covers the canopy members R renames
+  and adds.
 - **`use_fates_moss = .false.` must be bit-for-bit with baseline**, including unchanged
   restart and history file shapes with a standard 6-litterclass parameter file. The one
   exception is Task A, which changes answers for every FATES run. From Task A on,
@@ -584,6 +587,231 @@ Commit order:
 
 ---
 
+### Task R: Review fixes for Tasks B and C
+
+Fixes from Sam's review of Tasks B and C (2026-10-07). The work is mostly bit-for-bit
+tidying of the moss wetness unit tests and patch routines. Most commits change no
+answers. The exception is the last step, which gives the liquid proxy a liquid-only
+canopy ingredient and changes answers for moss.
+
+Each step below is its own commit, reviewed before it is made (Sam: no single "review
+fix" commit). FATES commits come first. A CTSM commit with the pointer bump and `fxtag`
+follows Steps 5, 7 and 9, each carrying that step's CTSM changes. Test steps are done by
+a test-writing agent dispatched before the step's implementer, and the implementer must
+not edit any test file.
+
+**Why the order matters:** Steps 2-3 reshape the scaler tests against the current API, so
+their green run shows the reshaping changed no expectation. Only then does Step 4 move
+the tests to the new API. The rename (Steps 6-7) comes before the liquid canopy
+ingredient (Steps 8-9), so the new `_liq` member has a `_tot` counterpart to sit beside,
+and the only answer-changing step is last and isolated.
+
+**Files:**
+- Modify (FATES): `biogeochem/FatesPatchMod.F90`:
+  - members near lines 227-239;
+  - `NanValues`/`ZeroValues`;
+  - the procedure list;
+  - `UpdateMossFwetLiq`, `UpdateMossFwetTot`, `UpdateMossWetnessScaler` (near lines
+    890-1033).
+- Modify (FATES): `biogeophys/FatesPlantRespPhotosynthMod.F90` (scaler reads near lines
+  460 and 692)
+- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (moss wetness registrations near
+  6961-7023, fill near 2785-2802, index declarations near 486-491)
+- Modify (FATES): `main/FatesRestartInterfaceMod.F90` (moss wetness restart variables:
+  declarations, registration, write, read near 3874-3907)
+- Modify (FATES): `biogeochem/EDPatchDynamicsMod.F90` (fusion near 3321-3337)
+- Modify (FATES): `main/EDMainMod.F90` (daily call near line 233)
+- Modify (FATES): `main/FatesInterfaceTypesMod.F90`, `main/FatesInterfaceMod.F90`
+  (`bc_in%fwet_veg_liq_pa`, Step 9)
+- Test (FATES): `testing/tests/unit/moss_fwet_test/test_MossFwet.pf`. The parameterized
+  case of Step 3 may need its own `.pf` file in that directory, registered in its
+  `CMakeLists.txt`.
+- Modify: `src/biogeophys/WaterDiagnosticBulkType.F90`, `src/biogeophys/CanopyHydrologyMod.F90`
+  (`BulkDiag_FracWet`), `src/utils/clmfates_interfaceMod.F90` (`dynamics_driv`) (Step 9)
+- Modify: `cime_config/testdefs/testmods_dirs/clm/FatesNvp/user_nl_clm`,
+  `verify_moss_history.py`,
+  `diagnostics/2026-10-07-moss-total-proxy-switch/check_total_proxy_switch.py` (Steps 7
+  and 9)
+
+**Interfaces:**
+- Consumes: the Task B members and routines, as amended by Task C.
+- Produces:
+  - `real(r8) function MossWetnessScaler(this)`, type-bound on `fates_patch_type`,
+    returning `min(1, this%fwet_moss_liq/hlm_moss_vcmax_fwet_thresh)`. The member
+    `moss_wetness_scaler` and the subroutine `UpdateMossWetnessScaler` no longer exist.
+    `UpdateMossFwetLiq` no longer touches anything but its own members.
+  - Patch members `fwet_moss_canopy_tot` (renamed from `fwet_moss_canopy`; the host's
+    canopy wetted fraction from snow plus liquid) and, from Step 9,
+    `fwet_moss_canopy_liq` (from liquid alone).
+  - `subroutine UpdateMossFwetLiq(this, fwet_veg_liq, h2o_liqvol_top, watsat_top)`
+    sets `fwet_moss_soil_liq`, `fwet_moss_canopy_liq` and `fwet_moss_liq`.
+    `subroutine UpdateMossFwetTot(this, fwet_veg, h2o_totvol_top, watsat_top)` sets
+    `fwet_moss_soil_tot`, `fwet_moss_canopy_tot` and `fwet_moss_tot`. Neither touches
+    the other's members.
+  - `bc_in%fwet_veg_liq_pa(:)`, beside `fwet_veg_pa`: CTSM's canopy wetted fraction
+    computed from canopy liquid alone, from `waterdiagnosticbulk_inst%fwet_liq_patch`.
+  - History: `FATES_MOSS_FWET_CANOPY_TOT` (renamed from `FATES_MOSS_FWET_CANOPY`) and
+    `FATES_MOSS_FWET_CANOPY_LIQ` (new). `FATES_MOSS_WETNESS_SCALER` keeps its name and
+    is filled from `MossWetnessScaler()`.
+  - Restart: `fates_fwet_moss_canopy_tot` (renamed) and `fates_fwet_moss_canopy_liq`
+    (new). The scaler has no restart variable, as before.
+
+- [ ] **Step 0 (orchestrator):**
+  - Confirm the stale comments of Step 1 are still there.
+  - List every reader and writer of `moss_wetness_scaler` and `UpdateMossWetnessScaler`
+    in `src/fates`, including `testing/`, against the Files list above. An unlisted one
+    joins Step 5. One in a functional test is a stop: Step 5 would need a test change
+    that no step provides.
+  - List every reference to `fwet_moss_canopy` and `FATES_MOSS_FWET_CANOPY` outside
+    `docs/` against the Files list. Untracked logs are left alone.
+  - Confirm `BulkDiag_FracWet` is the only writer of `fwet_patch`, and that `fwet_patch`
+    is not a restart variable. If it is restarted, the new liquid fraction must be too,
+    which Step 9 does not provide: stop and report.
+- [ ] **Step 1: correct the comments Task C left stale (FATES; implementer agent).** Three
+  comments still say the CO₂ film and fuel moisture read the liquid proxy, or will move
+  "in a later change". Make each state what is now true:
+  - `FatesPatchMod.F90`, `UpdateMossFwetLiq` header: the liquid proxy drives capacity and
+    respiration only;
+  - `FatesPatchMod.F90`, `UpdateMossFwetTot` header: "is meant to drive" becomes "drives";
+  - `FatesHistoryInterfaceMod.F90`, the comment above the scaler's registration: drop the
+    parenthetical about a later change.
+
+  Comments only, bit-for-bit. Build, review, commit.
+- [ ] **Step 2: test comments and the porosity bracket (FATES; test-writing agent).** The
+  agent invokes `writing-tests-before-the-implementer`, `pfunit-tests` and
+  `designing-unit-test-cases` first. In `test_MossFwet.pf`:
+  - **Twin comments.** Each `UpdateMossFwetTot` case that says "Identical inputs and
+    expectations to" its `Liq` twin says instead that it uses the same numbers, and that
+    it asserts the total-proxy members where the twin asserts the liquid ones. The twins
+    stay separate tests (Sam).
+  - **Name the guard.** Wherever a comment says "the guard", say what it is: the
+    porosity check in `MossSoilSaturation`, which zeroes the soil ingredient unless
+    `watsat_top > nearzero`.
+  - **Derive the porosity bracket from `nearzero`.** `watsat_below_nearzero = 0.25_r8*nearzero`
+    and `watsat_above_nearzero = 2.0_r8*nearzero`, with `nearzero` from
+    `FatesConstantsMod`. Any soil water those cases set relative to the porosity is
+    derived from it the same way. Rewrite their comment: the cases test the guard relative
+    to `nearzero`, not the value of `nearzero`.
+
+  Green throughout: no implementation changes. Run `run_unit_tests.py -t moss_fwet`.
+  Review, commit the test file alone.
+- [ ] **Step 3: reshape the scaler tests on the current API (FATES; test-writing agent).**
+  Same skills. Every expected scaler is derived from the threshold its test sets
+  (`test_vcmax_thresh_scaler` in the scaler cases), never written as a literal:
+  - `UpdateMossWetnessScaler_ProxyBelowThreshold_ScalesLinearly` becomes a three-member
+    parameterized test, over three values of `fwet_moss_liq` below the threshold, each
+    expecting `fwet_moss_liq/test_vcmax_thresh_scaler`. Use pFUnit's parameterized test
+    case as the `pfunit-tests` skill describes. If it cannot run in this harness, stop and
+    report rather than falling back to a loop.
+  - The at-threshold and above-threshold cases set `fwet_moss_liq` from the threshold (at
+    it, and a stated multiple above it) and expect 1.
+  - `UpdateMossWetnessScaler_LiqAndTotProxiesDiffer_FollowsLiquid` splits in two: the
+    total proxy wetter than the liquid one, and the liquid one wetter. The second cannot
+    happen in the model. Its comment says so, and says it is there to pin which proxy
+    the scaler reads.
+
+  Green throughout. Run, review, commit the test file(s) alone.
+- [ ] **Step 4: the scaler as a function, tests first (FATES; test-writing agent).** Same
+  skills. The tests move to the Produces signature:
+  - the scaler cases set `fwet_moss_liq` and assert `this%patch%MossWetnessScaler()`;
+  - the `UpdateMossFwetLiq` cases drop their scaler assertions and `expect_scaler`;
+  - `marker_scaler` and its seeding go, and the marker comment loses its scaler argument.
+
+  Red: the suite does not compile against the current API. Commit the test file(s) alone.
+- [ ] **Step 5: the scaler as a function (FATES; implementer agent).** The implementer
+  invokes `pfunit-tests` first. Bit-for-bit:
+  - **Patch:** add `MossWetnessScaler` to the procedure list and define it where
+    `UpdateMossWetnessScaler` is now. Its header says it is evaluated where it is used,
+    so it is never stale and needs no refresh after restart, fusion or a proxy update.
+    Delete the member, its `NanValues`/`ZeroValues` lines, `UpdateMossWetnessScaler`, and
+    the call and comment at the end of `UpdateMossFwetLiq`.
+  - **Photosynthesis:** `moss_wetness_scaler_arg = currentPatch%MossWetnessScaler()`. The
+    leaf maintenance respiration scaling near line 692 reads `moss_wetness_scaler_arg`
+    rather than evaluating the function again inside the loop. Check that it is set on
+    every path that reaches line 692.
+  - **History:** the scaler fill uses `cpatch%MossWetnessScaler()`.
+  - **Restart:** delete the recompute call on read and the zeroing on the moss-off branch.
+  - **Fusion:** delete the recompute call and any comment that justified it.
+  - Rewrite any comment that names `UpdateMossWetnessScaler` or the stored scaler.
+
+  Run `-t moss_fwet` and `-t fire_fuel`, then build. Review, commit FATES, then CTSM
+  (pointer bump and `fxtag`).
+- [ ] **Step 6: canopy rename, tests first (FATES; test-writing agent).** Same skills.
+  `fwet_moss_canopy` becomes `fwet_moss_canopy_tot` throughout `test_MossFwet.pf`,
+  including `marker_canopy` (now `marker_canopy_tot`) and comments. Red. Commit the test
+  file alone.
+- [ ] **Step 7: canopy rename (FATES, then CTSM; implementer agent).** Bit-for-bit, except
+  for history field names. The member, restart variable and history field are renamed
+  per Produces. The member and history long names say the canopy wetted fraction comes
+  from canopy snow plus liquid (CTSM `BulkDiag_FracWet`, `h2ocan = snocan + liqcan`).
+  The `FATES_MOSS_FWET_LIQ` long name still says "canopy wetted fraction"; it stays
+  accurate until Step 9. CTSM, in the commit with the pointer bump and `fxtag`:
+  - `FatesNvp/user_nl_clm`: rename the field in `hist_fincl1` and `hist_fincl2`;
+  - `verify_moss_history.py` and `check_total_proxy_switch.py`: rename the field.
+
+  The agent touching the testmod invokes `ctsm-system-tests`. Run, build, review, commit
+  FATES, then CTSM.
+- [ ] **Step 8: liquid-only canopy ingredient, tests first (FATES; test-writing agent).**
+  Same skills. Against the Produces signatures:
+  - `UpdateMossFwetLiq` cases pass `fwet_veg_liq` and assert `fwet_moss_canopy_liq`;
+  - every `UpdateMossFwetLiq` case also asserts `fwet_moss_canopy_tot` still holds its
+    marker, and every `UpdateMossFwetTot` case asserts `fwet_moss_canopy_liq` still holds
+    a new, distinct `marker_canopy_liq`.
+  - The "leaves the other proxy alone" cases cover both canopy members.
+
+  Red. Commit the test file alone.
+- [ ] **Step 9: liquid-only canopy ingredient (CTSM and FATES; implementer agent).**
+  Answer-changing for moss.
+  - **CTSM, `WaterDiagnosticBulkType`:** a new patch field
+    `fwet_liq_patch(:)` ("fraction of canopy that is wet from canopy liquid alone, 0 to
+    1"). It is allocated as NaN beside `fwet_patch`, zeroed in cold start beside it,
+    and has no restart variable and no history field. Its declaration comment says it is
+    the liquid-only counterpart of `fwet_patch`, which is computed from canopy snow plus
+    liquid. `fwet_patch` keeps its name and is not touched, and there is no
+    `fwet_tot_patch` (Sam, 2026-10-07).
+  - **CTSM, `BulkDiag_FracWet`:** beside `fwet`, set
+    `fwet_liq(p) = min((liqcan(p)/(vegt*params_inst%liq_canopy_storage_scalar))**0.666666666666_r8, params_inst%maximum_leaf_wetted_fraction)`
+    when `liqcan(p) > 0`, else 0. That is the same expression, exponent and cap as
+    `fwet`, with `liqcan` in place of `h2ocan`. It is 0 on every path where `fwet` is set
+    to 0. `fwet` and `fdry` are untouched, so non-FATES runs are bit-for-bit. Pass the new
+    array through the call at `CanopyHydrologyMod.F90:421`.
+  - **CTSM, `dynamics_driv`:** fill `bc_in(s)%fwet_veg_liq_pa(ifp)` from
+    `waterdiagnosticbulk_inst%fwet_liq_patch(p)`, beside the `fwet_veg_pa` fill.
+  - **FATES:** declare, allocate and zero `bc_in%fwet_veg_liq_pa` beside `fwet_veg_pa`.
+    Add the member `fwet_moss_canopy_liq` (NaN/zero), restart variable
+    `fates_fwet_moss_canopy_liq` (inside the moss block, zeroed on the moss-off branch),
+    fusion (area-weighted), and history `FATES_MOSS_FWET_CANOPY_LIQ`
+    (`group_dyna_simple`, area-weighted, long name `'canopy wetted fraction from canopy
+    liquid alone; ingredient of the liquid moss wetness proxy'`). `UpdateMossFwetLiq`
+    takes `fwet_veg_liq` per Produces. `EDMainMod` passes it
+    `bc_in%fwet_veg_liq_pa(currentPatch%patchno)`. Update the `FATES_MOSS_FWET_LIQ` and
+    `FATES_MOSS_FWET_CANOPY_TOT` long names: the liquid proxy uses the liquid canopy
+    ingredient, and the total proxy the snow-plus-liquid one.
+  - **CTSM testmod and scripts:** add `FATES_MOSS_FWET_CANOPY_LIQ` to `hist_fincl1` and
+    `hist_fincl2`. In `verify_moss_history.py`, the liquid proxy's
+    max-of-ingredients identity reads `FATES_MOSS_FWET_CANOPY_LIQ`, and the total
+    proxy's reads `FATES_MOSS_FWET_CANOPY_TOT`. Add `FATES_MOSS_FWET_CANOPY_LIQ` to
+    `check_total_proxy_switch.py`'s `h1` field list.
+
+  Run `-t moss_fwet` and `-t fire_fuel`, then the `fuel` functional test, then build.
+  Review, commit FATES, then CTSM.
+- [ ] **Step 10: verify (Sam, during review).** Tests expected to change:
+  - **Steps 1-5: b4b**, every test.
+  - **Step 7: moss tests FIELDLIST** (the renamed canopy field, on `h0` and `h1`);
+    values b4b.
+  - **Step 9: moss ALP2 tests DIFF; moss-off and non-FATES tests b4b.**
+    - `FATES_MOSS_FWET_CANOPY_LIQ` ≤ `FATES_MOSS_FWET_CANOPY_TOT` on every day, with
+      equality on days with no canopy snow.
+    - On frozen, snow-free days, `FATES_MOSS_FWET_LIQ` falls below its Task C value
+      wherever canopy snow was setting it. In the nocomp run that was the 0.04 site
+      value.
+    - `verify_moss_history.py` passes both max-of-ingredients identities.
+
+    A violation of the inequality is a stop: the new field is then not what this step
+    says.
+
+---
+
 ### Task D: Refresh both proxies every timestep
 
 The sub-daily refresh runs at the top of `FatesPlantRespPhotosynthDrive`, only for patches
@@ -596,19 +824,21 @@ high-frequency group.
   before the patch loop that tests `filter_photo_pa`, near line 367)
 - Modify (FATES): `main/EDMainMod.F90` (daily call: total proxy only; comment)
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (routine headers: who calls each, and when)
-- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (move the six moss wetness
+- Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (move the seven moss wetness
   registrations from the `if_dyn0` block to the `if_hifrq0` block near line 9398, with
   `upfreq=group_hifr_simple`; move their fill from `update_history_dyn_sitelevel` to a patch
   loop in `update_history_hifrq_sitelevel`)
-- Modify: `src/utils/clmfates_interfaceMod.F90` (`wrap_btran`: fill `fwet_veg_pa` for the
-  patches of filter columns; `dynamics_driv`: the comment above the `fwet_veg_pa` fill)
+- Modify: `src/utils/clmfates_interfaceMod.F90` (`wrap_btran`: fill `fwet_veg_pa` and
+  `fwet_veg_liq_pa` for the patches of filter columns; `dynamics_driv`: the comment above
+  those fills)
 
 **Interfaces:**
 - Consumes: `UpdateMossFwetLiq`, `UpdateMossFwetTot`, `bc_in%h2o_totvol_sl` and the patch
-  members (Task B), and `bc_in%filter_photo_pa`, which is 2 for a patch in the current
+  members (Task B, as amended by Task R, including `bc_in%fwet_veg_liq_pa`), and
+  `bc_in%filter_photo_pa`, which is 2 for a patch in the current
   canopy-flux iteration (`wrap_photosynthesis`).
 - Produces: both proxies current for the timestep before any moss cohort photosynthesizes;
-  the total proxy also refreshed daily for every non-bareground patch; and the six
+  the total proxy also refreshed daily for every non-bareground patch; and the seven
   `FATES_MOSS_*` wetness fields in `group_hifr_simple`.
 
 - [ ] **Step 0 (orchestrator):** each check is a stop if it fails. A one-step lag would be
@@ -622,7 +852,8 @@ high-frequency group.
     photosynthesis in the same timestep.
 - [ ] **Step 1: implement (implementer agent).**
   - **`wrap_btran`, filter branch:** for each patch on the site, set
-    `this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = waterdiagnosticbulk_inst%fwet_patch(p)`,
+    `this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = waterdiagnosticbulk_inst%fwet_patch(p)` and
+    `this%fates(nc)%bc_in(s)%fwet_veg_liq_pa(ifp) = waterdiagnosticbulk_inst%fwet_liq_patch(p)`,
     with `p = ifp + col%patchi(c)`, looping `ifp = 1, ...youngest_patch%patchno` as
     `dynamics_driv` does.
   - **`FatesPlantRespPhotosynthDrive`:** before the patch loop that tests `filter_photo_pa`,
@@ -641,7 +872,7 @@ high-frequency group.
              ifp = currentPatch%patchno
              if (currentPatch%nocomp_pft_label /= nocomp_bareground .and. &
                   bc_in(s)%filter_photo_pa(ifp) == 2) then
-                call currentPatch%UpdateMossFwetLiq(bc_in(s)%fwet_veg_pa(ifp), &
+                call currentPatch%UpdateMossFwetLiq(bc_in(s)%fwet_veg_liq_pa(ifp), &
                      bc_in(s)%h2o_liqvol_sl(1), bc_in(s)%watsat_sl(1))
                 call currentPatch%UpdateMossFwetTot(bc_in(s)%fwet_veg_pa(ifp), &
                      bc_in(s)%h2o_totvol_sl(1), bc_in(s)%watsat_sl(1))
@@ -661,14 +892,14 @@ high-frequency group.
     - neither writer changes a proxy's meaning, because each reads a field whose water phase
       is the same at both host fills.
   - **`FatesPatchMod`:** each routine's header names its callers and when they run.
-  - **`dynamics_driv`:** the comment above the `fwet_veg_pa` fill notes it is also filled
-    sub-daily, in `wrap_btran`.
-  - **History:** move the six registrations into the `if_hifrq0` block with
+  - **`dynamics_driv`:** the comment above the `fwet_veg_pa` and `fwet_veg_liq_pa` fills
+    notes they are also filled sub-daily, in `wrap_btran`.
+  - **History:** move the seven registrations into the `if_hifrq0` block with
     `upfreq=group_hifr_simple`. Move the fill into `update_history_hifrq_sitelevel` as a
     patch loop inside `do_sites`, still inside `if (hlm_use_moss == itrue)`, area-weighted
     with `cpatch%area * AREA_INV`. Keep the comment about bareground dilution. Remove the
     `update_history_dyn_sitelevel` fill. Long names are unchanged.
-- [ ] **Step 2: unit tests.** `run_unit_tests.py -t moss_fwet` passes, unchanged since Task B.
+- [ ] **Step 2: unit tests.** `run_unit_tests.py -t moss_fwet` passes, unchanged since Task R.
 - [ ] **Step 3: build.** Claude builds CTSM-FATES.
 - [ ] **Step 4: review the gating (reviewer).** Confirm three things:
   - the refresh is gated on `filter_photo_pa == 2`, not on `filter_btran` (Review Focus 2);
@@ -676,15 +907,14 @@ high-frequency group.
   - the daily call no longer touches the liquid proxy.
 - [ ] **Step 5: verify (Sam, during review).** Tests expected to change:
   - **Moss ALP2 tests: DIFF from the Task C baseline.** Moss photosynthesis now sees same-day
-    wetness. The six `FATES_MOSS_*` wetness fields are high-frequency fields now. On a
+    wetness. The seven `FATES_MOSS_*` wetness fields are high-frequency fields now. On a
     daily tape they become daily means rather than end-of-day snapshots.
   - **The wetness proxies change within the day,** on the 12-hourly `h1` tape Task C
     added. On snow-free days, the two 12-hour records of `FATES_MOSS_FWET_LIQ` and
     `FATES_MOSS_WETNESS_SCALER` differ on at least some days. Under Task C they were equal.
     If they are still equal on every snow-free day, that is a stop. Moss `FATES_GPP_PF` is
-    on the tape for context but is not the test. It varies with light regardless of the
-    proxy. ALP2 is at 7.28°E, so the history's UTC 00-12/12-24 split falls about half an
-    hour from solar noon, and the two halves see nearly the same light.
+    on the tape for context but is not the test. It is filled from `gpp_acc_hold`, the
+    previous day's accumulated GPP, so it holds one value per day on any tape.
   - **Buried patches hold their values.** On the `h1` tape, on days the moss patch is
     snow-buried, the two 12-hour records of `FATES_MOSS_FWET_LIQ` are equal.
   - **Moss ALP2 ERS test: PASS.**

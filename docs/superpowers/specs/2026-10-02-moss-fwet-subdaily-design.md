@@ -46,23 +46,31 @@ capacity.
 - The total-water ingredient comes from a new coupler field carrying **total** volumetric
   water, not from liquid plus a separate ice field.
 - No exposure guard on the daily proxy update, in any task.
+- The moss wetness scaler is not stored. It is a function of `fwet_moss_liq`, evaluated
+  where it is used, so its correctness does not depend on call order or refresh frequency
+  (Sam, 2026-10-07).
+- The canopy ingredient splits by water phase like the soil one. CTSM's canopy wetted
+  fraction is computed from canopy snow plus liquid, so it feeds the total proxy. The
+  liquid proxy gets a wetted fraction computed from canopy liquid alone (Sam, 2026-10-07).
 
 ## 3. Design
 
 ### 3.1 Two proxies
 
-Both are patch members, both in [0, 1], both `max(soil ingredient, fwet_veg)`:
+Both are patch members, both in [0, 1], both `max(soil ingredient, canopy ingredient)`:
 
-- **`fwet_moss_liq`**, soil ingredient `liq_top / watsat_top`. Consumers: the wetness
-  scaler (`moss_wetness_scaler`, now derived from this proxy), and through it vcmax and
-  leaf maintenance respiration.
+- **`fwet_moss_liq`**, soil ingredient `liq_top / watsat_top`, canopy ingredient the
+  wetted fraction from canopy liquid alone (§3.2). Consumers: the wetness scaler
+  (`MossWetnessScaler()`, a function of this proxy), and through it vcmax and leaf
+  maintenance respiration.
 - **`fwet_moss_tot`**, soil ingredient `tot_top / watsat_top`, from the total-water field
-  of §3.2. Consumers: the CO₂ water-film factor (`MossCO2FilmFactor`, via the argument
-  threaded into the moss Ci solve) and moss fuel moisture (`UpdateFuelMoisture`).
+  of §3.2, canopy ingredient CTSM's `fwet` (canopy snow plus liquid). Consumers: the CO₂
+  water-film factor (`MossCO2FilmFactor`, via the argument threaded into the moss Ci
+  solve) and moss fuel moisture (`UpdateFuelMoisture`).
 
 `fwet_moss` and its ingredient members `fwet_moss_soil` / `fwet_moss_canopy` are replaced by
-`fwet_moss_liq`, `fwet_moss_tot`, `fwet_moss_soil_liq`, `fwet_moss_soil_tot` and
-`fwet_moss_canopy`. The proxy argument threaded through `LeafBiophysicsMod` is renamed
+`fwet_moss_liq`, `fwet_moss_tot`, `fwet_moss_soil_liq`, `fwet_moss_soil_tot`,
+`fwet_moss_canopy_liq` and `fwet_moss_canopy_tot`. The proxy argument threaded through `LeafBiophysicsMod` is renamed
 `fwet_moss_tot` (Sam, 2026-10-05). It no longer encodes moss-ness in its sign. An explicit
 `logical :: is_moss` argument selects the moss CO₂ path, and the negative sentinel
 `fwet_moss_vascular` is removed. The NaN check in photosynthesis stays and covers both
@@ -87,6 +95,13 @@ exposed-vegetation filter). That way the two fields' contents never depend on wh
 routine wrote last. It takes the main spec's new coupler-field count from one to two.
 
 `fwet_veg_pa` (Task 8's field) gains a sub-daily fill alongside its daily one.
+
+A second new per-patch `bc_in` field, `fwet_veg_liq_pa`, carries the canopy wetted
+fraction computed from canopy liquid alone. CTSM computes it in `BulkDiag_FracWet` beside
+`fwet`, with the same expression, exponent and cap but `liqcan` in place of
+`snocan + liqcan`, into a new diagnostic `waterdiagnosticbulk_inst%fwet_liq_patch` that has
+no restart or history variable. It is filled wherever `fwet_veg_pa` is. That makes three
+new coupler fields in the main spec's count.
 
 ### 3.3 Where the proxies are computed
 
@@ -117,17 +132,18 @@ fill's water phase (`clmfates_interfaceMod.F90` `dynamics_driv`).
 ### 3.4 History, restart, fusion
 
 - History: `FATES_MOSS_FWET_LIQ`, `FATES_MOSS_FWET_TOT`, `FATES_MOSS_FWET_SOIL_LIQ`,
-  `FATES_MOSS_FWET_SOIL_TOT`, `FATES_MOSS_FWET_CANOPY`, `FATES_MOSS_WETNESS_SCALER`. They
+  `FATES_MOSS_FWET_SOIL_TOT`, `FATES_MOSS_FWET_CANOPY_LIQ`, `FATES_MOSS_FWET_CANOPY_TOT`,
+  `FATES_MOSS_WETNESS_SCALER`. They
   replace `FATES_MOSS_FWET`, `FATES_MOSS_FWET_SOIL` and `FATES_MOSS_FWET_CANOPY`. Because the
   values change every timestep, they move from the daily (`update_history_dyn`) group to
   the high-frequency (`update_history_hifrq`) group. Registration otherwise follows the main
   plan's Global Constraint for moss history variables, including the `FatesNvp`
   `hist_fincl1 +=` entries. The wetness scaler's long name is updated to say it derives
   from the liquid proxy.
-- Restart: both proxies and all three ingredients are restarted (`fates_fwet_moss_*`), for
+- Restart: both proxies and all four ingredients are restarted (`fates_fwet_moss_*`), for
   the reason Task 8 found: `restart()` writes history before the first update. The wetness
-  scaler stays recomputed on restart read, from `fwet_moss_liq`.
-- Fusion: area-weighted, as now, for all five members, then the scaler is recomputed.
+  scaler needs no restart variable, because it is evaluated from `fwet_moss_liq`.
+- Fusion: area-weighted, as now, for all six members.
 
 ## 4. Behaviour that changes
 
@@ -146,7 +162,9 @@ fill's water phase (`clmfates_interfaceMod.F90` `dynamics_driv`).
   liquid and canopy wetting.
 - **Frozen moss stops photosynthesizing.** The main plan's Step 3f measured the moss
   patch's total-water saturation at 0.75-1.00 on the zero-btran (frozen) days, which put
-  moss at full capacity then. With the liquid proxy those days read near-dry. Main plan
+  moss at full capacity then. With the liquid proxy those days read near-dry. Until Task R
+  gives the liquid proxy a liquid-only canopy ingredient, canopy snow can still hold it at
+  the canopy cap, as on the frozen days of the post-Task-C nocomp run. Main plan
   Task 12 Step 3b's productive-window analysis must be read against the two proxies, not
   against the old single one.
 - **Fuel moisture is unchanged in meaning** (total water, end-of-day instantaneous).
@@ -154,7 +172,7 @@ fill's water phase (`clmfates_interfaceMod.F90` `dynamics_driv`).
 
 ## 5. Work breakdown
 
-Four tasks, strictly in order.
+Five tasks, strictly in order.
 
 - **Task A: bring in ESCOMP/CTSM#4198 and fix its off-filter defect.** Two commits:
   1. Cherry-pick `9040710b0` unchanged.
@@ -201,7 +219,14 @@ Four tasks, strictly in order.
   respiration stay on the liquid proxy. This is the answer-changing half of the split. It
   closes with a separate commit adding a 12-hourly history tape to the `FatesNvp` testmod,
   for Task D's diurnal check (Sam, 2026-10-05).
-- **Task D: refresh both proxies sub-daily**: the sub-daily `fwet_veg_pa` fill, the gated
+- **Task R: review fixes for Tasks B and C** (Sam, 2026-10-07), one commit per change.
+  Bit-for-bit test and comment corrections; the wetness scaler becomes a function of
+  `fwet_moss_liq` rather than a stored member; `fwet_moss_canopy` is renamed
+  `fwet_moss_canopy_tot`. Last, and answer-changing for moss: the liquid proxy's canopy
+  ingredient becomes the liquid-only wetted fraction of §3.2. Check:
+  `FATES_MOSS_FWET_CANOPY_LIQ` ≤ `FATES_MOSS_FWET_CANOPY_TOT` on every day.
+- **Task D: refresh both proxies sub-daily**: the sub-daily `fwet_veg_pa` and
+  `fwet_veg_liq_pa` fills, the gated
   call at the top of `FatesPlantRespPhotosynthDrive` (§3.3), the daily call reduced to the
   total proxy, and the move to the high-frequency history group. Step 0 must verify that
   CTSM's `fwet_patch` has been updated for the current timestep when FATES photosynthesis
@@ -216,7 +241,8 @@ carries total water, so B's liquid proxy would be fed total water at the daily c
 the split would be meaningless. **B before C** is load-bearing too: B's bit-for-bit check
 is the evidence that the split changes nothing, and it can only be made before C changes
 answers. **C before D** is the project's strict-ordering convention, and D's diurnal check
-reads C's tape. Finishing the split first lets its checks isolate the liquid/total
+reads C's tape. **R before D** is load-bearing: D's sub-daily refresh feeds the liquid
+proxy the canopy field R adds. Finishing the split first lets its checks isolate the liquid/total
 semantics before D changes when the proxies are sampled.
 
 **Failed verifications are stops.** In particular: Task B's three checks and Task D's two
