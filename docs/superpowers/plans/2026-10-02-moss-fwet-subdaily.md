@@ -719,7 +719,7 @@ and the only answer-changing step is last and isolated.
   - `marker_scaler` and its seeding go, and the marker comment loses its scaler argument.
 
   Red: the suite does not compile against the current API. Commit the test file(s) alone.
-- [ ] **Step 5: the scaler as a function (FATES; implementer agent).** The implementer
+- [x] **Step 5: the scaler as a function (FATES; implementer agent).** The implementer
   invokes `pfunit-tests` first. Bit-for-bit:
   - **Patch:** add `MossWetnessScaler` to the procedure list and define it where
     `UpdateMossWetnessScaler` is now. Its header says it is evaluated where it is used,
