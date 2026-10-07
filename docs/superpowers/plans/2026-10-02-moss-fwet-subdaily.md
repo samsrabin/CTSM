@@ -712,7 +712,7 @@ and the only answer-changing step is last and isolated.
     the scaler reads.
 
   Green throughout. Run, review, commit the test file(s) alone.
-- [ ] **Step 4: the scaler as a function, tests first (FATES; test-writing agent).** Same
+- [x] **Step 4: the scaler as a function, tests first (FATES; test-writing agent).** Same
   skills. The tests move to the Produces signature:
   - the scaler cases set `fwet_moss_liq` and assert `this%patch%MossWetnessScaler()`;
   - the `UpdateMossFwetLiq` cases drop their scaler assertions and `expect_scaler`;
