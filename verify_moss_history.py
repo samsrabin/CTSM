@@ -190,7 +190,7 @@ than assumed, and each is printed in the preamble with where it came from.
 
   A. PATCH PROPERTIES, diluted only by bareground. Divisor: the non-bareground area
      fraction. FATES_MOSS_FWET_LIQ, FATES_MOSS_FWET_TOT, FATES_MOSS_FWET_SOIL_LIQ,
-     FATES_MOSS_FWET_SOIL_TOT, FATES_MOSS_FWET_CANOPY, FATES_MOSS_WETNESS_SCALER, and
+     FATES_MOSS_FWET_SOIL_TOT, FATES_MOSS_FWET_CANOPY_TOT, FATES_MOSS_WETNESS_SCALER, and
      FATES_FUEL_MOISTURE_FC at the two moss classes. UpdateMossFwetLiq and
      UpdateMossFwetTot run on every patch whose label is not nocomp_bareground
      (main/EDMainMod.F90:232-237), so the proxies and everything derived from them per patch
@@ -1888,7 +1888,7 @@ def commutation_watch(data, veg_frac, leaf_cap, leaf_cap_source):
     statement rather than three related ones.
     """
     soil = np.fmin(data["FATES_MOSS_FWET_SOIL_LIQ"], data["FATES_MOSS_FWET_SOIL_TOT"])
-    canopy = data["FATES_MOSS_FWET_CANOPY"]
+    canopy = data["FATES_MOSS_FWET_CANOPY_TOT"]
 
     if veg_frac is None:
         floor = float(np.nanmin(soil))
@@ -1999,7 +1999,7 @@ def check_proxy_identity(report, data, units, precondition, water, suffix):
     fwet_name, soil_name = f"FATES_MOSS_FWET_{suffix}", f"FATES_MOSS_FWET_SOIL_{suffix}"
     fwet = data[fwet_name]
     soil = data[soil_name]
-    canopy = data["FATES_MOSS_FWET_CANOPY"]
+    canopy = data["FATES_MOSS_FWET_CANOPY_TOT"]
 
     deviation = float(np.nanmax(np.abs(fwet - np.maximum(soil, canopy))))
     ok = deviation < TOL_EXACT
@@ -2007,7 +2007,7 @@ def check_proxy_identity(report, data, units, precondition, water, suffix):
         "PASS" if ok else "FAIL",
         f"Is the {water} moss wetness proxy the wetter of its two ingredients? (Task 8)",
         ("" if ok else DIVERGENCE_FIRST_SUSPECT + "\n")
-        + f"identity: {fwet_name} == max({soil_name}, FATES_MOSS_FWET_CANOPY)\n"
+        + f"identity: {fwet_name} == max({soil_name}, FATES_MOSS_FWET_CANOPY_TOT)\n"
         + f"max |deviation| = {deviation:.3e}\n"
         f"proxy  {units.spans(fwet, 'patch', site_units='')}\n"
         f"soil   {units.spans(soil, 'patch', site_units='')}\n"
@@ -2044,7 +2044,7 @@ def check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_sour
 
     fwet = data["FATES_MOSS_FWET_LIQ"]
     soil = data["FATES_MOSS_FWET_SOIL_LIQ"]
-    canopy = data["FATES_MOSS_FWET_CANOPY"]
+    canopy = data["FATES_MOSS_FWET_CANOPY_TOT"]
 
     canopy_binds = int(np.sum(canopy > soil))
     canopy_max = float(np.nanmax(canopy))
@@ -2149,7 +2149,7 @@ def check_task8_proxy(report, data, units, precondition, leaf_cap, leaf_cap_sour
     if canopy_binds == 0:
         report.warn(
             "The canopy ingredient never sets the liquid moss wetness proxy in this run",
-            f"FATES_MOSS_FWET_CANOPY tops out at {native_canopy_max:.4f} while "
+            f"FATES_MOSS_FWET_CANOPY_TOT tops out at {native_canopy_max:.4f} while "
             f"FATES_MOSS_FWET_SOIL_LIQ spans {native_soil}, so on all "
             f"{len(fwet)} days of this run the liquid proxy is its soil ingredient and "
             "nothing else.\n"
@@ -4138,7 +4138,7 @@ def main():
         "FATES_MOSS_FWET_TOT",
         "FATES_MOSS_FWET_SOIL_LIQ",
         "FATES_MOSS_FWET_SOIL_TOT",
-        "FATES_MOSS_FWET_CANOPY",
+        "FATES_MOSS_FWET_CANOPY_TOT",
     ):
         if name not in data:
             raise HistoryContentError(

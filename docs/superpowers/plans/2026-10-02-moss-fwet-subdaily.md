@@ -741,7 +741,7 @@ and the only answer-changing step is last and isolated.
   `fwet_moss_canopy` becomes `fwet_moss_canopy_tot` throughout `test_MossFwet.pf`,
   including `marker_canopy` (now `marker_canopy_tot`) and comments. Red. Commit the test
   file alone.
-- [ ] **Step 7: canopy rename (FATES, then CTSM; implementer agent).** Bit-for-bit, except
+- [x] **Step 7: canopy rename (FATES, then CTSM; implementer agent).** Bit-for-bit, except
   for history field names. The member, restart variable and history field are renamed
   per Produces. The member and history long names say the canopy wetted fraction comes
   from canopy snow plus liquid (CTSM `BulkDiag_FracWet`, `h2ocan = snocan + liqcan`).
