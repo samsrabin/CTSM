@@ -656,7 +656,7 @@ and the only answer-changing step is last and isolated.
   - Restart: `fates_fwet_moss_canopy_tot` (renamed) and `fates_fwet_moss_canopy_liq`
     (new). The scaler has no restart variable, as before.
 
-- [ ] **Step 0 (orchestrator):**
+- [x] **Step 0 (orchestrator):**
   - Confirm the stale comments of Step 1 are still there.
   - List every reader and writer of `moss_wetness_scaler` and `UpdateMossWetnessScaler`
     in `src/fates`, including `testing/`, against the Files list above. An unlisted one
@@ -668,7 +668,7 @@ and the only answer-changing step is last and isolated.
     `fwet_patch` is a restart variable, `FWET`, for `SurfaceAlbedo`'s sake. The new liquid
     fraction gets none, because its only readers run after `BulkDiag_FracWet` in the same
     timestep; see Step 9.)
-- [ ] **Step 1: correct the comments Task C left stale (FATES; implementer agent).** Three
+- [x] **Step 1: correct the comments Task C left stale (FATES; implementer agent).** Three
   comments still say the CO₂ film and fuel moisture read the liquid proxy, or will move
   "in a later change". Make each state what is now true:
   - `FatesPatchMod.F90`, `UpdateMossFwetLiq` header: the liquid proxy drives capacity and
