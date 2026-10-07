@@ -486,7 +486,7 @@ Each commit goes through the main plan's review loop before it is made.
 - [x] **Step 8: reviews, then commit the split.** The reviewers see the union of the Step 3
   test commit and the implementation, and confirm the test file is unchanged since Step 3.
   Commit FATES, then CTSM with the pointer bump and `fxtag`.
-- [ ] **Step 9: verify (Sam, during review).** Tests expected to change:
+- [x] **Step 9: verify (Sam, during review).** Tests expected to change:
   - **Moss and vascular, Steps 1-2: b4b.** The rename and the logical argument change no
     answers.
   - **The split commit (Step 8's CTSM commit): b4b against post-Task-A baselines** in every
