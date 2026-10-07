@@ -550,7 +550,7 @@ Commit order:
   Run `run_unit_tests.py -t moss_fwet` and `-t fire_fuel`, and the `fuel` functional test,
   then build. Review, commit FATES, then commit the CTSM pointer bump and `fxtag`, with the
   `verify_moss_history.py` change.
-- [ ] **Step 2: 12-hourly history tape (CTSM; implementer agent).** The agent invokes
+- [x] **Step 2: 12-hourly history tape (CTSM; implementer agent).** The agent invokes
   `ctsm-system-tests` first. In `FatesNvp/user_nl_clm`, add a second, 12-hourly tape
   (Sam, 2026-10-05: small files, still enough to see sub-daily change) carrying the moss
   wetness fields and moss GPP:
