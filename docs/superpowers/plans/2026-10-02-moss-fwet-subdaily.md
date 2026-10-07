@@ -678,7 +678,7 @@ and the only answer-changing step is last and isolated.
     parenthetical about a later change.
 
   Comments only, bit-for-bit. Build, review, commit.
-- [ ] **Step 2: test comments and the porosity bracket (FATES; test-writing agent).** The
+- [x] **Step 2: test comments and the porosity bracket (FATES; test-writing agent).** The
   agent invokes `writing-tests-before-the-implementer`, `pfunit-tests` and
   `designing-unit-test-cases` first. In `test_MossFwet.pf`:
   - **Twin comments.** Each `UpdateMossFwetTot` case that says "Identical inputs and
