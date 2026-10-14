@@ -578,7 +578,7 @@ Commit order:
   file. Add a comment saying the tape exists to check that the moss wetness proxies change
   within the day. Until Task D, the wetness fields hold their daily values through each
   day, so the two 12-hour records of a day are equal. Review, and commit in CTSM.
-- [ ] **Step 3: verify (Sam, during review).** Tests expected to change:
+- [x] **Step 3: verify (Sam, during review).** Tests expected to change:
   - **Moss ALP2 tests after Step 1: DIFF from Task B.** The CO₂ film and fuel moisture move
     to total water. `FATES_FUEL_MOISTURE_FC` for classes 7-8 rises on frozen days.
   - **Every test composing `FatesNvp` gains a 12-hourly `h1` file**, which baselines generated
