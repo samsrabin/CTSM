@@ -801,7 +801,7 @@ and the only answer-changing step is last and isolated.
 
   Run `-t moss_fwet` and `-t fire_fuel`, then the `fuel` functional test, then build.
   Review, commit FATES, then CTSM.
-- [ ] **Step 10: verify (Sam, during review).** Tests expected to change:
+- [x] **Step 10: verify (Sam, during review).** Tests expected to change:
   - **Steps 1-5: b4b**, every test.
   - **Step 7: moss tests FIELDLIST** (the renamed canopy field, on `h0` and `h1`);
     values b4b.
