@@ -153,8 +153,9 @@ etc.), with these deliberate settings:
   reasoning for the pair, what actually fired the term in the run that measured it, and
   what moss thereby loses.
 - Standard grass allometry modes otherwise (`allom_lmode=5`, `allom_amode=5`,
-  `allom_smode=2`, `allom_dmode=1`). The resulting "sapwood" pool is a labeled carbon
-  pool only; harmless without plant hydraulics, and it correctly burns as live fuel.
+  `allom_smode=2`, `allom_dmode=1`). The resulting "sapwood" pool is an allocation sink: under `allom_smode=2` its target is `bsap = bagw`, which the allocator fills as the cohort grows, so it takes carbon that would otherwise build leaf. Computed from the moss column's `agb` and `d2bl` coefficients and the grass height power law (full trim, no elongation reduction), sapwood takes about 10% of growth carbon at 2 cm height, 19% at 5 cm, 29% at 10 cm and 42% at 20 cm. The share rises with height because the sapwood target scales as `h^1.248` against leaf's `h^0.342`. The pool costs no maintenance respiration (live-stem respiration is zero for non-woody PFTs, `FatesPlantRespPhotosynthMod.F90`) and no turnover (`fates_turnover_branch = 0`), and it burns as live fuel. Its size is a tuning question, through `fates_allom_agb1`–`agb3` or the sapwood mode. The cost does not arise in SP runs: they prescribe leaf area, stem area and height from the host's inputs and never allocate carbon, so the sapwood pool is never filled and the prescribed stem area does not depend on it.
+
+  *(Amended 2026-10-20. The original text called the sapwood pool "a labeled carbon pool only; harmless without plant hydraulics", which missed its allocation cost.)*
 
 ## 4. Height allometry
 
