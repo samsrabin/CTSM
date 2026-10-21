@@ -282,6 +282,7 @@ module CLMFatesInterfaceMod
       procedure, public  :: WrapUpdateFatesSeedInOut
       procedure, public  :: UpdateCLitterFluxes
       procedure, public  :: UpdateNLitterFluxes
+      procedure, private :: calc_effective_soilporosity_and_volumetric_h2oliq
    end type hlm_fates_interface_type
 
    ! hlm_bounds_to_fates_bounds is not currently called outside the interface.
@@ -1165,9 +1166,6 @@ module CLMFatesInterfaceMod
       integer  :: begg,endg
       real(r8) :: harvest_rates(bounds_clump%begg:bounds_clump%endg,num_harvest_inst)
       real(r8) :: s_node, smp_node         ! local for relative water content and potential
-      integer  :: num_fatesc               ! number of columns hosting FATES sites
-      integer  :: filter_fatesc(bounds_clump%endc-bounds_clump%begc+1) ! columns hosting FATES sites
-      integer  :: jtop(bounds_clump%begc:bounds_clump%endc)            ! top soil layer for each column
       real(r8) :: eff_por(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd)       ! effective porosity [m3/m3]
       real(r8) :: h2osoi_liqvol(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd) ! liquid volumetric water [m3/m3]
       logical  :: after_start_of_harvest_ts
@@ -1222,33 +1220,8 @@ module CLMFatesInterfaceMod
          gdp_lf_col = this%fates_fire_data_method%GetGDP()
       end if
 
-      ! Liquid volumetric soil water for every column hosting a FATES site. The HLM's own
-      ! h2osoi_liqvol_col is computed in CanopyFluxes only for columns with an exposed
-      ! (snow-free) vegetated patch, and is NaN or stale elsewhere, so it cannot feed this
-      ! daily fill. This uses the same routines, from prognostic water valid on every column.
-      num_fatesc = this%fates(nc)%nsites
-      do s = 1, num_fatesc
-         filter_fatesc(s) = this%f2hmap(nc)%fcolumn(s)
-      end do
-      call calc_effective_soilporosity(bounds_clump, &
-           ubj = nlevgrnd, &
-           numf = num_fatesc, &
-           filter = filter_fatesc(1:num_fatesc), &
-           watsat = soilstate_inst%watsat_col(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
-           h2osoi_ice = waterstatebulk_inst%h2osoi_ice_col(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
-           denice = denice, &
-           eff_por = eff_por(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd))
-      jtop(bounds_clump%begc:bounds_clump%endc) = 1
-      call calc_volumetric_h2oliq(bounds_clump, &
-           jtop = jtop(bounds_clump%begc:bounds_clump%endc), &
-           lbj = 1, &
-           ubj = nlevgrnd, &
-           numf = num_fatesc, &
-           filter = filter_fatesc(1:num_fatesc), &
-           eff_porosity = eff_por(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
-           h2osoi_liq = waterstatebulk_inst%h2osoi_liq_col(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
-           denh2o = denh2o, &
-           vol_liq = h2osoi_liqvol(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd))
+      ! Effective porosity and liquid volumetric soil water for every column hosting a FATES site.
+      call this%calc_effective_soilporosity_and_volumetric_h2oliq(bounds_clump, soilstate_inst, waterstatebulk_inst, nc, eff_por, h2osoi_liqvol)
 
       do s=1,this%fates(nc)%nsites
          c = this%f2hmap(nc)%fcolumn(s)
@@ -1473,6 +1446,57 @@ module CLMFatesInterfaceMod
 
       return
    end subroutine dynamics_driv
+
+   ! ===============================================================================
+
+   subroutine calc_effective_soilporosity_and_volumetric_h2oliq(this, bounds_clump, soilstate_inst, waterstatebulk_inst, nc, eff_por, h2osoi_liqvol)
+      ! Effective porosity and liquid volumetric soil water for every column hosting a FATES site.
+      !
+      ! The HLM's own h2osoi_liqvol_col is computed in CanopyFluxes only for columns with an
+      ! exposed (snow-free) vegetated patch, and is NaN or stale elsewhere. This uses the same
+      ! routines, from prognostic water valid on every column. The effective porosity returned
+      ! is unfloored, matching wrap_btran; it is not soilstate_inst%eff_porosity_col, which
+      ! SetSoilWaterFractions floors at 0.01 (ESCOMP/CTSM#4244).
+      !
+      ! !ARGUMENTS
+      class(hlm_fates_interface_type), intent(in) :: this
+      type(bounds_type), intent(in) :: bounds_clump
+      type(soilstate_type), intent(in) :: soilstate_inst
+      type(waterstatebulk_type), intent(in) :: waterstatebulk_inst
+      integer, intent(in) :: nc
+      real(r8), intent(out) :: eff_por(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd) ! effective porosity [m3/m3]
+      real(r8), intent(out) :: h2osoi_liqvol(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd) ! liquid volumetric water [m3/m3]
+      !
+      ! !LOCALS
+      integer :: num_fatesc  ! number of columns hosting FATES sites
+      integer :: s  ! site index
+      integer :: filter_fatesc(bounds_clump%endc-bounds_clump%begc+1) ! columns hosting FATES sites
+      integer :: jtop(bounds_clump%begc:bounds_clump%endc) ! top soil layer for each column
+
+      num_fatesc = this%fates(nc)%nsites
+      do s = 1, num_fatesc
+         filter_fatesc(s) = this%f2hmap(nc)%fcolumn(s)
+      end do
+      call calc_effective_soilporosity(bounds_clump, &
+           ubj = nlevgrnd, &
+           numf = num_fatesc, &
+           filter = filter_fatesc(1:num_fatesc), &
+           watsat = soilstate_inst%watsat_col(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
+           h2osoi_ice = waterstatebulk_inst%h2osoi_ice_col(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
+           denice = denice, &
+           eff_por = eff_por(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd))
+      jtop(bounds_clump%begc:bounds_clump%endc) = 1
+      call calc_volumetric_h2oliq(bounds_clump, &
+           jtop = jtop(bounds_clump%begc:bounds_clump%endc), &
+           lbj = 1, &
+           ubj = nlevgrnd, &
+           numf = num_fatesc, &
+           filter = filter_fatesc(1:num_fatesc), &
+           eff_porosity = eff_por(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
+           h2osoi_liq = waterstatebulk_inst%h2osoi_liq_col(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd), &
+           denh2o = denh2o, &
+           vol_liq = h2osoi_liqvol(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd))
+   end subroutine calc_effective_soilporosity_and_volumetric_h2oliq
 
    ! ===============================================================================
 
