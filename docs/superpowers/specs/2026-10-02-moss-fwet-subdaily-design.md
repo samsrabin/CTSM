@@ -41,11 +41,10 @@ capacity.
 - Capacity and respiration see **liquid water only**: frozen moss is inactive.
 - The CO₂ water film sees **total water**: ice blocks diffusion as a water film does.
 - Fuel moisture keeps **total water** (the Task 8 decision: frozen moss damps fire), read
-  **instantaneously at the daily fire call**, as now. Basing it on a daily mean, as every
-  other fuel class's weather is, is out of scope here and recorded in main spec §11.
+  **instantaneously at the daily fire call**: the value refreshed earlier in that timestep (§3.3). Basing it on a daily mean, as every other fuel class's weather is, is out of scope here and recorded in main spec §11.
 - The total-water ingredient comes from a new coupler field carrying **total** volumetric
   water, not from liquid plus a separate ice field.
-- No exposure guard on the daily proxy update, in any task.
+- No exposure guard on the proxy update, in any task. From Task D the proxies are refreshed every timestep for every non-bareground patch, snow-buried ones included, and the daily update is dropped (Sam, 2026-10-20). A buried patch needs current values for the planned daily-mean fuel moisture (main spec §11), and the moss proxy may later be untied from CTSM's canopy wetted fraction, which CTSM forces to zero under snow.
 - The moss wetness scaler is not stored. It is a function of `fwet_moss_liq`, evaluated
   where it is used, so its correctness does not depend on call order or refresh frequency
   (Sam, 2026-10-07).
@@ -88,46 +87,26 @@ A new per-layer `bc_in` field, `h2o_totvol_sl` (name settled, Sam, 2026-10-05), 
 [m³/m³], liquid plus ice, filled from `waterstatebulk_inst%h2osoi_vol_col` via the
 standard 4-touch recipe. That is the field the daily fill of `h2o_liqvol_sl` read before
 #4198. It is valid on every soil column, because it is derived from prognostic state, so
-the total proxy never depends on `h2osoi_liqvol_col` or on exposure. It is filled at both
-places `h2o_liqvol_sl` is filled, `dynamics_driv` and `wrap_btran`, following each site's
-existing pattern for its neighbours (including `wrap_btran`'s -999 branch outside the
-exposed-vegetation filter). That way the two fields' contents never depend on which host
-routine wrote last. It takes the main spec's new coupler-field count from one to two.
+the total proxy never depends on `h2osoi_liqvol_col` or on exposure. It is filled where `h2o_liqvol_sl` is, in `dynamics_driv` and `wrap_btran` (including `wrap_btran`'s -999 branch outside the exposed-vegetation filter), and kept with those fills although moss is its only reader for now (Sam, 2026-10-20). It takes the main spec's new coupler-field count from one to two.
 
-`fwet_veg_pa` (Task 8's field) gains a sub-daily fill alongside its daily one.
+From Task D, `wrap_moss_wetness` also replaces `wrap_btran`'s -999 in `h2o_liqvol_sl`, `h2o_totvol_sl` and `watsat_sl` with real values on sites outside the filter, using the same liquid-water computation as Task A's daily fill. It writes after `wrap_btran`'s own consumers (`get_active_suction_layers`, `btran_ed`) have run. The only other sub-daily reader is plant-hydraulics history (`update_history_hydraulics`), whose root-weighted and per-layer soil water, saturation and matric potential averaged the sentinel on buried columns and now report real values, moss on or off (Sam, 2026-10-20). The fill is not gated on moss, so moss-off tests confirm that nothing else reads these fields.
+
+`fwet_veg_pa` (Task 8's field) and `fwet_veg_liq_pa` are filled in `wrap_moss_wetness` every timestep for every patch. Task D drops their daily fills.
 
 A second new per-patch `bc_in` field, `fwet_veg_liq_pa`, carries the canopy wetted
 fraction computed from canopy liquid alone. CTSM computes it in `BulkDiag_FracWet` beside
 `fwet`, with the same expression, exponent and cap but `liqcan` in place of
-`snocan + liqcan`, into a new diagnostic `waterdiagnosticbulk_inst%fwet_liq_patch` that has
-no restart or history variable. It is filled wherever `fwet_veg_pa` is. That makes three
-new coupler fields in the main spec's count.
+`snocan + liqcan`, into a new diagnostic `waterdiagnosticbulk_inst%fwet_liq_patch` with no history variable. It is filled wherever `fwet_veg_pa` is. That makes three new coupler fields in the main spec's count. Task D gives it a restart variable, `FWET_LIQ`, registered in every run (Sam, 2026-10-20). `BulkDiag_FracWet` rewrites it only for active patches and cold-start init zeroes it at every start, so without one, a FATES patch with zero canopy area (inactive) would feed the refresh a different value after a restart than in a straight-through run.
 
 ### 3.3 Where the proxies are computed
 
-Each proxy has one routine that defines it. The sub-daily call refreshes both. The daily
-call refreshes only the total proxy:
+Each proxy has one routine that defines it, and both have one caller. From Task D, a FATES routine, `UpdateMossWetness` (`EDMainMod`), refreshes both proxies every timestep for every non-bareground patch, exposed or snow-buried. It is called at the end of a new interface method, `wrap_moss_wetness`, which `CanopyFluxes` calls immediately after `wrap_btran` (Sam, 2026-10-20). That placement gives:
 
-- **Sub-daily, both proxies:** at the top of `FatesPlantRespPhotosynthDrive`, for every
-  non-bareground patch that `wrap_photosynthesis` has flagged as exposed
-  (`bc_in%filter_photo_pa == 2`), before any cohort reads them. That is the flag
-  photosynthesis itself is gated on (`FatesPlantRespPhotosynthMod.F90:367`). The refresh
-  must be gated on it too, because `FatesPlantRespPhotosynthDrive` visits every site, and
-  on a fully buried column `wrap_btran` has written -999 into the soil fields. An ungated
-  refresh would clamp that to a zero soil ingredient. Buried patches keep their last
-  values. Photosynthesis is reached inside CTSM's canopy-flux iteration loop, so the
-  refresh may run more than once per timestep. Its inputs are fixed within a timestep, so
-  repeated calls are idempotent.
-- **Daily, total proxy only:** the existing slot in `ed_ecosystem_dynamics`, ahead of
-  `DailyFireModel`, for every non-bareground patch, so that snow-buried patches still get a
-  fresh fuel-moisture input. The liquid proxy is not refreshed here: it has no daily
-  consumer, and its sub-daily refresh is the only one that runs when the patch is about to
-  photosynthesize.
+- **every input current and real for every site.** `wrap_moss_wetness` fills the soil fields off the filter and both canopy wetted fractions for every patch (§3.2). CTSM computes the wetted fractions earlier in the same timestep, in `CanopyInterceptionAndThroughfall`.
+- **one refresh per timestep, ahead of photosynthesis.** It runs before the canopy-flux iteration loop, so every photosynthesis call in a timestep sees the same proxies. It also runs on a timestep where no patch on the clump is exposed, when the loop, and so FATES photosynthesis, does not run at all.
+- **fire reads the latest value.** At the day boundary, `DailyFireModel` reads the proxies refreshed earlier in the same timestep. The daily proxy call in `ed_ecosystem_dynamics` is removed, along with `dynamics_driv`'s fills that only it read.
 
-The comments that tie the proxy to the daily call are rewritten to state the new contract.
-Two forbid a sub-daily writer (`EDMainMod.F90` at the `UpdateMossFwet` call, and
-`UpdateMossFwet`'s header in `FatesPatchMod.F90`). One explains the daily placement by the
-fill's water phase (`clmfates_interfaceMod.F90` `dynamics_driv`).
+The comments that tie the proxy to the daily call are removed with it. `UpdateMossWetness`'s header states the contract, and each proxy routine's header names it as the caller.
 
 ### 3.4 History, restart, fusion
 
@@ -167,8 +146,10 @@ fill's water phase (`clmfates_interfaceMod.F90` `dynamics_driv`).
   the canopy cap, as on the frozen days of the post-Task-C nocomp run. Main plan
   Task 12 Step 3b's productive-window analysis must be read against the two proxies, not
   against the old single one.
-- **Fuel moisture is unchanged in meaning** (total water, end-of-day instantaneous).
-  Between Task A and Task C it is temporarily liquid-based (§5).
+- **Fuel moisture is unchanged in meaning** (total water, instantaneous at the fire call). Between Task A and Task C it is temporarily liquid-based (§5). From Task D it reads the proxy refreshed earlier in the fire timestep, from soil water before that timestep's hydrology, rather than from end-of-timestep water.
+- **Snow-buried patches' proxies follow soil water every timestep** (Task D), rather than holding a once-daily value.
+- **Plant-hydraulics history reports real soil water on buried columns** (Task D, moss on or off; §3.2).
+- **The CTSM restart file gains `FWET_LIQ`** (Task D, moss on or off; §3.2).
 
 ## 5. Work breakdown
 
@@ -225,16 +206,7 @@ Five tasks, strictly in order.
   `fwet_moss_canopy_tot`. Last, and answer-changing for moss: the liquid proxy's canopy
   ingredient becomes the liquid-only wetted fraction of §3.2. Check:
   `FATES_MOSS_FWET_CANOPY_LIQ` ≤ `FATES_MOSS_FWET_CANOPY_TOT` on every day.
-- **Task D: refresh both proxies sub-daily**: the sub-daily `fwet_veg_pa` and
-  `fwet_veg_liq_pa` fills, the gated
-  call at the top of `FatesPlantRespPhotosynthDrive` (§3.3), the daily call reduced to the
-  total proxy, and the move to the high-frequency history group. Step 0 must verify that
-  CTSM's `fwet_patch` has been updated for the current timestep when FATES photosynthesis
-  runs, and that FATES's high-frequency history is written after photosynthesis within the
-  timestep. If either is false, stop and report. A one-step lag is a design change for
-  Sam, not something to adopt silently. Check: on the 12-hourly tape Task C adds, the two
-  daily records of `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_WETNESS_SCALER` differ on some
-  snow-free days, where under Task C they were always equal.
+- **Task D: refresh both proxies every timestep** (§3.3), in three commits that change one thing each. First, `wrap_moss_wetness` fills real soil water off the filter and both canopy wetted fractions, with no refresh yet; Sam runs the `fates_nvp` suite, and anything other than the plant-hydraulics history fields changing is a stop that changes this task's strategy. This comes first because it is the change most likely to force a redesign. Second, the `FWET_LIQ` restart variable. Third, `UpdateMossWetness`, the removal of the daily call and its fills, and the move to the high-frequency history group. Step 0 must verify that CTSM's `fwet_patch` has been updated for the current timestep when `wrap_btran` runs, and that FATES's high-frequency history is written after photosynthesis within the timestep. If either is false, stop and report. A one-step lag is a design change for Sam, not something to adopt silently. Check: on the 12-hourly tape Task C adds, the two daily records of `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_WETNESS_SCALER` differ on some snow-free days, where under Task C they were always equal; and `FATES_MOSS_FWET_SOIL_TOT` is nonzero on snow-buried days.
 
 **Why A comes before B is load-bearing:** before #4198 the daily fill of `h2o_liqvol_sl`
 carries total water, so B's liquid proxy would be fed total water at the daily call and
@@ -245,8 +217,7 @@ reads C's tape. **R before D** is load-bearing: D's sub-daily refresh feeds the 
 proxy the canopy field R adds. Finishing the split first lets its checks isolate the liquid/total
 semantics before D changes when the proxies are sampled.
 
-**Failed verifications are stops.** In particular: Task B's three checks and Task D's two
-timing checks (above). If the total ingredient does not match `H2OSOI`, the new field is
+**Failed verifications are stops.** In particular: Task B's three checks, Task D's two timing checks and its first-commit suite run (above). If the total ingredient does not match `H2OSOI`, the new field is
 not what §3.2 says. Do not document any of these as a limitation and carry on.
 
 ## 6. Out of scope
