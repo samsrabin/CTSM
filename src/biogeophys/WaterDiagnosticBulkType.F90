@@ -77,9 +77,6 @@ module WaterDiagnosticBulkType
      real(r8), pointer :: wf2_col                (:)   ! col soil water as frac. of whc for top 0.17 m (0-1) 
      real(r8), pointer :: fwet_patch             (:)   ! patch canopy fraction that is wet (0 to 1)
      ! Liquid-only counterpart of fwet_patch, which is computed from canopy snow plus liquid.
-     ! Deliberately not a restart variable: BulkDiag_FracWet sets it in
-     ! CanopyInterceptionAndThroughfall, which runs before its readers (CanopyFluxes and the
-     ! daily FATES dynamics_driv) in every timestep, including the first after a restart.
      real(r8), pointer :: fwet_liq_patch         (:)   ! patch fraction of canopy that is wet from canopy liquid alone (0 to 1)
      real(r8), pointer :: fcansno_patch          (:)   ! patch canopy fraction that is snow covered (0 to 1)
      real(r8), pointer :: fdry_patch             (:)   ! patch canopy fraction of foliage that is green and dry [-] (new)
@@ -908,6 +905,15 @@ contains
          long_name=this%info%lname('fraction of canopy that is wet (0 to 1)'), &
          units='', &
          interpinic_flag='interp', readvar=readvar, data=this%fwet_patch)
+
+    ! On restart file because BulkDiag_FracWet sets it only for active patches, and FATES also reads it for inactive (zero canopy area) patches, which must keep their value across a restart.
+    call restartvar(ncid=ncid, flag=flag, &
+         varname=this%info%fname('FWET_LIQ'), &
+         xtype=ncd_double,  &
+         dim1name='pft', &
+         long_name=this%info%lname('fraction of canopy that is wet, including only liquid (0 to 1)'), &
+         units='', &
+         interpinic_flag='interp', readvar=readvar, data=this%fwet_liq_patch)
 
     call restartvar(ncid=ncid, flag=flag, &
          varname=this%info%fname('FCANSNO'), &
