@@ -262,6 +262,7 @@ module CLMFatesInterfaceMod
       procedure, public :: wrap_btran
       procedure, public :: wrap_photosynthesis
       procedure, public :: wrap_accumulatefluxes
+      procedure, public :: wrap_moss_wetness
       procedure, public :: prep_canopyfluxes
       procedure, public :: wrap_canopy_radiation
       procedure, public :: wrap_update_hifrq_hist
@@ -1256,26 +1257,15 @@ module CLMFatesInterfaceMod
          end if
 
          ! Soil water. h2o_liqvol_sl is filled with the liquid volumetric water computed
-         ! above, valid for every column hosting a FATES site. wrap_btran later fills the
+         ! above, valid for every column hosting a FATES site. wrap_btran and wrap_moss_wetness later fill the
          ! same field with liquid water again during the sub-daily canopy flux steps.
          this%fates(nc)%bc_in(s)%h2o_liqvol_sl(1:nlevsoil)  = &
                h2osoi_liqvol(c,1:nlevsoil)
 
          ! h2o_totvol_sl is the matching total (liquid plus ice) volumetric water, also valid
-         ! for every FATES column and refilled by wrap_btran during the canopy flux steps.
+         ! for every FATES column and refilled by wrap_btran and wrap_moss_wetness during the canopy flux steps.
          this%fates(nc)%bc_in(s)%h2o_totvol_sl(1:nlevsoil)  = &
                waterstatebulk_inst%h2osoi_vol_col(c,1:nlevsoil)
-
-         ! wrap_btran is otherwise the only writer of watsat_sl, and it sets this to -999
-         ! for columns outside the exposed-vegetation filter, so the moss wetness proxy --
-         ! diagnosed in the daily dynamics call -- needs a valid porosity here. Gated on
-         ! use_fates_moss so a moss-off run leaves this field exactly as it was before this
-         ! branch: gating protects against a future daily reader other than the moss proxy
-         ! silently picking up an unintended fill.
-         if (use_fates_moss) then
-            this%fates(nc)%bc_in(s)%watsat_sl(1:nlevsoil) = &
-                  soilstate_inst%watsat_col(c,1:nlevsoil)
-         end if
 
          this%fates(nc)%bc_in(s)%max_rooting_depth_index_col = &
               min(nlevsoil, active_layer_inst%altmax_lastyear_indx_col(c))
@@ -2739,6 +2729,50 @@ module CLMFatesInterfaceMod
      call t_stopf('fates_wrapbtran')
 
    end subroutine wrap_btran
+
+   ! ===============================================================================
+
+   subroutine wrap_moss_wetness(this, nc, bounds_clump, soilstate_inst, waterstatebulk_inst, waterdiagnosticbulk_inst)
+     !
+     ! !ARGUMENTS
+     class(hlm_fates_interface_type), intent(inout) :: this
+     integer, intent(in) :: nc
+     type(bounds_type), intent(in) :: bounds_clump
+     type(soilstate_type), intent(in) :: soilstate_inst
+     type(waterstatebulk_type), intent(in) :: waterstatebulk_inst
+     type(waterdiagnosticbulk_type), intent(in) :: waterdiagnosticbulk_inst
+     !
+     ! !LOCALS
+     real(r8) :: eff_por_dummy(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd) ! effective porosity, unused [m3/m3]
+     real(r8) :: h2osoi_liqvol(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd) ! liquid volumetricwater [m3/m3]
+     integer :: s, c, j, p, ifp  ! array indices
+
+     ! Need to call this to get h2osoi_liqvol for filling h2o_liqvol_sl
+     call this%calc_effective_soilporosity_and_volumetric_h2oliq( &
+          bounds_clump, soilstate_inst, waterstatebulk_inst, nc, eff_por_dummy, h2osoi_liqvol)
+
+     do s = 1, this%fates(nc)%nsites
+        c = this%f2hmap(nc)%fcolumn(s)
+
+        ! wrap_btran() filled sites that have no exposed vegetation with -999. Here, we fill them with actual values for use in the moss code. It should be safe to do this because the only non-moss things that truly depend on these (other than some plant-hydraulics diagnostic history variables) are either in wrap_btran() itself (so they're done by this point) or happen daily (and thus use the values from the dynamics_driv() fill).
+        if (.not. this%fates(nc)%bc_in(s)%filter_btran) then
+           do j = 1, this%fates(nc)%bc_in(s)%nlevsoil
+              this%fates(nc)%bc_in(s)%h2o_liqvol_sl(j) = h2osoi_liqvol(c,j)
+              this%fates(nc)%bc_in(s)%h2o_totvol_sl(j) = waterstatebulk_inst%h2osoi_vol_col(c,j)
+              this%fates(nc)%bc_in(s)%watsat_sl(j) = soilstate_inst%watsat_col(c,j)
+           end do
+        end if
+
+        ! Fill values needed for moss
+        do ifp = 1, this%fates(nc)%sites(s)%youngest_patch%patchno
+           p = ifp + col%patchi(c)
+           this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = waterdiagnosticbulk_inst%fwet_patch(p)
+           this%fates(nc)%bc_in(s)%fwet_veg_liq_pa(ifp) = waterdiagnosticbulk_inst%fwet_liq_patch(p)
+        end do
+
+     end do
+
+   end subroutine wrap_moss_wetness
 
    ! ====================================================================================
 
