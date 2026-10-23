@@ -43,6 +43,8 @@ module CanopyHydrologyMod
   public :: CanopyHydrology_readnl ! Read namelist
   public :: readParams
   public :: CanopyInterceptionAndThroughfall
+  public :: CanopyLiqStorageCapacity
+  public :: CanopySnowStorageCapacity
 
   type, private :: params_type
      real(r8) :: liq_canopy_storage_scalar  ! Canopy-storage-of-liquid-water parameter (kg/m2)
@@ -753,14 +755,30 @@ contains
         qflx_snocanfall(p) = 0._r8
 
         if (check_point_for_interception_and_excess(p)) then
-           liqcanmx = params_inst%liq_canopy_storage_scalar * (elai(p) + esai(p))
+           liqcanmx = CanopyLiqStorageCapacity(elai(p), esai(p))
            qflx_liqcanfall(p) = max((liqcan(p) - liqcanmx)/dtime, 0._r8)
-           snocanmx = params_inst%snow_canopy_storage_scalar * (elai(p) + esai(p))
+           snocanmx = CanopySnowStorageCapacity(elai(p), esai(p))
            qflx_snocanfall(p) = max((snocan(p) - snocanmx)/dtime, 0._r8)
         end if
      end do
 
    end subroutine BulkFlux_CanopyExcess
+
+   !-----------------------------------------------------------------------
+   elemental function CanopyLiqStorageCapacity(elai, esai)
+     real(r8), intent(in) :: elai
+     real(r8), intent(in) :: esai
+     real(r8) :: CanopyLiqStorageCapacity  ! maximum allowed liquid water on canopy (mm H2O)
+     CanopyLiqStorageCapacity = params_inst%liq_canopy_storage_scalar*(elai+esai)
+   end function CanopyLiqStorageCapacity
+
+   !-----------------------------------------------------------------------
+   elemental function CanopySnowStorageCapacity(elai, esai)
+     real(r8), intent(in) :: elai
+     real(r8), intent(in) :: esai
+     real(r8) :: CanopySnowStorageCapacity  ! maximum allowed snow on canopy (mm H2O)
+     CanopySnowStorageCapacity = params_inst%snow_canopy_storage_scalar*(elai+esai)
+   end function CanopySnowStorageCapacity
 
    !-----------------------------------------------------------------------
    subroutine TracerFlux_CanopyExcess(bounds, num_soilp, filter_soilp, &
