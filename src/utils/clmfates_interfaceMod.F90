@@ -168,6 +168,7 @@ module CLMFatesInterfaceMod
    use FatesInterfaceTypesMod, only : fates_dispersal_cadence_none
    use EDMainMod             , only : ed_ecosystem_dynamics
    use EDMainMod             , only : ed_update_site
+   use EDMainMod             , only : UpdateMossWetness
    use EDInitMod             , only : zero_site
    use EDInitMod             , only : init_site_vars
    use EDInitMod             , only : init_patches
@@ -1303,12 +1304,6 @@ module CLMFatesInterfaceMod
 
             this%fates(nc)%bc_in(s)%wind24_pa(ifp) = &
                   atm2lnd_inst%wind24_patch(p)
-
-            this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = &
-                  waterdiagnosticbulk_inst%fwet_patch(p)
-
-            this%fates(nc)%bc_in(s)%fwet_veg_liq_pa(ifp) = &
-                  waterdiagnosticbulk_inst%fwet_liq_patch(p)
 
          end do
 
@@ -2769,6 +2764,8 @@ module CLMFatesInterfaceMod
            this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = waterdiagnosticbulk_inst%fwet_patch(p)
            this%fates(nc)%bc_in(s)%fwet_veg_liq_pa(ifp) = waterdiagnosticbulk_inst%fwet_liq_patch(p)
         end do
+
+        call UpdateMossWetness(this%fates(nc)%sites(s), this%fates(nc)%bc_in(s))
 
      end do
 

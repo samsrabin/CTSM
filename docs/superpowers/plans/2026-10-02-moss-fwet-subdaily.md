@@ -828,11 +828,12 @@ A new interface method, `wrap_moss_wetness`, runs every timestep immediately aft
 - Modify: `src/biogeophys/WaterDiagnosticBulkType.F90` (restart variable for `fwet_liq_patch`)
 - Modify (FATES): `main/EDMainMod.F90` (new public `UpdateMossWetness`; the daily proxy call and its comment removed)
 - Modify (FATES): `biogeochem/FatesPatchMod.F90` (routine headers: who calls each, and when)
+- Modify (FATES): `main/FatesRestartInterfaceMod.F90` (drop the six `fates_fwet_moss_*` restart variables)
 - Modify (FATES): `main/FatesHistoryInterfaceMod.F90` (move the seven moss wetness registrations from the `if_dyn0` block to the `if_hifrq0` block near line 9398, with `upfreq=group_hifr_simple`; move their fill from `update_history_dyn_sitelevel` to a patch loop in `update_history_hifrq_sitelevel`)
 
 **Interfaces:**
 - Consumes: `UpdateMossFwetLiq`, `UpdateMossFwetTot`, `bc_in%h2o_totvol_sl`, `bc_in%fwet_veg_pa`, `bc_in%fwet_veg_liq_pa` and the patch members (Task B, as amended by Task R); `bc_in%filter_btran`, which `wrap_btran` sets per site.
-- Produces: `wrap_moss_wetness`; FATES `UpdateMossWetness`; both proxies current for the timestep, for every non-bareground patch, before the canopy-flux iteration; a CTSM restart variable `FWET_LIQ`; the seven `FATES_MOSS_*` wetness fields in `group_hifr_simple`.
+- Produces: `wrap_moss_wetness`; FATES `UpdateMossWetness`; both proxies current for the timestep, for every non-bareground patch, before the canopy-flux iteration; a CTSM restart variable `FWET_LIQ`; the seven `FATES_MOSS_*` wetness fields in `group_hifr_simple`; FATES restart files without the six `fates_fwet_moss_*` variables.
 
 - [x] **Step 0 (orchestrator):** each check is a stop if it fails. A one-step lag would be a design change for Sam, not something to adopt.
   - **Canopy wetted fraction is current.** Confirm that CTSM updates `waterdiagnosticbulk_inst%fwet_patch` for the current timestep (`CanopyHydrologyMod`, near line 429) before `CanopyFluxes` calls `wrap_btran`, and for every patch on the filter columns. Trace the call order in `src/main/clm_driver.F90`.
@@ -852,18 +853,19 @@ A new interface method, `wrap_moss_wetness`, runs every timestep immediately aft
   - Why it is needed now: `BulkDiag_FracWet` rewrites the field only for active patches, and `InitBulkCold` zeroes it at every start, restarts included. A FATES patch with zero canopy area is inactive. Without a restart variable, such a patch holds its last active value in a straight-through run but 0 after a restart, and from Step 3 on the refresh reads the field for every patch. `fwet_patch` already has a restart variable.
   - **Exception to the moss-off bit-for-bit constraint (Sam, 2026-10-20):** the restart file gains `FWET_LIQ` in every run, moss on or off. Register it unconditionally.
   - [x] **Unit tests, build, review, commit CTSM.** `run_unit_tests.py -t moss_fwet` passes and Claude builds CTSM-FATES. No suite stop here; Sam's run in Step 5 covers it.
-- [ ] **Step 3: the per-timestep refresh (implementer agent).**
-  - [ ] **`EDMainMod`:** add a public `UpdateMossWetness(nsites, sites, bc_in)`. When `hlm_use_moss == itrue`, for every site and every patch with `nocomp_pft_label /= nocomp_bareground`, call `UpdateMossFwetLiq(bc_in(s)%fwet_veg_liq_pa(ifp), bc_in(s)%h2o_liqvol_sl(1), bc_in(s)%watsat_sl(1))` and `UpdateMossFwetTot(bc_in(s)%fwet_veg_pa(ifp), bc_in(s)%h2o_totvol_sl(1), bc_in(s)%watsat_sl(1))`. No exposure gate. Its header states the contract:
+- [x] **Step 3: the per-timestep refresh (implementer agent).**
+  - [x] **`EDMainMod`:** add a public `UpdateMossWetness(currentSite, bc_in)`, called once per site (Sam, 2026-10-23). When `hlm_use_moss == itrue`, for every patch on the site with `nocomp_pft_label /= nocomp_bareground`, call `UpdateMossFwetLiq(bc_in%fwet_veg_liq_pa(ifp), bc_in%h2o_liqvol_sl(1), bc_in%watsat_sl(1))` and `UpdateMossFwetTot(bc_in%fwet_veg_pa(ifp), bc_in%h2o_totvol_sl(1), bc_in%watsat_sl(1))`. No exposure gate. Its header states the contract:
     - it is the proxies' only writer, and runs every timestep for every non-bareground patch, snow-buried ones included;
-    - its caller, `wrap_moss_wetness`, has filled every input with real values for every site, and runs before the canopy-flux iteration, so every photosynthesis call in a timestep sees the same proxies;
+    - the HLM has filled every input with real values for every site, including ones without exposed vegetation, and calls it before photosynthesis. The header names no HLM routine, since which one calls it is the HLM's implementation detail (Sam, 2026-10-23);
     - fire, at the day boundary, reads the value refreshed earlier in the same timestep.
-  - [ ] **`ed_ecosystem_dynamics`:** remove the daily proxy call and the comment above it.
-  - [ ] **`wrap_moss_wetness`:** call `UpdateMossWetness` after its fills.
-  - [ ] **`dynamics_driv`:** remove the fills that only the daily proxy call read: `fwet_veg_pa` and `fwet_veg_liq_pa`. The `h2o_totvol_sl` fill stays beside `h2o_liqvol_sl`'s.
-  - [ ] **`FatesPatchMod`:** each routine's header names its caller (`UpdateMossWetness`) and when it runs.
-  - [ ] **History:** move the seven registrations into the `if_hifrq0` block with `upfreq=group_hifr_simple`. Move the fill into `update_history_hifrq_sitelevel` as a patch loop inside `do_sites`, still inside `if (hlm_use_moss == itrue)`, area-weighted with `cpatch%area * AREA_INV`. Keep the comment about bareground dilution. Remove the `update_history_dyn_sitelevel` fill. Long names are unchanged.
-  - [ ] **Unit tests, build, review, commit.** `run_unit_tests.py -t moss_fwet` passes and Claude builds CTSM-FATES. `UpdateMossWetness` is a site and patch loop around the two tested routines and gets no unit test of its own; Step 4 reviews its gating. After Step 4's review, commit FATES, then CTSM with the pointer bump and `fxtag`.
-- [ ] **Step 4: review the refresh (reviewer, for Step 3).** Confirm three things:
+  - [x] **`ed_ecosystem_dynamics`:** remove the daily proxy call and the comment above it.
+  - [x] **`wrap_moss_wetness`:** call `UpdateMossWetness(currentSite, bc_in)` for each site, after that site's fills.
+  - [x] **`dynamics_driv`:** remove the fills that only the daily proxy call read: `fwet_veg_pa` and `fwet_veg_liq_pa`. The `h2o_totvol_sl` fill stays beside `h2o_liqvol_sl`'s.
+  - [x] **`FatesPatchMod`:** each routine's header names its caller (`UpdateMossWetness`) and when it runs.
+  - [x] **History:** move the seven registrations into the `if_hifrq0` block with `upfreq=group_hifr_simple`. Move the fill into `update_history_hifrq_sitelevel` as a patch loop inside `do_sites`, still inside `if (hlm_use_moss == itrue)`, area-weighted with `cpatch%area * AREA_INV`. Keep the comment about bareground dilution. Remove the `update_history_dyn_sitelevel` fill. Long names are unchanged.
+  - [x] **Drop the proxy restart variables.** Remove the six `fates_fwet_moss_*` restart variables from `FatesRestartInterfaceMod`: their index declarations, registrations, write, and read, including the moss-off zeroing on read (Sam, 2026-10-23). Why: with the refresh above, every reader of the proxies runs after `UpdateMossWetness` in the same timestep, the first after a restart included, so a restarted value is always overwritten before it is read (spec §3.4). FATES restart files lose the six variables in moss-on runs only; they were never registered with moss off. No answers change.
+  - [x] **Unit tests, build, review, commit.** `run_unit_tests.py -t moss_fwet` passes and Claude builds CTSM-FATES. `UpdateMossWetness` is a site and patch loop around the two tested routines and gets no unit test of its own; Step 4 reviews its gating. After Step 4's review, commit FATES, then CTSM with the pointer bump and `fxtag`.
+- [x] **Step 4: review the refresh (reviewer, for Step 3).** Confirm three things:
   - `UpdateMossWetness` runs once per timestep, after all of `wrap_moss_wetness`'s fills and before the canopy-flux iteration, including on a timestep with no exposed patch (Review Focus 2);
   - it refreshes every non-bareground patch, with no exposure gate;
   - nothing else writes either proxy, and the daily moss-only fills are gone.
@@ -872,4 +874,4 @@ A new interface method, `wrap_moss_wetness`, runs every timestep immediately aft
   - **The wetness proxies change within the day,** on the 12-hourly `h1` tape Task C added. On snow-free days, the two 12-hour records of `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_WETNESS_SCALER` differ on at least some days. Under Task C they were equal. If they are still equal on every snow-free day, that is a stop. Moss `FATES_GPP_PF` is on the tape for context but is not the test. It is filled from `gpp_acc_hold`, the previous day's accumulated GPP, so it holds one value per day on any tape.
   - **Buried patches are refreshed from real soil water.** On the `h1` tape, on days the moss patch is snow-buried, `FATES_MOSS_FWET_SOIL_TOT` is nonzero. Total water includes ice, so it stays positive under snow; a zero there means the refresh read the -999 sentinel, and is a stop.
   - **Moss-off tests: bit-for-bit** with a baseline generated after Step 1.
-  - **Moss ALP2 ERS test: PASS.** This also covers Step 2's restart variable.
+  - **Moss ALP2 ERS test: PASS.** This also covers Step 2's restart variable and Step 3's restart removal.

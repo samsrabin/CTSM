@@ -119,9 +119,7 @@ The comments that tie the proxy to the daily call are removed with it. `UpdateMo
   plan's Global Constraint for moss history variables, including the `FatesNvp`
   `hist_fincl1 +=` entries. The wetness scaler's long name is updated to say it derives
   from the liquid proxy.
-- Restart: both proxies and all four ingredients are restarted (`fates_fwet_moss_*`), for
-  the reason Task 8 found: `restart()` writes history before the first update. The wetness
-  scaler needs no restart variable, because it is evaluated from `fwet_moss_liq`.
+- Restart: through Task R, both proxies and all four ingredients are restarted (`fates_fwet_moss_*`), for the reason Task 8 found: `restart()` writes history before the first update. Task D drops all six (Sam, 2026-10-23). After it, `restart()` triggers only the daily history update, which no longer contains these fields, and every reader of the proxies (photosynthesis and respiration, high-frequency history, fire, patch fusion) runs after `UpdateMossWetness` in the same timestep, the first after a restart included. A restarted value would always be overwritten before it was read. The wetness scaler never needed a restart variable, because it is evaluated from `fwet_moss_liq`.
 - Fusion: area-weighted, as now, for all six members.
 
 ## 4. Behaviour that changes
@@ -150,6 +148,7 @@ The comments that tie the proxy to the daily call are removed with it. `UpdateMo
 - **Snow-buried patches' proxies follow soil water every timestep** (Task D), rather than holding a once-daily value.
 - **Plant-hydraulics history reports real soil water on buried columns** (Task D, moss on or off; §3.2).
 - **The CTSM restart file gains `FWET_LIQ`** (Task D, moss on or off; §3.2).
+- **The FATES restart file loses the six `fates_fwet_moss_*` variables** (Task D, moss on only, since they were registered only then; §3.4).
 
 ## 5. Work breakdown
 
@@ -206,7 +205,7 @@ Five tasks, strictly in order.
   `fwet_moss_canopy_tot`. Last, and answer-changing for moss: the liquid proxy's canopy
   ingredient becomes the liquid-only wetted fraction of §3.2. Check:
   `FATES_MOSS_FWET_CANOPY_LIQ` ≤ `FATES_MOSS_FWET_CANOPY_TOT` on every day.
-- **Task D: refresh both proxies every timestep** (§3.3), in three commits that change one thing each. First, `wrap_moss_wetness` fills real soil water off the filter and both canopy wetted fractions, with no refresh yet; Sam runs the `fates_nvp` suite, and anything other than the plant-hydraulics history fields changing is a stop that changes this task's strategy. This comes first because it is the change most likely to force a redesign. Second, the `FWET_LIQ` restart variable. Third, `UpdateMossWetness`, the removal of the daily call and its fills, and the move to the high-frequency history group. Step 0 must verify that CTSM's `fwet_patch` has been updated for the current timestep when `wrap_btran` runs, and that FATES's high-frequency history is written after photosynthesis within the timestep. If either is false, stop and report. A one-step lag is a design change for Sam, not something to adopt silently. Check: on the 12-hourly tape Task C adds, the two daily records of `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_WETNESS_SCALER` differ on some snow-free days, where under Task C they were always equal; and `FATES_MOSS_FWET_SOIL_TOT` is nonzero on snow-buried days.
+- **Task D: refresh both proxies every timestep** (§3.3), in three steps that change one thing each. First, `wrap_moss_wetness` fills real soil water off the filter and both canopy wetted fractions, with no refresh yet; Sam runs the `fates_nvp` suite, and anything other than the plant-hydraulics history fields changing is a stop that changes this task's strategy. This comes first because it is the change most likely to force a redesign. Second, the `FWET_LIQ` restart variable. Third, `UpdateMossWetness`, the removal of the daily call and its fills, the move to the high-frequency history group, and dropping the six `fates_fwet_moss_*` restart variables (§3.4), which the moss ALP2 ERS test checks. Step 0 must verify that CTSM's `fwet_patch` has been updated for the current timestep when `wrap_btran` runs, and that FATES's high-frequency history is written after photosynthesis within the timestep. If either is false, stop and report. A one-step lag is a design change for Sam, not something to adopt silently. Check: on the 12-hourly tape Task C adds, the two daily records of `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_WETNESS_SCALER` differ on some snow-free days, where under Task C they were always equal; and `FATES_MOSS_FWET_SOIL_TOT` is nonzero on snow-buried days.
 
 **Why A comes before B is load-bearing:** before #4198 the daily fill of `h2o_liqvol_sl`
 carries total water, so B's liquid proxy would be fed total water at the daily call and
