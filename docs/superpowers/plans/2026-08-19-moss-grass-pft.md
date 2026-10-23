@@ -273,6 +273,8 @@ Not defects in our work; things noticed while implementing that upstream may wan
   alone is a mortality mechanism firing on frozen-saturated soil. Noticed because moss's
   profile was moved into layer 1, which made the top layer the only layer its btran sees.
 
+- **Every area index FATES reports is floored at 0.1, so no FATES vegetated patch is ever snow-buried in the host's eyes.** `calc_areaindex` (`biogeochem/EDCanopyStructureMod.F90`) ends with `ai = max(ai_min, ai)`, `ai_min = 0.1`, under a TODO calling it a testing artifact kept for bit-for-bit results. It feeds `bc_out` `elai_pa`, `esai_pa`, `tlai_pa` and `tsai_pa`, so exposed leaf plus stem area is at least 0.2 on every non-bareground patch. FATES sets `frac_veg_nosno_alb` whenever that sum is positive, so a fully snow-covered patch stays in the photosynthesis filter and keeps intercepting rain and snow onto a canopy that isn't there. A patch with no cohorts reports area too. NGEET/fates#261 ("LAI sent to host has a forced minimum", open since 2017) tracks removal. FATES PR 733 removed the floor in 2021, and PR 739 restored it after six-month CTSM debug tests hit a floating-point exception in photosynthesis (ESCOMP/CTSM#1324); the mechanism was never identified. A 2023 retry, reported on #261, hit a floating-point exception in `ed_sunshadefracs` and a NaN mass-balance abort. NGEET/fates#749 ("ELAI is above 0 even if the plant is totally covered by snow") reports the snow symptom. Noticed because the moss wetness proxies need to know when moss is buried: `docs/superpowers/plans/2026-10-23-moss-canopy-storage-fraction.md` works around the floor with an unfloored integral rather than removing it (Sam, 2026-10-23).
+
 ## Global Constraints
 
 - **All new scalar settings — switches and science constants — go on the CTSM namelist**
@@ -2744,6 +2746,12 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
   in biomass. The run completed cleanly with all balance checks fatal;
   `FATES_CBALANCE_ERROR` peaks at 2.7e-20 kg/s (2.2e-20 with hmort on) and
   `FATES_PRIMARY_PATCHFUSION_ERR` is identically zero in both.
+
+- [ ] **Step 3g: make the moss proxies' canopy ingredient the filled fraction of canopy storage (Sam, 2026-10-23).** The canopy ingredient is CTSM's wetted fraction, `(liqcan/liqcanmx)^(2/3)`, capped at `maximum_leaf_wetted_fraction` = 0.05. The cap binds once the store is about 1% full, so interception never moves the proxies. Raising the cap would change canopy evaporation for every PFT. Instead, CTSM passes FATES canopy liquid and snow and their storage capacities, and FATES forms `liqcan/liqcanmx` for the liquid proxy and `max(liqcan/liqcanmx, snocan/snocanmx)` for the total, with a snow-buried patch reading 0 and 1 respectively. `fwet` is left alone.
+
+  **Ordering is load-bearing: this runs before Step 3b**, for the reason Step 3f did. 3b tunes the wetness window against the proxies' distribution, and this step lets the canopy ingredient win `max(soil, canopy)` for the first time. Run 3b first and its tuning is against a distribution this step then moves. 3b's note that the clean area-fraction rescaling holds "throughout this run, CTSM capping the canopy wetted fraction at 0.05" stops holding once this lands.
+
+  This step has its own implementation plan, two tasks with a review gate between them, at `docs/superpowers/plans/2026-10-23-moss-canopy-storage-fraction.md`.
 
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
