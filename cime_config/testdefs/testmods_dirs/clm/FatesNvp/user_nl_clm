@@ -39,6 +39,11 @@ hist_fincl1 += 'FATES_MOSS_HEIGHT'
 ! mean would not match the FATES field's once-daily value.
 hist_fincl1 += 'H2OSOI:I'
 
+! Area fraction of non-bareground patches whose vegetation is entirely snow-buried. It
+! identifies days on which every vegetated patch is buried, for checking the moss canopy
+! ingredients (FATES_MOSS_FWET_CANOPY_LIQ and _TOT), which treat buried patches specially.
+hist_fincl1 += 'FATES_SNOW_BURIED_AREA'
+
 ! Existing FATES per-PFT and per-fuel-class diagnostics that the moss science
 ! checks need read out for the moss PFT and for fuel classes 7 (live moss) and 8 (dead
 ! moss). They are not moss-specific variables, which is why they are not covered by the
