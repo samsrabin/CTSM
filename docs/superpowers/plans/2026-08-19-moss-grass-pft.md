@@ -2753,6 +2753,8 @@ the inherited `fates_allom_d2bl1` under-leafing (Step 3d).
 
   This step has its own implementation plan, two tasks with a review gate between them, at `docs/superpowers/plans/2026-10-23-moss-canopy-storage-fraction.md`.
 
+- [ ] **Step 3h: decide what wets `moss_fines` litter on a patch with no moss foliage (Sam, 2026-10-23).** Runs immediately after Step 3g. On a patch with no foliage at all, such as the moss patch after the extinction Step 3e diagnosed, the moss total proxy's canopy ingredient has nothing real to read. The host's interception store there sits on the phantom canopy that FATES's 0.1 area-index floor creates (see the upstream-observations entry on `ai_min`). Step 3g leaves it as a placeholder 0, untested, so the litter's fuel moisture follows top-soil total saturation alone and never responds to rain landing on the litter itself. Design what should wet that litter, then implement it.
+
 - [ ] **Step 4: tune the four moss fuel-moisture coefficients (carried forward from
   Task 9, 2026-09-01).** All four have been placeholders since Task 1 Step 0 and none has a
   source. They now sit at intercept 0, slope 0.7 for **both** classes, chosen for simplicity

@@ -2727,7 +2727,9 @@ module CLMFatesInterfaceMod
 
    ! ===============================================================================
 
-   subroutine wrap_moss_wetness(this, nc, bounds_clump, soilstate_inst, waterstatebulk_inst, waterdiagnosticbulk_inst)
+   subroutine wrap_moss_wetness(this, nc, bounds_clump, soilstate_inst, waterstatebulk_inst, elai, esai)
+     !
+     use CanopyHydrologyMod, only : CanopyLiqStorageCapacity, CanopySnowStorageCapacity
      !
      ! !ARGUMENTS
      class(hlm_fates_interface_type), intent(inout) :: this
@@ -2735,7 +2737,8 @@ module CLMFatesInterfaceMod
      type(bounds_type), intent(in) :: bounds_clump
      type(soilstate_type), intent(in) :: soilstate_inst
      type(waterstatebulk_type), intent(in) :: waterstatebulk_inst
-     type(waterdiagnosticbulk_type), intent(in) :: waterdiagnosticbulk_inst
+     real(r8), intent(in) :: elai(bounds_clump%begp:bounds_clump%endp)  ! leaf area index [m2/m2]
+     real(r8), intent(in) :: esai(bounds_clump%begp:bounds_clump%endp)  ! stem area index [m2/m2]
      !
      ! !LOCALS
      real(r8) :: eff_por_dummy(bounds_clump%begc:bounds_clump%endc, 1:nlevgrnd) ! effective porosity, unused [m3/m3]
@@ -2761,8 +2764,10 @@ module CLMFatesInterfaceMod
         ! Fill values needed for moss
         do ifp = 1, this%fates(nc)%sites(s)%youngest_patch%patchno
            p = ifp + col%patchi(c)
-           this%fates(nc)%bc_in(s)%fwet_veg_pa(ifp) = waterdiagnosticbulk_inst%fwet_patch(p)
-           this%fates(nc)%bc_in(s)%fwet_veg_liq_pa(ifp) = waterdiagnosticbulk_inst%fwet_liq_patch(p)
+           this%fates(nc)%bc_in(s)%liqcan_pa(ifp) = waterstatebulk_inst%liqcan_patch(p)
+           this%fates(nc)%bc_in(s)%liqcanmx_pa(ifp) = CanopyLiqStorageCapacity(elai(p), esai(p))
+           this%fates(nc)%bc_in(s)%snocan_pa(ifp) = waterstatebulk_inst%snocan_patch(p)
+           this%fates(nc)%bc_in(s)%snocanmx_pa(ifp) = CanopySnowStorageCapacity(elai(p), esai(p))
         end do
 
         call UpdateMossWetness(this%fates(nc)%sites(s), this%fates(nc)%bc_in(s))

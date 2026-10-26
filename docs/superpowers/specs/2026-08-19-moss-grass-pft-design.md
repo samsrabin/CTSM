@@ -219,7 +219,7 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
   photosynthesis — a permanent dry-period carbon drain. The threshold (0.6) is a CTSM
   namelist scalar (§8), not a hard-coded constant, and the respiration half is switchable
   from the namelist so the divergence can be tested against NVP's behaviour.
-- **fwet proxies:** `fwet = max(top-soil-layer saturation, canopy wetted fraction)` for
+- **fwet proxies:** `fwet = max(top-soil-layer saturation, canopy ingredient)` for
   the moss patch, in two variants that differ only in the soil ingredient's water phase
   (Sam, 2026-10-02; design in `2026-10-02-moss-fwet-subdaily-design.md`). The **liquid**
   proxy drives the capacity and respiration scaler: frozen moss is inactive. The **total**
@@ -227,14 +227,13 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
   refreshed every timestep ahead of photosynthesis on exposed patches; the total proxy is
   also refreshed in the daily sequence ahead of fire. The liquid soil part comes from the
   liquid water already in `bc_in`, the total soil part from a new total-water `bc_in`
-  field; the canopy wetted fraction is a new `bc_in` field too (§7).
+  field; the canopy ingredient's water and storage capacities are new `bc_in` fields too (§7).
 - **Interception supplies the thallus-wetness signal.** Moss interception comes free and
   unchanged from CTSM (`CanopyHydrologyMod`, no FATES branch): intercepted water enters
   the patch canopy store (`liqcan`/`snocan`, capacity ~ LAI+SAI) and exits only by
   evaporation from the wetted canopy fraction or by drip/throughfall to the ground —
   never entering the plant, fully conserving. Because this is an existing
-  prognostic-water mechanism, the moss fwet proxy uses its wetted fraction directly (no
-  new water state is created), and drip additionally feeds the soil half of the proxy.
+  prognostic-water mechanism, the moss fwet proxies read its store directly (no new water state is created), and drip additionally feeds the soil half of the proxy. The canopy ingredient is the filled fraction of the canopy's interception storage: `liqcan/liqcanmx` for the liquid proxy and `max(liqcan/liqcanmx, snocan/snocanmx)` for the total, each clamped to [0, 1] and formed in FATES from host-supplied water and capacity. It is not CTSM's wetted fraction, which `maximum_leaf_wetted_fraction` caps at 0.05 for evaporation's sake, so it could never beat the soil ingredient (Sam, 2026-10-23). FATES decides from its own unfloored leaf and stem area whether a patch has exposed area or foliage, because `calc_areaindex` floors both. On a snow-buried patch (foliage present, none exposed) the liquid ingredient is 0, so the liquid proxy falls back to the soil, and the total is 1, so buried moss reads wet for the CO₂ film and fuel moisture.
 - **Gas parameters use `t_veg`** (patch vegetation temperature) for moss initially. The
   NVP branch's per-cohort gas-parameter separation (FATES `33640d372`) is the drop-in
   pattern if a ground-temperature proxy is added later (§11).
@@ -300,13 +299,12 @@ All in FATES `fire/` plus the biomass routing points:
 
 ## 7. CTSM–FATES interface
 
-Two new coupler fields, each a new `bc_in` field via the standard 4-touch recipe (declare
+Five new coupler fields, each a new `bc_in` field via the standard 4-touch recipe (declare
 in `FatesInterfaceTypesMod`, allocate in `allocate_bcin`, flush in `zero_bcs`, fill in
-`clmfates_interfaceMod`): the per-patch canopy wetted fraction (CTSM's `fwet_patch`),
-supplying the thallus-wetness half of the fwet proxies (§5); and per-layer total
+`clmfates_interfaceMod`): the per-patch canopy liquid and snow water and their two storage capacities [kg H2O m-2], from which FATES forms the thallus-wetness half of the fwet proxies (§5); and per-layer total
 volumetric soil water (CTSM's `h2osoi_vol_col`, liquid plus ice), which gives the
-total-water proxy its soil ingredient (`2026-10-02-moss-fwet-subdaily-design.md`). Both
-are filled daily and sub-daily. That design also brings in ESCOMP/CTSM#4198, which makes
+total-water proxy its soil ingredient (`2026-10-02-moss-fwet-subdaily-design.md`). The
+soil field is filled daily and sub-daily, the canopy fields sub-daily only. That design also brings in ESCOMP/CTSM#4198, which makes
 `bc_in%h2o_liqvol_sl` liquid-only at both of its host fills, with a local fix that keeps
 the daily fill valid on snow-buried columns. New scalar controls cross
 via the existing `set_fates_ctrlparms` mechanism.
@@ -352,8 +350,8 @@ defaults, `CLMBuildNamelist.pm` logic, `clm_varctl`, `controlMod` read/broadcast
   competition later.
 - New history variables for debugging and evaluation, at minimum:
   - `FATES_MOSS_FWET_LIQ` and `FATES_MOSS_FWET_TOT` — the two fwet proxies (§5), plus
-    their ingredients `FATES_MOSS_FWET_SOIL_LIQ`, `FATES_MOSS_FWET_SOIL_TOT` and
-    `FATES_MOSS_FWET_CANOPY`, so proxy behavior can be decomposed. These are
+    their ingredients `FATES_MOSS_FWET_SOIL_LIQ`, `FATES_MOSS_FWET_SOIL_TOT`,
+    `FATES_MOSS_FWET_CANOPY_LIQ` and `FATES_MOSS_FWET_CANOPY_TOT`, so proxy behavior can be decomposed. These are
     high-frequency history fields, since the proxies change every timestep
     (`2026-10-02-moss-fwet-subdaily-design.md` §3.4);
   - `FATES_MOSS_WETNESS_SCALER` — the `min(1, fwet_liq/threshold)` wetness scalar actually

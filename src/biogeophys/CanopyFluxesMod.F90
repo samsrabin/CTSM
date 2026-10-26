@@ -878,7 +878,8 @@ bioms:   do f = 1, fn
          call clm_fates%wrap_btran(nc, fn, filterc_tmp(1:fn), soilstate_inst, &
                waterstatebulk_inst, waterdiagnosticbulk_inst, temperature_inst, energyflux_inst, soil_water_retention_curve)
          
-         call clm_fates%wrap_moss_wetness(nc, bounds, soilstate_inst, waterstatebulk_inst, waterdiagnosticbulk_inst)
+         call clm_fates%wrap_moss_wetness(nc, bounds, soilstate_inst, waterstatebulk_inst, &
+              elai(bounds%begp:bounds%endp), esai(bounds%begp:bounds%endp))
       else
          
          !calculate root moisture stress
