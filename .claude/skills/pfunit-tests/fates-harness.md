@@ -22,7 +22,7 @@ cd src/fates/testing
 ./run_unit_tests.py -t great_circle
 ```
 
-`--help` lists the flags; take that over any list written down elsewhere. Three
+`--help` lists the flags; take that over any list written down elsewhere. Four
 things it does not tell you, and one thing it gets wrong:
 
 - The build directory it calls a default is at the FATES root, not under
@@ -35,6 +35,7 @@ things it does not tell you, and one thing it gets wrong:
 - The `fates_testing` conda env is required (`run_unit_tests.py` imports
   `framework.utils.env_check` at module scope). **Activate it; never create or
   modify it.** If it is missing or an import fails, report that and stop.
+- **Inside Claude Code's Bash sandbox, run it as `env -u __NCARENV_TMPDIR ./run_unit_tests.py ...`.** Otherwise CMake's compiler check fails with `icx: error #10295: error generating temporary file name`. The sandbox blocks the user-name lookup, so `whoami` fails. When CIME loads the `ncarenv` module, that module builds the scratch path from `whoami`, and because `__NCARENV_TMPDIR=1` is inherited it overwrites `TMPDIR` with `/glade/derecho/scratch/tmp`, which does not exist. With the variable unset, `ncarenv` keeps the sandbox's own `TMPDIR`. After a failed configure, the executable left from an earlier build still runs and still reports `OK`, so that line is not evidence either (see below).
 - `-c/--clean` does not do what its help says, and does not fix the trap you
   will most want it for — next section.
 
