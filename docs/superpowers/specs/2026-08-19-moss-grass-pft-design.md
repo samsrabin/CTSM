@@ -233,7 +233,7 @@ All in FATES (`FatesPlantRespPhotosynthMod`, `LeafBiophysicsMod`):
   the patch canopy store (`liqcan`/`snocan`, capacity ~ LAI+SAI) and exits only by
   evaporation from the wetted canopy fraction or by drip/throughfall to the ground —
   never entering the plant, fully conserving. Because this is an existing
-  prognostic-water mechanism, the moss fwet proxies read its store directly (no new water state is created), and drip additionally feeds the soil half of the proxy. The canopy ingredient is the filled fraction of the canopy's interception storage: `liqcan/liqcanmx` for the liquid proxy and `max(liqcan/liqcanmx, snocan/snocanmx)` for the total, each clamped to [0, 1] and formed in FATES from host-supplied water and capacity. It is not CTSM's wetted fraction, which `maximum_leaf_wetted_fraction` caps at 0.05 for evaporation's sake, so it could never beat the soil ingredient (Sam, 2026-10-23). FATES decides from its own unfloored leaf and stem area whether a patch has exposed area or foliage, because `calc_areaindex` floors both. On a snow-buried patch (foliage present, none exposed) the liquid ingredient is 0, so the liquid proxy falls back to the soil, and the total is 1, so buried moss reads wet for the CO₂ film and fuel moisture.
+  prognostic-water mechanism, the moss fwet proxies read its store directly (no new water state is created), and drip additionally feeds the soil half of the proxy. The canopy ingredient is the filled fraction of the canopy's interception storage: `liqcan/liqcanmx` for the liquid proxy and `max(liqcan/liqcanmx, snocan/snocanmx)` for the total, each clamped to [0, 1] and formed in FATES from host-supplied water and capacity. It is not CTSM's wetted fraction, which `maximum_leaf_wetted_fraction` caps at 0.05 for evaporation's sake, so it could never beat the soil ingredient (Sam, 2026-10-23). FATES decides from its own unfloored leaf and stem area whether a patch has exposed area or foliage, because `calc_areaindex` floors both. On a snow-buried patch (foliage present, none exposed) the liquid ingredient is 0, so the liquid proxy falls back to the soil, and the total is 1, so buried moss reads wet for the CO₂ film and fuel moisture. On a patch with no foliage at all, such as a moss patch after extinction that holds only `moss_fines` litter, both canopy ingredients are 0: the host's store there sits on the phantom canopy that the floor creates. Both proxies are then top-soil saturation, and the litter is wetted only through the soil. Explicit dead-moss water content is out of scope (Sam, 2026-10-26).
 - **Gas parameters use `t_veg`** (patch vegetation temperature) for moss initially. The
   NVP branch's per-cohort gas-parameter separation (FATES `33640d372`) is the drop-in
   pattern if a ground-temperature proxy is added later (§11).
@@ -280,7 +280,7 @@ All in FATES `fire/` plus the biomass routing points:
   via moss branches in `UpdateFuelMoisture`. Initial functional form: a simple monotonic
   mapping `moisture = a + b·fwet`, with separate coefficient pairs for the live-moss and
   dead-moss classes (all four on the CTSM namelist, §8); refinable if a better-supported
-  form emerges.
+  form emerges. On a patch with no foliage, the proxy, and so dead-moss fuel moisture, is top-soil total saturation (§5).
 - **Burn response mirrors grass, except for the burn-fraction cap:** each moss class
   burns per its own effective moisture. Moss cohorts take `leaf_burn_frac` from the
   live-moss class's `frac_burnt` (analogous to the existing live-grass keying in

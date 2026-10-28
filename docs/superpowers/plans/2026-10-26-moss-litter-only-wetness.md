@@ -51,7 +51,7 @@ This is test-and-documentation work that must leave every answer bit-for-bit. Th
 - Consumes: `UpdateMossFwetTot(this, liqcan, liqcanmx, snocan, snocanmx, exposed_vai, total_vai, h2o_totvol_top, watsat_top)` as it stands after Step 3g.
 - Produces: no new interface. The no-foliage branch (`exposed_vai <= 0` and `total_vai <= 0`) becomes part of the contract: `fwet_moss_canopy_tot = 0`, so `fwet_moss_tot = fwet_moss_soil_tot`, regardless of `liqcan`, `snocan` or their capacities, and with no abort.
 
-- [ ] **Step 0 (orchestrator):** Settled at plan time (2026-10-26); re-confirm only if the branch has moved.
+- [x] **Step 0 (orchestrator):** Settled at plan time (2026-10-26); re-confirm only if the branch has moved.
   - The branch is reachable and exact. On a patch with no cohorts, the unfloored area integrals are exactly 0 (main plan 3g sub-plan, Task 1 Step 0).
   - On a no-foliage patch, `fwet_moss_tot`'s only consumer that changes anything is moss fuel moisture (`fire/SFMainMod.F90` → `FatesFuelMod.F90` `UpdateFuelMoisture`). The CO₂ film factor reads it only for moss cohorts, and there are none. The liquid proxy needs no change: `UpdateMossFwetLiq` takes no `total_vai`, its `exposed_vai <= 0` branch already returns 0, and `UpdateMossFwetLiq_SnowBuried_CanopyZero` covers that branch.
   - The comment that the 3g plan prescribed for this branch ("a placeholder... pointing to main-plan Task 12 Step 3h") is **not** in the code, and no test covers the branch.
@@ -74,10 +74,10 @@ This is test-and-documentation work that must leave every answer bit-for-bit. Th
   - In `FatesFuelMod.F90`'s moss fuel-moisture comment, add one sentence: on a patch with no live vegetation, `fwet_moss_tot` is top-soil total saturation, so dead-moss fuel moisture there responds to rain only through the soil.
 
   Run `run_unit_tests.py -t moss_fwet` (all green), then build. Check that `git diff` shows only comment lines. Review, commit FATES, then CTSM (pointer bump, `fxtag`, plan tick).
-- [ ] **Step 7: amend the spec and the main plan (orchestrator).**
+- [x] **Step 7: amend the spec and the main plan (orchestrator).**
   - Spec §5, at the end of "Interception supplies the thallus-wetness signal", add: On a patch with no foliage at all, such as a moss patch after extinction that holds only `moss_fines` litter, both canopy ingredients are 0. Both proxies are then top-soil saturation, and the litter is wetted only through the soil. Explicit dead-moss water content is out of scope (Sam, 2026-10-26).
   - Spec §6, at "Moss fuel moisture is diagnostic from the total-water fwet proxy": add a cross-reference to that sentence.
   - Main plan Task 12 Step 3h: rewrite in the style of the completed 3g entry. State the decision in one paragraph, say that answers do not change, point to this plan, and tick it.
 
   Commit with the plan tick.
-- [ ] **Step 8: verify (Sam, during review).** Expected: no test changes answers. FATES unit tests green, including the two new cases. Whether to run any system test is Sam's call, since the source change is comments only.
+- [x] **Step 8: verify (Sam, during review).** Expected: no test changes answers. FATES unit tests green, including the two new cases. Whether to run any system test is Sam's call, since the source change is comments only. **2026-10-28 09:20 MDT: Confirmed unit tests pass. No system tests run.**
