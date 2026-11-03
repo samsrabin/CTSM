@@ -37,7 +37,7 @@ jobs:
   build-and-deploy:
 
     # Only run on upstream repository
-    if: ${{ github.repository == 'ESCOMP/CTSM' }}
+    if: ${{ github.repository == 'samsrabin/CTSM' }}
 
     environment:
       name: github-pages
