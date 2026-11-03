@@ -35,6 +35,7 @@ jobs:
           bin/git-fleximod update -o
 
       # Set up conda
+      # Also, we need doc-builder for its requirements.txt
       - name: Set up conda environment
         uses: conda-incubator/setup-miniconda@2defc80cc6f4028b1780c50faf08dd505d698976  # v3
         with:
